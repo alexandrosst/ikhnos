@@ -15,22 +15,17 @@ The server is one pod with a small database. It is installed with one Helm chart
 Replace `NODE_IP` with the address from the previous step.
 
 ```bash
-kubectl create namespace ikhnos
-kubectl -n ikhnos create secret generic ikhnos-sealing \
-  --from-literal=sealing.key="$(openssl rand -base64 48)"
-
 helm install ikhnos-server oci://ghcr.io/alexandrosst/ikhnos-server \
-  --namespace ikhnos \
-  --set sealing.keySecret.name=ikhnos-sealing \
+  --namespace ikhnos --create-namespace \
   --set agent.service.type=NodePort \
   --set agent.publicAddress=NODE_IP:30443
 ```
 
 ## What each part does
 
-**The namespace** is where everything of the server lives, so removing Ikhnos later is one deletion.
+**The namespace** is where everything of the server lives, so removing Ikhnos later is one deletion. `--create-namespace` makes it for you.
 
-**The sealing secret** is a key that encrypts the few things the server must be able to read back: people's second-factor secrets, the mail password if you configure mail, and the secret of a decider. The chart refuses to install without one. Keep a copy of that key somewhere other than the cluster: if you lose it, those few secrets cannot be recovered. (For a throwaway trial where that does not matter, leave out the first two lines and add `--set sealing.disabled=true` to the helm command instead.)
+**The sealing key** encrypts the few things the server must be able to read back: people's second-factor secrets, the mail password if you configure mail, and the secret of a decider. You do not have to make it: the chart creates it the first time it installs, keeps it across upgrades, and keeps it even if you remove Ikhnos, so a reinstall on the same volume still opens the database. When the install finishes, its notes say how to copy the key. Do that, and store the copy somewhere other than the cluster: if the key is lost, those few secrets cannot be recovered. (To bring your own key, or to turn sealing off for a throwaway trial, see [Sealing secrets at rest](https://github.com/alexandrosst/ikhnos/blob/main/deploy/README.md#sealing-secrets-at-rest).)
 
 **`agent.service.type=NodePort`** opens the agent port, 8443 inside the pod, as port 30443 on every node. NodePort works on any cluster, which is why it is used here. On a managed cloud you would use a load balancer instead.
 

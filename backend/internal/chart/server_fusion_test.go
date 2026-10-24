@@ -461,6 +461,13 @@ func TestServerChartKeepsTheStoresNetworkPolicyOnAndSaysWhenItIsOff(t *testing.T
 	if out := notes("--set", "sealing.keySecret.name=", "--set", "sealing.disabled=true"); !strings.Contains(out, unsealed) {
 		t.Errorf("no warning with sealing switched off:\n%s", out)
 	}
+	// A key the chart made is the one thing the person has to carry away, and the notes say how.
+	if out := notes("--set", "sealing.keySecret.name="); !strings.Contains(out, "was made by this chart") || !strings.Contains(out, "jsonpath") {
+		t.Errorf("the notes do not tell how to keep a key the chart made:\n%s", out)
+	}
+	if out := notes(); strings.Contains(out, "was made by this chart") {
+		t.Error("the notes say the chart made a key that was named")
+	}
 }
 
 func policyNames[V any](m map[string]V) []string {

@@ -50,7 +50,7 @@ The part that actually makes this zero-config: packaging bakes that same `ghcr.i
 
   ```console
   helm install ikhnos-server oci://ghcr.io/<owner>/ikhnos-server --version <chart version> \
-    --set agent.publicAddress=... --set sealing.keySecret.name=... [the rest of your usual values]
+    --set agent.publicAddress=... [the rest of your usual values]
   ```
 
 * The **"Connect a cluster"** screen's printed `helm install` command for the *agent* already points at the same registry, because the server chart's `agentInstall.imageRegistry` (what that command uses) came pre-set to `ghcr.io/<owner>` in the same step - nobody installing the server from this chart has to visit **Settings → Installation** or pass `--image-registry` at all.
@@ -71,14 +71,11 @@ Agents reach a node address on a NodePort (the first line only looks that addres
 ```console
 NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
 
-# The key that seals the second-factor, mail and decider secrets in the database (see "Sealing secrets at rest"). Keep a copy of it.
-kubectl create namespace ikhnos
-kubectl -n ikhnos create secret generic ikhnos-sealing --from-literal=sealing.key="$(openssl rand -base64 48)"
-
-helm install ikhnos-server deploy/helm/ikhnos-server -n ikhnos \
+# The chart also makes the key that seals the second-factor, mail and decider secrets in the database (see "Sealing secrets at rest").
+# Copy it out when the install says how, and keep the copy.
+helm install ikhnos-server deploy/helm/ikhnos-server -n ikhnos --create-namespace \
   --set image.repository=REGISTRY/server \
-  --set agent.publicAddress=$NODE_IP:30443 --set agent.service.type=NodePort \
-  --set sealing.keySecret.name=ikhnos-sealing        # a throwaway trial can say --set sealing.disabled=true instead
+  --set agent.publicAddress=$NODE_IP:30443 --set agent.service.type=NodePort
 
 kubectl -n ikhnos logs deployment/ikhnos-server | grep -A2 'First start'   # the one-time admin password
 
@@ -116,7 +113,7 @@ httproute:
   hostnames: [ikhnos.example.com]
 
 sealing:
-  keySecret: {name: ikhnos-sealing}                  # created beforehand, see "Sealing secrets at rest"; a new install does not render without it
+  keySecret: {name: ikhnos-sealing}                  # only to bring your own key (see "Sealing secrets at rest"); left out, the chart makes one
 
 persistence: {size: 10Gi}
 neo4j: {mode: bundled}
@@ -277,16 +274,20 @@ The server also has its own `server backup` and `server restore` commands: a con
 
 ### Sealing secrets at rest
 
-A password is stored as a hash, because nothing needs it again. Three secrets cannot be: people's second-factor (TOTP) secrets, which a sign-in must read to check a live code, the mail relay's password, and an organisation's decider secret, which signs the requests the server sends to its decider. They are encrypted in the database (AES-256-GCM, each bound to the user or organisation it belongs to) under a key that is **not** in the database and not on the data volume: a Secret you create, mounted as a file (the chart gives the server its path in `IKHNOS_SEALING_KEY_FILE`, so `kubectl exec ... /server reset-password` finds it too).
+A password is stored as a hash, because nothing needs it again. Three secrets cannot be: people's second-factor (TOTP) secrets, which a sign-in must read to check a live code, the mail relay's password, and an organisation's decider secret, which signs the requests the server sends to its decider. They are encrypted in the database (AES-256-GCM, each bound to the user or organisation it belongs to) under a key that is **not** in the database and not on the data volume: a Secret, mounted as a file (the chart gives the server its path in `IKHNOS_SEALING_KEY_FILE`, so `kubectl exec ... /server reset-password` finds it too).
+
+**You do not have to make it.** The chart makes the Secret (`<release>-sealing`) the first time it installs, with a random key, reuses it on every upgrade, and keeps it if the release is removed (`helm.sh/resource-policy: keep`), so a reinstall on the same volume finds the key it needs. The install notes print the command that reads it, so you can copy it out. A Secret of that name that you or another release made is used as it is, never overwritten.
+
+Two things need the Secret made by you: a flow that renders the chart with `helm template` (Argo CD, Flux), because the chart cannot see the cluster there and would make a new key at every sync, and a key that has to come from your own secret store. Make it and name it:
 
 ```console
 kubectl -n ikhnos create secret generic ikhnos-sealing --from-literal=sealing.key="$(openssl rand -base64 48)"
 helm upgrade ikhnos ... --set sealing.keySecret.name=ikhnos-sealing
 ```
 
-A new install needs the key: without `sealing.keySecret.name` the chart stops with these two commands, unless `sealing.disabled=true` says that the secrets are to be stored as they are (a trial or a laptop; the install notes then say so). Naming both is refused. When a key is given to a database that holds secrets stored as they are, the server seals what is already stored and rewrites the database file once, so the old text is not left in it.
+`sealing.disabled=true` says that the secrets are to be stored as they are (a trial or a laptop; the install notes then say so). Naming a Secret and disabling together is refused. When a key is given to a database that holds secrets stored as they are, the server seals what is already stored and rewrites the database file once, so the old text is not left in it.
 
-**The key is part of the backup, and kept apart from it.** A copy of the database is useless for these secrets without the key, and the server refuses to start on a database that holds sealed secrets without it (or with another key), naming the key it needs, instead of failing at the first sign-in. Keep the key where you keep other long-lived credentials, not on the data volume or in the volume's snapshots: that is the point of it. (`kubectl -n ikhnos get secret ikhnos-sealing -o yaml`, stored with the archive's decryption key.)
+**The key is part of the backup, and kept apart from it.** A copy of the database is useless for these secrets without the key, and the server refuses to start on a database that holds sealed secrets without it (or with another key), naming the key it needs, instead of failing at the first sign-in. Keep the key where you keep other long-lived credentials, not on the data volume or in the volume's snapshots: that is the point of it. (`kubectl -n ikhnos get secret <release>-sealing -o jsonpath='{.data.sealing\.key}' | base64 -d`, stored with the archive's decryption key.)
 
 **Replacing the key.** The key file holds one key per line; the first seals, the others only open. Put the new key on top (`printf '%s\n%s\n' "$(openssl rand -base64 48)" "$(old line)"`), upgrade, and the server seals everything again under it at the next start; remove the old line at a later upgrade. A start with only the old key afterwards is refused.
 
@@ -540,7 +541,7 @@ The important values; all of them are documented in `values.yaml` and tabulated 
 | `persistence.size` / `storageClass` / `existingClaim` | `5Gi` / default / `""` | the `/data` volume |
 | `pki.encryptAtRest` | `true` | encrypt the CA key at rest; the server mints and persists its own passphrase (`--ca-key-auto-passphrase`) |
 | `pki.caKeyPassphraseSecret.name` | `""` | bring your own passphrase Secret instead |
-| `sealing.keySecret.name` / `key` | `""` / `sealing.key` | a Secret holding the key that seals the second-factor secrets, the mail password and the decider secret in the database (`--sealing-key-file`); empty: they are stored as they are |
+| `sealing.keySecret.name` / `key` | `""` / `sealing.key` | a Secret holding the key that seals the second-factor secrets, the mail password and the decider secret in the database (`--sealing-key-file`); empty: the chart makes one (`<release>-sealing`), kept across upgrades and removal; `sealing.disabled=true` stores them as they are |
 | `neo4j.mode` | `bundled` | `bundled` / `external` (mandatory: no `none`) |
 | `agentInstall.imageRegistry` / `imageTag` / `chartRef` | `""` | what the printed agent install command uses |
 | `image.repository` / `tag` / `digest` | `ikhnos/server` / appVersion / `""` | the server image |
@@ -584,7 +585,7 @@ Ready-made combinations to copy from live in `helm/ikhnos-server/ci/`.
 * **Registration.** Leave it `invite` (default) or `closed` on any reachable server. `open` gives anyone with network access an account and an organization of their own.
 * **Who can reach the admin port.** Everything a signed-in person does goes through it, and in proxy mode the server trusts `X-Forwarded-For` and `X-Forwarded-Proto` from whoever connects, so a client that can reach port 8080 directly can forge its address. Only the proxy should be able to. Use `networkPolicy.enabled` with `networkPolicy.ingress.admin.from` set to your Gateway's namespace; do not put `admin.service.type` on a LoadBalancer without TLS in front.
 * **The agent port** is the trust boundary for agents: mutual TLS with a private CA, agents pinned to it, enrollment by one-time token and explicit approval. Restrict who can connect with `agent.service.loadBalancerSourceRanges` or `networkPolicy.ingress.agent.from` when you know the agents' networks.
-* **Sealed secrets.** Second-factor secrets, the mail password and the decider secret are encrypted in the database under the key `sealing.keySecret.name` names (required; `sealing.disabled=true` is the written-down way out; see "Sealing secrets at rest"); keep that key apart from the volume and its backups, or a stolen backup opens them.
+* **Sealed secrets.** Second-factor secrets, the mail password and the decider secret are encrypted in the database under a key the chart makes for you (or the Secret `sealing.keySecret.name` names; `sealing.disabled=true` is the written-down way out; see "Sealing secrets at rest"); keep that key apart from the volume and its backups, or a stolen backup opens them.
 * **The CA key** is the crown jewel: it is encrypted at rest by default (`pki.encryptAtRest`, see "Encrypting the CA key at rest" above), but that only protects the key on disk — still guard the PVC, its snapshots and backups (encrypted, off-cluster). The default auto-generated passphrase lives on that same PVC (no Kubernetes permissions needed to put it anywhere else); bring your own passphrase Secret with `pki.caKeyPassphraseSecret.name` and guard it separately if you want a stolen PVC backup alone to be useless.
 * **Content-Security-Policy and headers.** The server sets a strict CSP (`'self'` only, no framing), `X-Content-Type-Options`, `Referrer-Policy`, and HSTS when the request was HTTPS. Do not weaken them at the proxy.
 * **The pod** runs as 65532 with a read-only root file system, all capabilities dropped, `RuntimeDefault` seccomp, no privilege escalation and no service-account token: the server never talks to the Kubernetes API, so it holds no cluster permissions. Only the optional backup CronJob has a token, limited to `VolumeSnapshot`s in the release namespace.

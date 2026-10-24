@@ -111,12 +111,8 @@ You need a Kubernetes cluster (1.25 or newer; k3s, kind and minikube are fine fo
 kubectl get nodes -o wide
 
 # 2. Install the server (replace NODE_IP)
-kubectl create namespace ikhnos
-kubectl -n ikhnos create secret generic ikhnos-sealing --from-literal=sealing.key="$(openssl rand -base64 48)"
-
 helm install ikhnos-server oci://ghcr.io/alexandrosst/ikhnos-server \
-  --namespace ikhnos \
-  --set sealing.keySecret.name=ikhnos-sealing \
+  --namespace ikhnos --create-namespace \
   --set agent.service.type=NodePort \
   --set agent.publicAddress=NODE_IP:30443
 
@@ -128,7 +124,7 @@ kubectl -n ikhnos logs deployment/ikhnos-server | grep -A2 'First start'
 kubectl -n ikhnos port-forward service/ikhnos-server 8080:8080   # https://localhost:8080
 ```
 
-Sign in as `admin`, choose a real password, then use **Connect a cluster**: it prints the `helm install` for the agent with its token and the server's CA pin already filled in. Keep a copy of the sealing key outside the cluster; it protects the secrets stored in the server's database. The full walk-through, including a load balancer or Gateway for real use, is in the [quickstart](https://alexandrosst.github.io/ikhnos/docs/getting-started/quickstart) and the [production guide](https://alexandrosst.github.io/ikhnos/docs/installation/production-cluster).
+Sign in as `admin`, choose a real password, then use **Connect a cluster**: it prints the `helm install` for the agent with its token and the server's CA pin already filled in. Copy the sealing key the chart made out of the cluster (the install notes print the command); it protects the secrets stored in the server's database. The full walk-through, including a load balancer or Gateway for real use, is in the [quickstart](https://alexandrosst.github.io/ikhnos/docs/getting-started/quickstart) and the [production guide](https://alexandrosst.github.io/ikhnos/docs/installation/production-cluster).
 
 **Just want to look around?** The UI runs on its own, with a made-up cloud, edge and far-edge estate and no server:
 

@@ -174,14 +174,30 @@ is non-empty. */}}
 {{- .Values.pki.caKeyPassphraseSecret.name -}}
 {{- end -}}
 
-{{/* The Secret that holds the sealing key (empty: secrets are stored as they are), and the file name its key has inside it. */}}
-{{- define "ikhnos.sealingSecretName" -}}
+{{/* Sealing. Three ways to have the key, and one way to say there is none:
+     sealing.keySecret.name set: your Secret, which the chart only reads.
+     nothing set (the default):  the chart makes the Secret itself, once, and keeps it (templates/sealing-secret.yaml).
+     sealing.disabled=true:      no key, and the secrets the server must read back are stored as they are.
+   The name is empty only in the last case. */}}
+{{- define "ikhnos.sealingGenerated" -}}
+{{- if and (not (include "ikhnos.sealingNamed" .)) (not ((.Values.sealing).disabled)) -}}true{{- end -}}
+{{- end -}}
+
+{{- define "ikhnos.sealingNamed" -}}
 {{- (.Values.sealing | default dict).keySecret | default dict | dig "name" "" -}}
+{{- end -}}
+
+{{- define "ikhnos.sealingSecretName" -}}
+{{- if include "ikhnos.sealingNamed" . -}}
+{{- include "ikhnos.sealingNamed" . -}}
+{{- else if not ((.Values.sealing).disabled) -}}
+{{- printf "%s-sealing" (include "ikhnos.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "ikhnos.sealingSecretKey" -}}
 {{- if include "ikhnos.sealingSecretName" . -}}
-{{- (.Values.sealing.keySecret).key | default "sealing.key" -}}
+{{- (((.Values.sealing).keySecret) | default dict).key | default "sealing.key" -}}
 {{- end -}}
 {{- end -}}
 
@@ -245,15 +261,12 @@ is non-empty. */}}
 {{- if and .Values.pki.caKeyPassphraseSecret.name (not .Values.pki.caKeyPassphraseSecret.key) -}}
 {{- fail "pki.caKeyPassphraseSecret.key must be set together with .name" -}}
 {{- end -}}
-{{- /* sealing: a key is part of a new install, and leaving it out is a choice that is written down (sealing.disabled) */ -}}
-{{- if and (include "ikhnos.sealingSecretName" .) (not ((.Values.sealing).keySecret).key) -}}
+{{- /* sealing: a key is made for a new install unless one is named, or the secrets are said to be stored as they are */ -}}
+{{- if and (include "ikhnos.sealingNamed" .) (not ((.Values.sealing).keySecret).key) -}}
 {{- fail "sealing.keySecret.key must be set together with .name" -}}
 {{- end -}}
-{{- if and (include "ikhnos.sealingSecretName" .) ((.Values.sealing).disabled) -}}
+{{- if and (include "ikhnos.sealingNamed" .) ((.Values.sealing).disabled) -}}
 {{- fail "sealing.disabled=true and sealing.keySecret.name are both set: either the secrets are sealed under that key or they are not" -}}
-{{- end -}}
-{{- if not (or (include "ikhnos.sealingSecretName" .) ((.Values.sealing).disabled)) -}}
-{{- fail "sealing.keySecret.name is not set. People's second-factor secrets, the mail password and the decider secret are encrypted in the database under a key you provide, and this chart does not install without one. Create it once and name it:\n  kubectl -n <namespace> create secret generic ikhnos-sealing --from-literal=sealing.key=\"$(openssl rand -base64 48)\"\n  helm install ... --set sealing.keySecret.name=ikhnos-sealing\nKeep a copy of the key apart from the volume and its backups. For a trial or a laptop where that does not matter, say so with --set sealing.disabled=true (the secrets are then stored as they are)." -}}
 {{- end -}}
 {{- /* neo4j: mandatory, so only the two real deployment choices are accepted */ -}}
 {{- if not (has .Values.neo4j.mode (list "bundled" "external")) -}}

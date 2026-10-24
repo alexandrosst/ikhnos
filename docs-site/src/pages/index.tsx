@@ -129,14 +129,9 @@ export default function Home() {
         <section className={styles.cta}>
           <div className={styles.wrap}>
             <h2>Running in about ten minutes</h2>
-            <p>One key, one Helm command: the server starts on any Kubernetes cluster, including a local k3s, kind or minikube.</p>
-            <pre className={styles.code}>{`kubectl create namespace ikhnos
-kubectl -n ikhnos create secret generic ikhnos-sealing \\
-  --from-literal=sealing.key="$(openssl rand -base64 48)"
-
-helm install ikhnos-server oci://ghcr.io/alexandrosst/ikhnos-server \\
-  --namespace ikhnos \\
-  --set sealing.keySecret.name=ikhnos-sealing \\
+            <p>One Helm command starts the server on any Kubernetes cluster, including a local k3s, kind or minikube. It makes its own encryption key; you only copy it out afterwards.</p>
+            <pre className={styles.code}>{`helm install ikhnos-server oci://ghcr.io/alexandrosst/ikhnos-server \\
+  --namespace ikhnos --create-namespace \\
   --set agent.service.type=NodePort \\
   --set agent.publicAddress=NODE_IP:30443`}</pre>
             <div className={styles.buttons}>

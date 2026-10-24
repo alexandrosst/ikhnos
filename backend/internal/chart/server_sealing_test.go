@@ -118,23 +118,44 @@ func serverTemplate(t *testing.T, extra ...string) (string, error) {
 	return string(out), err
 }
 
-// A new install has a key or says it has none: the chart's defaults alone do not render, and the message carries the commands that fix it.
-func TestTheServerChartDoesNotInstallWithoutASealingKeyOrASaidSoDisable(t *testing.T) {
+// A new install needs nothing made by hand first: the defaults alone render, with a key the chart makes, kept when the release is removed,
+// and mounted where the server reads it.
+func TestTheServerChartMakesTheSealingKeyItselfWhenNoneIsNamed(t *testing.T) {
 	out, err := serverTemplate(t)
-	if err == nil {
-		t.Fatalf("the defaults rendered with no sealing key and no opt-out:\n%.400s", out)
+	if err != nil {
+		t.Fatalf("the defaults did not render: %v\n%.600s", err, out)
 	}
-	for _, want := range []string{"sealing.keySecret.name is not set", "kubectl -n <namespace> create secret generic ikhnos-sealing", "--set sealing.keySecret.name=ikhnos-sealing", "--set sealing.disabled=true"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("the refusal does not say %q:\n%s", want, out)
+	docs := strings.Split(out, "\n---\n")
+	var secret string
+	for _, d := range docs {
+		if strings.Contains(d, "kind: Secret") && strings.Contains(d, "name: ikhnos-ikhnos-server-sealing") {
+			secret = d
 		}
 	}
-	// Either of the two ways in renders.
-	if out, err := serverTemplate(t, "--set", "sealing.keySecret.name=ikhnos-sealing"); err != nil {
-		t.Errorf("a named key was refused: %v\n%.400s", err, out)
+	if secret == "" {
+		t.Fatalf("no sealing Secret was made:\n%.600s", out)
 	}
-	if out, err := serverTemplate(t, "--set", "sealing.disabled=true"); err != nil {
-		t.Errorf("sealing.disabled was refused: %v\n%.400s", err, out)
+	for _, want := range []string{"helm.sh/resource-policy: keep", "sealing.key:"} {
+		if !strings.Contains(secret, want) {
+			t.Errorf("the generated Secret lacks %q:\n%s", want, secret)
+		}
+	}
+	// The server mounts that Secret, not another.
+	if !strings.Contains(out, "secretName: ikhnos-ikhnos-server-sealing") || !strings.Contains(out, "IKHNOS_SEALING_KEY_FILE") {
+		t.Errorf("the server does not mount the key the chart made")
+	}
+}
+
+// Naming a Secret means the chart does not make one, and saying there is no key means there is none.
+func TestTheServerChartMakesNoSealingSecretWhenOneIsNamedOrSealingIsOff(t *testing.T) {
+	for _, extra := range [][]string{{"--set", "sealing.keySecret.name=ikhnos-sealing"}, {"--set", "sealing.disabled=true"}} {
+		out, err := serverTemplate(t, extra...)
+		if err != nil {
+			t.Fatalf("%v: %v\n%.400s", extra, err, out)
+		}
+		if strings.Contains(out, "component: sealing") {
+			t.Errorf("%v: the chart made a sealing Secret", extra)
+		}
 	}
 }
 
