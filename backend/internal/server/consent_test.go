@@ -555,6 +555,49 @@ func TestHelloNamespaceIsRecordedAndUsedInGeneratedCommands(t *testing.T) {
 	}
 }
 
+// An agent that says a controller keeps it is told so on the page after a revoke: the controller removes it, and the commands become what
+// to run if it is still there. One that says nothing is as it was.
+func TestRevokedAgentSaysWhetherAControllerRemovesIt(t *testing.T) {
+	for _, tc := range []struct {
+		resource string
+		want     bool
+	}{{"this-cluster", true}, {"", false}} {
+		e := newEnv(t)
+		p := NewPlatform(e.base, nil)
+		tn, err := p.Tenant(e.ctx, "org-1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		e.core = tn.C
+		srv := e.base.Agents.NewGRPC(pki.NewServerCerts(e.core.CA, []string{"127.0.0.1"}), p)
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		go srv.Serve(l)
+		rr := &hubRig{rig: &rig{env: e, addr: l.Addr().String()}, hub: tn.Hub}
+		id, key, leaf := rr.approvedAgent(t, testkit.FP)
+		admin := &Admin{P: p, C: e.base, Settings: installcfg.Settings{AgentAddr: "x:1", ChartRef: "chart"}}
+		a := &adminRig{env: e, h: admin.Handler(), a: admin}
+		_, editor := a.user(t, "edith", accounts.RoleEditor)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		rr.connect(t, ctx, key, leaf, &ikhnosv1.Hello{AgentVersion: "9.9", InstalledAccessTier: 2, Namespace: "ikhnos-system", ReleaseName: "ikhnos-agent", ControllerResource: tc.resource})
+		if err := a.core.Agents.Revoke(a.ctx, "actor", id, "for the test"); err != nil {
+			t.Fatal(err)
+		}
+		d := agentDoc(t, a, editor, id)
+		cancel()
+		srv.Stop()
+		if d.Teardown == nil || d.Teardown.KeptByController != tc.want || d.KeptByController != tc.want {
+			t.Fatalf("controller resource %q: teardown %+v, kept %v; want kept %v", tc.resource, d.Teardown, d.KeptByController, tc.want)
+		}
+		if d.Teardown.Helm == "" || d.Teardown.Secret == "" {
+			t.Fatalf("the commands are kept for an agent that is still there after a while: %+v", d.Teardown)
+		}
+	}
+}
+
 func TestRevokedAgentCarriesTeardownCommandsOnlyForEditorsAndAbove(t *testing.T) {
 	a := newAdminRig(t)
 	_, editor := a.user(t, "edith", accounts.RoleEditor)

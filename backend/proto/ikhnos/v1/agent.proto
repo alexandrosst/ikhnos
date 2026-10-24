@@ -159,6 +159,10 @@ message Hello {
   // most agentcaps.MaxNames names of agentcaps.MaxNameLen characters and does not store them past the stream.
   // Rolling these two back: remove them and add `reserved 7, 8;` so the numbers are not used for something else.
   repeated string capabilities = 8;
+  // The IkhnosAgent that a controller keeps this agent installed from (its name), or empty when nothing does (a plain `helm install`,
+  // and every agent from before this field). It tells the server that revoking the agent also removes it from the cluster, so the page
+  // does not hand out commands for work that is already being done. It grants nothing and changes nothing the server does for an agent.
+  string controller_resource = 9;
 }
 
 message Heartbeat {

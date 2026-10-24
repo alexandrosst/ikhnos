@@ -16,7 +16,7 @@ The commands the pages print are the interface to the cluster: the server writes
 
 ## Removing an agent today
 
-Revoking an agent in the Agents page closes its connection and stops the server trusting it. It does not touch the cluster, unless a controller keeps the agent: then the agent marks its own `IkhnosAgent` and the controller removes the agent and its identity (see [the parts of Ikhnos](components.md#from-a-revoke-to-an-empty-cluster)). Otherwise the page shows the commands the cluster's owner runs there: `helm uninstall` for the release, and, by default, a second command that deletes the identity Secret.
+Revoking an agent in the Agents page closes its connection and stops the server trusting it. It does not touch the cluster, unless a controller keeps the agent: then the agent marks its own `IkhnosAgent` and the controller removes the agent and its identity (see [the parts of Ikhnos](components.md#from-a-revoke-to-an-empty-cluster)); the page says so, and keeps the commands for an agent that is still there after a while. Otherwise the page shows the commands the cluster's owner runs there: `helm uninstall` for the release, and, by default, a second command that deletes the identity Secret.
 
 The identity Secret (the agent's private key and the certificate the server issued) is kept by an uninstall on purpose: the chart marks it `helm.sh/resource-policy: keep`, so a mistaken uninstall cannot orphan the agent or force a new enrollment.
 

@@ -1170,9 +1170,13 @@ type Hello struct {
 	// before protocol 1. A name the server does not know is kept all the same: the agent may be newer. The server keeps at
 	// most agentcaps.MaxNames names of agentcaps.MaxNameLen characters and does not store them past the stream.
 	// Rolling these two back: remove them and add `reserved 7, 8;` so the numbers are not used for something else.
-	Capabilities  []string `protobuf:"bytes,8,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Capabilities []string `protobuf:"bytes,8,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
+	// The IkhnosAgent that a controller keeps this agent installed from (its name), or empty when nothing does (a plain `helm install`,
+	// and every agent from before this field). It tells the server that revoking the agent also removes it from the cluster, so the page
+	// does not hand out commands for work that is already being done. It grants nothing and changes nothing the server does for an agent.
+	ControllerResource string `protobuf:"bytes,9,opt,name=controller_resource,json=controllerResource,proto3" json:"controller_resource,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Hello) Reset() {
@@ -1259,6 +1263,13 @@ func (x *Hello) GetCapabilities() []string {
 		return x.Capabilities
 	}
 	return nil
+}
+
+func (x *Hello) GetControllerResource() string {
+	if x != nil {
+		return x.ControllerResource
+	}
+	return ""
 }
 
 type Heartbeat struct {
@@ -7223,7 +7234,7 @@ const file_ikhnos_v1_agent_proto_rawDesc = "" +
 	"\theartbeat\x18\x03 \x01(\v2\x14.ikhnos.v1.HeartbeatH\x00R\theartbeat\x12,\n" +
 	"\x05flows\x18\x04 \x01(\v2\x14.ikhnos.v1.FlowBatchH\x00R\x05flows\x12=\n" +
 	"\fmeasurements\x18\x05 \x01(\v2\x17.ikhnos.v1.MeasurementsH\x00R\fmeasurementsB\x05\n" +
-	"\x03msg\"\xd9\x02\n" +
+	"\x03msg\"\x8a\x03\n" +
 	"\x05Hello\x12#\n" +
 	"\ragent_version\x18\x01 \x01(\tR\fagentVersion\x12-\n" +
 	"\x12kubernetes_version\x18\x02 \x01(\tR\x11kubernetesVersion\x122\n" +
@@ -7232,7 +7243,8 @@ const file_ikhnos_v1_agent_proto_rawDesc = "" +
 	"\tnamespace\x18\x05 \x01(\tR\tnamespace\x12!\n" +
 	"\frelease_name\x18\x06 \x01(\tR\vreleaseName\x12)\n" +
 	"\x10protocol_version\x18\a \x01(\rR\x0fprotocolVersion\x12\"\n" +
-	"\fcapabilities\x18\b \x03(\tR\fcapabilities\"\xcf\x02\n" +
+	"\fcapabilities\x18\b \x03(\tR\fcapabilities\x12/\n" +
+	"\x13controller_resource\x18\t \x01(\tR\x12controllerResource\"\xcf\x02\n" +
 	"\tHeartbeat\x121\n" +
 	"\amodules\x18\x01 \x03(\v2\x17.ikhnos.v1.ModuleStatusR\amodules\x12\"\n" +
 	"\rclock_skew_ms\x18\x02 \x01(\x03R\vclockSkewMs\x128\n" +

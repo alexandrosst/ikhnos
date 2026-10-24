@@ -153,6 +153,7 @@ export interface AgentDoc {
   connectingIp?: string
   namespace?: string
   releaseName?: string
+  keptByController?: boolean
   protocolVersion: number
   capabilities: string[]
   conditions: Condition[]
@@ -2820,6 +2821,7 @@ export interface TeardownDoc {
   helm: string
   secret: string
   namespaceGuessed: boolean
+  keptByController: boolean
 }
 
 export interface Telemetry {

@@ -11,7 +11,7 @@ import { DiagnoseButton, DiagnoseDrawer } from '@/features/agents/components/Dia
 import { diagnoseAgent } from '@/lib/diagnose'
 import DiscoveryPanel from '@/features/discovery/components/DiscoveryPanel'
 import { usePlacementSuggestions } from '@/lib/usePlacement'
-import { CopyCommand as CopyableCommand } from '@/components/ui/CopyCommand'
+import { AgentTeardown } from './AgentTeardown'
 import { CheckLine, MODULE_STYLE, ObserverLine, ScopeLine, ApprovalStatus, when } from '@/features/discovery/components/AgentParts'
 import ApprovalCard from '@/features/discovery/components/ApprovalCard'
 import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
@@ -503,21 +503,7 @@ function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent;
           Approved access is what actually runs. It can never be approved above the enrollment ceiling set when the agent joined, and stays capped at whatever the cluster's installed RBAC allows (Installed allows) until that install is upgraded to match.
         </p>
       </div>
-      {(a.status === 'revoked' || a.status === 'rejected') && a.teardown && (
-        <div className="md:col-span-2 xl:col-span-3">
-          <Heading>Clean up in the cluster</Heading>
-          <p className="max-w-2xl text-xs leading-relaxed text-nb-500">
-            {a.status === 'revoked' ? 'Revoking closed the connection and stopped this agent from being trusted, but it did not remove anything from the cluster.' : 'Rejecting stopped this enrollment, but nothing already installed in the cluster was removed.'}
-            {' '}The ServiceAccount, its RBAC and the running pods stay until you remove them there:
-            {a.teardown.namespaceGuessed && <span className="text-warn"> this agent never reported enough about its install to be sure — the commands below assume namespace <code>ikhnos-system</code> and release <code>ikhnos-agent</code>, so check both are right before running them.</span>}
-          </p>
-          <div className="mt-2 space-y-2">
-            <CopyableCommand text={a.teardown.helm} />
-            <p className="text-xs text-nb-600">The identity Secret survives an uninstall unless this agent was installed with &ldquo;Delete the agent&apos;s identity when it is uninstalled&rdquo;, so a mistaken uninstall can&apos;t orphan re-enrollment. If it was installed with that option, the uninstall above removes the Secret too and there is nothing more to do. If not (or you are not sure), delete it as well when you want a clean slate before installing fresh here:</p>
-            <CopyableCommand text={a.teardown.secret} />
-          </div>
-        </div>
-      )}
+      {(a.status === 'revoked' || a.status === 'rejected') && a.teardown && <AgentTeardown status={a.status} teardown={a.teardown} />}
       <div className="md:col-span-2 xl:col-span-3">
         <Heading>Discovery modules</Heading>
         {a.modules.length === 0 ? (

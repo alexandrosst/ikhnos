@@ -409,6 +409,11 @@ func (h *Hub) Connect(stream ikhnosv1.AgentService_ConnectServer) error {
 		v.Ext.ReleaseName = rel
 		h.Mu.Unlock()
 	}
+	if res := kernel.Printable(hello.ControllerResource, 253); res != "" { // a Kubernetes object name
+		h.Mu.Lock()
+		v.Ext.ControllerResource = res
+		h.Mu.Unlock()
+	}
 	h.Mu.Lock()
 	v.Ext.Protocol, v.Ext.Caps = hello.ProtocolVersion, agentcaps.Clean(hello.Capabilities)
 	h.Mu.Unlock()
@@ -1021,6 +1026,9 @@ type AgentDoc struct {
 	// ReleaseName is the Helm release this agent's Hello says it was installed as. Empty under the same condition as
 	// Namespace, in which case a helm command falls back to the chart's documented default release name.
 	ReleaseName string `json:"releaseName,omitempty"`
+	// KeptByController is whether the agent's Hello said that a controller keeps it installed (from an IkhnosAgent). Memory only, as
+	// Namespace is. It changes only what the page says about what is left in the cluster after a revoke.
+	KeptByController bool `json:"keptByController,omitempty"`
 	// ProtocolVersion and Capabilities are what the agent's last Hello said it speaks and does (see internal/agentcaps). They are
 	// kept in memory only, so after a server restart they are 0 and empty until the agent connects again; 0 with a stream that has
 	// said hello means an agent from before the version, and 0 without one means nothing is known (the Compatible condition tells
@@ -1085,6 +1093,9 @@ type TeardownDoc struct {
 	Helm             string `json:"helm"`
 	Secret           string `json:"secret"`
 	NamespaceGuessed bool   `json:"namespaceGuessed"`
+	// KeptByController: a controller keeps this agent, and removes it (its identity with it) when the server revokes it. The commands
+	// above are then only for an agent that is still in the cluster after a while.
+	KeptByController bool `json:"keptByController"`
 }
 
 // maxSkewMs bounds what an agent may claim as its clock skew (a year), so a hostile value cannot overflow anything.
@@ -1271,6 +1282,7 @@ func (h *Hub) buildAgentDocs(ctx context.Context, now time.Time) ([]AgentDoc, []
 		}
 		if v != nil {
 			d.Namespace, d.ReleaseName = v.Ext.Namespace, v.Ext.ReleaseName
+			d.KeptByController = v.Ext.ControllerResource != ""
 			d.ProtocolVersion, d.Capabilities = v.Ext.Protocol, append([]string{}, v.Ext.Caps...)
 		}
 		if d.Capabilities == nil {
@@ -1282,7 +1294,7 @@ func (h *Hub) buildAgentDocs(ctx context.Context, now time.Time) ([]AgentDoc, []
 			if helm, secret, guessed, err := agents.TeardownCommands(d.Namespace, d.ReleaseName); err != nil {
 				h.C.Log.Error("the commands that remove an agent cannot be written", "err", err) // the agent is shown without them
 			} else {
-				d.Teardown = &TeardownDoc{Helm: helm, Secret: secret, NamespaceGuessed: guessed}
+				d.Teardown = &TeardownDoc{Helm: helm, Secret: secret, NamespaceGuessed: guessed, KeptByController: d.KeptByController}
 			}
 		}
 		if v != nil {

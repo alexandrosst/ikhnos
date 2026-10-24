@@ -110,6 +110,9 @@ type ViewExt struct {
 	// namespace). Every object the chart creates has a fixed name regardless of the release, so this only matters for
 	// the two `helm` commands themselves; guessed as "ikhnos-agent" when unknown, same as namespace.
 	ReleaseName string
+	// ControllerResource is the name of the IkhnosAgent that keeps this agent installed, as its Hello said (empty: nothing does, or an
+	// agent from before the field). In memory only. It changes what the page says about a revoke, and nothing the server does.
+	ControllerResource string
 	// protocol and caps are what the agent's last Hello said about the protocol it speaks and what it does (see
 	// internal/agentcaps). They are replaced by every Hello, so a stream that says nothing records protocol 0 and no names and
 	// not what an earlier stream said. In memory only: nothing about them is stored, so a restored database carries nothing

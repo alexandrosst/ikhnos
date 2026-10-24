@@ -1179,6 +1179,9 @@ export interface Agent {
     /** True when `namespace` was never reported, so these commands name the chart's documented default,
      *  which may not be where this agent actually lives. */
     namespaceGuessed: boolean
+    /** A controller keeps this agent, and removes it (its identity with it) when it is revoked: the commands are then only for an
+     *  agent that is still in the cluster after a while. */
+    keptByController: boolean
   }
 }
 

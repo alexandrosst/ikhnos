@@ -173,6 +173,9 @@ type Config struct {
 	// MarkRevoked, when set, is called with the reason when this agent's identity ends, and again until it succeeds: it tells whatever keeps
 	// this agent installed (the controller, through the IkhnosAgent resource) that the agent is not coming back. Nil: nobody keeps it.
 	MarkRevoked func(ctx context.Context, reason string) error
+	// ControllerResource is the name of the IkhnosAgent a controller keeps this agent from, said in the Hello so that the server knows a
+	// revoke removes the agent by itself. Empty: nothing keeps it.
+	ControllerResource string
 }
 
 var ErrRevoked = errors.New("this agent was revoked or rejected by the server")

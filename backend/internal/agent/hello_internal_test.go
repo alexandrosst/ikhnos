@@ -27,6 +27,18 @@ func TestTheHelloStatesTheProtocolVersionAndEveryCapabilityTheRegistryHolds(t *t
 	}
 }
 
+func TestTheHelloNamesTheResourceThatAControllerKeepsTheAgentFrom(t *testing.T) {
+	r := newTestRunner()
+	r.cfg = Config{Version: "v9", Tier: 2, ControllerResource: "this-cluster"}
+	if got := r.hello().ControllerResource; got != "this-cluster" {
+		t.Fatalf("controller resource %q", got)
+	}
+	r.cfg.ControllerResource = ""
+	if got := r.hello().ControllerResource; got != "" {
+		t.Fatalf("an agent nothing keeps named a resource: %q", got)
+	}
+}
+
 // A name in the registry is a promise that the agent does the thing. Each name has a probe here that calls the code that does it,
 // so a name cannot be added to the registry (or kept after the code is gone) without this test being told. A capability that can
 // only be shown with a server on the other end is proved end to end, in the test named in e2eProofs.

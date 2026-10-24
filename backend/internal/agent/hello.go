@@ -12,7 +12,7 @@ import (
 func (r *runner) hello() *ikhnosv1.Hello {
 	return &ikhnosv1.Hello{
 		AgentVersion: r.cfg.Version, InstalledAccessTier: uint32(r.cfg.Tier), Diagnostics: r.diagnostics(),
-		Namespace: r.cfg.Namespace, ReleaseName: r.cfg.ReleaseName,
+		Namespace: r.cfg.Namespace, ReleaseName: r.cfg.ReleaseName, ControllerResource: r.cfg.ControllerResource,
 		ProtocolVersion: agentcaps.ProtocolVersion, Capabilities: agentcaps.Names(),
 	}
 }

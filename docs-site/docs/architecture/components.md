@@ -60,7 +60,7 @@ Revoking an agent in the server's pages closes its connection and ends its ident
 2. the controller sees the mark and deletes the resource;
 3. the resource's finalizer uninstalls the release, and the agent's identity Secret goes with it, whatever the resource said about keeping it. A revoked identity is of no use to anyone.
 
-So revoking in Ikhnos leaves nothing of the agent in the cluster. To connect the cluster again, create a new token and run the same command with it: the controller treats the same ConfigMap with a new token as a new request. An agent that is not kept by a controller behaves as before: it stops, and the page shows the `helm uninstall` commands.
+So revoking in Ikhnos leaves nothing of the agent in the cluster. To connect the cluster again, create a new token and run the same command with it: the controller treats the same ConfigMap with a new token as a new request. The agent says in its first message to the server that a controller keeps it, so the page says so too: it tells you the controller removes the agent and there is nothing to run, and keeps the `helm uninstall` commands for an agent that is still in the cluster after a few minutes. An agent that is not kept by a controller behaves as before: it stops, and the page shows the commands as the way to remove it.
 
 ## What does not work this way yet
 
