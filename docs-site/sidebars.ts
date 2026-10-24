@@ -52,6 +52,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'inside/index',
         'architecture/overview',
+        'architecture/components',
         'inside/server',
         'inside/agent',
         'inside/data-flow',

@@ -17,6 +17,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	kubefake "k8s.io/client-go/kubernetes/fake"
+
+	"ikhnos/internal/install"
 )
 
 const ns = "ikhnos-system"
@@ -276,6 +278,8 @@ func TestAnAgentIsInstalledOnceWithTheValuesOfItsSpecAndItsToken(t *testing.T) {
 		"access":     map[string]any{"tier": int64(1)},
 		"nodeProbe":  map[string]any{"enabled": true},
 		"scope":      map[string]any{"namespaces": []any{"shop"}},
+		// The agent is told which resource keeps it, so that it can mark it when the server revokes it.
+		"controller": map[string]any{"resource": "a"},
 	}
 	if fmt.Sprint(v) != fmt.Sprint(want) {
 		t.Fatalf("installed with\n%v\nwant\n%v", v, want)
@@ -835,3 +839,59 @@ func TestTelemetryThatCannotBeInstalledIsInvalidWithTheReasonAndInstallsNothing(
 }
 
 func name2obj(s string) string { return strings.ReplaceAll(s, " ", "-") }
+
+// ---- an agent the server revoked ----
+
+func TestAnAgentTheServerRevokedIsRemovedWithItsIdentity(t *testing.T) {
+	g := newRig(t)
+	g.secret("enroll", "token", "ikh_abc")
+	g.agent("a", goodSpec())
+	g.must("a")
+	if g.inst.rel == nil {
+		t.Fatal("not installed")
+	}
+
+	// The agent marks its resource. The controller deletes it (it has the finalizer, so it stays until the release is gone).
+	u := g.get("a")
+	u.SetAnnotations(map[string]string{install.RevokedAnnotation: "revoked by an administrator"})
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Update(context.Background(), u, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	g.must("a")
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(context.Background(), "a", metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("the revoked agent's resource was not deleted: %v", err)
+	}
+	if g.inst.removed != 0 {
+		t.Fatal("it uninstalled before the resource was being deleted: the finalizer is the way out")
+	}
+
+	// The deletion then takes the usual way out, and the identity goes whatever the spec says about keeping it.
+	h := newRig(t)
+	h.secret("enroll", "token", "ikh_abc")
+	h.agent("a", goodSpec())
+	h.must("a")
+	v := h.get("a")
+	v.SetAnnotations(map[string]string{install.RevokedAnnotation: "revoked by an administrator"})
+	if _, err := h.dyn.Resource(GVR).Namespace(ns).Update(context.Background(), v, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	h.delete("a")
+	h.must("a")
+	if fmt.Sprint(h.inst.events) != "[apply apply uninstall]" || h.inst.rel != nil {
+		t.Fatalf("events %v", h.inst.events)
+	}
+	if id, _ := h.inst.lastApplied()["identity"].(map[string]any); id["purgeOnUninstall"] != true {
+		t.Fatalf("the revoked agent's identity was left behind: %v", h.inst.lastApplied())
+	}
+}
+
+func TestAnAgentThatWasNotRevokedIsLeftAlone(t *testing.T) {
+	g := newRig(t)
+	g.secret("enroll", "token", "ikh_abc")
+	g.agent("a", goodSpec(), func(u *unstructured.Unstructured) { u.SetAnnotations(map[string]string{"example.com/other": "x"}) })
+	g.must("a")
+	g.must("a")
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(context.Background(), "a", metav1.GetOptions{}); err != nil || g.inst.rel == nil {
+		t.Fatalf("an annotation that is not the agent's was acted on: %v", err)
+	}
+}

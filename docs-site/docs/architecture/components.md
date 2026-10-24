@@ -1,0 +1,69 @@
+---
+id: components
+title: The parts of Ikhnos and how they fit
+description: Which parts carry telemetry (the data plane) and which decide and configure (the control plane), what the discovery agent, the controller and the IkhnosAgent resource each do in a cluster, and how they work together from one install command to a revoke.
+---
+
+# The parts of Ikhnos and how they fit
+
+Ikhnos has two kinds of parts. Some carry telemetry from where it is produced to where it is read. Others decide what is allowed and configure the cluster. This page names each part once and says how they work together, so that the other pages can use the words without explaining them again.
+
+## Two planes
+
+**The data plane** is everything that moves telemetry:
+
+- the **local operator**: the collectors that the agent's chart installs in a cluster, one per node and one for the cluster as a whole. They gather metrics, logs and traces and send them on;
+- the **regional operator**: a gateway that receives the telemetry of several clusters in a region and forwards it;
+- **FUSION**: the central gateway and the stores behind it (Prometheus, Loki, Tempo, Grafana).
+
+These are three tiers of the same kind of thing, from the cluster to the centre. None of them talks to the Ikhnos server about what to do; they carry data.
+
+**The control plane** is everything that decides and configures:
+
+- the **server**: where decisions, approvals and the pages live;
+- the **discovery agent** in each cluster: the server's one door into the cluster and the cluster's one door out. It senses (topology, flows, health) and reports what it finds, and it receives what the server approves;
+- the **controller** and the **`IkhnosAgent` resource**: the cluster's own installer. They keep the agent, and the local operator that comes in the same install, installed and up to date.
+
+## What is in a cluster
+
+One Helm release, `ikhnos-agent`, holds the discovery agent (one pod) and the local operator (the collectors). They are installed, upgraded and removed together, and they are separate programs with separate permissions. The agent does not touch the telemetry; it reads the collectors' counters, which is how the page can say whether data is arriving, and at which stage it stopped if it is not.
+
+Next to it, optionally, sits the controller (its own release, `ikhnos-controller`), and one `IkhnosAgent` resource called `this-cluster`.
+
+| Part | Is | Talks to | Holds |
+| --- | --- | --- | --- |
+| Discovery agent | one pod | the server (an encrypted, mutually authenticated stream), the Kubernetes API (read) | the rights of its access tier; the right to patch one object, if a controller keeps it |
+| Controller | one pod | the Kubernetes API only | the right to install the agent chart, up to the ceilings it was given |
+| `IkhnosAgent` | a Kubernetes object | nobody; it is read and written | what the agent should be, and how it is going |
+
+The two programs are kept apart on purpose. The agent is the part that talks to the outside, so it holds as little as it can. The controller holds the right to install, so it never talks to the outside: it holds no credential for the server and does not know where the server is, other than what the resource says. Neither is dangerous alone.
+
+## The resource is how the two talk
+
+The controller and the agent never call each other. The `IkhnosAgent` is the note they leave for each other, the way a Deployment is the note a Deployment controller reads. Its `spec` says what the agent should be: the server and its CA pin, where the one-time token is, the access tier, the collectors, the scope, the telemetry. Its `status` says how that is going: pending, installing, ready, failed.
+
+## From one command to a running agent
+
+The Connect page prints one command. It installs the controller; the controller does the rest.
+
+1. `helm upgrade --install` installs the controller chart. The chart carries the resource definition, the controller and its permissions, and a small ConfigMap and Secret: what to ask for, and the one-time token.
+2. When it starts, the controller makes the `IkhnosAgent` from the ConfigMap, once.
+3. The controller sees the resource and installs the agent chart from it. The agent and the local operator start; the agent enrols with the server using the token and is approved on its page.
+
+The command asks for the cluster to be connected, and the cluster is. Nothing else is run by hand.
+
+## From a revoke to an empty cluster
+
+Revoking an agent in the server's pages closes its connection and ends its identity. The agent finds this out the moment it happens (or when it next starts), and for an agent that a controller keeps it does one more thing:
+
+1. it marks its own `IkhnosAgent` (an annotation, `ikhnos.io/revoked`, with the reason). The chart gave it the right to patch that one object and nothing else;
+2. the controller sees the mark and deletes the resource;
+3. the resource's finalizer uninstalls the release, and the agent's identity Secret goes with it, whatever the resource said about keeping it. A revoked identity is of no use to anyone.
+
+So revoking in Ikhnos leaves nothing of the agent in the cluster. To connect the cluster again, create a new token and run the same command with it: the controller treats the same ConfigMap with a new token as a new request. An agent that is not kept by a controller behaves as before: it stops, and the page shows the `helm uninstall` commands.
+
+## What does not work this way yet
+
+Everything above goes from the cluster outward, plus the revoke. Changing a cluster from the server's pages after the install (the access tier, the collectors, the telemetry) is still a command that a person runs: the page prints a `helm upgrade`, or a `kubectl patch` of the resource for an agent a controller keeps. The next step is for the server to hand that change to the agent over its existing stream, for the agent to write it into the resource, and for the controller to do the upgrade. That would add no new credential and no new connection; it would add a message to the agent protocol, and it needs one decision first: **what** is collected (signals, namespaces, sampling) can come from the server, but **where** it goes (the destination and its credentials) stays with the cluster, so that a server that is compromised cannot redirect a cluster's telemetry.
+
+The controller's own reference, with its permissions and its limits, is on [Installing and removing what Ikhnos installs](lifecycle.md).

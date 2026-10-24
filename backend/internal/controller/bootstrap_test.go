@@ -132,3 +132,42 @@ func TestWithNoBootstrapMapTheControllerAsksForNothing(t *testing.T) {
 		t.Fatalf("%v %v", list, err)
 	}
 }
+
+func TestTheSameBootstrapWithANewTokenAsksForTheAgentAgain(t *testing.T) {
+	g := newRig(t)
+	g.secret("ikhnos-enrollment", "token", "old")
+	g.bootstrapMap(goodBootstrap)
+	if err := g.r.Bootstrap(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	// The server revoked the agent and the controller removed it.
+	if err := g.dyn.Resource(GVR).Namespace(ns).Delete(context.Background(), "this-cluster", metav1.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	// The same command again, with the token it had: nothing is asked for twice.
+	if err := g.r.Bootstrap(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(context.Background(), "this-cluster", metav1.GetOptions{}); err == nil {
+		t.Fatal("the same token asked for the agent again")
+	}
+	// A new token: the spec text is the same, and this is a new request.
+	sec, _ := g.kube.CoreV1().Secrets(ns).Get(context.Background(), "ikhnos-enrollment", metav1.GetOptions{})
+	sec.Data["token"] = []byte("new")
+	if _, err := g.kube.CoreV1().Secrets(ns).Update(context.Background(), sec, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.r.Bootstrap(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(context.Background(), "this-cluster", metav1.GetOptions{}); err != nil {
+		t.Fatalf("a new token did not ask for the agent: %v", err)
+	}
+	// And the token itself is never kept: the ConfigMap holds a digest.
+	cm, _ := g.kube.CoreV1().ConfigMaps(ns).Get(context.Background(), bootstrapName, metav1.GetOptions{})
+	for k, v := range cm.Annotations {
+		if strings.Contains(v, "new") && k != BootstrapApplied {
+			t.Errorf("annotation %s = %q", k, v)
+		}
+	}
+}

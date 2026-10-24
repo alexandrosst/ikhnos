@@ -169,6 +169,10 @@ type Config struct {
 	// RevokedHold is how long a restarted agent whose identity was revoked waits before it exits with
 	// ErrRevoked (0: a random 5 to 10 minutes; negative: do not wait). Tests only.
 	RevokedHold time.Duration
+
+	// MarkRevoked, when set, is called with the reason when this agent's identity ends, and again until it succeeds: it tells whatever keeps
+	// this agent installed (the controller, through the IkhnosAgent resource) that the agent is not coming back. Nil: nobody keeps it.
+	MarkRevoked func(ctx context.Context, reason string) error
 }
 
 var ErrRevoked = errors.New("this agent was revoked or rejected by the server")

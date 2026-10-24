@@ -65,6 +65,7 @@ func Main(args []string) int {
 	healthListen := fs.String("health-listen", cli.Env("IKHNOS_HEALTH_LISTEN", ""), "address to serve /healthz (liveness) and /readyz (readiness) on, e.g. :8082 (empty: off)")
 	measureOn := fs.Bool("measure", cli.Env("IKHNOS_MEASURE", "") == "true", "allow timing TCP connections to the addresses the server names (to learn how far away other places are); off by default")
 	flowWindow := fs.Duration("flow-window", envDuration("IKHNOS_FLOW_WINDOW"), "how often observed traffic is sent to the server (the chart's flowObserver.window; default 15s)")
+	controllerResource := fs.String("controller-resource", cli.Env("IKHNOS_CONTROLLER_RESOURCE", ""), "the IkhnosAgent that a controller keeps this agent installed from (the controller sets this): when the server revokes this agent it marks that resource, and the controller removes the agent. Empty: nothing keeps this agent")
 	revokedHold := fs.Duration("revoked-hold", 0, "development only: how long a restarted agent whose identity was revoked waits before it exits with code 3 (default: a random 5 to 10 minutes; negative: do not wait)")
 	linkListen := fs.String("link-metrics-listen", cli.Env("IKHNOS_LINK_METRICS_LISTEN", ""), "address to serve the cluster-to-cluster link metrics on (Prometheus text at /metrics), e.g. :9104 (empty: off; needs --flow-secret-file, since the metrics are labelled from observed traffic). The server decides which clusters are peers; the chart's telemetry.clusterLinks sets this")
 	linkProberPorts := fs.String("link-prober-ports", cli.Env("IKHNOS_LINK_PROBER_PORTS", ""), "ports (and ranges, e.g. 8861,8862,18900-18999) the link prober's own traffic uses, which the link metrics leave out so that the probes and throughput tests do not count as the link's traffic; the chart's telemetry.clusterLinks.probe sets this")
@@ -316,7 +317,11 @@ func Main(args []string) int {
 		}
 		defer stopHealth()
 	}
-	err = agent.Run(ctx, agent.Config{Server: *server, CAPin: *pin, Token: token, Tier: *tier, Kube: client, APIHost: apiHost, Identity: ids, Version: cli.Version, Log: log, Probes: probes, Flows: flows, Links: links, FlowWindow: *flowWindow, Measure: *measureOn, ProbeListen: *probeListen, Scope: scope, Health: health, RevokedHold: *revokedHold, ProbeInterval: *probeEvery, FlowInterval: *flowEvery, Namespace: *ns, ReleaseName: *releaseName, TelemetrySignals: telemetrySignalList, TelemetryConfig: telemetryConfig, ExportHealth: exportHealth, RBACSelfCheck: *rbacSelfCheck, RBACNamespaced: rbacNamespaced, RenewSecrets: certrenew.ParseTargets(*ns, *renewSecrets)})
+	var markRevoked func(context.Context, string) error
+	if *controllerResource != "" {
+		markRevoked = agent.MarkResourceRevoked(client, *ns, *controllerResource)
+	}
+	err = agent.Run(ctx, agent.Config{MarkRevoked: markRevoked, Server: *server, CAPin: *pin, Token: token, Tier: *tier, Kube: client, APIHost: apiHost, Identity: ids, Version: cli.Version, Log: log, Probes: probes, Flows: flows, Links: links, FlowWindow: *flowWindow, Measure: *measureOn, ProbeListen: *probeListen, Scope: scope, Health: health, RevokedHold: *revokedHold, ProbeInterval: *probeEvery, FlowInterval: *flowEvery, Namespace: *ns, ReleaseName: *releaseName, TelemetrySignals: telemetrySignalList, TelemetryConfig: telemetryConfig, ExportHealth: exportHealth, RBACSelfCheck: *rbacSelfCheck, RBACNamespaced: rbacNamespaced, RenewSecrets: certrenew.ParseTargets(*ns, *renewSecrets)})
 	if errors.Is(err, agent.ErrRevoked) {
 		// Exit with a code of its own (agent.ExitRevoked) so `kubectl get pod` and the restart count say what
 		// happened. Run has already said why, in plain words, and has waited a random 5-10 minutes if this was a

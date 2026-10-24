@@ -42,6 +42,16 @@
         }
       }
     },
+    "controller": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resource": {
+          "type": "string",
+          "description": "The IkhnosAgent that a controller keeps this agent from. The controller sets it. When set, an agent that the server revokes marks that resource and the controller removes the agent and its identity; the agent gets the right to patch that one object and nothing else."
+        }
+      }
+    },
     "identity": {
       "type": "object",
       "additionalProperties": false,

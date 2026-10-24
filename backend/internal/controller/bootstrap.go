@@ -56,12 +56,6 @@ func (r *Reconciler) Bootstrap(ctx context.Context) error {
 	if raw == "" {
 		return nil
 	}
-	sum := sha256.Sum256([]byte(raw))
-	digest := hex.EncodeToString(sum[:])
-	if cm.Annotations[BootstrapApplied] == digest {
-		return nil
-	}
-
 	var spec Spec
 	dec := json.NewDecoder(bytes.NewReader([]byte(raw)))
 	dec.DisallowUnknownFields()
@@ -74,6 +68,15 @@ func (r *Reconciler) Bootstrap(ctx context.Context) error {
 	var fields map[string]any
 	if err := json.Unmarshal([]byte(raw), &fields); err != nil {
 		return err
+	}
+	// What was asked for is the spec and the token together: the same spec with a new token is a new request. It is how a person connects a
+	// cluster again after the server revoked its agent (the controller removed it): the same command with a new token asks again.
+	digest, err := r.bootstrapDigest(ctx, raw, spec)
+	if err != nil {
+		return err
+	}
+	if cm.Annotations[BootstrapApplied] == digest {
+		return nil
 	}
 
 	res := r.Dyn.Resource(GVR).Namespace(r.Namespace)
@@ -120,6 +123,25 @@ func (r *Reconciler) Bootstrap(ctx context.Context) error {
 		return fmt.Errorf("recording that the agent was asked for: %w", err)
 	}
 	return nil
+}
+
+// bootstrapDigest is the digest of the bootstrap spec and, when its Secret is there, of the token in it. Only the digest is kept (as an
+// annotation on the ConfigMap), never the token.
+func (r *Reconciler) bootstrapDigest(ctx context.Context, raw string, spec Spec) (string, error) {
+	h := sha256.New()
+	h.Write([]byte(raw))
+	if ref := spec.Enrollment.TokenSecretRef; ref != nil {
+		sec, err := r.Kube.CoreV1().Secrets(r.Namespace).Get(ctx, ref.Name, metav1.GetOptions{})
+		switch {
+		case apierrors.IsNotFound(err):
+		case err != nil:
+			return "", err
+		default:
+			h.Write([]byte{0})
+			h.Write(sec.Data[ref.TokenKey()])
+		}
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // bootstrapUntilDone tries Bootstrap until it succeeds or ctx ends.

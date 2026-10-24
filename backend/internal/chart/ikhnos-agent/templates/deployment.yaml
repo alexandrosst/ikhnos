@@ -122,6 +122,10 @@ spec:
             # it is templated in here. The server uses it to print `helm upgrade`/`helm uninstall` commands against the
             # release that is actually running, instead of guessing "ikhnos-agent".
             - {name: IKHNOS_RELEASE_NAME, value: {{ .Release.Name | quote }}}
+            {{- with (dig "controller" "resource" "" .Values.AsMap) }}
+            # The IkhnosAgent a controller keeps this agent from: a revoked agent marks it, and the controller removes the agent.
+            - {name: IKHNOS_CONTROLLER_RESOURCE, value: {{ . | quote }}}
+            {{- end }}
             - name: IKHNOS_TOKEN
               valueFrom: {secretKeyRef: {name: ikhnos-agent-enrollment, key: token, optional: true}}
             {{- if .Values.measurements.enabled }}

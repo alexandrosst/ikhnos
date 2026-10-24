@@ -102,6 +102,8 @@ name and namespace finds its identity again. To remove that too:
 kubectl -n <namespace> delete secret ikhnos-agent-identity
 ```
 
+`controller.resource` is set by the controller, never by hand: it names the `IkhnosAgent` that keeps this agent, and gives the agent the right to patch that one object so that a revoked agent can mark it and be removed.
+
 To have `helm uninstall` remove it as well, install (or upgrade) with `--set identity.purgeOnUninstall=true`. A post-delete hook then runs a
 short Job (`ikhnos purge-identity`) with a Role of its own that can read and delete that one Secret and nothing else, and removes the Role and
 the Job again when it has finished; a failed Job stays, for `kubectl logs`, and fails the uninstall. The agent is not coming back under that

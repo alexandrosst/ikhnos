@@ -118,7 +118,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, name string) (time.Duration,
 	if obj.GetDeletionTimestamp() != nil {
 		return 0, r.finish(ctx, obj)
 	}
+	if _, revoked := obj.GetAnnotations()[install.RevokedAnnotation]; revoked {
+		return 0, r.removeRevoked(ctx, obj)
+	}
 	return r.apply(ctx, obj)
+}
+
+// removeRevoked is what the controller does for an agent that says the server revoked it: delete the resource. The finalizer then takes
+// the usual way out (finish): the release is uninstalled, and its identity with it. Revoking in Ikhnos leaves nothing of the agent.
+func (r *Reconciler) removeRevoked(ctx context.Context, obj *unstructured.Unstructured) error {
+	r.log().Info("the agent was revoked by the server; removing it", "name", obj.GetName(), "reason", obj.GetAnnotations()[install.RevokedAnnotation])
+	err := r.Dyn.Resource(GVR).Namespace(r.Namespace).Delete(ctx, obj.GetName(), metav1.DeleteOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	return err
 }
 
 // ownerOf is the resource that owns the release when there are several: the oldest, then the first by name. A release is one thing, so
@@ -173,7 +187,7 @@ func (r *Reconciler) apply(ctx context.Context, obj *unstructured.Unstructured) 
 		return WaitingForSecret, r.setStatus(ctx, obj, Status{Phase: PhasePending, ObservedGeneration: obj.GetGeneration()},
 			r.cond(obj, "False", "WaitingForToken", wait))
 	}
-	values, err := r.values(spec, token)
+	values, err := r.values(obj.GetName(), spec, token)
 	if err != nil {
 		return 0, r.setStatus(ctx, obj, Status{Phase: PhaseInvalid, ObservedGeneration: obj.GetGeneration()},
 			r.cond(obj, "False", "InvalidSpec", err.Error()))
@@ -225,7 +239,7 @@ func (r *Reconciler) ceiling() int {
 
 // values are the spec's Helm values over the defaults. A spec that does not name a tier gets the highest this controller may give
 // (the chart's own default, 2, when it has no lower ceiling); one that names a tier above it is refused, not trimmed.
-func (r *Reconciler) values(spec Spec, token string) (map[string]any, error) {
+func (r *Reconciler) values(name string, spec Spec, token string) (map[string]any, error) {
 	if spec.AccessTier == nil && r.ceiling() < DefaultTier {
 		t := r.ceiling()
 		spec.AccessTier = &t
@@ -240,7 +254,8 @@ func (r *Reconciler) values(spec Spec, token string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Merge(r.Defaults, v), nil
+	// The agent is told which resource keeps it, so that a revoked agent can say so on it (see install.RevokedAnnotation).
+	return Merge(Merge(r.Defaults, v), map[string]any{"controller": map[string]any{"resource": name}}), nil
 }
 
 func (r *Reconciler) ready(obj *unstructured.Unstructured, rel *Release, hash string) Status {
@@ -320,6 +335,10 @@ func (r *Reconciler) matchPurge(ctx context.Context, obj *unstructured.Unstructu
 	if err != nil {
 		return nil // a spec that cannot be read says nothing about it: the release goes as it is
 	}
+	// A revoked agent's identity is of no use to anyone, so it goes with the agent whatever the spec says about keeping it.
+	if _, revoked := obj.GetAnnotations()[install.RevokedAnnotation]; revoked {
+		spec.PurgeIdentityOnDelete = true
+	}
 	if purgeOf(cur.Values) == spec.PurgeIdentityOnDelete {
 		return nil
 	}
@@ -327,7 +346,7 @@ func (r *Reconciler) matchPurge(ctx context.Context, obj *unstructured.Unstructu
 	if err != nil {
 		return err
 	}
-	values, err := r.values(spec, token)
+	values, err := r.values(obj.GetName(), spec, token)
 	if err != nil {
 		return nil
 	}

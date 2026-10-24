@@ -29,8 +29,9 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         {{- if $bootstrap }}
-        # A new bootstrap is a new pod: it asks for the agent when it starts.
-        checksum/bootstrap: {{ $bootstrap | sha256sum }}
+        # A new bootstrap is a new pod: it asks for the agent when it starts. The token counts as part of it (only its digest is here): the
+        # same command with a new token, run after the server revoked the agent, is how a cluster is connected again.
+        checksum/bootstrap: {{ printf "%s\n%s" $bootstrap (.Values.bootstrap.token | default "") | sha256sum }}
         {{- end }}
       {{- end }}
     spec:

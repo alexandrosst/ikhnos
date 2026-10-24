@@ -107,6 +107,10 @@ It also holds, in its own namespace, Secrets (Helm keeps its release records the
 
 Telemetry is off by default in the chart, because its collectors read the pods, nodes, workloads and events cluster-wide, and the agent's ClusterRole for them can be created only by someone who holds what it grants. With `allowTelemetry: true` the controller holds those reads, and may create the ConfigMaps and NetworkPolicies telemetry makes; with it off, a resource that turns a signal on is refused with a message. When the panel's `kubectl (controller)` tab needs the permission it prints the command: `helm upgrade ikhnos-controller <chart> -n ikhnos-system --reset-then-reuse-values --set allowTelemetry=true`. Take `spec.telemetry` out of a resource (and let the controller upgrade) before turning `allowTelemetry` off again, since removing telemetry's objects needs the permissions too. The same test as above holds these rules to the agent chart rendered for every telemetry choice, in both directions.
 
+## When the server revokes the agent
+
+The controller installs the agent with `controller.resource` set to the name of the resource. The agent chart then gives the agent one extra right, to `patch` that one `IkhnosAgent` and nothing else, and a revoked agent uses it to put the annotation `ikhnos.io/revoked` (with the reason) on its resource. The controller deletes a resource that has it (it holds `delete` on `ikhnosagents` for this), and the usual removal below follows, with the agent's identity deleted too whatever `purgeIdentityOnDelete` says. To connect the cluster again run the install command again with a new token; the same command with the same token does not ask for the agent twice.
+
 ## Removing
 
 Delete the `IkhnosAgent` first (the controller uninstalls the agent), then `helm uninstall ikhnos-controller`. A resource whose uninstall cannot finish is let go without touching the release by annotating it `ikhnos.io/skip-uninstall: "true"`. Helm leaves the CRD in place; remove it with `kubectl delete crd ikhnosagents.ikhnos.io` when no resource remains.

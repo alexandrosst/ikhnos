@@ -37,6 +37,12 @@ access:
 rbac:
   mode: cluster
 
+controller:
+  # The IkhnosAgent that keeps this agent installed, when a controller does. The controller sets it; leave it empty with Helm. When set,
+  # an agent the server revokes marks that resource (the chart gives it the right to patch that one object, nothing else) and the
+  # controller removes the agent and its identity: revoking in Ikhnos leaves nothing of it in the cluster.
+  resource: ""
+
 identity:
   # false (default): `helm uninstall` leaves the identity Secret (the agent's key and certificate) in the namespace on purpose, so an
   # uninstall by mistake cannot cost the agent its identity, and installing the chart again picks the same agent up. true: a

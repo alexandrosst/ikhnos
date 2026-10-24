@@ -20,6 +20,10 @@ const (
 	ControllerTokenSecret = "ikhnos-enrollment"
 	ControllerTokenKey    = "token"
 
+	// RevokedAnnotation is what an agent that the server revoked puts on its IkhnosAgent (its value is the reason): the controller then
+	// removes the agent, and the identity with it. The agent is the only one that writes it, and the controller the only one that reads it.
+	RevokedAnnotation = "ikhnos.io/revoked"
+
 	// ResourceAPIVersion and ResourceKind are the resource's own (the controller package holds the same two and a test holds them equal).
 	ResourceAPIVersion = "ikhnos.io/v1alpha1"
 	ResourceKind       = "IkhnosAgent"

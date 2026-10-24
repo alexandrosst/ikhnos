@@ -130,10 +130,10 @@ func agentObjects(t *testing.T, c choice) []object {
 		if err := writeFile(f, j); err != nil {
 			t.Fatal(err)
 		}
-		return helmObjects(t, tgz, "-f", f)
+		return helmObjects(t, tgz, "-f", f, "--set", "controller.resource="+install.ControllerResourceName)
 	}
 	args := append([]string{}, baseSet...)
-	args = append(args, "--set", fmt.Sprintf("access.tier=%d", c.tier))
+	args = append(args, "--set", fmt.Sprintf("access.tier=%d", c.tier), "--set", "controller.resource="+install.ControllerResourceName)
 	for _, k := range []struct {
 		on  bool
 		key string

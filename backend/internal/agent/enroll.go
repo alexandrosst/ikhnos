@@ -12,6 +12,7 @@ import (
 	"math/rand/v2"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
@@ -53,6 +54,7 @@ type extra struct {
 	skewKnown   bool
 	skewWarned  time.Time
 	endedLogged time.Time
+	marked      atomic.Bool // the controller has been told that this identity is over
 }
 
 // tokenID identifies an enrollment token without keeping it: a prefix of its hash.
@@ -309,7 +311,24 @@ func (r *runner) ended(ctx context.Context, id *Identity, reason string) error {
 		r.log.Warn("could not record that this agent was revoked", "err", err)
 	}
 	r.logEnded(reason)
+	r.markRevoked(ctx, reason)
 	return fmt.Errorf("%w: %s", ErrRevoked, reason)
+}
+
+// markRevoked tells whatever keeps this agent installed that it is over, once: the first call that succeeds is the last. A failure is said
+// (the agent has no right to write the resource, say) and tried again by the next call; it never stops the agent from ending.
+func (r *runner) markRevoked(ctx context.Context, reason string) {
+	if r.cfg.MarkRevoked == nil || r.ex.marked.Load() {
+		return
+	}
+	c, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	if err := r.cfg.MarkRevoked(c, reason); err != nil {
+		r.log.Warn("could not tell the controller that this agent was revoked", "err", err)
+		return
+	}
+	r.ex.marked.Store(true)
+	r.log.Info("told the controller that this agent was revoked; it removes the agent")
 }
 
 // logEnded says plainly that the agent is done, and what to do about it. It is written at most once
@@ -321,6 +340,12 @@ func (r *runner) logEnded(reason string) {
 		return
 	}
 	r.ex.endedLogged = time.Now()
+	if r.cfg.MarkRevoked != nil {
+		r.log.Error("this agent was revoked or rejected and will not connect again: "+reason+". "+
+			"A controller keeps it, and it removes the agent now, its identity with it. "+
+			"To connect this cluster again, create a new enrollment token in Ikhnos and run the install command again with it.", "reason", reason)
+		return
+	}
 	r.log.Error("this agent was revoked or rejected and will not connect again: "+reason+". "+
 		"Revocation is permanent. To connect this cluster again, create a new enrollment token in Ikhnos and run `helm upgrade` with it "+
 		"(--reset-then-reuse-values --set enrollment.token=..., Helm 3.14 or newer; without it the upgrade drops the settings the install was given, server.address among them). This agent does not contact the server any more.", "reason", reason)
@@ -344,7 +369,9 @@ func (r *runner) holdEnded(ctx context.Context, id *Identity) error {
 	// Say so to the health endpoint, and keep its heartbeat going: this wait is long, and a probe that
 	// sees no sign of life for five minutes would kill a process that is doing exactly what it should.
 	r.cfg.Health.Revoked()
+	r.markRevoked(ctx, id.Revoked)
 	for left := hold; left > 0; {
+		r.markRevoked(ctx, id.Revoked)
 		step := min(left, time.Minute)
 		if err := sleep(ctx, step); err != nil {
 			return err
