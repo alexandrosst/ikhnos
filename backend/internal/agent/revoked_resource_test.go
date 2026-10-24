@@ -18,11 +18,10 @@ import (
 	"k8s.io/client-go/rest"
 
 	"ikhnos/internal/agent"
-	"ikhnos/internal/install"
 )
 
-// The mark is one merge patch of one annotation on the agent's own IkhnosAgent, and nothing else.
-func TestMarkingTheResourceIsOnePatchOfOneAnnotationOfOneObject(t *testing.T) {
+// The mark is one merge patch of the status of the agent's own IkhnosAgent, and nothing else.
+func TestMarkingTheResourceIsOnePatchOfTheStatusOfOneObject(t *testing.T) {
 	var mu sync.Mutex
 	var method, path, ctype, body string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +30,7 @@ func TestMarkingTheResourceIsOnePatchOfOneAnnotationOfOneObject(t *testing.T) {
 		method, path, ctype, body = r.Method, r.URL.Path, r.Header.Get("Content-Type"), string(b)
 		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{}`))
+		_, _ = w.Write([]byte(`{"status":{"revoked":{"reason":"revoked by an administrator"}}}`)) // what the API server answers: the field was kept
 	}))
 	defer srv.Close()
 	kube, err := kubernetes.NewForConfig(&rest.Config{Host: srv.URL})
@@ -43,11 +42,24 @@ func TestMarkingTheResourceIsOnePatchOfOneAnnotationOfOneObject(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if method != "PATCH" || path != "/apis/ikhnos.io/v1alpha1/namespaces/ikhnos-system/ikhnosagents/this-cluster" || ctype != "application/merge-patch+json" {
+	if method != "PATCH" || path != "/apis/ikhnos.io/v1alpha1/namespaces/ikhnos-system/ikhnosagents/this-cluster/status" || ctype != "application/merge-patch+json" {
 		t.Fatalf("%s %s (%s)", method, path, ctype)
 	}
-	if want := `{"metadata":{"annotations":{"` + install.RevokedAnnotation + `":"revoked by an administrator"}}}`; body != want {
+	if want := `{"status":{"revoked":{"reason":"revoked by an administrator"}}}`; body != want {
 		t.Fatalf("body %s\nwant %s", body, want)
+	}
+
+	// A definition of the resource from before status.revoked drops the field and answers success: that is an error to say, because the
+	// agent would otherwise never be removed.
+	old := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":{"phase":"Ready"}}`))
+	}))
+	defer old.Close()
+	kubeOld, _ := kubernetes.NewForConfig(&rest.Config{Host: old.URL})
+	err = agent.MarkResourceRevoked(kubeOld, "ikhnos-system", "this-cluster")(context.Background(), "revoked by an administrator")
+	if err == nil || !strings.Contains(err.Error(), "older than the controller") {
+		t.Fatalf("a field the API server dropped was taken for success: %v", err)
 	}
 
 	// A refusal (the agent was not given the right) is an error to say, not a crash.

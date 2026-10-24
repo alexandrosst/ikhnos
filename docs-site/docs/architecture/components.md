@@ -56,7 +56,7 @@ The command asks for the cluster to be connected, and the cluster is. Nothing el
 
 Revoking an agent in the server's pages closes its connection and ends its identity. The agent finds this out the moment it happens (or when it next starts), and for an agent that a controller keeps it does one more thing:
 
-1. it marks its own `IkhnosAgent` (an annotation, `ikhnos.io/revoked`, with the reason). The chart gave it the right to patch that one object and nothing else;
+1. it marks its own `IkhnosAgent` (`status.revoked`, with the reason). The chart gave it the right to patch the status of that one object and nothing else, so it cannot change the spec, where telemetry goes included;
 2. the controller sees the mark and deletes the resource;
 3. the resource's finalizer uninstalls the release, and the agent's identity Secret goes with it, whatever the resource said about keeping it. A revoked identity is of no use to anyone.
 

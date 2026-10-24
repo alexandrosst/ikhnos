@@ -38,6 +38,14 @@ type Status struct {
 	// ValuesHash is the digest of the values the release was last installed with (see Hash).
 	ValuesHash string      `json:"valuesHash,omitempty"`
 	Conditions []Condition `json:"conditions,omitempty"`
+	// Revoked is written by the agent, not the controller, when the server revokes it (see install.RevokedAnnotation for the way older
+	// agents said it). The controller keeps it when it writes its own fields.
+	Revoked *Revoked `json:"revoked,omitempty"`
+}
+
+// Revoked is the agent's word that the server revoked it.
+type Revoked struct {
+	Reason string `json:"reason,omitempty"`
 }
 
 // ReleaseRef is the installed release.
@@ -118,7 +126,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, name string) (time.Duration,
 	if obj.GetDeletionTimestamp() != nil {
 		return 0, r.finish(ctx, obj)
 	}
-	if _, revoked := obj.GetAnnotations()[install.RevokedAnnotation]; revoked {
+	if _, revoked := revokedReason(obj); revoked {
 		return 0, r.removeRevoked(ctx, obj)
 	}
 	return r.apply(ctx, obj)
@@ -127,12 +135,24 @@ func (r *Reconciler) Reconcile(ctx context.Context, name string) (time.Duration,
 // removeRevoked is what the controller does for an agent that says the server revoked it: delete the resource. The finalizer then takes
 // the usual way out (finish): the release is uninstalled, and its identity with it. Revoking in Ikhnos leaves nothing of the agent.
 func (r *Reconciler) removeRevoked(ctx context.Context, obj *unstructured.Unstructured) error {
-	r.log().Info("the agent was revoked by the server; removing it", "name", obj.GetName(), "reason", obj.GetAnnotations()[install.RevokedAnnotation])
+	reason, _ := revokedReason(obj)
+	r.log().Info("the agent was revoked by the server; removing it", "name", obj.GetName(), "reason", reason)
 	err := r.Dyn.Resource(GVR).Namespace(r.Namespace).Delete(ctx, obj.GetName(), metav1.DeleteOptions{})
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
 	return err
+}
+
+// revokedReason is whether the agent says the server revoked it, and why: status.revoked, which is where an agent now says it (it may write the
+// status of its resource and nothing else of it), or the annotation that an agent from before that said it on the resource itself.
+func revokedReason(obj *unstructured.Unstructured) (string, bool) {
+	if m, found, _ := unstructured.NestedMap(obj.Object, "status", "revoked"); found {
+		reason, _ := m["reason"].(string)
+		return reason, true
+	}
+	reason, ok := obj.GetAnnotations()[install.RevokedAnnotation]
+	return reason, ok
 }
 
 // ownerOf is the resource that owns the release when there are several: the oldest, then the first by name. A release is one thing, so
@@ -336,7 +356,7 @@ func (r *Reconciler) matchPurge(ctx context.Context, obj *unstructured.Unstructu
 		return nil // a spec that cannot be read says nothing about it: the release goes as it is
 	}
 	// A revoked agent's identity is of no use to anyone, so it goes with the agent whatever the spec says about keeping it.
-	if _, revoked := obj.GetAnnotations()[install.RevokedAnnotation]; revoked {
+	if _, revoked := revokedReason(obj); revoked {
 		spec.PurgeIdentityOnDelete = true
 	}
 	if purgeOf(cur.Values) == spec.PurgeIdentityOnDelete {
@@ -423,6 +443,7 @@ func (r *Reconciler) setStatus(ctx context.Context, obj *unstructured.Unstructur
 		}
 	}
 	st.Conditions = []Condition{c}
+	st.Revoked = old.Revoked // the agent's word, not the controller's: writing the status must not take it away
 	if equalStatus(old, st) {
 		return nil
 	}

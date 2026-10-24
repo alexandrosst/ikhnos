@@ -1,8 +1,9 @@
 {{- if (dig "controller" "resource" "" .Values.AsMap) }}
 {{- /*
   controller.resource: this agent is kept by a controller, from the IkhnosAgent of that name. When the server revokes the agent it
-  marks that resource (an annotation), and the controller removes the agent, its identity with it. That is all this gives the agent:
-  the right to patch that one object. It cannot read it, list resources of that kind, change anything else, or delete the object.
+  writes status.revoked on that resource, and the controller removes the agent, its identity with it. That is all this gives the agent:
+  the right to patch the status subresource of that one object, which the API server does not let change its spec (so not the server it
+  trusts, the image, the access tier or where telemetry goes). It cannot read the object, list resources of that kind, or delete it.
   Set by the controller when it installs the chart; a person installing the chart with Helm leaves it empty and gets nothing here.
 */ -}}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -13,7 +14,7 @@ metadata:
   labels: {{- include "agent.labels" . | nindent 4 }}
 rules:
   - apiGroups: ["ikhnos.io"]
-    resources: ["ikhnosagents"]
+    resources: ["ikhnosagents/status"]
     resourceNames: [{{ .Values.controller.resource | quote }}]
     verbs: ["patch"]
 ---

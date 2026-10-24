@@ -40,7 +40,7 @@ The controller alone, to ask for agents yourself with `kubectl`:
 helm install ikhnos-controller oci://ghcr.io/<owner>/ikhnos-controller --namespace ikhnos-system --create-namespace
 ```
 
-The controller watches the `IkhnosAgent` resources of its own namespace, and installs the agent into that namespace. The CRD is in `crds/`, which Helm installs once and **never upgrades**: after an upgrade that changes it, apply it yourself (`kubectl apply -f crds/ikhnosagents.yaml`).
+The controller watches the `IkhnosAgent` resources of its own namespace, and installs the agent into that namespace. The CRD is in `crds/`, which Helm installs once and **never upgrades**: after an upgrade that changes it, apply it yourself (`kubectl apply -f crds/ikhnosagents.yaml`). This release added `status.revoked`, so apply it when you upgrade: without it an agent the server revoked says so, the API server drops the field, and the agent logs that the definition is older than the controller instead of being removed.
 
 Built from source, the chart's image names are placeholders. Name your own:
 
@@ -109,7 +109,7 @@ Telemetry is off by default in the chart, because its collectors read the pods, 
 
 ## When the server revokes the agent
 
-The controller installs the agent with `controller.resource` set to the name of the resource. The agent chart then gives the agent one extra right, to `patch` that one `IkhnosAgent` and nothing else, and a revoked agent uses it to put the annotation `ikhnos.io/revoked` (with the reason) on its resource. The controller deletes a resource that has it (it holds `delete` on `ikhnosagents` for this), and the usual removal below follows, with the agent's identity deleted too whatever `purgeIdentityOnDelete` says. To connect the cluster again run the install command again with a new token; the same command with the same token does not ask for the agent twice.
+The controller installs the agent with `controller.resource` set to the name of the resource. The agent chart then gives the agent one extra right, to `patch` the `status` subresource of that one `IkhnosAgent` and nothing else (the API server does not let a status patch change the spec, so the agent cannot change the server it trusts, the image, the access tier or where telemetry goes), and a revoked agent uses it to write `status.revoked.reason` on its resource. The controller deletes a resource that has it (or the annotation `ikhnos.io/revoked`, which an agent from before this said on the resource itself) (it holds `delete` on `ikhnosagents` for this), and the usual removal below follows, with the agent's identity deleted too whatever `purgeIdentityOnDelete` says. To connect the cluster again run the install command again with a new token; the same command with the same token does not ask for the agent twice.
 
 ## Removing
 

@@ -410,6 +410,15 @@ spec:
                       type: string
                 valuesHash:
                   type: string
+                revoked:
+                  type: object
+                  description: >-
+                    Written by the agent, through the status subresource, when the server revokes it; the controller then removes
+                    the agent. The agent may write nothing else of this resource.
+                  properties:
+                    reason:
+                      type: string
+                      maxLength: 200
                 conditions:
                   type: array
                   x-kubernetes-list-type: map

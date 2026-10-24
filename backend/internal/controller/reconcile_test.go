@@ -885,6 +885,34 @@ func TestAnAgentTheServerRevokedIsRemovedWithItsIdentity(t *testing.T) {
 	}
 }
 
+// An agent that may write only the status of its resource says it there, and that is removed the same way; the controller's own status
+// writes do not take the word away.
+func TestAnAgentThatSaysItInTheStatusIsRemovedAndTheStatusKeepsTheWord(t *testing.T) {
+	g := newRig(t)
+	g.secret("enroll", "token", "ikh_abc")
+	g.agent("a", goodSpec())
+	g.must("a")
+
+	u := g.get("a")
+	if err := unstructured.SetNestedField(u.Object, "revoked by an administrator", "status", "revoked", "reason"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Update(context.Background(), u, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	// What the controller writes of its own, before it has looked at the resource again, keeps the agent's word.
+	if err := g.r.setStatus(context.Background(), u, Status{Phase: "Ready"}, g.r.cond(u, "True", "Installed", "ok")); err != nil {
+		t.Fatal(err)
+	}
+	if st := g.status("a"); st.Revoked == nil || st.Revoked.Reason != "revoked by an administrator" {
+		t.Fatalf("the controller's status write took away the agent's word: %+v", st)
+	}
+	g.must("a")
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(context.Background(), "a", metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("the agent that said it in the status was not removed: %v", err)
+	}
+}
+
 func TestAnAgentThatWasNotRevokedIsLeftAlone(t *testing.T) {
 	g := newRig(t)
 	g.secret("enroll", "token", "ikh_abc")

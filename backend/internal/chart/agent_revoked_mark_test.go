@@ -7,9 +7,10 @@ import (
 	"ikhnos/internal/install"
 )
 
-// An agent that a controller keeps may mark that one resource when the server revokes it, and may do nothing else with it. An agent
+// An agent that a controller keeps may write the status of that one resource when the server revokes it, and may do nothing else with it
+// (not its spec: a patch of the object itself would let it change where the telemetry goes). An agent
 // installed with Helm has nothing of the kind.
-func TestAnAgentTheControllerKeepsMayPatchItsOwnResourceAndNothingElseOfIt(t *testing.T) {
+func TestAnAgentTheControllerKeepsMayPatchTheStatusOfItsOwnResourceAndNothingElseOfIt(t *testing.T) {
 	b, err := Package()
 	if err != nil {
 		t.Fatal(err)
@@ -37,7 +38,7 @@ func TestAnAgentTheControllerKeepsMayPatchItsOwnResourceAndNothingElseOfIt(t *te
 	}
 
 	roles, bindings, rules := marks("--set", "controller.resource="+install.ControllerResourceName)
-	if roles != 1 || bindings != 1 || len(rules) != 1 || rules[0] != "[ikhnos.io][ikhnosagents][this-cluster][patch]" {
+	if roles != 1 || bindings != 1 || len(rules) != 1 || rules[0] != "[ikhnos.io][ikhnosagents/status][this-cluster][patch]" {
 		t.Fatalf("roles %d, bindings %d, rules %v", roles, bindings, rules)
 	}
 	if roles, bindings, _ = marks(); roles != 0 || bindings != 0 {
