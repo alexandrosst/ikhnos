@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { AlertTriangle, CheckCircle2, HelpCircle, XCircle, type LucideIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { CopyCommand } from '@/components/ui/CopyCommand'
 import { ICON_SM } from '@/components/ui/primitives'
 import type { AgentDiagnostics } from '@/lib/consent'
 import { HEALTH_WORD, type Health } from '@/lib/status'
@@ -28,7 +29,7 @@ export function HealthWord({ health, testId }: { health: Health; testId?: string
  * "Check that data arrives": whether what was just set up reaches its destination, from what the agent reports (the same report that is
  * polled everywhere else, so this changes by itself when the first data goes out). Says what is wrong in one sentence and what to do about it.
  */
-export default function ArrivalCheck({ wanted, diagnostics, connected, cluster, testId = 'arrival', passive = false, now: fixedNow }: { wanted: string[]; diagnostics?: AgentDiagnostics; connected?: boolean; cluster: string; testId?: string; /** Not right after a command: no first-data patience to run out, so "no data yet" is never called overdue. */ passive?: boolean; /** Pins the clock, for a test. */ now?: number }) {
+export default function ArrivalCheck({ wanted, diagnostics, connected, cluster, testId = 'arrival', passive = false, now: fixedNow, namespace }: { wanted: string[]; diagnostics?: AgentDiagnostics; connected?: boolean; cluster: string; /** The namespace the agent is installed in: the address applications send to is in it. */ namespace?: string; testId?: string; /** Not right after a command: no first-data patience to run out, so "no data yet" is never called overdue. */ passive?: boolean; /** Pins the clock, for a test. */ now?: number }) {
   // How long this has been looked at decides when "no data yet" stops being normal; it also keeps "2 min ago" moving while the dialog stays open.
   const [since] = useState(() => Date.now())
   const [clock, setClock] = useState(() => Date.now())
@@ -38,7 +39,7 @@ export default function ArrivalCheck({ wanted, diagnostics, connected, cluster, 
     return () => clearInterval(t)
   }, [fixedNow])
   const now = fixedNow ?? clock
-  const a = arrivalCheck({ wanted, diagnostics, connected, waited: passive ? 0 : (now - since) / 1000, now, cluster })
+  const a = arrivalCheck({ wanted, diagnostics, connected, waited: passive ? 0 : (now - since) / 1000, now, cluster, namespace })
   return (
     <div className="rounded-xl border border-nb-850 bg-nb-925" data-testid={testId} data-health={a.health}>
       <div className="flex flex-wrap items-start gap-x-3 gap-y-1 px-4 py-3">
@@ -59,6 +60,13 @@ export default function ArrivalCheck({ wanted, diagnostics, connected, cluster, 
             </li>
           ))}
         </ul>
+      )}
+      {a.otlp && (
+        <div className="border-t border-nb-850 px-4 py-2.5 text-xs text-nb-400" data-testid={`${testId}-otlp`}>
+          Applications in this cluster send OTLP here (gRPC, or HTTP on port 4318):
+          <CopyCommand text={a.otlp.grpc} label="Copy the address (gRPC)" testId={`${testId}-otlp-grpc`} />
+          <p className="mt-1 text-nb-500">For HTTP: <code className="font-mono text-nb-300">{a.otlp.http}</code>. It is the OTEL_EXPORTER_OTLP_ENDPOINT of the application.</p>
+        </div>
       )}
       {a.partial && <p className="border-t border-nb-850 px-4 py-2 text-xs text-nb-500" data-testid={`${testId}-partial`}>{a.partial}</p>}
     </div>

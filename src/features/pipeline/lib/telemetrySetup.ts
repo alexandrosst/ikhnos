@@ -1,5 +1,5 @@
 import { uptimeWords, type AgentDiagnostics } from '../../../lib/consent'
-import { exportReach, exportRows } from '../../../lib/exportHealth'
+import { exportReach, exportRows, otlpAddress } from '../../../lib/exportHealth'
 import { cleanTags, TELEMETRY_SIGNALS, type Modality, type TelemetryInput } from '../../../lib/install'
 import { type Health, reportIsStale, worstOf } from '../../../lib/status'
 
@@ -36,6 +36,8 @@ export interface Arrival {
   rows: ArrivalRow[]
   /** Some collector pods could not be read: the rest still count, and the gap is said. */
   partial?: string
+  /** Where applications send OTLP in this cluster, given when a signal they push has not been seen reaching the collector. */
+  otlp?: { grpc: string; http: string }
 }
 
 /**
@@ -43,8 +45,9 @@ export interface Arrival {
  * (so a command that has not been applied yet is not mistaken for data that is not flowing) and what each signal type's exporters did.
  * `waited` is how long the person has been looking at this check. Pure: the caller owns the clock and the polling.
  */
-export function arrivalCheck(o: { wanted: string[]; diagnostics?: AgentDiagnostics; connected?: boolean; waited: number; now: number; cluster: string }): Arrival {
+export function arrivalCheck(o: { wanted: string[]; diagnostics?: AgentDiagnostics; connected?: boolean; waited: number; now: number; cluster: string; /** The namespace the agent is installed in, which the address applications send to is in. */ namespace?: string }): Arrival {
   const { wanted, diagnostics: d, connected, waited, now, cluster } = o
+  const address = otlpAddress(o.namespace ?? 'ikhnos-system')
   const unknown = (headline: string, todo?: string): Arrival => ({ health: 'unknown', headline, todo, rows: [] })
 
   if (!d) return unknown('The agent has not reported yet.', `Check that the discovery agent of ${cluster} is running; this check reads what it reports.`)
@@ -72,23 +75,56 @@ export function arrivalCheck(o: { wanted: string[]; diagnostics?: AgentDiagnosti
     return { health: 'attention', headline: `The agent cannot read the collectors' counters${d.exportHealth?.lastError ? ` (${d.exportHealth.lastError})` : ''}, so it cannot say whether data arrives.`, todo: `Check that the collectors are running in ${cluster} and that no network policy stops the agent reaching them.`, rows: [] }
   }
 
+  let otlp: Arrival['otlp']
+  // Which rows are in the state they are because of the applications' side, so that the headline names the stage that stopped the data.
+  const turnedAway = new Set<Modality>()
+  const unsent = new Set<Modality>()
   const rows: ArrivalRow[] = exportRows(wanted, d.exportHealth!).map((r) => {
     const label = MODALITY_LABEL[r.modality]
     const last = ago(r.lastSentAt, now)
     const lastData = last ? `Last data ${last}` : 'No data yet'
     if (r.state === 'failing') return { modality: r.modality, label, health: 'down', lastData, sentence: `${r.failed.toLocaleString()} sends failed (the last ${ago(r.lastFailedAt, now) ?? 'recently'}) and none got through since.` }
     if (r.state === 'exporting') return { modality: r.modality, label, health: 'healthy', lastData, sentence: 'The destination accepted the data.' }
+    // The applications' side of the path: what the collector took in from them, the stage before the exporters. Said only for a type that
+    // applications push, and only where it explains why nothing has gone out.
+    const got = r.pushed ? r.received : undefined
+    if (r.pushed && got?.state === 'refusing') {
+      turnedAway.add(r.modality)
+      return { modality: r.modality, label, health: 'down', lastData, sentence: `The collector turned away ${got.refused.toLocaleString()} ${label.toLowerCase()} from your applications (the last ${ago(got.lastRefusedAt, now) ?? 'recently'}). It is overloaded, or the pipeline behind it refused them: look at the collector's logs.` }
+    }
     if (r.state === 'silent') return { modality: r.modality, label, health: 'healthy', lastData, sentence: `Nothing in the last few minutes. That is normal when nothing is producing ${label.toLowerCase()} right now.` }
+    if (r.pushed && got && got.accepted > 0) {
+      const sentence = `Your applications' ${label.toLowerCase()} reached the collector (${got.accepted.toLocaleString()} received) but none has gone out yet.`
+      if (waited >= ARRIVAL_PATIENCE_SECONDS) return { modality: r.modality, label, health: 'attention', lastData, sentence: `${sentence} The stop is between the collector and the destination: look at the collector's logs.` }
+      return { modality: r.modality, label, health: 'unknown', lastData, sentence }
+    }
+    if (r.pushed) {
+      otlp = address
+      unsent.add(r.modality)
+      const only = r.signals.every((n) => TELEMETRY_SIGNALS.find((x) => x.label === n)?.layer === 'application')
+      const sentence = only
+        ? `Nothing has reached the collector: no application has sent ${label.toLowerCase()} to it.`
+        : `Nothing has gone out, and no application has sent ${label.toLowerCase()} to the collector.`
+      if (waited >= ARRIVAL_PATIENCE_SECONDS) return { modality: r.modality, label, health: 'attention', lastData, sentence }
+      return { modality: r.modality, label, health: 'unknown', lastData, sentence: `${sentence} The first data usually goes out within a minute or two of an application sending it.` }
+    }
     if (waited >= ARRIVAL_PATIENCE_SECONDS) return { modality: r.modality, label, health: 'attention', lastData, sentence: `Nothing has gone out after ${uptimeWords(waited)}.` }
     return { modality: r.modality, label, health: 'unknown', lastData, sentence: 'The first data usually goes out within a minute or two.' }
   })
   const health = worstOf(rows.map((r) => r.health))
   const h = d.exportHealth!
   const partial = h.podsFailed > 0 ? `${h.podsFailed} of ${h.podsReached + h.podsFailed} collector reads failed on the last attempt${h.lastError ? ` (${h.lastError})` : ''}; the rest still count.` : undefined
-  if (health === 'healthy') return { health, headline: 'Data is arriving.', rows, partial }
-  if (health === 'unknown') return { health, headline: 'Waiting for the first data.', rows, partial }
-  if (health === 'down') return { health, headline: 'The destination is refusing the data or cannot be reached.', todo: 'Go back to Where to send and check the address, the protocol, the credential and the certificate; then run the command again.', rows, partial }
-  return { health, headline: 'Nothing has arrived yet.', todo: `Check the collector pods in ${cluster} are running, and that the destination's address is reachable from there.`, rows, partial }
+  if (health === 'healthy') return { health, headline: 'Data is arriving.', rows, partial, otlp }
+  if (health === 'unknown') return { health, headline: 'Waiting for the first data.', rows, partial, otlp }
+  const downRows = rows.filter((r) => r.health === 'down')
+  if (health === 'down' && downRows.every((r) => turnedAway.has(r.modality))) {
+    return { health, headline: 'The collector is turning away data from your applications.', todo: `Look at the collector pods' logs in ${cluster}: it is short of memory, or the pipeline behind its receiver refused the data.`, rows, partial, otlp }
+  }
+  if (health === 'attention' && rows.filter((r) => r.health === 'attention').every((r) => unsent.has(r.modality))) {
+    return { health, headline: 'No application has sent anything to the collector.', todo: 'Point the OTLP exporter of the application at the address below, in the same cluster; an address from an older install or another namespace stays silent.', rows, partial, otlp }
+  }
+  if (health === 'down') return { health, headline: 'The destination is refusing the data or cannot be reached.', todo: 'Go back to Where to send and check the address, the protocol, the credential and the certificate; then run the command again.', rows, partial, otlp }
+  return { health, headline: 'Nothing has arrived yet.', todo: `Check the collector pods in ${cluster} are running, and that the destination's address is reachable from there.`, rows, partial, otlp }
 }
 
 export interface ReviewNotes {

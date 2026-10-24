@@ -424,7 +424,7 @@ func (v *View) diagDoc() *agents.DiagnosticsDoc {
 		out.InstalledTelemetryConfig = cfg
 	}
 	if h := d.ExportHealth; h != nil {
-		doc := &agents.ExportHealthDoc{PodsReached: int(h.PodsReached), PodsFailed: int(h.PodsFailed), LastError: kernel.Printable(h.LastError, 300), Routes: []agents.ExportRouteHealthDoc{}}
+		doc := &agents.ExportHealthDoc{PodsReached: int(h.PodsReached), PodsFailed: int(h.PodsFailed), LastError: kernel.Printable(h.LastError, 300), Routes: []agents.ExportRouteHealthDoc{}, Receivers: []agents.ReceiverHealthDoc{}}
 		if h.ScrapedAt != nil {
 			doc.ScrapedAt = kernel.RFC(h.ScrapedAt.AsTime())
 		}
@@ -441,6 +441,20 @@ func (v *View) diagDoc() *agents.DiagnosticsDoc {
 				rd.LastFailedAt = kernel.RFC(r.LastFailedAt.AsTime())
 			}
 			doc.Routes = append(doc.Routes, rd)
+		}
+		for _, r := range h.Receivers {
+			state := agents.ReceiverHealthStates[r.State]
+			if state == "" {
+				state = agents.ReceiverWaiting
+			}
+			rd := agents.ReceiverHealthDoc{Signal: kernel.Printable(r.Signal, 20), State: state, Accepted: r.Accepted, Refused: r.Refused}
+			if r.LastAcceptedAt != nil {
+				rd.LastAcceptedAt = kernel.RFC(r.LastAcceptedAt.AsTime())
+			}
+			if r.LastRefusedAt != nil {
+				rd.LastRefusedAt = kernel.RFC(r.LastRefusedAt.AsTime())
+			}
+			doc.Receivers = append(doc.Receivers, rd)
 		}
 		out.ExportHealth = doc
 	}

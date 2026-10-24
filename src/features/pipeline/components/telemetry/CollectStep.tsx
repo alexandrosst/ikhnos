@@ -2,7 +2,9 @@ import clsx from 'clsx'
 import { useState } from 'react'
 import { Activity, FileText, Waypoints, type LucideIcon } from 'lucide-react'
 import { Button, Field, ICON_SM, InfoTip, Input, Select } from '@/components/ui/primitives'
+import { CopyCommand } from '@/components/ui/CopyCommand'
 import { LINK_REQUIREMENT } from '@/lib/clusterLinks'
+import { otlpAddress } from '@/lib/exportHealth'
 import { applyIntentPreset, PICKABLE_SIGNALS, TELEMETRY_INTENT_PRESETS, TELEMETRY_SIGNALS } from '@/lib/consent'
 import type { TelemetryInput } from '@/lib/install'
 import { LAYER_CARDS, LAYER_META, type Layer } from '@/features/pipeline/lib/telemetryLayers'
@@ -200,10 +202,13 @@ export default function CollectStep({
   value,
   onChange,
   testIdPrefix,
+  namespace,
 }: {
   value: TelemetryInput
   onChange: (v: TelemetryInput) => void
   testIdPrefix: string
+  /** The namespace the agent is installed in, which the address applications send to is in. */
+  namespace?: string
 }) {
   const rec = value as unknown as Record<string, boolean>
   const on = PICKABLE_SIGNALS.filter((s) => rec[s.id])
@@ -294,6 +299,13 @@ export default function CollectStep({
           </section>
         )
       })}
+
+      {on.some((s) => s.layer === 'application') && (
+        <div className="rounded-xl border border-nb-850 bg-nb-925 px-4 py-3 text-xs text-nb-400" data-testid={`${testIdPrefix}-collect-otlp`}>
+          Traces, application logs and application metrics are what your applications push. Point their OTLP exporter at the collector (gRPC; HTTP is port 4318 on the same name):
+          <CopyCommand text={otlpAddress(namespace ?? 'ikhnos-system').grpc} label="Copy the address (gRPC)" testId={`${testIdPrefix}-collect-otlp-address`} />
+        </div>
+      )}
     </div>
   )
 }

@@ -855,3 +855,32 @@ func TestAContextWithNoSignedInCallerMayNotWiden(t *testing.T) {
 		t.Fatal("a caller nobody knows raised a tier")
 	}
 }
+
+func TestExportHealthRelaysWhatTheReceiverTookIn(t *testing.T) {
+	at := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	v := NewView()
+	h := &ikhnosv1.ExportHealth{
+		Receivers: []*ikhnosv1.ReceiverHealth{
+			{Signal: "traces", State: ikhnosv1.ReceiverHealth_REFUSING, Accepted: 4, Refused: 7, LastAcceptedAt: timestamppb.New(at.Add(-time.Hour)), LastRefusedAt: timestamppb.New(at)},
+			{Signal: "logs", State: ikhnosv1.ReceiverHealth_State(99)},
+		},
+	}
+	v.NoteDiagnostics(&ikhnosv1.Diagnostics{AgentVersion: "1", ExportHealth: h}, false, at)
+	got := v.diagDoc().ExportHealth
+	if got == nil || len(got.Receivers) != 2 {
+		t.Fatalf("ExportHealth = %+v", got)
+	}
+	r := got.Receivers[0]
+	if r.Signal != "traces" || r.State != "refusing" || r.Accepted != 4 || r.Refused != 7 || r.LastAcceptedAt != "2026-10-06T11:00:00Z" || r.LastRefusedAt != "2026-10-06T12:00:00Z" {
+		t.Errorf("receiver = %+v", r)
+	}
+	if got.Receivers[1].State != "waiting" {
+		t.Errorf("unknown state receiver = %+v, want waiting", got.Receivers[1])
+	}
+	// No receivers is an empty list, never null: the page reads .length.
+	v2 := NewView()
+	v2.NoteDiagnostics(&ikhnosv1.Diagnostics{AgentVersion: "1", ExportHealth: &ikhnosv1.ExportHealth{}}, false, at)
+	if rs := v2.diagDoc().ExportHealth.Receivers; rs == nil || len(rs) != 0 {
+		t.Errorf("Receivers = %#v, want an empty list", rs)
+	}
+}

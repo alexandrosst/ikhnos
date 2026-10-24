@@ -244,6 +244,63 @@ func (FlowEndpoint_Kind) EnumDescriptor() ([]byte, []int) {
 	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{44, 0}
 }
 
+type ReceiverHealth_State int32
+
+const (
+	// Nothing has been seen to arrive, or not enough readings yet to say.
+	ReceiverHealth_WAITING ReceiverHealth_State = 0
+	// Data arrived recently.
+	ReceiverHealth_RECEIVING ReceiverHealth_State = 1
+	// Data arrived before but none recently (not an error: an application that is idle looks like this).
+	ReceiverHealth_SILENT ReceiverHealth_State = 2
+	// The receiver refused data recently and took none since (the collector is under memory pressure, or the
+	// pipeline behind it refused).
+	ReceiverHealth_REFUSING ReceiverHealth_State = 3
+)
+
+// Enum value maps for ReceiverHealth_State.
+var (
+	ReceiverHealth_State_name = map[int32]string{
+		0: "WAITING",
+		1: "RECEIVING",
+		2: "SILENT",
+		3: "REFUSING",
+	}
+	ReceiverHealth_State_value = map[string]int32{
+		"WAITING":   0,
+		"RECEIVING": 1,
+		"SILENT":    2,
+		"REFUSING":  3,
+	}
+)
+
+func (x ReceiverHealth_State) Enum() *ReceiverHealth_State {
+	p := new(ReceiverHealth_State)
+	*p = x
+	return p
+}
+
+func (x ReceiverHealth_State) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ReceiverHealth_State) Descriptor() protoreflect.EnumDescriptor {
+	return file_ikhnos_v1_agent_proto_enumTypes[4].Descriptor()
+}
+
+func (ReceiverHealth_State) Type() protoreflect.EnumType {
+	return &file_ikhnos_v1_agent_proto_enumTypes[4]
+}
+
+func (x ReceiverHealth_State) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ReceiverHealth_State.Descriptor instead.
+func (ReceiverHealth_State) EnumDescriptor() ([]byte, []int) {
+	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{52, 0}
+}
+
 type ExportRouteHealth_State int32
 
 const (
@@ -284,11 +341,11 @@ func (x ExportRouteHealth_State) String() string {
 }
 
 func (ExportRouteHealth_State) Descriptor() protoreflect.EnumDescriptor {
-	return file_ikhnos_v1_agent_proto_enumTypes[4].Descriptor()
+	return file_ikhnos_v1_agent_proto_enumTypes[5].Descriptor()
 }
 
 func (ExportRouteHealth_State) Type() protoreflect.EnumType {
-	return &file_ikhnos_v1_agent_proto_enumTypes[4]
+	return &file_ikhnos_v1_agent_proto_enumTypes[5]
 }
 
 func (x ExportRouteHealth_State) Number() protoreflect.EnumNumber {
@@ -297,7 +354,7 @@ func (x ExportRouteHealth_State) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ExportRouteHealth_State.Descriptor instead.
 func (ExportRouteHealth_State) EnumDescriptor() ([]byte, []int) {
-	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{52, 0}
+	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{53, 0}
 }
 
 type Problem_Severity int32
@@ -333,11 +390,11 @@ func (x Problem_Severity) String() string {
 }
 
 func (Problem_Severity) Descriptor() protoreflect.EnumDescriptor {
-	return file_ikhnos_v1_agent_proto_enumTypes[5].Descriptor()
+	return file_ikhnos_v1_agent_proto_enumTypes[6].Descriptor()
 }
 
 func (Problem_Severity) Type() protoreflect.EnumType {
-	return &file_ikhnos_v1_agent_proto_enumTypes[5]
+	return &file_ikhnos_v1_agent_proto_enumTypes[6]
 }
 
 func (x Problem_Severity) Number() protoreflect.EnumNumber {
@@ -346,7 +403,7 @@ func (x Problem_Severity) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Problem_Severity.Descriptor instead.
 func (Problem_Severity) EnumDescriptor() ([]byte, []int) {
-	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{56, 0}
+	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{57, 0}
 }
 
 type RenewTelemetryCertRequest struct {
@@ -6144,7 +6201,11 @@ type ExportHealth struct {
 	// The most recent reason a read failed, cut short; empty when none did.
 	LastError string `protobuf:"bytes,4,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"`
 	// One entry per (exporter, signal type) the collectors have reported on, in a stable order.
-	Routes        []*ExportRouteHealth `protobuf:"bytes,5,rep,name=routes,proto3" json:"routes,omitempty"`
+	Routes []*ExportRouteHealth `protobuf:"bytes,5,rep,name=routes,proto3" json:"routes,omitempty"`
+	// One entry per signal type the collectors' OTLP receiver (the one applications push to) has reported on. It is
+	// the stage before the routes above: whether the applications' data reaches the collector at all. A signal with
+	// no entry has not been seen arriving.
+	Receivers     []*ReceiverHealth `protobuf:"bytes,6,rep,name=receivers,proto3" json:"receivers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6214,6 +6275,101 @@ func (x *ExportHealth) GetRoutes() []*ExportRouteHealth {
 	return nil
 }
 
+func (x *ExportHealth) GetReceivers() []*ReceiverHealth {
+	if x != nil {
+		return x.Receivers
+	}
+	return nil
+}
+
+// What the collectors' OTLP receiver took in, from its own counters (otelcol_receiver_accepted_* and refused_*),
+// summed over the collector pods. It says nothing about where the data came from or what it holds.
+type ReceiverHealth struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "metrics", "logs" or "traces".
+	Signal string               `protobuf:"bytes,1,opt,name=signal,proto3" json:"signal,omitempty"`
+	State  ReceiverHealth_State `protobuf:"varint,2,opt,name=state,proto3,enum=ikhnos.v1.ReceiverHealth_State" json:"state,omitempty"`
+	// Accepted and refused, summed over the collector pods, since each started.
+	Accepted       uint64                 `protobuf:"varint,3,opt,name=accepted,proto3" json:"accepted,omitempty"`
+	Refused        uint64                 `protobuf:"varint,4,opt,name=refused,proto3" json:"refused,omitempty"`
+	LastAcceptedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=last_accepted_at,json=lastAcceptedAt,proto3" json:"last_accepted_at,omitempty"`
+	LastRefusedAt  *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=last_refused_at,json=lastRefusedAt,proto3" json:"last_refused_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ReceiverHealth) Reset() {
+	*x = ReceiverHealth{}
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReceiverHealth) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReceiverHealth) ProtoMessage() {}
+
+func (x *ReceiverHealth) ProtoReflect() protoreflect.Message {
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReceiverHealth.ProtoReflect.Descriptor instead.
+func (*ReceiverHealth) Descriptor() ([]byte, []int) {
+	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *ReceiverHealth) GetSignal() string {
+	if x != nil {
+		return x.Signal
+	}
+	return ""
+}
+
+func (x *ReceiverHealth) GetState() ReceiverHealth_State {
+	if x != nil {
+		return x.State
+	}
+	return ReceiverHealth_WAITING
+}
+
+func (x *ReceiverHealth) GetAccepted() uint64 {
+	if x != nil {
+		return x.Accepted
+	}
+	return 0
+}
+
+func (x *ReceiverHealth) GetRefused() uint64 {
+	if x != nil {
+		return x.Refused
+	}
+	return 0
+}
+
+func (x *ReceiverHealth) GetLastAcceptedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastAcceptedAt
+	}
+	return nil
+}
+
+func (x *ReceiverHealth) GetLastRefusedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastRefusedAt
+	}
+	return nil
+}
+
 type ExportRouteHealth struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The exporter's id in the collector config: "otlp", "otlphttp/logs", "zipkin/traces".
@@ -6234,7 +6390,7 @@ type ExportRouteHealth struct {
 
 func (x *ExportRouteHealth) Reset() {
 	*x = ExportRouteHealth{}
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[52]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6246,7 +6402,7 @@ func (x *ExportRouteHealth) String() string {
 func (*ExportRouteHealth) ProtoMessage() {}
 
 func (x *ExportRouteHealth) ProtoReflect() protoreflect.Message {
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[52]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6259,7 +6415,7 @@ func (x *ExportRouteHealth) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportRouteHealth.ProtoReflect.Descriptor instead.
 func (*ExportRouteHealth) Descriptor() ([]byte, []int) {
-	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{52}
+	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *ExportRouteHealth) GetExporter() string {
@@ -6345,7 +6501,7 @@ type InstalledTelemetryConfig struct {
 
 func (x *InstalledTelemetryConfig) Reset() {
 	*x = InstalledTelemetryConfig{}
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[53]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6357,7 +6513,7 @@ func (x *InstalledTelemetryConfig) String() string {
 func (*InstalledTelemetryConfig) ProtoMessage() {}
 
 func (x *InstalledTelemetryConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[53]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6370,7 +6526,7 @@ func (x *InstalledTelemetryConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InstalledTelemetryConfig.ProtoReflect.Descriptor instead.
 func (*InstalledTelemetryConfig) Descriptor() ([]byte, []int) {
-	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{53}
+	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *InstalledTelemetryConfig) GetExportEndpoint() string {
@@ -6438,7 +6594,7 @@ type CollectorDiag struct {
 
 func (x *CollectorDiag) Reset() {
 	*x = CollectorDiag{}
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[54]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6450,7 +6606,7 @@ func (x *CollectorDiag) String() string {
 func (*CollectorDiag) ProtoMessage() {}
 
 func (x *CollectorDiag) ProtoReflect() protoreflect.Message {
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[54]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6463,7 +6619,7 @@ func (x *CollectorDiag) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CollectorDiag.ProtoReflect.Descriptor instead.
 func (*CollectorDiag) Descriptor() ([]byte, []int) {
-	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{54}
+	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *CollectorDiag) GetName() string {
@@ -6544,7 +6700,7 @@ type InformerDiag struct {
 
 func (x *InformerDiag) Reset() {
 	*x = InformerDiag{}
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[55]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6556,7 +6712,7 @@ func (x *InformerDiag) String() string {
 func (*InformerDiag) ProtoMessage() {}
 
 func (x *InformerDiag) ProtoReflect() protoreflect.Message {
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[55]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6569,7 +6725,7 @@ func (x *InformerDiag) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InformerDiag.ProtoReflect.Descriptor instead.
 func (*InformerDiag) Descriptor() ([]byte, []int) {
-	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{55}
+	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *InformerDiag) GetName() string {
@@ -6622,7 +6778,7 @@ type Problem struct {
 
 func (x *Problem) Reset() {
 	*x = Problem{}
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[56]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6634,7 +6790,7 @@ func (x *Problem) String() string {
 func (*Problem) ProtoMessage() {}
 
 func (x *Problem) ProtoReflect() protoreflect.Message {
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[56]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6647,7 +6803,7 @@ func (x *Problem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Problem.ProtoReflect.Descriptor instead.
 func (*Problem) Descriptor() ([]byte, []int) {
-	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{56}
+	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *Problem) GetCode() string {
@@ -6722,7 +6878,7 @@ type SelfStats struct {
 
 func (x *SelfStats) Reset() {
 	*x = SelfStats{}
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[57]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6734,7 +6890,7 @@ func (x *SelfStats) String() string {
 func (*SelfStats) ProtoMessage() {}
 
 func (x *SelfStats) ProtoReflect() protoreflect.Message {
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[57]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6747,7 +6903,7 @@ func (x *SelfStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SelfStats.ProtoReflect.Descriptor instead.
 func (*SelfStats) Descriptor() ([]byte, []int) {
-	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{57}
+	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *SelfStats) GetRssBytes() uint64 {
@@ -6822,7 +6978,7 @@ type LinkCapabilities struct {
 
 func (x *LinkCapabilities) Reset() {
 	*x = LinkCapabilities{}
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[58]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6834,7 +6990,7 @@ func (x *LinkCapabilities) String() string {
 func (*LinkCapabilities) ProtoMessage() {}
 
 func (x *LinkCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[58]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6847,7 +7003,7 @@ func (x *LinkCapabilities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkCapabilities.ProtoReflect.Descriptor instead.
 func (*LinkCapabilities) Descriptor() ([]byte, []int) {
-	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{58}
+	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *LinkCapabilities) GetLinkMetrics() bool {
@@ -6900,7 +7056,7 @@ type LinkIperfServer struct {
 
 func (x *LinkIperfServer) Reset() {
 	*x = LinkIperfServer{}
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[59]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6912,7 +7068,7 @@ func (x *LinkIperfServer) String() string {
 func (*LinkIperfServer) ProtoMessage() {}
 
 func (x *LinkIperfServer) ProtoReflect() protoreflect.Message {
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[59]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6925,7 +7081,7 @@ func (x *LinkIperfServer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkIperfServer.ProtoReflect.Descriptor instead.
 func (*LinkIperfServer) Descriptor() ([]byte, []int) {
-	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{59}
+	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *LinkIperfServer) GetPrivateKeyPem() string {
@@ -6957,7 +7113,7 @@ type LinkIperfClient struct {
 
 func (x *LinkIperfClient) Reset() {
 	*x = LinkIperfClient{}
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[60]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6969,7 +7125,7 @@ func (x *LinkIperfClient) String() string {
 func (*LinkIperfClient) ProtoMessage() {}
 
 func (x *LinkIperfClient) ProtoReflect() protoreflect.Message {
-	mi := &file_ikhnos_v1_agent_proto_msgTypes[60]
+	mi := &file_ikhnos_v1_agent_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6982,7 +7138,7 @@ func (x *LinkIperfClient) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkIperfClient.ProtoReflect.Descriptor instead.
 func (*LinkIperfClient) Descriptor() ([]byte, []int) {
-	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{60}
+	return file_ikhnos_v1_agent_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *LinkIperfClient) GetPublicKeyPem() string {
@@ -7594,7 +7750,7 @@ const file_ikhnos_v1_agent_proto_rawDesc = "" +
 	"\x17own_excluded_namespaces\x18\x10 \x01(\rR\x15ownExcludedNamespaces\x12>\n" +
 	"\x1binstalled_telemetry_signals\x18\x11 \x03(\tR\x19installedTelemetrySignals\x12a\n" +
 	"\x1ainstalled_telemetry_config\x18\x12 \x01(\v2#.ikhnos.v1.InstalledTelemetryConfigR\x18installedTelemetryConfig\x12<\n" +
-	"\rexport_health\x18\x13 \x01(\v2\x17.ikhnos.v1.ExportHealthR\fexportHealth\"\xe2\x01\n" +
+	"\rexport_health\x18\x13 \x01(\v2\x17.ikhnos.v1.ExportHealthR\fexportHealth\"\x9b\x02\n" +
 	"\fExportHealth\x129\n" +
 	"\n" +
 	"scraped_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\tscrapedAt\x12!\n" +
@@ -7603,7 +7759,21 @@ const file_ikhnos_v1_agent_proto_rawDesc = "" +
 	"podsFailed\x12\x1d\n" +
 	"\n" +
 	"last_error\x18\x04 \x01(\tR\tlastError\x124\n" +
-	"\x06routes\x18\x05 \x03(\v2\x1c.ikhnos.v1.ExportRouteHealthR\x06routes\"\xeb\x02\n" +
+	"\x06routes\x18\x05 \x03(\v2\x1c.ikhnos.v1.ExportRouteHealthR\x06routes\x127\n" +
+	"\treceivers\x18\x06 \x03(\v2\x19.ikhnos.v1.ReceiverHealthR\treceivers\"\xde\x02\n" +
+	"\x0eReceiverHealth\x12\x16\n" +
+	"\x06signal\x18\x01 \x01(\tR\x06signal\x125\n" +
+	"\x05state\x18\x02 \x01(\x0e2\x1f.ikhnos.v1.ReceiverHealth.StateR\x05state\x12\x1a\n" +
+	"\baccepted\x18\x03 \x01(\x04R\baccepted\x12\x18\n" +
+	"\arefused\x18\x04 \x01(\x04R\arefused\x12D\n" +
+	"\x10last_accepted_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x0elastAcceptedAt\x12B\n" +
+	"\x0flast_refused_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\rlastRefusedAt\"=\n" +
+	"\x05State\x12\v\n" +
+	"\aWAITING\x10\x00\x12\r\n" +
+	"\tRECEIVING\x10\x01\x12\n" +
+	"\n" +
+	"\x06SILENT\x10\x02\x12\f\n" +
+	"\bREFUSING\x10\x03\"\xeb\x02\n" +
 	"\x11ExportRouteHealth\x12\x1a\n" +
 	"\bexporter\x18\x01 \x01(\tR\bexporter\x12\x16\n" +
 	"\x06signal\x18\x02 \x01(\tR\x06signal\x128\n" +
@@ -7707,192 +7877,198 @@ func file_ikhnos_v1_agent_proto_rawDescGZIP() []byte {
 	return file_ikhnos_v1_agent_proto_rawDescData
 }
 
-var file_ikhnos_v1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_ikhnos_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 70)
+var file_ikhnos_v1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_ikhnos_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 71)
 var file_ikhnos_v1_agent_proto_goTypes = []any{
 	(TlsHandshakeOutcome)(0),           // 0: ikhnos.v1.TlsHandshakeOutcome
 	(PollResponse_State)(0),            // 1: ikhnos.v1.PollResponse.State
 	(ModuleStatus_State)(0),            // 2: ikhnos.v1.ModuleStatus.State
 	(FlowEndpoint_Kind)(0),             // 3: ikhnos.v1.FlowEndpoint.Kind
-	(ExportRouteHealth_State)(0),       // 4: ikhnos.v1.ExportRouteHealth.State
-	(Problem_Severity)(0),              // 5: ikhnos.v1.Problem.Severity
-	(*RenewTelemetryCertRequest)(nil),  // 6: ikhnos.v1.RenewTelemetryCertRequest
-	(*RenewTelemetryCertResponse)(nil), // 7: ikhnos.v1.RenewTelemetryCertResponse
-	(*RejoinRequest)(nil),              // 8: ikhnos.v1.RejoinRequest
-	(*EnrollRequest)(nil),              // 9: ikhnos.v1.EnrollRequest
-	(*EnrollResponse)(nil),             // 10: ikhnos.v1.EnrollResponse
-	(*PollRequest)(nil),                // 11: ikhnos.v1.PollRequest
-	(*PollResponse)(nil),               // 12: ikhnos.v1.PollResponse
-	(*RenewRequest)(nil),               // 13: ikhnos.v1.RenewRequest
-	(*RenewResponse)(nil),              // 14: ikhnos.v1.RenewResponse
-	(*AgentMessage)(nil),               // 15: ikhnos.v1.AgentMessage
-	(*Hello)(nil),                      // 16: ikhnos.v1.Hello
-	(*Heartbeat)(nil),                  // 17: ikhnos.v1.Heartbeat
-	(*ModuleStatus)(nil),               // 18: ikhnos.v1.ModuleStatus
-	(*Sync)(nil),                       // 19: ikhnos.v1.Sync
-	(*ClusterFacts)(nil),               // 20: ikhnos.v1.ClusterFacts
-	(*ScopeFacts)(nil),                 // 21: ikhnos.v1.ScopeFacts
-	(*MeshFacts)(nil),                  // 22: ikhnos.v1.MeshFacts
-	(*WorkloadMesh)(nil),               // 23: ikhnos.v1.WorkloadMesh
-	(*NodeFacts)(nil),                  // 24: ikhnos.v1.NodeFacts
-	(*HostProbe)(nil),                  // 25: ikhnos.v1.HostProbe
-	(*NetworkInterface)(nil),           // 26: ikhnos.v1.NetworkInterface
-	(*Disk)(nil),                       // 27: ikhnos.v1.Disk
-	(*TunnelInterface)(nil),            // 28: ikhnos.v1.TunnelInterface
-	(*HostAddress)(nil),                // 29: ikhnos.v1.HostAddress
-	(*NamespaceFacts)(nil),             // 30: ikhnos.v1.NamespaceFacts
-	(*ContainerImage)(nil),             // 31: ikhnos.v1.ContainerImage
-	(*WorkloadFacts)(nil),              // 32: ikhnos.v1.WorkloadFacts
-	(*PodFacts)(nil),                   // 33: ikhnos.v1.PodFacts
-	(*Address)(nil),                    // 34: ikhnos.v1.Address
-	(*VolumeClaim)(nil),                // 35: ikhnos.v1.VolumeClaim
-	(*Autoscaler)(nil),                 // 36: ikhnos.v1.Autoscaler
-	(*Disruption)(nil),                 // 37: ikhnos.v1.Disruption
-	(*ServerMessage)(nil),              // 38: ikhnos.v1.ServerMessage
-	(*Ack)(nil),                        // 39: ikhnos.v1.Ack
-	(*Config)(nil),                     // 40: ikhnos.v1.Config
-	(*LinkPeer)(nil),                   // 41: ikhnos.v1.LinkPeer
-	(*ProbeTarget)(nil),                // 42: ikhnos.v1.ProbeTarget
-	(*PathResult)(nil),                 // 43: ikhnos.v1.PathResult
-	(*Measurements)(nil),               // 44: ikhnos.v1.Measurements
-	(*Revoked)(nil),                    // 45: ikhnos.v1.Revoked
-	(*RawFlow)(nil),                    // 46: ikhnos.v1.RawFlow
-	(*LinkSaturation)(nil),             // 47: ikhnos.v1.LinkSaturation
-	(*ThermalThrottle)(nil),            // 48: ikhnos.v1.ThermalThrottle
-	(*FlowReport)(nil),                 // 49: ikhnos.v1.FlowReport
-	(*FlowEndpoint)(nil),               // 50: ikhnos.v1.FlowEndpoint
-	(*Flow)(nil),                       // 51: ikhnos.v1.Flow
-	(*CollectorInfo)(nil),              // 52: ikhnos.v1.CollectorInfo
-	(*FlowBatch)(nil),                  // 53: ikhnos.v1.FlowBatch
-	(*FlowEdge)(nil),                   // 54: ikhnos.v1.FlowEdge
-	(*FlowTable)(nil),                  // 55: ikhnos.v1.FlowTable
-	(*Diagnostics)(nil),                // 56: ikhnos.v1.Diagnostics
-	(*ExportHealth)(nil),               // 57: ikhnos.v1.ExportHealth
-	(*ExportRouteHealth)(nil),          // 58: ikhnos.v1.ExportRouteHealth
-	(*InstalledTelemetryConfig)(nil),   // 59: ikhnos.v1.InstalledTelemetryConfig
-	(*CollectorDiag)(nil),              // 60: ikhnos.v1.CollectorDiag
-	(*InformerDiag)(nil),               // 61: ikhnos.v1.InformerDiag
-	(*Problem)(nil),                    // 62: ikhnos.v1.Problem
-	(*SelfStats)(nil),                  // 63: ikhnos.v1.SelfStats
-	(*LinkCapabilities)(nil),           // 64: ikhnos.v1.LinkCapabilities
-	(*LinkIperfServer)(nil),            // 65: ikhnos.v1.LinkIperfServer
-	(*LinkIperfClient)(nil),            // 66: ikhnos.v1.LinkIperfClient
-	nil,                                // 67: ikhnos.v1.MeshFacts.NamespaceMtlsEntry
-	nil,                                // 68: ikhnos.v1.NodeFacts.LabelsEntry
-	nil,                                // 69: ikhnos.v1.NodeFacts.AnnotationsEntry
-	nil,                                // 70: ikhnos.v1.NodeFacts.ExtendedResourcesEntry
-	nil,                                // 71: ikhnos.v1.NamespaceFacts.LabelsEntry
-	nil,                                // 72: ikhnos.v1.NamespaceFacts.AnnotationsEntry
-	nil,                                // 73: ikhnos.v1.WorkloadFacts.LabelsEntry
-	nil,                                // 74: ikhnos.v1.WorkloadFacts.AnnotationsEntry
-	nil,                                // 75: ikhnos.v1.WorkloadFacts.NodeSelectorEntry
-	(*timestamppb.Timestamp)(nil),      // 76: google.protobuf.Timestamp
+	(ReceiverHealth_State)(0),          // 4: ikhnos.v1.ReceiverHealth.State
+	(ExportRouteHealth_State)(0),       // 5: ikhnos.v1.ExportRouteHealth.State
+	(Problem_Severity)(0),              // 6: ikhnos.v1.Problem.Severity
+	(*RenewTelemetryCertRequest)(nil),  // 7: ikhnos.v1.RenewTelemetryCertRequest
+	(*RenewTelemetryCertResponse)(nil), // 8: ikhnos.v1.RenewTelemetryCertResponse
+	(*RejoinRequest)(nil),              // 9: ikhnos.v1.RejoinRequest
+	(*EnrollRequest)(nil),              // 10: ikhnos.v1.EnrollRequest
+	(*EnrollResponse)(nil),             // 11: ikhnos.v1.EnrollResponse
+	(*PollRequest)(nil),                // 12: ikhnos.v1.PollRequest
+	(*PollResponse)(nil),               // 13: ikhnos.v1.PollResponse
+	(*RenewRequest)(nil),               // 14: ikhnos.v1.RenewRequest
+	(*RenewResponse)(nil),              // 15: ikhnos.v1.RenewResponse
+	(*AgentMessage)(nil),               // 16: ikhnos.v1.AgentMessage
+	(*Hello)(nil),                      // 17: ikhnos.v1.Hello
+	(*Heartbeat)(nil),                  // 18: ikhnos.v1.Heartbeat
+	(*ModuleStatus)(nil),               // 19: ikhnos.v1.ModuleStatus
+	(*Sync)(nil),                       // 20: ikhnos.v1.Sync
+	(*ClusterFacts)(nil),               // 21: ikhnos.v1.ClusterFacts
+	(*ScopeFacts)(nil),                 // 22: ikhnos.v1.ScopeFacts
+	(*MeshFacts)(nil),                  // 23: ikhnos.v1.MeshFacts
+	(*WorkloadMesh)(nil),               // 24: ikhnos.v1.WorkloadMesh
+	(*NodeFacts)(nil),                  // 25: ikhnos.v1.NodeFacts
+	(*HostProbe)(nil),                  // 26: ikhnos.v1.HostProbe
+	(*NetworkInterface)(nil),           // 27: ikhnos.v1.NetworkInterface
+	(*Disk)(nil),                       // 28: ikhnos.v1.Disk
+	(*TunnelInterface)(nil),            // 29: ikhnos.v1.TunnelInterface
+	(*HostAddress)(nil),                // 30: ikhnos.v1.HostAddress
+	(*NamespaceFacts)(nil),             // 31: ikhnos.v1.NamespaceFacts
+	(*ContainerImage)(nil),             // 32: ikhnos.v1.ContainerImage
+	(*WorkloadFacts)(nil),              // 33: ikhnos.v1.WorkloadFacts
+	(*PodFacts)(nil),                   // 34: ikhnos.v1.PodFacts
+	(*Address)(nil),                    // 35: ikhnos.v1.Address
+	(*VolumeClaim)(nil),                // 36: ikhnos.v1.VolumeClaim
+	(*Autoscaler)(nil),                 // 37: ikhnos.v1.Autoscaler
+	(*Disruption)(nil),                 // 38: ikhnos.v1.Disruption
+	(*ServerMessage)(nil),              // 39: ikhnos.v1.ServerMessage
+	(*Ack)(nil),                        // 40: ikhnos.v1.Ack
+	(*Config)(nil),                     // 41: ikhnos.v1.Config
+	(*LinkPeer)(nil),                   // 42: ikhnos.v1.LinkPeer
+	(*ProbeTarget)(nil),                // 43: ikhnos.v1.ProbeTarget
+	(*PathResult)(nil),                 // 44: ikhnos.v1.PathResult
+	(*Measurements)(nil),               // 45: ikhnos.v1.Measurements
+	(*Revoked)(nil),                    // 46: ikhnos.v1.Revoked
+	(*RawFlow)(nil),                    // 47: ikhnos.v1.RawFlow
+	(*LinkSaturation)(nil),             // 48: ikhnos.v1.LinkSaturation
+	(*ThermalThrottle)(nil),            // 49: ikhnos.v1.ThermalThrottle
+	(*FlowReport)(nil),                 // 50: ikhnos.v1.FlowReport
+	(*FlowEndpoint)(nil),               // 51: ikhnos.v1.FlowEndpoint
+	(*Flow)(nil),                       // 52: ikhnos.v1.Flow
+	(*CollectorInfo)(nil),              // 53: ikhnos.v1.CollectorInfo
+	(*FlowBatch)(nil),                  // 54: ikhnos.v1.FlowBatch
+	(*FlowEdge)(nil),                   // 55: ikhnos.v1.FlowEdge
+	(*FlowTable)(nil),                  // 56: ikhnos.v1.FlowTable
+	(*Diagnostics)(nil),                // 57: ikhnos.v1.Diagnostics
+	(*ExportHealth)(nil),               // 58: ikhnos.v1.ExportHealth
+	(*ReceiverHealth)(nil),             // 59: ikhnos.v1.ReceiverHealth
+	(*ExportRouteHealth)(nil),          // 60: ikhnos.v1.ExportRouteHealth
+	(*InstalledTelemetryConfig)(nil),   // 61: ikhnos.v1.InstalledTelemetryConfig
+	(*CollectorDiag)(nil),              // 62: ikhnos.v1.CollectorDiag
+	(*InformerDiag)(nil),               // 63: ikhnos.v1.InformerDiag
+	(*Problem)(nil),                    // 64: ikhnos.v1.Problem
+	(*SelfStats)(nil),                  // 65: ikhnos.v1.SelfStats
+	(*LinkCapabilities)(nil),           // 66: ikhnos.v1.LinkCapabilities
+	(*LinkIperfServer)(nil),            // 67: ikhnos.v1.LinkIperfServer
+	(*LinkIperfClient)(nil),            // 68: ikhnos.v1.LinkIperfClient
+	nil,                                // 69: ikhnos.v1.MeshFacts.NamespaceMtlsEntry
+	nil,                                // 70: ikhnos.v1.NodeFacts.LabelsEntry
+	nil,                                // 71: ikhnos.v1.NodeFacts.AnnotationsEntry
+	nil,                                // 72: ikhnos.v1.NodeFacts.ExtendedResourcesEntry
+	nil,                                // 73: ikhnos.v1.NamespaceFacts.LabelsEntry
+	nil,                                // 74: ikhnos.v1.NamespaceFacts.AnnotationsEntry
+	nil,                                // 75: ikhnos.v1.WorkloadFacts.LabelsEntry
+	nil,                                // 76: ikhnos.v1.WorkloadFacts.AnnotationsEntry
+	nil,                                // 77: ikhnos.v1.WorkloadFacts.NodeSelectorEntry
+	(*timestamppb.Timestamp)(nil),      // 78: google.protobuf.Timestamp
 }
 var file_ikhnos_v1_agent_proto_depIdxs = []int32{
-	76, // 0: ikhnos.v1.RenewTelemetryCertResponse.not_after:type_name -> google.protobuf.Timestamp
+	78, // 0: ikhnos.v1.RenewTelemetryCertResponse.not_after:type_name -> google.protobuf.Timestamp
 	1,  // 1: ikhnos.v1.PollResponse.state:type_name -> ikhnos.v1.PollResponse.State
-	76, // 2: ikhnos.v1.PollResponse.not_after:type_name -> google.protobuf.Timestamp
-	76, // 3: ikhnos.v1.RenewResponse.not_after:type_name -> google.protobuf.Timestamp
-	16, // 4: ikhnos.v1.AgentMessage.hello:type_name -> ikhnos.v1.Hello
-	19, // 5: ikhnos.v1.AgentMessage.sync:type_name -> ikhnos.v1.Sync
-	17, // 6: ikhnos.v1.AgentMessage.heartbeat:type_name -> ikhnos.v1.Heartbeat
-	53, // 7: ikhnos.v1.AgentMessage.flows:type_name -> ikhnos.v1.FlowBatch
-	44, // 8: ikhnos.v1.AgentMessage.measurements:type_name -> ikhnos.v1.Measurements
-	56, // 9: ikhnos.v1.Hello.diagnostics:type_name -> ikhnos.v1.Diagnostics
-	18, // 10: ikhnos.v1.Heartbeat.modules:type_name -> ikhnos.v1.ModuleStatus
-	56, // 11: ikhnos.v1.Heartbeat.diagnostics:type_name -> ikhnos.v1.Diagnostics
-	63, // 12: ikhnos.v1.Heartbeat.self_stats:type_name -> ikhnos.v1.SelfStats
-	64, // 13: ikhnos.v1.Heartbeat.link_capabilities:type_name -> ikhnos.v1.LinkCapabilities
+	78, // 2: ikhnos.v1.PollResponse.not_after:type_name -> google.protobuf.Timestamp
+	78, // 3: ikhnos.v1.RenewResponse.not_after:type_name -> google.protobuf.Timestamp
+	17, // 4: ikhnos.v1.AgentMessage.hello:type_name -> ikhnos.v1.Hello
+	20, // 5: ikhnos.v1.AgentMessage.sync:type_name -> ikhnos.v1.Sync
+	18, // 6: ikhnos.v1.AgentMessage.heartbeat:type_name -> ikhnos.v1.Heartbeat
+	54, // 7: ikhnos.v1.AgentMessage.flows:type_name -> ikhnos.v1.FlowBatch
+	45, // 8: ikhnos.v1.AgentMessage.measurements:type_name -> ikhnos.v1.Measurements
+	57, // 9: ikhnos.v1.Hello.diagnostics:type_name -> ikhnos.v1.Diagnostics
+	19, // 10: ikhnos.v1.Heartbeat.modules:type_name -> ikhnos.v1.ModuleStatus
+	57, // 11: ikhnos.v1.Heartbeat.diagnostics:type_name -> ikhnos.v1.Diagnostics
+	65, // 12: ikhnos.v1.Heartbeat.self_stats:type_name -> ikhnos.v1.SelfStats
+	66, // 13: ikhnos.v1.Heartbeat.link_capabilities:type_name -> ikhnos.v1.LinkCapabilities
 	2,  // 14: ikhnos.v1.ModuleStatus.state:type_name -> ikhnos.v1.ModuleStatus.State
-	20, // 15: ikhnos.v1.Sync.cluster:type_name -> ikhnos.v1.ClusterFacts
-	24, // 16: ikhnos.v1.Sync.nodes:type_name -> ikhnos.v1.NodeFacts
-	30, // 17: ikhnos.v1.Sync.namespaces:type_name -> ikhnos.v1.NamespaceFacts
-	32, // 18: ikhnos.v1.Sync.workloads:type_name -> ikhnos.v1.WorkloadFacts
-	18, // 19: ikhnos.v1.Sync.modules:type_name -> ikhnos.v1.ModuleStatus
-	76, // 20: ikhnos.v1.ClusterFacts.created_at:type_name -> google.protobuf.Timestamp
-	21, // 21: ikhnos.v1.ClusterFacts.scope:type_name -> ikhnos.v1.ScopeFacts
-	22, // 22: ikhnos.v1.ClusterFacts.mesh:type_name -> ikhnos.v1.MeshFacts
-	67, // 23: ikhnos.v1.MeshFacts.namespace_mtls:type_name -> ikhnos.v1.MeshFacts.NamespaceMtlsEntry
-	68, // 24: ikhnos.v1.NodeFacts.labels:type_name -> ikhnos.v1.NodeFacts.LabelsEntry
-	69, // 25: ikhnos.v1.NodeFacts.annotations:type_name -> ikhnos.v1.NodeFacts.AnnotationsEntry
-	70, // 26: ikhnos.v1.NodeFacts.extended_resources:type_name -> ikhnos.v1.NodeFacts.ExtendedResourcesEntry
-	76, // 27: ikhnos.v1.NodeFacts.created_at:type_name -> google.protobuf.Timestamp
-	25, // 28: ikhnos.v1.NodeFacts.probe:type_name -> ikhnos.v1.HostProbe
-	26, // 29: ikhnos.v1.HostProbe.interfaces:type_name -> ikhnos.v1.NetworkInterface
-	27, // 30: ikhnos.v1.HostProbe.disks:type_name -> ikhnos.v1.Disk
-	28, // 31: ikhnos.v1.HostProbe.tunnels:type_name -> ikhnos.v1.TunnelInterface
-	29, // 32: ikhnos.v1.HostProbe.host_addresses:type_name -> ikhnos.v1.HostAddress
-	71, // 33: ikhnos.v1.NamespaceFacts.labels:type_name -> ikhnos.v1.NamespaceFacts.LabelsEntry
-	72, // 34: ikhnos.v1.NamespaceFacts.annotations:type_name -> ikhnos.v1.NamespaceFacts.AnnotationsEntry
-	31, // 35: ikhnos.v1.WorkloadFacts.images:type_name -> ikhnos.v1.ContainerImage
-	73, // 36: ikhnos.v1.WorkloadFacts.labels:type_name -> ikhnos.v1.WorkloadFacts.LabelsEntry
-	74, // 37: ikhnos.v1.WorkloadFacts.annotations:type_name -> ikhnos.v1.WorkloadFacts.AnnotationsEntry
-	75, // 38: ikhnos.v1.WorkloadFacts.node_selector:type_name -> ikhnos.v1.WorkloadFacts.NodeSelectorEntry
-	76, // 39: ikhnos.v1.WorkloadFacts.created_at:type_name -> google.protobuf.Timestamp
-	35, // 40: ikhnos.v1.WorkloadFacts.volume_claims:type_name -> ikhnos.v1.VolumeClaim
-	36, // 41: ikhnos.v1.WorkloadFacts.autoscaler:type_name -> ikhnos.v1.Autoscaler
-	37, // 42: ikhnos.v1.WorkloadFacts.disruption:type_name -> ikhnos.v1.Disruption
-	34, // 43: ikhnos.v1.WorkloadFacts.reachable:type_name -> ikhnos.v1.Address
-	23, // 44: ikhnos.v1.WorkloadFacts.mesh:type_name -> ikhnos.v1.WorkloadMesh
-	33, // 45: ikhnos.v1.WorkloadFacts.pods:type_name -> ikhnos.v1.PodFacts
-	76, // 46: ikhnos.v1.PodFacts.created_at:type_name -> google.protobuf.Timestamp
-	39, // 47: ikhnos.v1.ServerMessage.ack:type_name -> ikhnos.v1.Ack
-	40, // 48: ikhnos.v1.ServerMessage.config:type_name -> ikhnos.v1.Config
-	45, // 49: ikhnos.v1.ServerMessage.revoked:type_name -> ikhnos.v1.Revoked
-	42, // 50: ikhnos.v1.Config.probe_targets:type_name -> ikhnos.v1.ProbeTarget
-	41, // 51: ikhnos.v1.Config.link_peers:type_name -> ikhnos.v1.LinkPeer
-	65, // 52: ikhnos.v1.Config.link_iperf_server:type_name -> ikhnos.v1.LinkIperfServer
-	66, // 53: ikhnos.v1.LinkPeer.iperf_client:type_name -> ikhnos.v1.LinkIperfClient
-	43, // 54: ikhnos.v1.Measurements.results:type_name -> ikhnos.v1.PathResult
+	21, // 15: ikhnos.v1.Sync.cluster:type_name -> ikhnos.v1.ClusterFacts
+	25, // 16: ikhnos.v1.Sync.nodes:type_name -> ikhnos.v1.NodeFacts
+	31, // 17: ikhnos.v1.Sync.namespaces:type_name -> ikhnos.v1.NamespaceFacts
+	33, // 18: ikhnos.v1.Sync.workloads:type_name -> ikhnos.v1.WorkloadFacts
+	19, // 19: ikhnos.v1.Sync.modules:type_name -> ikhnos.v1.ModuleStatus
+	78, // 20: ikhnos.v1.ClusterFacts.created_at:type_name -> google.protobuf.Timestamp
+	22, // 21: ikhnos.v1.ClusterFacts.scope:type_name -> ikhnos.v1.ScopeFacts
+	23, // 22: ikhnos.v1.ClusterFacts.mesh:type_name -> ikhnos.v1.MeshFacts
+	69, // 23: ikhnos.v1.MeshFacts.namespace_mtls:type_name -> ikhnos.v1.MeshFacts.NamespaceMtlsEntry
+	70, // 24: ikhnos.v1.NodeFacts.labels:type_name -> ikhnos.v1.NodeFacts.LabelsEntry
+	71, // 25: ikhnos.v1.NodeFacts.annotations:type_name -> ikhnos.v1.NodeFacts.AnnotationsEntry
+	72, // 26: ikhnos.v1.NodeFacts.extended_resources:type_name -> ikhnos.v1.NodeFacts.ExtendedResourcesEntry
+	78, // 27: ikhnos.v1.NodeFacts.created_at:type_name -> google.protobuf.Timestamp
+	26, // 28: ikhnos.v1.NodeFacts.probe:type_name -> ikhnos.v1.HostProbe
+	27, // 29: ikhnos.v1.HostProbe.interfaces:type_name -> ikhnos.v1.NetworkInterface
+	28, // 30: ikhnos.v1.HostProbe.disks:type_name -> ikhnos.v1.Disk
+	29, // 31: ikhnos.v1.HostProbe.tunnels:type_name -> ikhnos.v1.TunnelInterface
+	30, // 32: ikhnos.v1.HostProbe.host_addresses:type_name -> ikhnos.v1.HostAddress
+	73, // 33: ikhnos.v1.NamespaceFacts.labels:type_name -> ikhnos.v1.NamespaceFacts.LabelsEntry
+	74, // 34: ikhnos.v1.NamespaceFacts.annotations:type_name -> ikhnos.v1.NamespaceFacts.AnnotationsEntry
+	32, // 35: ikhnos.v1.WorkloadFacts.images:type_name -> ikhnos.v1.ContainerImage
+	75, // 36: ikhnos.v1.WorkloadFacts.labels:type_name -> ikhnos.v1.WorkloadFacts.LabelsEntry
+	76, // 37: ikhnos.v1.WorkloadFacts.annotations:type_name -> ikhnos.v1.WorkloadFacts.AnnotationsEntry
+	77, // 38: ikhnos.v1.WorkloadFacts.node_selector:type_name -> ikhnos.v1.WorkloadFacts.NodeSelectorEntry
+	78, // 39: ikhnos.v1.WorkloadFacts.created_at:type_name -> google.protobuf.Timestamp
+	36, // 40: ikhnos.v1.WorkloadFacts.volume_claims:type_name -> ikhnos.v1.VolumeClaim
+	37, // 41: ikhnos.v1.WorkloadFacts.autoscaler:type_name -> ikhnos.v1.Autoscaler
+	38, // 42: ikhnos.v1.WorkloadFacts.disruption:type_name -> ikhnos.v1.Disruption
+	35, // 43: ikhnos.v1.WorkloadFacts.reachable:type_name -> ikhnos.v1.Address
+	24, // 44: ikhnos.v1.WorkloadFacts.mesh:type_name -> ikhnos.v1.WorkloadMesh
+	34, // 45: ikhnos.v1.WorkloadFacts.pods:type_name -> ikhnos.v1.PodFacts
+	78, // 46: ikhnos.v1.PodFacts.created_at:type_name -> google.protobuf.Timestamp
+	40, // 47: ikhnos.v1.ServerMessage.ack:type_name -> ikhnos.v1.Ack
+	41, // 48: ikhnos.v1.ServerMessage.config:type_name -> ikhnos.v1.Config
+	46, // 49: ikhnos.v1.ServerMessage.revoked:type_name -> ikhnos.v1.Revoked
+	43, // 50: ikhnos.v1.Config.probe_targets:type_name -> ikhnos.v1.ProbeTarget
+	42, // 51: ikhnos.v1.Config.link_peers:type_name -> ikhnos.v1.LinkPeer
+	67, // 52: ikhnos.v1.Config.link_iperf_server:type_name -> ikhnos.v1.LinkIperfServer
+	68, // 53: ikhnos.v1.LinkPeer.iperf_client:type_name -> ikhnos.v1.LinkIperfClient
+	44, // 54: ikhnos.v1.Measurements.results:type_name -> ikhnos.v1.PathResult
 	0,  // 55: ikhnos.v1.RawFlow.tls_handshake:type_name -> ikhnos.v1.TlsHandshakeOutcome
-	46, // 56: ikhnos.v1.FlowReport.flows:type_name -> ikhnos.v1.RawFlow
-	47, // 57: ikhnos.v1.FlowReport.link_saturation:type_name -> ikhnos.v1.LinkSaturation
-	48, // 58: ikhnos.v1.FlowReport.thermal_throttle:type_name -> ikhnos.v1.ThermalThrottle
+	47, // 56: ikhnos.v1.FlowReport.flows:type_name -> ikhnos.v1.RawFlow
+	48, // 57: ikhnos.v1.FlowReport.link_saturation:type_name -> ikhnos.v1.LinkSaturation
+	49, // 58: ikhnos.v1.FlowReport.thermal_throttle:type_name -> ikhnos.v1.ThermalThrottle
 	3,  // 59: ikhnos.v1.FlowEndpoint.kind:type_name -> ikhnos.v1.FlowEndpoint.Kind
-	50, // 60: ikhnos.v1.Flow.src:type_name -> ikhnos.v1.FlowEndpoint
-	50, // 61: ikhnos.v1.Flow.dst:type_name -> ikhnos.v1.FlowEndpoint
+	51, // 60: ikhnos.v1.Flow.src:type_name -> ikhnos.v1.FlowEndpoint
+	51, // 61: ikhnos.v1.Flow.dst:type_name -> ikhnos.v1.FlowEndpoint
 	0,  // 62: ikhnos.v1.Flow.tls_handshake:type_name -> ikhnos.v1.TlsHandshakeOutcome
-	47, // 63: ikhnos.v1.CollectorInfo.link_saturation:type_name -> ikhnos.v1.LinkSaturation
-	48, // 64: ikhnos.v1.CollectorInfo.thermal_throttle:type_name -> ikhnos.v1.ThermalThrottle
-	51, // 65: ikhnos.v1.FlowBatch.flows:type_name -> ikhnos.v1.Flow
-	52, // 66: ikhnos.v1.FlowBatch.collectors:type_name -> ikhnos.v1.CollectorInfo
-	51, // 67: ikhnos.v1.FlowBatch.pod_flows:type_name -> ikhnos.v1.Flow
-	51, // 68: ikhnos.v1.FlowEdge.key:type_name -> ikhnos.v1.Flow
-	76, // 69: ikhnos.v1.FlowEdge.first_seen:type_name -> google.protobuf.Timestamp
-	76, // 70: ikhnos.v1.FlowEdge.last_seen:type_name -> google.protobuf.Timestamp
-	54, // 71: ikhnos.v1.FlowTable.edges:type_name -> ikhnos.v1.FlowEdge
-	21, // 72: ikhnos.v1.Diagnostics.scope:type_name -> ikhnos.v1.ScopeFacts
-	60, // 73: ikhnos.v1.Diagnostics.collectors:type_name -> ikhnos.v1.CollectorDiag
-	61, // 74: ikhnos.v1.Diagnostics.informers:type_name -> ikhnos.v1.InformerDiag
-	62, // 75: ikhnos.v1.Diagnostics.problems:type_name -> ikhnos.v1.Problem
-	76, // 76: ikhnos.v1.Diagnostics.generated_at:type_name -> google.protobuf.Timestamp
-	59, // 77: ikhnos.v1.Diagnostics.installed_telemetry_config:type_name -> ikhnos.v1.InstalledTelemetryConfig
-	57, // 78: ikhnos.v1.Diagnostics.export_health:type_name -> ikhnos.v1.ExportHealth
-	76, // 79: ikhnos.v1.ExportHealth.scraped_at:type_name -> google.protobuf.Timestamp
-	58, // 80: ikhnos.v1.ExportHealth.routes:type_name -> ikhnos.v1.ExportRouteHealth
-	4,  // 81: ikhnos.v1.ExportRouteHealth.state:type_name -> ikhnos.v1.ExportRouteHealth.State
-	76, // 82: ikhnos.v1.ExportRouteHealth.last_sent_at:type_name -> google.protobuf.Timestamp
-	76, // 83: ikhnos.v1.ExportRouteHealth.last_failed_at:type_name -> google.protobuf.Timestamp
-	76, // 84: ikhnos.v1.CollectorDiag.last_data:type_name -> google.protobuf.Timestamp
-	5,  // 85: ikhnos.v1.Problem.severity:type_name -> ikhnos.v1.Problem.Severity
-	76, // 86: ikhnos.v1.Problem.since:type_name -> google.protobuf.Timestamp
-	9,  // 87: ikhnos.v1.Enrollment.Enroll:input_type -> ikhnos.v1.EnrollRequest
-	11, // 88: ikhnos.v1.Enrollment.PollEnrollment:input_type -> ikhnos.v1.PollRequest
-	8,  // 89: ikhnos.v1.Enrollment.Rejoin:input_type -> ikhnos.v1.RejoinRequest
-	6,  // 90: ikhnos.v1.Enrollment.RenewTelemetryCert:input_type -> ikhnos.v1.RenewTelemetryCertRequest
-	15, // 91: ikhnos.v1.AgentService.Connect:input_type -> ikhnos.v1.AgentMessage
-	13, // 92: ikhnos.v1.AgentService.Renew:input_type -> ikhnos.v1.RenewRequest
-	10, // 93: ikhnos.v1.Enrollment.Enroll:output_type -> ikhnos.v1.EnrollResponse
-	12, // 94: ikhnos.v1.Enrollment.PollEnrollment:output_type -> ikhnos.v1.PollResponse
-	14, // 95: ikhnos.v1.Enrollment.Rejoin:output_type -> ikhnos.v1.RenewResponse
-	7,  // 96: ikhnos.v1.Enrollment.RenewTelemetryCert:output_type -> ikhnos.v1.RenewTelemetryCertResponse
-	38, // 97: ikhnos.v1.AgentService.Connect:output_type -> ikhnos.v1.ServerMessage
-	14, // 98: ikhnos.v1.AgentService.Renew:output_type -> ikhnos.v1.RenewResponse
-	93, // [93:99] is the sub-list for method output_type
-	87, // [87:93] is the sub-list for method input_type
-	87, // [87:87] is the sub-list for extension type_name
-	87, // [87:87] is the sub-list for extension extendee
-	0,  // [0:87] is the sub-list for field type_name
+	48, // 63: ikhnos.v1.CollectorInfo.link_saturation:type_name -> ikhnos.v1.LinkSaturation
+	49, // 64: ikhnos.v1.CollectorInfo.thermal_throttle:type_name -> ikhnos.v1.ThermalThrottle
+	52, // 65: ikhnos.v1.FlowBatch.flows:type_name -> ikhnos.v1.Flow
+	53, // 66: ikhnos.v1.FlowBatch.collectors:type_name -> ikhnos.v1.CollectorInfo
+	52, // 67: ikhnos.v1.FlowBatch.pod_flows:type_name -> ikhnos.v1.Flow
+	52, // 68: ikhnos.v1.FlowEdge.key:type_name -> ikhnos.v1.Flow
+	78, // 69: ikhnos.v1.FlowEdge.first_seen:type_name -> google.protobuf.Timestamp
+	78, // 70: ikhnos.v1.FlowEdge.last_seen:type_name -> google.protobuf.Timestamp
+	55, // 71: ikhnos.v1.FlowTable.edges:type_name -> ikhnos.v1.FlowEdge
+	22, // 72: ikhnos.v1.Diagnostics.scope:type_name -> ikhnos.v1.ScopeFacts
+	62, // 73: ikhnos.v1.Diagnostics.collectors:type_name -> ikhnos.v1.CollectorDiag
+	63, // 74: ikhnos.v1.Diagnostics.informers:type_name -> ikhnos.v1.InformerDiag
+	64, // 75: ikhnos.v1.Diagnostics.problems:type_name -> ikhnos.v1.Problem
+	78, // 76: ikhnos.v1.Diagnostics.generated_at:type_name -> google.protobuf.Timestamp
+	61, // 77: ikhnos.v1.Diagnostics.installed_telemetry_config:type_name -> ikhnos.v1.InstalledTelemetryConfig
+	58, // 78: ikhnos.v1.Diagnostics.export_health:type_name -> ikhnos.v1.ExportHealth
+	78, // 79: ikhnos.v1.ExportHealth.scraped_at:type_name -> google.protobuf.Timestamp
+	60, // 80: ikhnos.v1.ExportHealth.routes:type_name -> ikhnos.v1.ExportRouteHealth
+	59, // 81: ikhnos.v1.ExportHealth.receivers:type_name -> ikhnos.v1.ReceiverHealth
+	4,  // 82: ikhnos.v1.ReceiverHealth.state:type_name -> ikhnos.v1.ReceiverHealth.State
+	78, // 83: ikhnos.v1.ReceiverHealth.last_accepted_at:type_name -> google.protobuf.Timestamp
+	78, // 84: ikhnos.v1.ReceiverHealth.last_refused_at:type_name -> google.protobuf.Timestamp
+	5,  // 85: ikhnos.v1.ExportRouteHealth.state:type_name -> ikhnos.v1.ExportRouteHealth.State
+	78, // 86: ikhnos.v1.ExportRouteHealth.last_sent_at:type_name -> google.protobuf.Timestamp
+	78, // 87: ikhnos.v1.ExportRouteHealth.last_failed_at:type_name -> google.protobuf.Timestamp
+	78, // 88: ikhnos.v1.CollectorDiag.last_data:type_name -> google.protobuf.Timestamp
+	6,  // 89: ikhnos.v1.Problem.severity:type_name -> ikhnos.v1.Problem.Severity
+	78, // 90: ikhnos.v1.Problem.since:type_name -> google.protobuf.Timestamp
+	10, // 91: ikhnos.v1.Enrollment.Enroll:input_type -> ikhnos.v1.EnrollRequest
+	12, // 92: ikhnos.v1.Enrollment.PollEnrollment:input_type -> ikhnos.v1.PollRequest
+	9,  // 93: ikhnos.v1.Enrollment.Rejoin:input_type -> ikhnos.v1.RejoinRequest
+	7,  // 94: ikhnos.v1.Enrollment.RenewTelemetryCert:input_type -> ikhnos.v1.RenewTelemetryCertRequest
+	16, // 95: ikhnos.v1.AgentService.Connect:input_type -> ikhnos.v1.AgentMessage
+	14, // 96: ikhnos.v1.AgentService.Renew:input_type -> ikhnos.v1.RenewRequest
+	11, // 97: ikhnos.v1.Enrollment.Enroll:output_type -> ikhnos.v1.EnrollResponse
+	13, // 98: ikhnos.v1.Enrollment.PollEnrollment:output_type -> ikhnos.v1.PollResponse
+	15, // 99: ikhnos.v1.Enrollment.Rejoin:output_type -> ikhnos.v1.RenewResponse
+	8,  // 100: ikhnos.v1.Enrollment.RenewTelemetryCert:output_type -> ikhnos.v1.RenewTelemetryCertResponse
+	39, // 101: ikhnos.v1.AgentService.Connect:output_type -> ikhnos.v1.ServerMessage
+	15, // 102: ikhnos.v1.AgentService.Renew:output_type -> ikhnos.v1.RenewResponse
+	97, // [97:103] is the sub-list for method output_type
+	91, // [91:97] is the sub-list for method input_type
+	91, // [91:91] is the sub-list for extension type_name
+	91, // [91:91] is the sub-list for extension extendee
+	0,  // [0:91] is the sub-list for field type_name
 }
 
 func init() { file_ikhnos_v1_agent_proto_init() }
@@ -7918,14 +8094,14 @@ func file_ikhnos_v1_agent_proto_init() {
 	file_ikhnos_v1_agent_proto_msgTypes[40].OneofWrappers = []any{}
 	file_ikhnos_v1_agent_proto_msgTypes[41].OneofWrappers = []any{}
 	file_ikhnos_v1_agent_proto_msgTypes[45].OneofWrappers = []any{}
-	file_ikhnos_v1_agent_proto_msgTypes[53].OneofWrappers = []any{}
+	file_ikhnos_v1_agent_proto_msgTypes[54].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_ikhnos_v1_agent_proto_rawDesc), len(file_ikhnos_v1_agent_proto_rawDesc)),
-			NumEnums:      6,
-			NumMessages:   70,
+			NumEnums:      7,
+			NumMessages:   71,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

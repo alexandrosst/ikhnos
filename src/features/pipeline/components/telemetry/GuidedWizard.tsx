@@ -81,6 +81,7 @@ export default function GuidedWizard({
   agentId,
   clusterId,
   clusterName,
+  namespace,
   runSection,
   checkSection,
   review,
@@ -97,6 +98,8 @@ export default function GuidedWizard({
   clusterId?: string
   /** Its name, for the sentences about what changes there. */
   clusterName?: string
+  /** The namespace its agent is installed in: the address applications send to is in it. */
+  namespace?: string
   /** A scope pre-filled from outside the wizard (see GuidedScope.tsx's own doc on this same prop). */
   initialScope?: { name: string; namespaces: string[] }
   /** The id of the operator (or FUSION) to send to, when whoever opened the wizard already knows it ("Connect <cluster>"): the destination
@@ -242,7 +245,7 @@ export default function GuidedWizard({
                 </>
               )}
             </StepHeading>
-            <CollectStep value={value} onChange={onChange} testIdPrefix={p} />
+            <CollectStep value={value} onChange={onChange} testIdPrefix={p} namespace={namespace} />
             {(needsScope || scopeNarrowed || initialScope) && (
               <Disclosure title="Limit to some namespaces" hint="applications only" defaultOpen={!!initialScope || scopeNarrowed} testId={`${p}-guided-scope`}>
                 <div data-testid={`${p}-guided-step-scope`}>

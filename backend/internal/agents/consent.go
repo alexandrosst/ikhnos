@@ -325,6 +325,46 @@ type ExportHealthDoc struct {
 	PodsFailed  int                    `json:"podsFailed"`
 	LastError   string                 `json:"lastError,omitempty"`
 	Routes      []ExportRouteHealthDoc `json:"routes"`
+	// Receivers is the stage before Routes: what the collectors' OTLP receiver, the one applications push to,
+	// has taken in, one entry per signal type seen. A signal with no entry has not been seen arriving.
+	Receivers []ReceiverHealthDoc `json:"receivers"`
+}
+
+// ReceiverState is the agent's state for what the OTLP receiver takes in: waiting (nothing seen arrive yet), receiving (data arrived
+// recently), silent (it did before, but not recently: an idle application looks like this) or refusing (the receiver turned data away
+// recently and took none since).
+type ReceiverState string
+
+// The states of a receiver, from the quietest to the loudest.
+const (
+	ReceiverWaiting   ReceiverState = "waiting"
+	ReceiverReceiving ReceiverState = "receiving"
+	ReceiverSilent    ReceiverState = "silent"
+	ReceiverRefusing  ReceiverState = "refusing"
+)
+
+// WireWords is the list of ReceiverState's words, as the generated types give it.
+func (ReceiverState) WireWords() []string {
+	return []string{string(ReceiverWaiting), string(ReceiverReceiving), string(ReceiverSilent), string(ReceiverRefusing)}
+}
+
+// ReceiverHealthDoc is the OTLP receiver's state for one signal type. Accepted and Refused are summed over the collector pods since each
+// started (so they can go down when a pod restarts), and the times are when the agent last saw each grow.
+type ReceiverHealthDoc struct {
+	Signal         string        `json:"signal"`
+	State          ReceiverState `json:"state"`
+	Accepted       uint64        `json:"accepted"`
+	Refused        uint64        `json:"refused"`
+	LastAcceptedAt string        `json:"lastAcceptedAt,omitempty"`
+	LastRefusedAt  string        `json:"lastRefusedAt,omitempty"`
+}
+
+// ReceiverHealthStates names the agent's receiver states; one this server does not know is shown as waiting.
+var ReceiverHealthStates = map[ikhnosv1.ReceiverHealth_State]ReceiverState{
+	ikhnosv1.ReceiverHealth_WAITING:   ReceiverWaiting,
+	ikhnosv1.ReceiverHealth_RECEIVING: ReceiverReceiving,
+	ikhnosv1.ReceiverHealth_SILENT:    ReceiverSilent,
+	ikhnosv1.ReceiverHealth_REFUSING:  ReceiverRefusing,
 }
 
 // ExportState is the agent's state for one route: waiting (nothing seen go out yet), exporting (data went out recently), silent (it did
@@ -430,6 +470,9 @@ func (v *View) NoteDiagnostics(d *ikhnosv1.Diagnostics, partial bool, at time.Ti
 	}
 	if h := d.ExportHealth; h != nil && len(h.Routes) > MaxDiagExportRoutes {
 		h.Routes = h.Routes[:MaxDiagExportRoutes]
+	}
+	if h := d.ExportHealth; h != nil && len(h.Receivers) > MaxDiagExportRoutes {
+		h.Receivers = h.Receivers[:MaxDiagExportRoutes]
 	}
 	v.Ext.Diag, v.Ext.DiagAt, v.Ext.DiagPartial = d, at, partial
 }

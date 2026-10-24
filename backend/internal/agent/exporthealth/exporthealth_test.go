@@ -268,3 +268,79 @@ func TestParseTargets(t *testing.T) {
 		t.Error("no targets must be nil")
 	}
 }
+
+func receiverLine(receiver, kind string, n int) string {
+	return fmt.Sprintf("otelcol_receiver_%s{receiver=%q,transport=\"grpc\"} %d\n", kind, receiver, n)
+}
+
+func receiverOf(t *testing.T, h *ikhnosv1.ExportHealth, signal string) *ikhnosv1.ReceiverHealth {
+	t.Helper()
+	if h == nil {
+		t.Fatal("no report")
+	}
+	for _, r := range h.Receivers {
+		if r.Signal == signal {
+			return r
+		}
+	}
+	return nil
+}
+
+// What the applications push to the collector is counted apart from what the collector sends on, so a signal that never arrives is told
+// as that and not as a destination that is quiet.
+func TestWhatTheOTLPReceiverTookInIsReportedApartFromTheExporters(t *testing.T) {
+	f := newFleet()
+	f.dns["host.svc"] = []string{"10.0.0.1"}
+	m := f.monitor("host.svc:8888")
+	ctx := context.Background()
+
+	// No span has ever arrived: there is no series at all, and the report has no entry for traces (the page says "nothing yet").
+	f.set("10.0.0.1:8888", counter("otlp", "spans", 0, 0)+receiverLine("otlp", "accepted_log_records", 40)+
+		receiverLine("k8s_cluster", "accepted_metric_points", 900)+receiverLine("prometheus/infra", "accepted_metric_points", 5))
+	m.Scrape(ctx)
+	h := m.Report()
+	if receiverOf(t, h, "traces") != nil {
+		t.Fatalf("traces have no receiver series: %+v", h.Receivers)
+	}
+	if receiverOf(t, h, "metrics") != nil {
+		t.Fatalf("a receiver that is not OTLP was counted: %+v", h.Receivers)
+	}
+	for _, r := range h.Routes {
+		if strings.HasPrefix(r.Exporter, "receiver") {
+			t.Fatalf("a receiver is listed as a destination: %+v", r)
+		}
+	}
+
+	// The logs have a baseline now; they grow: receiving.
+	f.advance(30 * time.Second)
+	f.set("10.0.0.1:8888", counter("otlp", "spans", 0, 0)+receiverLine("otlp", "accepted_log_records", 70))
+	m.Scrape(ctx)
+	if r := receiverOf(t, m.Report(), "logs"); r == nil || r.State != ikhnosv1.ReceiverHealth_RECEIVING || r.Accepted != 70 || r.LastAcceptedAt == nil {
+		t.Fatalf("logs after growth: %+v", r)
+	}
+
+	// The first span arrives (a series that is new counts from zero): receiving.
+	f.advance(30 * time.Second)
+	f.set("10.0.0.1:8888", receiverLine("otlp", "accepted_log_records", 70)+receiverLine("otlp", "accepted_spans", 12))
+	m.Scrape(ctx)
+	if r := receiverOf(t, m.Report(), "traces"); r == nil || r.State != ikhnosv1.ReceiverHealth_RECEIVING || r.Accepted != 12 {
+		t.Fatalf("traces after the first span: %+v", r)
+	}
+
+	// Nothing more for longer than the window: silent, not an error.
+	for i := 0; i < 8; i++ {
+		f.advance(30 * time.Second)
+		m.Scrape(ctx)
+	}
+	if r := receiverOf(t, m.Report(), "traces"); r.State != ikhnosv1.ReceiverHealth_SILENT {
+		t.Fatalf("traces after four quiet minutes: %+v", r)
+	}
+
+	// The receiver turns data away: refusing.
+	f.advance(30 * time.Second)
+	f.set("10.0.0.1:8888", receiverLine("otlp", "accepted_log_records", 70)+receiverLine("otlp", "accepted_spans", 12)+receiverLine("otlp", "refused_spans", 9))
+	m.Scrape(ctx)
+	if r := receiverOf(t, m.Report(), "traces"); r.State != ikhnosv1.ReceiverHealth_REFUSING || r.Refused != 9 {
+		t.Fatalf("traces after refusals: %+v", r)
+	}
+}

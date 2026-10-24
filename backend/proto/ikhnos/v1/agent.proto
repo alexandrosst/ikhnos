@@ -1297,6 +1297,34 @@ message ExportHealth {
   string last_error = 4;
   // One entry per (exporter, signal type) the collectors have reported on, in a stable order.
   repeated ExportRouteHealth routes = 5;
+  // One entry per signal type the collectors' OTLP receiver (the one applications push to) has reported on. It is
+  // the stage before the routes above: whether the applications' data reaches the collector at all. A signal with
+  // no entry has not been seen arriving.
+  repeated ReceiverHealth receivers = 6;
+}
+
+// What the collectors' OTLP receiver took in, from its own counters (otelcol_receiver_accepted_* and refused_*),
+// summed over the collector pods. It says nothing about where the data came from or what it holds.
+message ReceiverHealth {
+  // "metrics", "logs" or "traces".
+  string signal = 1;
+  enum State {
+    // Nothing has been seen to arrive, or not enough readings yet to say.
+    WAITING = 0;
+    // Data arrived recently.
+    RECEIVING = 1;
+    // Data arrived before but none recently (not an error: an application that is idle looks like this).
+    SILENT = 2;
+    // The receiver refused data recently and took none since (the collector is under memory pressure, or the
+    // pipeline behind it refused).
+    REFUSING = 3;
+  }
+  State state = 2;
+  // Accepted and refused, summed over the collector pods, since each started.
+  uint64 accepted = 3;
+  uint64 refused = 4;
+  google.protobuf.Timestamp last_accepted_at = 5;
+  google.protobuf.Timestamp last_refused_at = 6;
 }
 
 message ExportRouteHealth {

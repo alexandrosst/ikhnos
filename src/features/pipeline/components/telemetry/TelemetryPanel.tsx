@@ -363,6 +363,7 @@ function TelemetryPanelBody({
       agentId={agentId}
       clusterId={clusterId}
       clusterName={clusterName}
+      namespace={target?.namespace}
       problems={problems}
       review={{ diff: changes, installed: installed.length > 0, kept: hadTelemetry ? keptSummary(draft) : [] }}
       onBackToCluster={onBackToCluster}
@@ -374,7 +375,7 @@ function TelemetryPanelBody({
           </div>
         ) : undefined
       }
-      checkSection={<ArrivalCheck wanted={wanted} diagnostics={d} connected={agents?.find((a) => a.id === agentId)?.connected} cluster={clusterName ?? 'the cluster'} testId={`${p}-arrival`} />}
+      checkSection={<ArrivalCheck wanted={wanted} diagnostics={d} connected={agents?.find((a) => a.id === agentId)?.connected} cluster={clusterName ?? 'the cluster'} namespace={target?.namespace} testId={`${p}-arrival`} />}
     />
   )
 
@@ -406,7 +407,7 @@ function TelemetryPanelBody({
           {installed.length > 0 && (
             <div className="mt-3" data-testid="export-health">
               <div className="mb-1.5 text-sm font-medium text-nb-300">Is data arriving?</div>
-              <ArrivalCheck passive wanted={installed} diagnostics={d} connected={agents?.find((a) => a.id === agentId)?.connected} cluster={clusterName ?? 'the cluster'} testId="export-health-check" />
+              <ArrivalCheck passive wanted={installed} diagnostics={d} connected={agents?.find((a) => a.id === agentId)?.connected} cluster={clusterName ?? 'the cluster'} namespace={target?.namespace} testId="export-health-check" />
             </div>
           )}
 

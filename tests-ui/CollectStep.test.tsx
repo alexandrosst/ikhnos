@@ -120,4 +120,14 @@ describe('CollectStep', () => {
     await user.click(screen.getByTestId('c-accelerators'))
     expect(screen.queryByTestId('c-accelerators-source')).not.toBeInTheDocument()
   })
+
+  test('ticking something applications push shows where they send it, in the agent\'s namespace; infrastructure alone shows nothing', async () => {
+    const { unmount } = render(<Wrapper initial={{ ...emptyTelemetry, resourceUsage: true }} />)
+    expect(screen.queryByTestId('c-collect-otlp')).toBeNull()
+    await userEvent.click(screen.getByTestId('c-traces'))
+    expect(screen.getByTestId('c-collect-otlp-address')).toHaveTextContent('ikhnos-telemetry-cluster.ikhnos-system.svc:4317')
+    unmount()
+    render(<CollectStep value={{ ...emptyTelemetry, applicationLogs: true }} onChange={() => {}} testIdPrefix="c" namespace="shop" />)
+    expect(screen.getByTestId('c-collect-otlp-address')).toHaveTextContent('ikhnos-telemetry-cluster.shop.svc:4317')
+  })
 })

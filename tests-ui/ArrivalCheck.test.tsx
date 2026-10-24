@@ -67,4 +67,18 @@ describe('ArrivalCheck: Check that data arrives', () => {
     show(diag({ podsReached: 1, podsFailed: 0, routes: [] }), ['resourceUsage'], { passive: true })
     expect(screen.getByTestId('arrival')).toHaveAttribute('data-health', 'unknown')
   })
+
+  test('traces that have not reached the collector show the address to send them to, with a copy button', () => {
+    render(<ArrivalCheck wanted={['traces']} diagnostics={diag({ podsReached: 1, podsFailed: 0, routes: [], receivers: [] }, { installed: ['traces'] })} cluster="vradipus" namespace="shop-system" now={NOW} />)
+    expect(screen.getByTestId('arrival-traces')).toHaveTextContent(/Nothing has reached the collector/)
+    expect(screen.getByTestId('arrival-otlp-grpc')).toHaveTextContent('ikhnos-telemetry-cluster.shop-system.svc:4317')
+    expect(screen.getByRole('button', { name: 'Copy the address (gRPC)' })).toBeEnabled()
+    expect(screen.getByTestId('arrival-otlp')).toHaveTextContent('ikhnos-telemetry-cluster.shop-system.svc:4318')
+  })
+
+  test('no address is shown once the applications have reached the collector', () => {
+    render(<ArrivalCheck wanted={['traces']} diagnostics={diag({ podsReached: 1, podsFailed: 0, routes: [], receivers: [{ signal: 'traces', state: 'receiving', accepted: 3, refused: 0 }] }, { installed: ['traces'] })} cluster="vradipus" now={NOW} />)
+    expect(screen.queryByTestId('arrival-otlp')).toBeNull()
+    expect(screen.getByTestId('arrival-traces')).toHaveTextContent(/reached the collector \(3 received\)/)
+  })
 })

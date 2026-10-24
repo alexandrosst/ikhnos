@@ -1,4 +1,5 @@
 import type { AgentDiagnostics, AgentExportHealth, AgentExportRoute, ExportState } from './consent'
+import type { ReceiverHealthDoc } from './generated/wire'
 import { TELEMETRY_SIGNALS, type Modality } from './install'
 
 /**
@@ -18,6 +19,19 @@ export interface ExportRow {
   failed: number
   lastSentAt?: string
   lastFailedAt?: string
+  /** Some signal behind it is one that applications push (OTLP), so what the collector took in is part of the path. */
+  pushed: boolean
+  /** What the collectors' OTLP receiver took in for this type: the stage before the exporters. Absent: nothing has been seen arriving. */
+  received?: { state: ReceiverHealthDoc['state']; accepted: number; refused: number; lastAcceptedAt?: string; lastRefusedAt?: string }
+}
+
+/**
+ * Where applications send their telemetry in the cluster: the Service the agent's cluster collector sits behind, on the namespace the agent
+ * is installed in. gRPC on 4317 and HTTP on 4318; the chart's Service is called ikhnos-telemetry-cluster whatever the release is called.
+ */
+export function otlpAddress(namespace: string): { grpc: string; http: string } {
+  const host = `ikhnos-telemetry-cluster.${namespace}.svc`
+  return { grpc: `${host}:4317`, http: `${host}:4318` }
 }
 
 /** How alarming each state is, so that several exporters for one signal type show the worst. */
@@ -25,15 +39,28 @@ const RANK: Record<ExportState, number> = { waiting: 0, exporting: 1, silent: 2,
 
 const ORDER: Modality[] = ['metrics', 'logs', 'traces']
 
+/** The receiver's states by how alarming they are, as RANK is for the exporters. */
+const RECEIVER_RANK: Record<ReceiverHealthDoc['state'], number> = { waiting: 0, receiving: 1, silent: 2, refusing: 3 }
+
 const later = (a?: string, b?: string) => (a && b ? (Date.parse(a) >= Date.parse(b) ? a : b) : (a ?? b))
 
 export function exportRows(installed: string[], health: AgentExportHealth): ExportRow[] {
   const rows: ExportRow[] = []
   for (const modality of ORDER) {
-    const signals = TELEMETRY_SIGNALS.filter((s) => s.modality === modality && installed.includes(s.id)).map((s) => s.label)
+    const on = TELEMETRY_SIGNALS.filter((s) => s.modality === modality && installed.includes(s.id))
+    const signals = on.map((s) => s.label)
     if (signals.length === 0) continue
     const routes = health.routes.filter((r) => r.signal === modality)
-    const row: ExportRow = { modality, signals, state: 'waiting', exporters: [], sent: 0, failed: 0 }
+    const row: ExportRow = { modality, signals, state: 'waiting', exporters: [], sent: 0, failed: 0, pushed: on.some((s) => s.layer === 'application') }
+    for (const r of (health.receivers ?? []).filter((x) => x.signal === modality)) {
+      const got = row.received ?? { state: 'waiting' as const, accepted: 0, refused: 0 }
+      got.accepted += r.accepted
+      got.refused += r.refused
+      if (RECEIVER_RANK[r.state] > RECEIVER_RANK[got.state]) got.state = r.state
+      got.lastAcceptedAt = later(got.lastAcceptedAt, r.lastAcceptedAt)
+      got.lastRefusedAt = later(got.lastRefusedAt, r.lastRefusedAt)
+      row.received = got
+    }
     for (const r of routes) {
       row.exporters.push(r.exporter)
       row.sent += r.sent

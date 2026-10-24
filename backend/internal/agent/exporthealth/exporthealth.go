@@ -322,6 +322,25 @@ func (m *Monitor) Report() *ikhnosv1.ExportHealth {
 	})
 	for _, k := range keys {
 		st := m.routes[k]
+		if strings.HasPrefix(k.exporter, receiverPrefix) {
+			rc := &ikhnosv1.ReceiverHealth{Signal: k.signal, Accepted: st.sent, Refused: st.failed}
+			switch m.state(st, now) {
+			case ikhnosv1.ExportRouteHealth_EXPORTING:
+				rc.State = ikhnosv1.ReceiverHealth_RECEIVING
+			case ikhnosv1.ExportRouteHealth_SILENT:
+				rc.State = ikhnosv1.ReceiverHealth_SILENT
+			case ikhnosv1.ExportRouteHealth_FAILING:
+				rc.State = ikhnosv1.ReceiverHealth_REFUSING
+			}
+			if !st.lastSent.IsZero() {
+				rc.LastAcceptedAt = timestamppb.New(st.lastSent)
+			}
+			if !st.lastFailed.IsZero() {
+				rc.LastRefusedAt = timestamppb.New(st.lastFailed)
+			}
+			out.Receivers = append(out.Receivers, rc)
+			continue
+		}
 		r := &ikhnosv1.ExportRouteHealth{Exporter: k.exporter, Signal: k.signal, State: m.state(st, now), Sent: st.sent, Failed: st.failed}
 		if !st.lastSent.IsZero() {
 			r.LastSentAt = timestamppb.New(st.lastSent)
@@ -359,6 +378,10 @@ func parse(r io.Reader) (map[route]counts, error) {
 	sc.Buffer(make([]byte, 64<<10), 1<<20)
 	for sc.Scan() {
 		line := sc.Text()
+		if strings.HasPrefix(line, "otelcol_receiver_") {
+			parseReceiver(line, out)
+			continue
+		}
 		if !strings.HasPrefix(line, "otelcol_exporter_") {
 			continue
 		}
@@ -404,6 +427,55 @@ func parse(r io.Reader) (map[route]counts, error) {
 		out[k] = c
 	}
 	return out, sc.Err()
+}
+
+// receiverPrefix marks a route that is a receiver's, not an exporter's: the counters of what the collectors' OTLP receiver took in, kept
+// in the same table as the exporters' so that one history and one state rule serve both. Report splits them apart again.
+const receiverPrefix = "receiver:"
+
+// parseReceiver reads one otelcol_receiver_accepted_* or refused_* line. Only the OTLP receiver counts: it is the one applications push
+// to, and the stage before the exporters. The collectors' other receivers (the Kubernetes watches, the scrapes of Kepler and the cluster
+// links) are the agent's own and say nothing about whether an application is sending.
+func parseReceiver(line string, out map[route]counts) {
+	name, labels, value, ok := splitSample(line)
+	if !ok {
+		return
+	}
+	if r := labels["receiver"]; r != "otlp" && !strings.HasPrefix(r, "otlp/") {
+		return
+	}
+	name = strings.TrimSuffix(strings.TrimPrefix(name, "otelcol_receiver_"), "_total")
+	var refused bool
+	switch {
+	case strings.HasPrefix(name, "refused_"):
+		refused, name = true, strings.TrimPrefix(name, "refused_")
+	case strings.HasPrefix(name, "accepted_"):
+		name = strings.TrimPrefix(name, "accepted_")
+	default:
+		return
+	}
+	var signal string
+	switch name {
+	case "spans":
+		signal = "traces"
+	case "metric_points":
+		signal = "metrics"
+	case "log_records":
+		signal = "logs"
+	default:
+		return
+	}
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+		return
+	}
+	k := route{receiverPrefix + "otlp", signal}
+	c := out[k]
+	if refused {
+		c.failed += uint64(value)
+	} else {
+		c.sent += uint64(value)
+	}
+	out[k] = c
 }
 
 // splitSample splits "name{k=\"v\",...} 12 [timestamp]" into its parts. Label values are quoted and may hold

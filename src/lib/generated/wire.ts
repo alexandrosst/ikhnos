@@ -1111,6 +1111,7 @@ export interface ExportHealthDoc {
   podsFailed: number
   lastError?: string
   routes: ExportRouteHealthDoc[]
+  receivers: ReceiverHealthDoc[]
 }
 
 export interface ExportRouteHealthDoc {
@@ -2159,6 +2160,17 @@ export interface ReasonRequest {
 }
 
 export type ReceiverAuth = 'mtls' | 'bearer'
+
+export interface ReceiverHealthDoc {
+  signal: string
+  state: ReceiverState
+  accepted: number
+  refused: number
+  lastAcceptedAt?: string
+  lastRefusedAt?: string
+}
+
+export type ReceiverState = 'waiting' | 'receiving' | 'silent' | 'refusing'
 
 export interface RecordDecisionsRequest {
   entries: DecisionEntryDoc[]

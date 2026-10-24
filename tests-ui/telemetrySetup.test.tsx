@@ -10,8 +10,9 @@ function diag(o: { installed?: string[]; health?: AgentExportHealth; reportedAgo
   return { reportedAt: iso(o.reportedAgo ?? 30), agentVersion: '1', uptimeSeconds: 1, installedTier: 2, approvedTier: 2, effectiveTier: 2, pausedCollectors: [], excludedNamespaces: 0, collectors: [], informers: [], problems: [], installedTelemetry: o.installed ?? ['resourceUsage'], exportHealth: o.health }
 }
 const route = (signal: string, state: 'waiting' | 'exporting' | 'silent' | 'failing', more: object = {}) => ({ exporter: 'otlp', signal, state, sent: 5, failed: 0, ...more })
-const check = (d: AgentDiagnostics | undefined, o: { wanted?: string[]; waited?: number; connected?: boolean } = {}) =>
-  arrivalCheck({ wanted: o.wanted ?? ['resourceUsage'], diagnostics: d, connected: o.connected, waited: o.waited ?? 0, now: NOW, cluster: 'vradipus' })
+const check = (d: AgentDiagnostics | undefined, o: { wanted?: string[]; waited?: number; connected?: boolean; namespace?: string } = {}) =>
+  arrivalCheck({ wanted: o.wanted ?? ['resourceUsage'], diagnostics: d, connected: o.connected, waited: o.waited ?? 0, now: NOW, cluster: 'vradipus', namespace: o.namespace })
+const received = (signal: string, state: 'waiting' | 'receiving' | 'silent' | 'refusing', more: object = {}) => ({ signal, state, accepted: 0, refused: 0, ...more })
 
 describe('arrivalCheck: whether the data that was just set up arrives', () => {
   test('no report from the agent at all is Unknown, with the one thing to do', () => {
@@ -128,5 +129,52 @@ describe('clusterTelemetryLine: what a cluster does today, for the list that pic
     expect(clusterTelemetryLine(diag({ installed: [] }), NOW)).toBe('No telemetry set up yet')
     expect(clusterTelemetryLine(diag({ installed: ['resourceUsage', 'systemLogs', 'traces'], health: { podsReached: 1, podsFailed: 0, routes: [route('metrics', 'exporting', { lastSentAt: iso(120) })] } }), NOW)).toBe('Sends metrics, logs and traces · Last data 2 min ago')
     expect(clusterTelemetryLine(diag({ installed: ['resourceUsage'] }), NOW)).toBe('Sends metrics · No data yet')
+  })
+
+  describe('the stage that stopped the data, for what applications push', () => {
+    const traces = (receivers: object[], waited: number, routes: object[] = []) =>
+      check(diag({ installed: ['traces'], health: { podsReached: 1, podsFailed: 0, routes: routes as never, receivers: receivers as never } }), { wanted: ['traces'], waited, namespace: 'ikhnos' })
+
+    test('traces that never reached the collector say so, and name the address to send to', () => {
+      const early = traces([], 30)
+      expect(early.health).toBe('unknown')
+      expect(early.rows[0].sentence).toMatch(/Nothing has reached the collector/)
+      expect(early.otlp).toEqual({ grpc: 'ikhnos-telemetry-cluster.ikhnos.svc:4317', http: 'ikhnos-telemetry-cluster.ikhnos.svc:4318' })
+      const late = traces([], ARRIVAL_PATIENCE_SECONDS)
+      expect(late.health).toBe('attention')
+      expect(late.headline).toBe('No application has sent anything to the collector.')
+      expect(late.todo).toMatch(/OTLP exporter of the application/)
+    })
+
+    test('traces the collector took in but did not send on name the stage after it', () => {
+      const a = traces([received('traces', 'receiving', { accepted: 40 })], ARRIVAL_PATIENCE_SECONDS)
+      expect(a.rows[0].sentence).toMatch(/reached the collector \(40 received\) but none has gone out.*between the collector and the destination/)
+      expect(a.otlp).toBeUndefined()
+      expect(a.todo).toMatch(/collector pods in vradipus/)
+    })
+
+    test('a receiver that turned data away is not blamed on the destination', () => {
+      const a = traces([received('traces', 'refusing', { accepted: 2, refused: 9, lastRefusedAt: iso(20) })], 0)
+      expect(a.health).toBe('down')
+      expect(a.headline).toBe('The collector is turning away data from your applications.')
+      expect(a.rows[0].sentence).toMatch(/turned away 9 traces.*20 s ago/)
+    })
+
+    test('traces that went out are healthy, and an exporter that failed still blames the destination', () => {
+      expect(traces([received('traces', 'receiving', { accepted: 5 })], 0, [route('traces', 'exporting', { lastSentAt: iso(10) })]).health).toBe('healthy')
+      const failing = traces([received('traces', 'receiving', { accepted: 5 })], 0, [route('traces', 'failing', { sent: 0, failed: 3, lastFailedAt: iso(10) })])
+      expect(failing.headline).toMatch(/destination is refusing/)
+    })
+
+    test('infrastructure that only the agent reads is never told to wait for an application', () => {
+      const a = check(diag({ health: { podsReached: 1, podsFailed: 0, routes: [], receivers: [] } }), { waited: ARRIVAL_PATIENCE_SECONDS })
+      expect(a.otlp).toBeUndefined()
+      expect(a.rows[0].sentence).toMatch(/Nothing has gone out after/)
+    })
+
+    test('an agent that reports no receivers at all (an older one) is read as nothing seen', () => {
+      const a = check(diag({ installed: ['traces'], health: { podsReached: 1, podsFailed: 0, routes: [] } as never }), { wanted: ['traces'], waited: 0 })
+      expect(a.rows[0].sentence).toMatch(/Nothing has reached the collector/)
+    })
   })
 })
