@@ -1,6 +1,12 @@
 The Ikhnos controller is installed in {{ .Release.Namespace }}. It watches the IkhnosAgent resources of this namespace and keeps one
 agent installed in it.
 
+{{- if include "controller.bootstrapSpec" . }}
+The agent was asked for in this same command: the controller makes the IkhnosAgent called {{ "this-cluster" }} from the values you gave, and
+installs the agent. Watch it:
+
+  kubectl -n {{ .Release.Namespace }} get ikhnosagents -w
+{{- else }}
 Ask for an agent (the Connect a cluster page shows the server address, the CA pin and the one-time token):
 
   kubectl -n {{ .Release.Namespace }} create secret generic ikhnos-enrollment --from-literal=token=<the token>
@@ -20,6 +26,7 @@ Ask for an agent (the Connect a cluster page shows the server address, the CA pi
   YAML
 
   kubectl -n {{ .Release.Namespace }} get ikhnosagents
+{{- end }}
 
 The agent then appears on the server's page for approval, as any agent does. Deleting the resource uninstalls the agent; add
 spec.purgeIdentityOnDelete: true to also delete its identity Secret. This controller never talks to the server.

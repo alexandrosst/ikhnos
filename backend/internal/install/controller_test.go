@@ -99,115 +99,108 @@ func TestAValueInTheResourceIsOneScalarWhateverItHolds(t *testing.T) {
 	}
 }
 
-func TestTheControllerIsInstalledForTheTierAndNoMoreAndFromTheRegistryChosen(t *testing.T) {
-	got, err := ControllerInstall{Chart: "oci://reg.example/ikhnos-controller", Version: "1.2.3", MaxTier: 1, Registry: "reg.example/"}.Render()
+func TestOneCommandInstallsTheControllerAndAsksForTheAgent(t *testing.T) {
+	const token = "s3cr3t-token-value"
+	res := AgentResource{
+		Server: "ik.example.com:8443", CAPin: "sha256/AbC+/=", Tier: 1,
+		Collectors:    Collectors{NodeProbe: true},
+		Scope:         Scope{Namespaces: []string{"shop", "pay"}, Exclude: []string{"pay-test"}, Selector: "ikhnos.io/scope=yes"},
+		PurgeIdentity: true,
+		Image:         &ResourceImage{Repository: "reg.example/ikhnos", Tag: "1.2.3", Digest: "sha256:" + strings.Repeat("a", 64)},
+	}
+	c := ControllerInstall{Chart: "oci://reg.example/ikhnos-controller", Version: "1.2.3", MaxTier: 1, Registry: "reg.example/"}
+	got, err := c.Bootstrap(res, token)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"helm install ikhnos-controller oci://reg.example/ikhnos-controller", "--version 1.2.3", "--namespace ikhnos-system", "--create-namespace",
+		"helm upgrade --install ikhnos-controller oci://reg.example/ikhnos-controller", "--version 1.2.3", "--namespace ikhnos-system", "--create-namespace",
+		"--reset-then-reuse-values",
 		"--set maxAccessTier=1", "--set image.repository=reg.example/controller", "--set agent.image.repository=reg.example/ikhnos", "--set agent.linkImage.repository=reg.example/link",
+		"--set-string bootstrap.server=ik.example.com:8443", "--set-string bootstrap.caPin=sha256/AbC+/=", "--set-string bootstrap.token=" + token,
+		"--set bootstrap.collectors.nodeProbe=true", "--set bootstrap.scope.namespaces='{shop,pay}'", "--set bootstrap.scope.exclude='{pay-test}'",
+		"bootstrap.scope.selector=", "--set bootstrap.purgeIdentityOnDelete=true",
+		"--set-string bootstrap.image.repository=reg.example/ikhnos", "--set-string bootstrap.image.tag=1.2.3",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("%q is not in\n%s", want, got)
 		}
 	}
-	// With no registry the chart's own image names stand, and with no known version the command asks for none.
-	got, err = ControllerInstall{Chart: "oci://x/ikhnos-controller", MaxTier: 2}.Render()
+	// The resource is asked for at the tier the controller is given, which the chart reads from maxAccessTier: it is not said twice.
+	if strings.Contains(got, "bootstrap.accessTier") {
+		t.Errorf("the tier is said twice:\n%s", got)
+	}
+	// It is one command: nothing to run before it and nothing after.
+	if strings.Contains(got, "kubectl") || strings.Count(got, "helm ") != 1 {
+		t.Errorf("more than one command:\n%s", got)
+	}
+}
+
+func TestAPlainBootstrapSaysOnlyWhatTheInstallNeeds(t *testing.T) {
+	got, err := ControllerInstall{Chart: "oci://x/ikhnos-controller", MaxTier: 2}.Bootstrap(AgentResource{Server: "h:1", CAPin: "sha256/x", Tier: 2}, "tok")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(got, "image.") || strings.Contains(got, "--version") || !strings.Contains(got, "maxAccessTier=2") {
-		t.Errorf("a plain controller install:\n%s", got)
+	for _, word := range []string{"image.", "--version", "collectors", "scope", "purgeIdentityOnDelete"} {
+		if strings.Contains(got, word) {
+			t.Errorf("a plain install mentions %s:\n%s", word, got)
+		}
 	}
-	if _, err := (ControllerInstall{Chart: "oci://x/ikhnos-controller", MaxTier: 3}).Render(); err == nil {
+	if !strings.Contains(got, "maxAccessTier=2") || !strings.Contains(got, "bootstrap.token=tok") {
+		t.Errorf("a plain install:\n%s", got)
+	}
+	// A resource that asks for less than the controller may give is said.
+	got, err = ControllerInstall{Chart: "oci://x/c", MaxTier: 2}.Bootstrap(AgentResource{Server: "h:1", CAPin: "sha256/x", Tier: 1}, "tok")
+	if err != nil || !strings.Contains(got, "--set bootstrap.accessTier=1") {
+		t.Errorf("a lower tier was not said: %v\n%s", err, got)
+	}
+}
+
+func TestABootstrapTheControllerWouldRefuseIsNotWritten(t *testing.T) {
+	ok := AgentResource{Server: "h:1", CAPin: "sha256/x", Tier: 1}
+	c := ControllerInstall{Chart: "oci://x/c", MaxTier: 1}
+	if _, err := c.Bootstrap(ok, "tok"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Bootstrap(ok, ""); err == nil {
+		t.Error("a command with no token was written")
+	}
+	if _, err := (ControllerInstall{Chart: "oci://x/c", MaxTier: 3}).Bootstrap(ok, "tok"); err == nil {
 		t.Error("a tier above the highest was written")
 	}
-	if _, err := (ControllerInstall{Chart: "-oops", MaxTier: 1}).Render(); err == nil {
+	if _, err := (ControllerInstall{Chart: "-oops", MaxTier: 1}).Bootstrap(ok, "tok"); err == nil {
 		t.Error("a chart that is an option was written")
 	}
-}
-
-func TestTheTokenIsInTheSecretsCommandAndNowhereElse(t *testing.T) {
-	const token = "s3cr3t-token-value"
-	secret, err := ControllerTokenSecretCommand(token)
-	if err != nil {
-		t.Fatal(err)
+	bad := ok
+	bad.Collectors = Collectors{FlowObserver: true}
+	if _, err := c.Bootstrap(bad, "tok"); err == nil {
+		t.Error("a collector above its tier was written")
 	}
-	for _, want := range []string{"kind: Secret", "name: ikhnos-enrollment", "namespace: ikhnos-system", `token: "` + token + `"`, "<<'IKHNOS_SECRET'"} {
-		if !strings.Contains(secret, want) {
-			t.Errorf("%q is not in\n%s", want, secret)
-		}
-	}
-	// It is read from standard input: nothing on the command line, which every process on the machine can read.
-	if first, _, _ := strings.Cut(secret, "\n"); strings.Contains(first, token) {
-		t.Errorf("the token is on the command line: %s", first)
-	}
-	m, _ := AgentResource{Server: "h:1", CAPin: "sha256/x", Tier: 2}.Apply("ikhnos-system")
-	inst, _ := ControllerInstall{Chart: "oci://x/ikhnos-controller", MaxTier: 2}.Render()
-	if strings.Contains(m, token) || strings.Contains(inst, token) {
-		t.Error("the token reached the resource or the controller's install")
-	}
-}
-
-// The install asks the cluster whether the controller is there, and installs only when it is not. Run by a shell, with a stand-in for helm
-// that records what it was asked and says the release is there (or is not).
-func TestTheControllerIsInstalledOnlyWhenTheClusterHasNone(t *testing.T) {
-	c := ControllerInstall{Chart: "oci://reg.example/ikhnos-controller", Version: "1.2.3", MaxTier: 1, Registry: "reg.example"}
-	cmd, err := c.RenderIfAbsent()
-	if err != nil {
-		t.Fatal(err)
-	}
-	plain, _ := c.Render()
-	for _, present := range []bool{true, false} {
-		dir := t.TempDir()
-		log := filepath.Join(dir, "calls")
-		script := "#!/bin/sh\necho \"$*\" >> " + log + "\nif [ \"$1\" = status ]; then echo 'Error: release: not found' >&2; exit " + map[bool]string{true: "0", false: "1"}[present] + "; fi\n"
-		if err := os.WriteFile(filepath.Join(dir, "helm"), []byte(script), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		sh := exec.Command("sh", "-c", cmd)
-		sh.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"))
-		out, err := sh.CombinedOutput()
-		if err != nil {
-			t.Fatalf("present=%v: %v\n%s", present, err, out)
-		}
-		raw, _ := os.ReadFile(log)
-		calls := strings.Split(strings.TrimSpace(string(raw)), "\n")
-		installed := len(calls) == 2 && strings.HasPrefix(calls[1], "install ikhnos-controller oci://reg.example/ikhnos-controller")
-		if !strings.HasPrefix(calls[0], "status ikhnos-controller --namespace ikhnos-system") {
-			t.Errorf("present=%v: the first call was %q", present, calls[0])
-		}
-		if strings.Contains(string(out), "not found") {
-			t.Errorf("present=%v: what helm status says is shown:\n%s", present, out)
-		}
-		if present && (len(calls) != 1 || !strings.Contains(string(out), "already installed")) {
-			t.Errorf("a controller that is there was touched, or nothing said so: %q\n%s", calls, out)
-		}
-		if !present && !installed {
-			t.Errorf("no controller was installed: %q", calls)
-		}
-		if !present && !strings.Contains(strings.Join(calls, "\n"), "--set maxAccessTier=1") {
-			t.Errorf("the install lost its values: %q", calls)
-		}
-	}
-	// The install inside is the install alone, line for line.
-	for _, line := range strings.Split(plain, "\n") {
-		if !strings.Contains(cmd, line) {
-			t.Errorf("%q is not in\n%s", line, cmd)
-		}
-	}
-	// A failing install fails the block, so what is chained after it does not run.
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "helm"), []byte("#!/bin/sh\n[ \"$1\" = status ] && exit 1\nexit 7\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	sh := exec.Command("sh", "-c", Chain([]string{cmd, "echo ran-after"}))
-	sh.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"))
-	if out, err := sh.CombinedOutput(); err == nil || strings.Contains(string(out), "ran-after") {
-		t.Errorf("a failed install did not stop the chain: %v\n%s", err, out)
-	}
-	if _, err := (ControllerInstall{Chart: "oci://x/c", MaxTier: 3}).RaiseCeiling(); err == nil {
+	if _, err := (ControllerInstall{Chart: "oci://x/ikhnos-controller", MaxTier: 3}).RaiseCeiling(); err == nil {
 		t.Error("a tier above the highest was written")
+	}
+}
+
+// A value that holds shell syntax is still one word, and the command still ends where it should.
+func TestABootstrapValueIsOneShellWord(t *testing.T) {
+	res := AgentResource{Server: "h:1", CAPin: "sha256/x", Tier: 1, Image: &ResourceImage{Repository: "r/i", Tag: "a,b=$(touch /tmp/pwned)"}}
+	got, err := ControllerInstall{Chart: "oci://x/c", MaxTier: 1}.Bootstrap(res, "t'o\"k$(id)en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "args")
+	script := "#!/bin/sh\nfor a in \"$@\"; do printf '%s\\n' \"$a\" >> " + log + "; done\n"
+	if err := os.WriteFile(filepath.Join(dir, "helm"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sh := exec.Command("sh", "-c", got)
+	sh.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"))
+	if out, err := sh.CombinedOutput(); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	raw, _ := os.ReadFile(log)
+	if !strings.Contains(string(raw), "bootstrap.token=t'o\"k$(id)en") || !strings.Contains(string(raw), "b=$(touch /tmp/pwned)") {
+		t.Errorf("a value was not passed as it was written:\n%s", raw)
 	}
 }

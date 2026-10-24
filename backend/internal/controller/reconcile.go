@@ -74,8 +74,10 @@ type Reconciler struct {
 	// collectors watch: allowTelemetry in its chart). A resource that turns a signal on is refused without it, for the same reason a tier
 	// above MaxTier is: Kubernetes would refuse to create the ClusterRole.
 	AllowTelemetry bool
-	Log            *slog.Logger
-	Now            func() time.Time
+	// BootstrapConfigMap names the ConfigMap the chart wrote the first resource's spec into (empty: none; see Bootstrap).
+	BootstrapConfigMap string
+	Log                *slog.Logger
+	Now                func() time.Time
 }
 
 func (r *Reconciler) now() time.Time {

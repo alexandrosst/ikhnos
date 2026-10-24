@@ -72,6 +72,8 @@ describe('TelemetryPanel: the resource of a controller', () => {
     expect(await screen.findByTestId('tp-controller-command')).toHaveTextContent(patchTo(req))
     expect(screen.getByTestId('tp-controller-why')).toHaveTextContent('this-cluster')
     expect(screen.getByTestId('tp-controller-permission')).toHaveTextContent('allowTelemetry')
+    // The note comes with the command that gives the permission, as the server wrote it.
+    expect(screen.getByTestId('tp-controller-allow')).toHaveTextContent('--set allowTelemetry=true')
 
     // Back to helm: the command is what it was.
     await user.click(screen.getByTestId('tp-via-helm'))
@@ -79,7 +81,7 @@ describe('TelemetryPanel: the resource of a controller', () => {
   })
 
   test('a draft the resource cannot state says why there is no patch, and the helm command is still there', async () => {
-    tweak = (a) => ({ ...a, controller: { command: '', patch: '', needsTelemetryPermission: false, problems: ['extra processors are not on a resource yet: use the helm command'] } })
+    tweak = (a) => ({ ...a, controller: { command: '', patch: '', needsTelemetryPermission: false, allowTelemetry: '', problems: ['extra processors are not on a resource yet: use the helm command'] } })
     const user = userEvent.setup()
     renderPanel()
     await toRun(user)

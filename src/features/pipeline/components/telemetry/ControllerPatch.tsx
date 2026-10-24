@@ -48,10 +48,14 @@ export function ControllerPatch({ command, testId = 'controller-patch' }: { comm
         <>
           <CopyCommand text={c.command} testId={`${testId}-command`} />
           {c.needsTelemetryPermission && (
-            <p className="text-nb-400" data-testid={`${testId}-permission`}>
-              The controller must have been given the permissions telemetry needs: its chart&apos;s <code className="font-mono text-nb-300">allowTelemetry</code> value is on. Without it the
-              controller refuses the resource and says so in its status.
-            </p>
+            <div className="space-y-1.5" data-testid={`${testId}-permission`}>
+              <p className="text-nb-400">
+                The controller must have been given the permissions telemetry needs (its chart&apos;s <code className="font-mono text-nb-300">allowTelemetry</code> value). Without
+                them it refuses the resource and says so in its status.
+                {c.allowTelemetry ? ' If it was installed without them, run this first; it keeps everything else the controller was given:' : ''}
+              </p>
+              {c.allowTelemetry && <CopyCommand text={c.allowTelemetry} testId={`${testId}-allow`} />}
+            </div>
           )}
         </>
       )}

@@ -12,7 +12,7 @@ export const patchTo = (req: AgentUpgradeRequest) => `stub-patch ${JSON.stringif
 
 export async function answer(_conn: unknown, req: AgentUpgradeRequest): Promise<AgentUpgradeAnswer> {
   upgradeCalls.push(req)
-  return { command: answerTo(req), upgrade: answerTo(req), secretCommand: '', secrets: [], problems: [], controller: { command: patchTo(req), patch: patchTo(req), needsTelemetryPermission: !!req.telemetry, problems: [] } }
+  return { command: answerTo(req), upgrade: answerTo(req), secretCommand: '', secrets: [], problems: [], controller: { command: patchTo(req), patch: patchTo(req), needsTelemetryPermission: !!req.telemetry, allowTelemetry: req.telemetry ? 'helm upgrade ikhnos-controller oci://r.example/ikhnos-controller --reset-then-reuse-values --set allowTelemetry=true' : '', problems: [] } }
 }
 
 export const lastUpgrade = (): AgentUpgradeRequest => {

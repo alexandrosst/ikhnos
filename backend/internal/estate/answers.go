@@ -185,23 +185,19 @@ type createdTokenDoc struct {
 	Token      string        `json:"token"`
 }
 
-// controllerDoc is what to run to ask for the agent as an IkhnosAgent resource, in the order to run it: the controller (unless it is
-// already there), the Secret that holds the token, and the resource. The token is in the Secret's command only. Without a chart the
-// controller can be installed from there is nothing to run, and Reason says why.
+// controllerDoc is what to run to ask for the agent through the optional controller: one command, which installs the controller (or
+// updates one that is there), gives it the one-time token and asks it for the agent. Without a chart the controller can be installed
+// from there is nothing to run, and Reason says why.
 type controllerDoc struct {
 	Available bool `json:"available"`
-	// Install, Secret and Manifest are the three commands; Manifest is the resource's own text, ManifestCommand the command that applies it.
-	Install         string `json:"install"`
-	Manifest        string `json:"manifest"`
-	ManifestCommand string `json:"manifestCommand"`
-	// Install leaves a controller that is already installed as it is (it asks the cluster); Raise is the command that raises the ceiling of
-	// one that is, for a resource it refused.
+	// Install is the one command.
+	Install string `json:"install"`
+	// Raise is the command that raises the ceiling of a controller that is already installed with a lower one, for an agent it refused.
 	Raise string `json:"raise"`
-	// MaxTier is the access tier the controller is given permission for, and the most a resource may ask for.
+	// MaxTier is the access tier the controller is given permission for, and the most an agent it installs may ask for.
 	MaxTier   int    `json:"maxTier"`
 	Namespace string `json:"namespace"`
 	Reason    string `json:"reason"`
-	Secret    string `json:"secret"`
 }
 
 // agentTierDoc answers PUT /agents/{id}/tier. HardenHelm is there when the new tier is below what the install allows: the command that

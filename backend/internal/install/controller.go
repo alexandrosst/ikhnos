@@ -148,7 +148,7 @@ func (a AgentResource) Apply(namespace string) (string, error) {
 	return "kubectl apply -f - <<'YAML'\n" + m + "YAML", nil
 }
 
-// ControllerInstall is the `helm install` of the controller: the chart it is installed from, the access tier it is given permission for
+// ControllerInstall is the install of the controller: the chart it is installed from, the access tier it is given permission for
 // (and no more, because Kubernetes lets nobody grant what they do not hold), and the image registry the controller and the agents it
 // installs pull from.
 type ControllerInstall struct {
@@ -159,10 +159,32 @@ type ControllerInstall struct {
 	Registry string
 }
 
-// Render is the command.
-func (c ControllerInstall) Render() (string, error) {
+// Bootstrap is the one command that sets the whole install up: the controller, the Secret that holds the one-time token, and the
+// resource that asks for the agent. It is `helm upgrade --install`, so it is the same command whether the cluster has the controller or
+// not, and the controller chart writes the other two (see the chart's bootstrap values). A controller that is already there keeps what
+// it was given (--reset-then-reuse-values, so a permission such as allowTelemetry is not taken away by running this again) and is changed
+// by the values here: the ceiling is set to the one chosen, the resource to the one described. The token is on the command line, as it is in
+// the helm command that installs an agent without a controller: it is good for one enrollment and expires.
+func (c ControllerInstall) Bootstrap(a AgentResource, token string) (string, error) {
+	values, err := c.BootstrapValues(a, token)
+	if err != nil {
+		return "", err
+	}
+	return Helm{Verb: UpgradeInstall, Release: ControllerRelease, Chart: c.Chart, Version: c.Version, Namespace: DefaultNamespace, CreateNamespace: true,
+		ResetThenReuse: true, Values: values, Layout: Wrapped}.Render()
+}
+
+// BootstrapValues are the Helm values the command sets (HelmValues says what Helm makes of them), for a program or a test that installs the
+// chart itself.
+func (c ControllerInstall) BootstrapValues(a AgentResource, token string) ([]Value, error) {
 	if c.MaxTier < 0 || c.MaxTier > 2 {
-		return "", fmt.Errorf("install: the access tier %d is not 0, 1 or 2", c.MaxTier)
+		return nil, fmt.Errorf("install: the access tier %d is not 0, 1 or 2", c.MaxTier)
+	}
+	if err := a.Check(); err != nil {
+		return nil, err
+	}
+	if token == "" {
+		return nil, fmt.Errorf("install: there is no token to enroll with")
 	}
 	values := []Value{Set("maxAccessTier", strconv.Itoa(c.MaxTier))}
 	if r := strings.TrimRight(c.Registry, "/"); r != "" {
@@ -171,29 +193,41 @@ func (c ControllerInstall) Render() (string, error) {
 			Set("agent.image.repository", r+"/ikhnos"),
 			Set("agent.linkImage.repository", r+"/link"))
 	}
-	return Helm{Verb: Install, Release: ControllerRelease, Chart: c.Chart, Version: c.Version, Namespace: DefaultNamespace, CreateNamespace: true,
-		Values: values, Layout: Wrapped}.Render()
-}
-
-// RenderIfAbsent is the install that leaves a controller that is already there alone. The page cannot know whether the cluster has one (the
-// controller never talks to the server, and the cluster is not connected yet), so the command asks the cluster: `helm status` of the
-// release says, and only when there is none does it install. A controller that is there is not changed, whatever ceiling it was given;
-// RaiseCeiling is the command for that, when the resource is refused for it.
-func (c ControllerInstall) RenderIfAbsent() (string, error) {
-	installCmd, err := c.Render()
-	if err != nil {
-		return "", err
+	values = append(values,
+		SetString("bootstrap.server", a.Server),
+		SetString("bootstrap.caPin", a.CAPin),
+		SetString("bootstrap.token", token))
+	if a.Tier != c.MaxTier {
+		values = append(values, Set("bootstrap.accessTier", strconv.Itoa(a.Tier)))
 	}
-	said := fmt.Sprintf("%s is already installed in %s; leaving it as it is (a resource that asks for access tier %d is refused if its ceiling is lower)", ControllerRelease, DefaultNamespace, c.MaxTier)
-	var b strings.Builder
-	b.WriteString("if helm status " + Arg(ControllerRelease) + " --namespace " + Arg(DefaultNamespace) + " >/dev/null 2>&1; then\n")
-	b.WriteString("  echo " + Quote(said) + "\n")
-	b.WriteString("else\n")
-	for _, line := range strings.Split(installCmd, "\n") {
-		b.WriteString("  " + line + "\n")
+	for _, f := range []struct {
+		on   bool
+		name string
+	}{{a.Collectors.NodeProbe, "nodeProbe"}, {a.Collectors.FlowObserver, "flowObserver"}, {a.Collectors.Measurements, "measurements"}} {
+		if f.on {
+			values = append(values, Set("bootstrap.collectors."+f.name, "true"))
+		}
 	}
-	b.WriteString("fi")
-	return b.String(), nil
+	if len(a.Scope.Namespaces) > 0 {
+		values = append(values, Strings("bootstrap.scope.namespaces", a.Scope.Namespaces))
+	}
+	if len(a.Scope.Exclude) > 0 {
+		values = append(values, Strings("bootstrap.scope.exclude", a.Scope.Exclude))
+	}
+	if a.Scope.Selector != "" {
+		values = append(values, SetString("bootstrap.scope.selector", a.Scope.Selector))
+	}
+	if a.PurgeIdentity {
+		values = append(values, Set("bootstrap.purgeIdentityOnDelete", "true"))
+	}
+	if im := a.Image; im != nil {
+		for _, kv := range [][2]string{{"repository", im.Repository}, {"tag", im.Tag}, {"digest", im.Digest}} {
+			if kv[1] != "" {
+				values = append(values, SetString("bootstrap.image."+kv[0], kv[1]))
+			}
+		}
+	}
+	return values, nil
 }
 
 // RaiseCeiling is the command that raises the ceiling of a controller that is already installed, keeping the rest of what it was given.
@@ -205,8 +239,9 @@ func (c ControllerInstall) RaiseCeiling() (string, error) {
 		Values: []Value{Set("maxAccessTier", strconv.Itoa(c.MaxTier))}, Layout: OneLine}.Render()
 }
 
-// ControllerTokenSecretCommand is the command that creates the Secret the resource names, holding the token. The token is read from the
-// manifest on standard input, never from an argument (see Secret).
-func ControllerTokenSecretCommand(token string) (string, error) {
-	return Secret{Name: ControllerTokenSecret, Namespace: DefaultNamespace, Entries: []Entry{{Key: ControllerTokenKey, Value: token}}}.Render()
+// AllowTelemetry is the command that gives a controller that is already installed the permissions telemetry needs, keeping the rest of what
+// it was given. Without them it refuses an agent resource that asks for telemetry, and says so in its status.
+func (c ControllerInstall) AllowTelemetry() (string, error) {
+	return Helm{Verb: Upgrade, Release: ControllerRelease, Chart: c.Chart, Version: c.Version, Namespace: DefaultNamespace, ResetThenReuse: true,
+		Values: []Value{Set("allowTelemetry", "true")}, Layout: OneLine}.Render()
 }

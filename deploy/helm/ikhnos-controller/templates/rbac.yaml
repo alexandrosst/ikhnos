@@ -20,6 +20,16 @@ rules:
   - apiGroups: [ikhnos.io]
     resources: [ikhnosagents]
     verbs: [get, list, watch, update, patch]
+{{- if include "controller.bootstrapSpec" . }}
+  # The bootstrap: make the first IkhnosAgent from the ConfigMap the chart wrote, and say on that one ConfigMap that it was made.
+  - apiGroups: [ikhnos.io]
+    resources: [ikhnosagents]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [ikhnos-controller-bootstrap]
+    verbs: [get, patch]
+{{- end }}
   - apiGroups: [ikhnos.io]
     resources: [ikhnosagents/status]
     verbs: [get, update, patch]

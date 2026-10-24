@@ -2,7 +2,39 @@
 
 Optional. Keeps an Ikhnos agent installed in this cluster from an `IkhnosAgent` resource, so `kubectl apply` can be the way an agent is asked for. It installs the same agent chart the Connect a cluster page's `helm install` does, from the same choices, and never talks to the Ikhnos server. The reasoning, and what it deliberately does not do, is in [Installing and removing what Ikhnos installs](../../../docs-site/docs/architecture/lifecycle.md).
 
-## Install
+## Install, and ask for the agent, in one command
+
+The Connect a cluster page's `kubectl (controller)` tab prints this, already filled in, with the one-time token:
+
+```sh
+helm upgrade --install ikhnos-controller oci://ghcr.io/<owner>/ikhnos-controller \
+  --namespace ikhnos-system --create-namespace --reset-then-reuse-values \
+  --set maxAccessTier=1 \
+  --set-string bootstrap.server=ikhnos.example.com:8443 \
+  --set-string bootstrap.caPin=sha256/... \
+  --set-string bootstrap.token=ikh_...
+```
+
+Nothing is created first. The chart writes the Secret that holds the token (`ikhnos-enrollment`) and a small ConfigMap that describes the agent; the controller reads that ConfigMap when it starts, makes the `IkhnosAgent` called `this-cluster` from it, and installs the agent. Watch it with `kubectl -n ikhnos-system get ikhnosagents -w`.
+
+The same command works on a cluster that already has the controller: `--reset-then-reuse-values` keeps what it was given (an `allowTelemetry` you turned on stays on) and changes what you say. The page sizes `maxAccessTier` from the access level chosen in its wizard, so the controller holds the permissions of that tier and no more. To raise it later: `helm upgrade ikhnos-controller <chart> -n ikhnos-system --reset-then-reuse-values --set maxAccessTier=2`.
+
+What the `bootstrap.*` values are:
+
+| Value | |
+|---|---|
+| `bootstrap.server`, `bootstrap.caPin`, `bootstrap.token` | Where the server is, the pin of its CA, and the one-time token. Giving a server without a pin is refused when Helm renders. |
+| `bootstrap.accessTier` | The tier to ask for, when lower than `maxAccessTier` (absent: `maxAccessTier`). |
+| `bootstrap.collectors.nodeProbe`, `.flowObserver`, `.measurements` | The collectors of the Connect page. |
+| `bootstrap.scope.namespaces`, `.exclude`, `.selector` | The scope of the Connect page. |
+| `bootstrap.purgeIdentityOnDelete` | Delete the agent's identity Secret when the resource is deleted. |
+| `bootstrap.image.repository`, `.tag`, `.digest` | The agent image, when not the chart's. |
+
+The bootstrap makes the resource **once**. The controller records what it applied on the ConfigMap, so a resource you deleted on purpose is not made again by a restart; a different bootstrap (a new `helm upgrade` with other values) changes only the fields it owns, and leaves the rest, such as `telemetry`, as they are. The resource is yours afterwards: `kubectl edit` it, keep it in git, or delete it to uninstall the agent. The token is good for one enrollment and expires; Helm keeps the values of a release in its release Secret, so the token is there too until it expires or the release is removed.
+
+### Without the bootstrap
+
+The controller alone, to ask for agents yourself with `kubectl`:
 
 ```sh
 helm install ikhnos-controller oci://ghcr.io/<owner>/ikhnos-controller --namespace ikhnos-system --create-namespace
@@ -20,8 +52,6 @@ helm install ikhnos-controller ./deploy/helm/ikhnos-controller -n ikhnos-system 
 ```
 
 (`scripts/publish.sh <registry>` with `ONLY=controller` publishes the controller image and this chart.)
-
-## Ask for an agent
 
 ```sh
 kubectl -n ikhnos-system create secret generic ikhnos-enrollment --from-literal=token=<the token from the Connect page>
@@ -60,6 +90,7 @@ The agent then appears on the server's page for approval, as any agent does. Del
 | `agent.linkImage.repository` | `ikhnos/link` | The cluster-link image. |
 | `maxAccessTier` | `2` | The highest tier a resource may ask for, and the most the controller holds permissions for (below). |
 | `allowTelemetry` | `false` | Whether a resource may turn telemetry on (`spec.telemetry`); on, the controller holds the reads the telemetry collectors need (below). |
+| `bootstrap.*` | none | Ask for the agent in the same command (above). |
 | `timeout` | `5m` | How long one install, upgrade or uninstall (with its hooks) may take. |
 
 ## Permissions
@@ -74,7 +105,7 @@ It also holds, in its own namespace, Secrets (Helm keeps its release records the
 
 `spec.telemetry` is the Telemetry panel's draft in a resource's words: the signals, where each comes from, the scope, the destination (or one per kind of signal), the processing and the owner stamp. A resource states all of the agent's telemetry: the controller installs the chart again with only what the resource says (the install is `ResetValues`), so a `helm upgrade` of this release is put back, and the panel's `kubectl (controller)` tab patches the resource instead. Credentials are never in it: a destination names the Secret it is read from, the same Secret the panel's command creates. Extra processors and a regional operator as the destination are not on a resource yet; the panel says so and the helm command stays.
 
-Telemetry is off by default in the chart, because its collectors read the pods, nodes, workloads and events cluster-wide, and the agent's ClusterRole for them can be created only by someone who holds what it grants. With `allowTelemetry: true` the controller holds those reads, and may create the ConfigMaps and NetworkPolicies telemetry makes; with it off, a resource that turns a signal on is refused with a message. Take `spec.telemetry` out of a resource (and let the controller upgrade) before turning `allowTelemetry` off again, since removing telemetry's objects needs the permissions too. The same test as above holds these rules to the agent chart rendered for every telemetry choice, in both directions.
+Telemetry is off by default in the chart, because its collectors read the pods, nodes, workloads and events cluster-wide, and the agent's ClusterRole for them can be created only by someone who holds what it grants. With `allowTelemetry: true` the controller holds those reads, and may create the ConfigMaps and NetworkPolicies telemetry makes; with it off, a resource that turns a signal on is refused with a message. When the panel's `kubectl (controller)` tab needs the permission it prints the command: `helm upgrade ikhnos-controller <chart> -n ikhnos-system --reset-then-reuse-values --set allowTelemetry=true`. Take `spec.telemetry` out of a resource (and let the controller upgrade) before turning `allowTelemetry` off again, since removing telemetry's objects needs the permissions too. The same test as above holds these rules to the agent chart rendered for every telemetry choice, in both directions.
 
 ## Removing
 

@@ -22,8 +22,16 @@ spec:
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- with .Values.podAnnotations }}
-      annotations: {{- toYaml . | nindent 8 }}
+      {{- $bootstrap := include "controller.bootstrapSpec" . }}
+      {{- if or .Values.podAnnotations $bootstrap }}
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if $bootstrap }}
+        # A new bootstrap is a new pod: it asks for the agent when it starts.
+        checksum/bootstrap: {{ $bootstrap | sha256sum }}
+        {{- end }}
       {{- end }}
     spec:
       serviceAccountName: {{ include "controller.name" . }}
@@ -53,6 +61,10 @@ spec:
               value: {{ .Values.agent.image.tag | quote }}
             - name: IKHNOS_LINK_IMAGE_REPOSITORY
               value: {{ .Values.agent.linkImage.repository | quote }}
+            {{- if $bootstrap }}
+            - name: IKHNOS_BOOTSTRAP_CONFIGMAP
+              value: ikhnos-controller-bootstrap
+            {{- end }}
           ports:
             - {name: health, containerPort: 8081, protocol: TCP}
           livenessProbe:

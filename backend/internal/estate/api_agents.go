@@ -187,9 +187,9 @@ func (h *API) createToken(w http.ResponseWriter, r *http.Request) {
 	httpkit.WriteJSON(w, 201, createdTokenDoc{Token: secret, Meta: toTokenDoc(t), Install: cmd, Controller: ctl})
 }
 
-// controllerSteps writes the install as an IkhnosAgent resource, from the choices the helm command was written from. It cannot fail the
-// request: the token exists and the helm command is the answer, so a step that cannot be written is told as the reason there is no
-// controller view.
+// controllerSteps writes the install as one command for the optional controller, from the choices the helm command was written from. It
+// cannot fail the request: the token exists and the helm command is the answer, so a command that cannot be written is told as the reason
+// there is no controller view.
 func (h *API) controllerSteps(r *http.Request, img kernel.ImageConfig, secret string, tier int, req createTokenRequest) controllerDoc {
 	doc := controllerDoc{Namespace: install.DefaultNamespace, MaxTier: tier}
 	ref, version := h.Settings.ControllerChart(img)
@@ -204,27 +204,18 @@ func (h *API) controllerSteps(r *http.Request, img kernel.ImageConfig, secret st
 		registry = img.Registry
 		res.Image = &install.ResourceImage{Repository: img.Registry + "/ikhnos", Tag: img.Tag, Digest: img.Digest}
 	}
-	steps := [3]string{}
-	var err error
 	ctl := install.ControllerInstall{Chart: ref, Version: version, MaxTier: tier, Registry: registry}
-	if doc.Raise, err = ctl.RaiseCeiling(); err == nil {
-		if steps[0], err = ctl.RenderIfAbsent(); err == nil {
-			if steps[1], err = install.ControllerTokenSecretCommand(secret); err == nil {
-				doc.Manifest, err = res.Manifest(install.DefaultNamespace)
-			}
-		}
-	}
+	cmd, err := ctl.Bootstrap(res, secret)
 	if err == nil {
-		steps[2], err = res.Apply(install.DefaultNamespace)
+		doc.Raise, err = ctl.RaiseCeiling()
 	}
 	if err != nil {
-		h.For(r).Log.Error("the controller steps cannot be written", "err", err)
-		doc.Manifest, doc.Raise = "", ""
-		doc.Reason = "The resource cannot be written for this server's settings; the helm command is the way to install this agent."
+		h.For(r).Log.Error("the controller command cannot be written", "err", err)
+		doc.Reason = "The command cannot be written for this server's settings; the helm command is the way to install this agent."
+		doc.Raise = ""
 		return doc
 	}
-	doc.Available = true
-	doc.Install, doc.Secret, doc.ManifestCommand = steps[0], steps[1], steps[2]
+	doc.Available, doc.Install = true, cmd
 	return doc
 }
 

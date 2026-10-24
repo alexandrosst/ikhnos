@@ -1,0 +1,25 @@
+{{- $spec := include "controller.bootstrapSpec" . }}
+{{- if $spec }}
+# The agent this controller was installed to ask for (values.yaml, bootstrap). The controller makes the IkhnosAgent from the ConfigMap
+# once and records that on it; the token is the Secret the resource names.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ikhnos-controller-bootstrap
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "controller.labels" . | nindent 4 }}
+data:
+  spec.json: {{ $spec | quote }}
+{{- if .Values.bootstrap.token }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ikhnos-enrollment
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "controller.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  token: {{ .Values.bootstrap.token | quote }}
+{{- end }}
+{{- end }}

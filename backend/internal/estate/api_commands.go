@@ -49,6 +49,9 @@ type controllerUpgradeDoc struct {
 	Patch   string `json:"patch"`
 	// NeedsTelemetryPermission is whether the controller must have been installed with allowTelemetry for the resource to be accepted.
 	NeedsTelemetryPermission bool `json:"needsTelemetryPermission"`
+	// AllowTelemetry is the command that gives the controller that permission (empty when it is not needed, or when this server cannot name
+	// the controller's chart).
+	AllowTelemetry string `json:"allowTelemetry"`
 	// Problems say why there is no patch for these settings (and say nothing when there is no change to make).
 	Problems []string `json:"problems"`
 }
@@ -56,7 +59,7 @@ type controllerUpgradeDoc struct {
 // controllerUpgrade writes the resource patch for a request: the tier, and the telemetry as the resource states it. Telemetry that
 // the resource cannot state (extra processors, a regional operator, a part left as installed) is told as problems, and the helm
 // block remains.
-func controllerUpgrade(req agentUpgradeRequest, namespace string, secretCommands []string) controllerUpgradeDoc {
+func controllerUpgrade(req agentUpgradeRequest, namespace string, secretCommands []string, allowTelemetry string) controllerUpgradeDoc {
 	doc := controllerUpgradeDoc{Problems: []string{}}
 	if req.Tier == nil && req.Telemetry == nil {
 		return doc
@@ -84,6 +87,7 @@ func controllerUpgrade(req agentUpgradeRequest, namespace string, secretCommands
 				return doc
 			}
 			doc.NeedsTelemetryPermission = true
+			doc.AllowTelemetry = allowTelemetry
 		}
 		patch.SetTelemetry, patch.Telemetry = true, rt
 	}
@@ -142,8 +146,21 @@ func (h *API) agentUpgradeCommand(w http.ResponseWriter, r *http.Request) {
 		doc.SecretCommand = install.Chain(commands)
 	}
 	doc.Command = install.Chain(append(commands, upgrade))
-	doc.Controller = controllerUpgrade(req, up.TargetNamespace(), commands)
+	doc.Controller = controllerUpgrade(req, up.TargetNamespace(), commands, h.allowTelemetryCommand(img))
 	httpkit.WriteJSON(w, http.StatusOK, doc)
+}
+
+// allowTelemetryCommand is the command that lets the controller install telemetry, or "" when this server has no chart to name for it.
+func (h *API) allowTelemetryCommand(img kernel.ImageConfig) string {
+	ref, version := h.Settings.ControllerChart(img)
+	if ref == "" {
+		return ""
+	}
+	cmd, err := install.ControllerInstall{Chart: ref, Version: version}.AllowTelemetry()
+	if err != nil {
+		return ""
+	}
+	return cmd
 }
 
 // installChoices are the Helm values for what a new install is asked to switch on or narrow (install.AgentChoices, which the controller

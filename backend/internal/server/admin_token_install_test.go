@@ -155,41 +155,31 @@ func TestAControllerViewIsOfferedWhenTheControllersChartCanBeNamed(t *testing.T)
 		t.Fatalf("%v", c)
 	}
 	str := func(k string) string { return c[k].(string) }
-	for _, want := range []string{"helm install ikhnos-controller oci://reg.example/team/ikhnos-controller", "--version 0.0.0-edge.abc", "--set maxAccessTier=1",
-		"--set image.repository=reg.example/team/controller", "--set agent.image.repository=reg.example/team/ikhnos"} {
+	// One command, whether or not the cluster already has the controller; it makes the Secret and the resource itself.
+	for _, want := range []string{"helm upgrade --install ikhnos-controller oci://reg.example/team/ikhnos-controller", "--version 0.0.0-edge.abc", "--create-namespace",
+		"--reset-then-reuse-values", "--set maxAccessTier=1", "--set image.repository=reg.example/team/controller", "--set agent.image.repository=reg.example/team/ikhnos",
+		"--set-string bootstrap.server=ik.example.com:8443", "--set-string bootstrap.token=" + token, "--set bootstrap.collectors.nodeProbe=true",
+		"--set bootstrap.scope.namespaces='{shop}'", "--set bootstrap.purgeIdentityOnDelete=true", "--set-string bootstrap.image.repository=reg.example/team/ikhnos"} {
 		if !strings.Contains(str("install"), want) {
 			t.Errorf("%q is not in the controller's install:\n%s", want, str("install"))
 		}
 	}
-	// The cluster is asked first, so a controller that is there is left alone; and a refused ceiling has its own command.
-	if !strings.HasPrefix(str("install"), "if helm status ikhnos-controller --namespace ikhnos-system ") || !strings.HasSuffix(str("install"), "\nfi") {
-		t.Errorf("the install does not ask the cluster first:\n%s", str("install"))
+	if strings.Contains(str("install"), "kubectl") || strings.Count(str("install"), "helm ") != 1 {
+		t.Errorf("the install is more than one command:\n%s", str("install"))
 	}
+	for _, gone := range []string{"secret", "manifest", "manifestCommand"} {
+		if _, there := c[gone]; there {
+			t.Errorf("the controller view still has %q", gone)
+		}
+	}
+	// A refused ceiling has its own command.
 	if want := "helm upgrade ikhnos-controller oci://reg.example/team/ikhnos-controller --version 0.0.0-edge.abc --namespace ikhnos-system --reset-then-reuse-values --set maxAccessTier=1"; str("raise") != want {
 		t.Errorf("the command that raises the ceiling:\n%s", str("raise"))
 	}
-	for _, want := range []string{"kind: IkhnosAgent", `address: "ik.example.com:8443"`, "accessTier: 1", "nodeProbe: true", `namespaces: ["shop"]`, "purgeIdentityOnDelete: true",
-		`repository: "reg.example/team/ikhnos"`, "name: ikhnos-enrollment"} {
-		if !strings.Contains(str("manifest"), want) {
-			t.Errorf("%q is not in the resource:\n%s", want, str("manifest"))
-		}
-	}
-	if str("manifestCommand") != "kubectl apply -f - <<'YAML'\n"+str("manifest")+"YAML" {
-		t.Errorf("the command that applies the resource is not the resource:\n%s", str("manifestCommand"))
-	}
-	// The token is in the one command that makes the Secret, and in nothing the person might keep or share.
-	if !strings.Contains(str("secret"), token) || !strings.Contains(str("secret"), "name: ikhnos-enrollment") {
-		t.Errorf("the Secret's command lacks the token:\n%s", str("secret"))
-	}
-	for _, k := range []string{"install", "manifest", "manifestCommand"} {
-		if strings.Contains(str(k), token) {
-			t.Errorf("the token is in the controller's %s", k)
-		}
-	}
-	// The pin the helm command carries is the pin the resource carries.
+	// The pin the helm command carries is the pin the controller's command carries.
 	pin := strings.TrimSuffix(strings.SplitN(strings.SplitN(helm, "enrollment.key=", 2)[1], token, 2)[0], ".")
-	if pin == "" || !strings.Contains(str("manifest"), pin) {
-		t.Errorf("the resource does not carry the pin %q the helm command does:\n%s", pin, str("manifest"))
+	if pin == "" || !strings.Contains(str("install"), "bootstrap.caPin="+pin) {
+		t.Errorf("the controller's command does not carry the pin %q the helm command does:\n%s", pin, str("install"))
 	}
 	if c["maxTier"] != float64(1) || c["namespace"] != "ikhnos-system" {
 		t.Errorf("%v", c)
@@ -208,7 +198,7 @@ func TestAControllerViewIsNotOfferedWithoutAChartToInstallItFrom(t *testing.T) {
 		if c["available"] != false || !strings.Contains(c["reason"].(string), "registry") {
 			t.Errorf("%s: %v", name, c)
 		}
-		for _, k := range []string{"install", "raise", "secret", "manifest", "manifestCommand"} {
+		for _, k := range []string{"install", "raise"} {
 			if c[k] != "" {
 				t.Errorf("%s: %s = %q", name, k, c[k])
 			}

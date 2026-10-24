@@ -30,11 +30,8 @@ const CONTROLLER = {
   reason: '',
   namespace: 'ikhnos-system',
   maxTier: 2,
-  install: 'if helm status ikhnos-controller --namespace ikhnos-system >/dev/null 2>&1; then\n  echo present\nelse\n  helm install ikhnos-controller oci://r.example/ikhnos-controller \\\n  --set maxAccessTier=2\nfi',
+  install: 'helm upgrade --install ikhnos-controller oci://r.example/ikhnos-controller \\\n  --namespace ikhnos-system --create-namespace \\\n  --set maxAccessTier=2 \\\n  --set-string bootstrap.token=ikh_x',
   raise: 'helm upgrade ikhnos-controller oci://r.example/ikhnos-controller --namespace ikhnos-system --reset-then-reuse-values --set maxAccessTier=2',
-  secret: "kubectl apply --server-side -f - <<'IKHNOS_SECRET'\nstringData:\n  token: \"ikh_x\"\nIKHNOS_SECRET",
-  manifest: 'kind: IkhnosAgent\n',
-  manifestCommand: "kubectl apply -f - <<'YAML'\nkind: IkhnosAgent\nYAML",
 }
 const SERVED = 'helm install ikhnos-agent oci://r.example/ikhnos-agent \\\n  --namespace ikhnos-system \\\n  --set enrollment.key=PIN.ikh_x'
 
@@ -160,20 +157,17 @@ describe('ConnectClusterWizard: the same install as a resource for the controlle
     expect(screen.queryByTestId('controller-steps')).not.toBeInTheDocument()
   })
 
-  test('shows the three things to run, in order, as the server wrote them', async () => {
+  test('shows one command, as the server wrote it, with nothing to run before it', async () => {
     const user = await made()
     await user.click(screen.getByTestId('install-tab-controller'))
     const steps = await screen.findByTestId('controller-steps')
     expect(screen.queryByTestId('install-command')).not.toBeInTheDocument()
-    const order = ['controller-install', 'controller-secret', 'controller-manifest'].map((id) => screen.getByTestId(id))
-    expect(order.map((e) => e.textContent)).toEqual([CONTROLLER.install, CONTROLLER.secret, CONTROLLER.manifestCommand])
-    // In the order the page lists them, top to bottom.
-    for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    // The token is in the Secret's command and in no other.
-    expect(order.map((e) => e.textContent?.includes('ikh_x'))).toEqual([false, true, false])
+    expect(screen.getByTestId('controller-install').textContent).toBe(CONTROLLER.install)
+    expect(screen.queryByTestId('controller-secret')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('controller-manifest')).not.toBeInTheDocument()
     expect(steps).toHaveTextContent('maxAccessTier=2')
-    // A controller that is there is left alone, and the command for a ceiling too low is the server's, not a placeholder.
-    expect(screen.getByTestId('controller-install')).toHaveTextContent('helm status ikhnos-controller')
+    expect(steps).toHaveTextContent('That is all there is to do')
+    // The command for a ceiling that is too low is the server's, not a placeholder.
     expect(screen.getByTestId('controller-raise').textContent).toBe(CONTROLLER.raise)
     expect(steps).not.toHaveTextContent('<chart>')
   })
@@ -189,7 +183,7 @@ describe('ConnectClusterWizard: the same install as a resource for the controlle
   test('says why there is nothing to run when the server cannot name the controller chart', async () => {
     createToken.mockResolvedValue({
       token: 'ikh_x', install: SERVED, meta: { id: 't1', name: 'cluster-1', tier: 2, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3_600_000).toISOString() },
-      controller: { available: false, reason: 'This server has no image registry configured.', namespace: 'ikhnos-system', maxTier: 2, install: '', raise: '', secret: '', manifest: '', manifestCommand: '' },
+      controller: { available: false, reason: 'This server has no image registry configured.', namespace: 'ikhnos-system', maxTier: 2, install: '', raise: '' },
     })
     const user = await made()
     await user.click(screen.getByTestId('install-tab-controller'))

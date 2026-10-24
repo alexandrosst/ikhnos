@@ -7,6 +7,7 @@ import (
 
 	"ikhnos/internal/accounts"
 	"ikhnos/internal/install"
+	"ikhnos/internal/installcfg"
 )
 
 // controllerAnswer is the controller block of the endpoint's answer, read back.
@@ -15,6 +16,7 @@ type controllerAnswer struct {
 		Command                  string   `json:"command"`
 		Patch                    string   `json:"patch"`
 		NeedsTelemetryPermission bool     `json:"needsTelemetryPermission"`
+		AllowTelemetry           string   `json:"allowTelemetry"`
 		Problems                 []string `json:"problems"`
 	} `json:"controller"`
 }
@@ -162,5 +164,28 @@ func TestAgentUpgradeCommandPatchNeverPastesAHostileNamespace(t *testing.T) {
 		if p := out.Controller.Patch; strings.Contains(p, hostile) || !strings.HasPrefix(p, "kubectl --namespace ikhnos-system patch ") {
 			t.Errorf("%q reached the patch: %q", hostile, p)
 		}
+	}
+}
+
+// When the controller must be given permission for telemetry, the answer carries the command that gives it (and only then), so the page
+// never says "turn on allowTelemetry" and leaves the person to work out how.
+func TestTheCommandThatGivesTheControllerTelemetryPermissionIsInTheAnswer(t *testing.T) {
+	a := adminRigWith(t, installcfg.Settings{AgentAddr: "ik.example.com:8443", ImageRegistry: "reg.example/team", ControllerChartVersion: "0.0.0-edge.abc"})
+	_, cookie := a.user(t, "ed", accounts.RoleEditor)
+	out := a.controllerUpgrade(t, cookie, map[string]any{"telemetry": telemetryDraft(nil)})
+	want := "helm upgrade ikhnos-controller oci://reg.example/team/ikhnos-controller --version 0.0.0-edge.abc --namespace ikhnos-system --reset-then-reuse-values --set allowTelemetry=true"
+	if c := out.Controller; !c.NeedsTelemetryPermission || c.AllowTelemetry != want {
+		t.Fatalf("telemetry on: %+v\nwant %s", c, want)
+	}
+	out = a.controllerUpgrade(t, cookie, map[string]any{"tier": 1})
+	if c := out.Controller; c.NeedsTelemetryPermission || c.AllowTelemetry != "" {
+		t.Fatalf("a tier needs no permission: %+v", c)
+	}
+	// A server with no controller chart to name says nothing it cannot back.
+	b := adminRigWith(t, installcfg.Settings{AgentAddr: "x:1"})
+	_, cookieB := b.user(t, "ed", accounts.RoleEditor)
+	out = b.controllerUpgrade(t, cookieB, map[string]any{"telemetry": telemetryDraft(nil)})
+	if c := out.Controller; !c.NeedsTelemetryPermission || c.AllowTelemetry != "" {
+		t.Fatalf("no chart: %+v", c)
 	}
 }

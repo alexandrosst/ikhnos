@@ -47,3 +47,18 @@ tolerations: []
 affinity: {}
 podAnnotations: {}
 podLabels: {}
+
+# Ask for the agent in the same command that installs the controller, so that one `helm install` is all there is to run. The Connect
+# page fills these in. With a server address set, the chart writes the one-time token into the Secret the resource names, writes the
+# resource's spec into a ConfigMap, and the controller makes the IkhnosAgent from it, once. After that the resource is yours: edit it,
+# patch it, delete it. Running the command again with other values changes the fields it states and leaves the rest (the telemetry you
+# set since, say). Leave `server` empty to ask for the agent yourself with `kubectl apply` (see the notes the install prints).
+bootstrap:
+  server: ""        # host:port of the server's agent listener
+  caPin: ""         # sha256/... : the pin of the server's CA, from the Connect page
+  token: ""         # the one-time enrollment token (a Secret named ikhnos-enrollment holds it; it can be deleted once the agent has enrolled)
+  accessTier: null  # the tier to install at; empty: maxAccessTier
+  collectors: {}    # nodeProbe, flowObserver, measurements: true
+  scope: {}         # namespaces, exclude (lists), selector (a label selector)
+  purgeIdentityOnDelete: false
+  image: {}         # repository, tag, digest of the agent image, when not this controller's own defaults

@@ -672,19 +672,17 @@ export interface ConsistencyDoc {
 export interface ControllerDoc {
   available: boolean
   install: string
-  manifest: string
-  manifestCommand: string
   raise: string
   maxTier: number
   namespace: string
   reason: string
-  secret: string
 }
 
 export interface ControllerUpgradeDoc {
   command: string
   patch: string
   needsTelemetryPermission: boolean
+  allowTelemetry: string
   problems: string[]
 }
 

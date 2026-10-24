@@ -34,6 +34,8 @@ export interface ControllerUpgradeDoc {
   patch: string
   /** The controller must have been installed with allowTelemetry for the resource to be accepted. */
   needsTelemetryPermission: boolean
+  /** The command that gives the controller that permission; empty when this server cannot name the controller's chart. */
+  allowTelemetry: string
   /** Why there is no patch for these settings. */
   problems: string[]
 }

@@ -7,13 +7,34 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "repository": {"type": "string", "minLength": 1},
-        "tag": {"type": "string"},
-        "digest": {"type": "string", "pattern": "^(sha256:[0-9a-f]{64})?$"},
-        "pullPolicy": {"type": "string", "enum": ["", "Always", "IfNotPresent", "Never"]}
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^(sha256:[0-9a-f]{64})?$"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": [
+            "",
+            "Always",
+            "IfNotPresent",
+            "Never"
+          ]
+        }
       }
     },
-    "imagePullSecrets": {"type": "array", "items": {"type": "object"}},
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
     "agent": {
       "type": "object",
       "additionalProperties": false,
@@ -21,23 +42,132 @@
         "image": {
           "type": "object",
           "additionalProperties": false,
-          "properties": {"repository": {"type": "string"}, "tag": {"type": "string"}}
+          "properties": {
+            "repository": {
+              "type": "string"
+            },
+            "tag": {
+              "type": "string"
+            }
+          }
         },
         "linkImage": {
           "type": "object",
           "additionalProperties": false,
-          "properties": {"repository": {"type": "string"}}
+          "properties": {
+            "repository": {
+              "type": "string"
+            }
+          }
         }
       }
     },
-    "maxAccessTier": {"type": "integer", "minimum": 0, "maximum": 2},
-    "allowTelemetry": {"type": "boolean"},
-    "timeout": {"type": "string", "pattern": "^[0-9]+(ms|s|m|h)$"},
-    "resources": {"type": "object"},
-    "nodeSelector": {"type": "object"},
-    "tolerations": {"type": "array"},
-    "affinity": {"type": "object"},
-    "podAnnotations": {"type": "object"},
-    "podLabels": {"type": "object"}
+    "maxAccessTier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2
+    },
+    "allowTelemetry": {
+      "type": "boolean"
+    },
+    "timeout": {
+      "type": "string",
+      "pattern": "^[0-9]+(ms|s|m|h)$"
+    },
+    "resources": {
+      "type": "object"
+    },
+    "nodeSelector": {
+      "type": "object"
+    },
+    "tolerations": {
+      "type": "array"
+    },
+    "affinity": {
+      "type": "object"
+    },
+    "podAnnotations": {
+      "type": "object"
+    },
+    "podLabels": {
+      "type": "object"
+    },
+    "bootstrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "server": {
+          "type": "string"
+        },
+        "caPin": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        },
+        "accessTier": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 2
+        },
+        "collectors": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "nodeProbe": {
+              "type": "boolean"
+            },
+            "flowObserver": {
+              "type": "boolean"
+            },
+            "measurements": {
+              "type": "boolean"
+            }
+          }
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "namespaces": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "exclude": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "selector": {
+              "type": "string"
+            }
+          }
+        },
+        "purgeIdentityOnDelete": {
+          "type": "boolean"
+        },
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repository": {
+              "type": "string"
+            },
+            "tag": {
+              "type": "string"
+            },
+            "digest": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
   }
 }

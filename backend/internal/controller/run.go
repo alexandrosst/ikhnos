@@ -51,6 +51,9 @@ func (r *Reconciler) Run(ctx context.Context) error {
 	if !cache.WaitForCacheSync(ctx.Done(), inf.HasSynced) {
 		return fmt.Errorf("the cache of IkhnosAgents did not sync")
 	}
+	if r.BootstrapConfigMap != "" {
+		go r.bootstrapUntilDone(ctx)
+	}
 	r.log().Info("controller running", "namespace", r.Namespace, "chart", r.Installer.ChartVersion())
 
 	go func() {
