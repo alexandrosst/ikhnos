@@ -101,6 +101,8 @@ type Monitor struct {
 	reached   int
 	failed    int
 	lastErr   string
+	// tools is what the last reading found about each scrape job's targets (job -> instance -> state): gauges, so only the last reading counts.
+	tools map[string]map[string]toolTarget
 }
 
 // New returns a Monitor; call Run to start it.
@@ -167,6 +169,7 @@ func (m *Monitor) Scrape(ctx context.Context) {
 	type read struct {
 		addr   string
 		routes map[route]counts
+		tools  map[string]map[string]toolTarget
 		err    error
 	}
 	var (
@@ -226,11 +229,13 @@ func (m *Monitor) Scrape(ctx context.Context) {
 			defer cancel()
 			body, err := m.cfg.Get(rctx, "http://"+a+"/metrics")
 			var rs map[route]counts
+			var ts map[string]map[string]toolTarget
 			if err == nil {
 				rs, err = parse(strings.NewReader(string(body)))
+				ts = parseTools(string(body))
 			}
 			rmu.Lock()
-			reads = append(reads, read{addr: a, routes: rs, err: err})
+			reads = append(reads, read{addr: a, routes: rs, tools: ts, err: err})
 			rmu.Unlock()
 		}(a)
 	}
@@ -246,6 +251,7 @@ func (m *Monitor) Scrape(ctx context.Context) {
 	reached := 0
 	agg := map[route]counts{}
 	seenNow := map[string]map[route]counts{}
+	tools := map[string]map[string]toolTarget{}
 	for _, r := range reads {
 		if r.err != nil {
 			note(fmt.Errorf("read %s: %w", r.addr, r.err))
@@ -253,6 +259,14 @@ func (m *Monitor) Scrape(ctx context.Context) {
 		}
 		reached++
 		seenNow[r.addr] = r.routes
+		for job, ts := range r.tools {
+			if tools[job] == nil {
+				tools[job] = map[string]toolTarget{}
+			}
+			for inst, t := range ts {
+				tools[job][inst] = t
+			}
+		}
 		before, known := m.prev[r.addr]
 		for rt, c := range r.routes {
 			a := agg[rt]
@@ -288,6 +302,7 @@ func (m *Monitor) Scrape(ctx context.Context) {
 	}
 	m.prev = seenNow
 	m.scrapedAt, m.reached, m.failed, m.lastErr = now, reached, failed, lastErr
+	m.tools = tools
 }
 
 // grew reports whether a counter went up since the last reading. A counter that went down was reset by a
@@ -362,6 +377,7 @@ func (m *Monitor) Report() *ikhnosv1.ExportHealth {
 		}
 		out.Routes = append(out.Routes, r)
 	}
+	out.Sources = append(out.Sources, m.toolSources()...)
 	return out
 }
 
@@ -593,6 +609,117 @@ func (m *Monitor) sourceState(st *routeState, now time.Time) ikhnosv1.SourceHeal
 		return ikhnosv1.SourceHealth_SILENT
 	}
 	return ikhnosv1.SourceHealth_WAITING
+}
+
+// ToolJobs are the scrape jobs of the cluster collector that read a tool of the cluster, by the job_name the chart gives them, and the signals of the
+// install each one is for. The scrape of an application's own targets (telemetry.applicationMetrics) is not here: it is the owner's, not a tool.
+var ToolJobs = map[string][]string{
+	"kepler":                {"energy"},
+	"energy-existing":       {"energy"},
+	"dcgm-exporter":         {"accelerators"},
+	"accelerators-existing": {"accelerators"},
+	"cluster-links":         {"clusterLinks"},
+	"cluster-links-probe":   {"clusterLinks"},
+}
+
+// maxDown is how many nodes whose target did not answer are named.
+const maxDown = 10
+
+// toolTarget is what one scrape target is, from the collector's own up and scrape_samples_scraped series for it.
+type toolTarget struct {
+	node    string
+	up      bool
+	samples float64
+	hasUp   bool
+}
+
+// answered: the target replied to the scrape and gave series. A tool that replies with nothing is not telling anything.
+func (t toolTarget) answered() bool { return t.hasUp && t.up && t.samples > 0 }
+
+// parseTools reads, from what the cluster collector serves on its source-health port, the scrape's own up and scrape_samples_scraped of every target of a
+// job that is a tool (ToolJobs), by job and instance. Everything else in the text is ignored.
+func parseTools(body string) map[string]map[string]toolTarget {
+	var out map[string]map[string]toolTarget
+	for _, line := range strings.Split(body, "\n") {
+		isUp := strings.HasPrefix(line, "up{")
+		if !isUp && !strings.HasPrefix(line, "scrape_samples_scraped{") {
+			continue
+		}
+		name, labels, value, ok := splitSample(line)
+		if !ok || math.IsNaN(value) || math.IsInf(value, 0) {
+			continue
+		}
+		job := labels["job"]
+		if _, tool := ToolJobs[job]; !tool {
+			continue
+		}
+		inst := labels["instance"]
+		if inst == "" {
+			continue
+		}
+		if out == nil {
+			out = map[string]map[string]toolTarget{}
+		}
+		if out[job] == nil {
+			out[job] = map[string]toolTarget{}
+		}
+		t := out[job][inst]
+		if n := labels["node"]; n != "" {
+			t.node = n
+		}
+		if name == "up" {
+			t.up, t.hasUp = value >= 1, true
+		} else {
+			t.samples = value
+		}
+		out[job][inst] = t
+	}
+	return out
+}
+
+// toolSources are the tools' entries of the report: one per job that has targets, in a stable order. All targets answering is receiving, some is
+// degraded, none is failing. It is a reading of the moment (gauges), so unlike a receiver's counters it needs no history; a target that
+// is gone expires from what the collector serves.
+func (m *Monitor) toolSources() []*ikhnosv1.SourceHealth {
+	jobs := make([]string, 0, len(m.tools))
+	for j := range m.tools {
+		jobs = append(jobs, j)
+	}
+	sort.Strings(jobs)
+	var out []*ikhnosv1.SourceHealth
+	for _, job := range jobs {
+		ts := m.tools[job]
+		sh := &ikhnosv1.SourceHealth{Receiver: job, Signals: ToolJobs[job], Targets: uint32(len(ts))}
+		insts := make([]string, 0, len(ts))
+		for i := range ts {
+			insts = append(insts, i)
+		}
+		sort.Strings(insts)
+		for _, i := range insts {
+			t := ts[i]
+			if t.answered() {
+				sh.TargetsUp++
+				continue
+			}
+			name := t.node
+			if name == "" {
+				name = i
+			}
+			if len(sh.Down) < maxDown {
+				sh.Down = append(sh.Down, clip(name, 80))
+			}
+		}
+		switch {
+		case sh.TargetsUp == sh.Targets:
+			sh.State = ikhnosv1.SourceHealth_RECEIVING
+		case sh.TargetsUp > 0:
+			sh.State = ikhnosv1.SourceHealth_DEGRADED
+		default:
+			sh.State = ikhnosv1.SourceHealth_FAILING
+		}
+		out = append(out, sh)
+	}
+	return out
 }
 
 // splitSample splits "name{k=\"v\",...} 12 [timestamp]" into its parts. Label values are quoted and may hold

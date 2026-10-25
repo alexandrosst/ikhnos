@@ -906,6 +906,16 @@ func TestExportHealthRelaysWhereTheSourcesGoSilentOrFail(t *testing.T) {
 	if got.Sources[1].State != "waiting" || got.Sources[1].Signals == nil {
 		t.Errorf("an unknown state is waiting and signals are never null: %+v", got.Sources[1])
 	}
+	// A tool the collector scrapes: its targets, how many answered and which nodes did not, bounded.
+	var nodes []string
+	for i := 0; i < 30; i++ {
+		nodes = append(nodes, fmt.Sprintf("node-%d", i))
+	}
+	v3 := NewView()
+	v3.NoteDiagnostics(&ikhnosv1.Diagnostics{AgentVersion: "1", ExportHealth: &ikhnosv1.ExportHealth{Sources: []*ikhnosv1.SourceHealth{{Receiver: "kepler", Signals: []string{"energy"}, State: ikhnosv1.SourceHealth_DEGRADED, Targets: 40, TargetsUp: 10, Down: nodes}}}}, false, at)
+	if kd := v3.diagDoc().ExportHealth.Sources[0]; kd.Targets != 40 || kd.TargetsUp != 10 || len(kd.Down) != 10 || kd.Down[0] != "node-0" || kd.State != "degraded" {
+		t.Errorf("tool = %+v", kd)
+	}
 	v2 := NewView()
 	v2.NoteDiagnostics(&ikhnosv1.Diagnostics{AgentVersion: "1", ExportHealth: &ikhnosv1.ExportHealth{}}, false, at)
 	if ss := v2.diagDoc().ExportHealth.Sources; ss == nil || len(ss) != 0 {

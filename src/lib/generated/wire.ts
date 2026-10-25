@@ -2721,6 +2721,9 @@ export interface SourceHealthDoc {
   failed: number
   lastAcceptedAt?: string
   lastFailedAt?: string
+  targets?: number
+  targetsUp?: number
+  down?: string[]
 }
 
 export type SourceState = 'waiting' | 'receiving' | 'silent' | 'degraded' | 'failing'

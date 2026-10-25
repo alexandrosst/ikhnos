@@ -6751,8 +6751,15 @@ type SourceHealth struct {
 	Failed         uint64                 `protobuf:"varint,5,opt,name=failed,proto3" json:"failed,omitempty"`
 	LastAcceptedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=last_accepted_at,json=lastAcceptedAt,proto3" json:"last_accepted_at,omitempty"`
 	LastFailedAt   *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=last_failed_at,json=lastFailedAt,proto3" json:"last_failed_at,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// For an entry that is a scrape job of the cluster collector (kepler, dcgm-exporter, cluster-links...; `receiver` then names the job):
+	// how many targets it has (one per node for Kepler and DCGM), and how many of them answered with series (up, and more than none of
+	// them). The state is from these alone: all answered is RECEIVING, some is DEGRADED, none is FAILING. Zero for a receiver.
+	Targets   uint32 `protobuf:"varint,8,opt,name=targets,proto3" json:"targets,omitempty"`
+	TargetsUp uint32 `protobuf:"varint,9,opt,name=targets_up,json=targetsUp,proto3" json:"targets_up,omitempty"`
+	// The nodes (the target's address where it has none) whose target did not answer with series, at most ten.
+	Down          []string `protobuf:"bytes,10,rep,name=down,proto3" json:"down,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SourceHealth) Reset() {
@@ -6830,6 +6837,27 @@ func (x *SourceHealth) GetLastAcceptedAt() *timestamppb.Timestamp {
 func (x *SourceHealth) GetLastFailedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.LastFailedAt
+	}
+	return nil
+}
+
+func (x *SourceHealth) GetTargets() uint32 {
+	if x != nil {
+		return x.Targets
+	}
+	return 0
+}
+
+func (x *SourceHealth) GetTargetsUp() uint32 {
+	if x != nil {
+		return x.TargetsUp
+	}
+	return 0
+}
+
+func (x *SourceHealth) GetDown() []string {
+	if x != nil {
+		return x.Down
 	}
 	return nil
 }
@@ -8265,7 +8293,7 @@ const file_ikhnos_v1_agent_proto_rawDesc = "" +
 	"\tRECEIVING\x10\x01\x12\n" +
 	"\n" +
 	"\x06SILENT\x10\x02\x12\f\n" +
-	"\bREFUSING\x10\x03\"\x81\x03\n" +
+	"\bREFUSING\x10\x03\"\xce\x03\n" +
 	"\fSourceHealth\x12\x1a\n" +
 	"\breceiver\x18\x01 \x01(\tR\breceiver\x12\x18\n" +
 	"\asignals\x18\x02 \x03(\tR\asignals\x123\n" +
@@ -8273,7 +8301,12 @@ const file_ikhnos_v1_agent_proto_rawDesc = "" +
 	"\baccepted\x18\x04 \x01(\x04R\baccepted\x12\x16\n" +
 	"\x06failed\x18\x05 \x01(\x04R\x06failed\x12D\n" +
 	"\x10last_accepted_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x0elastAcceptedAt\x12@\n" +
-	"\x0elast_failed_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\flastFailedAt\"J\n" +
+	"\x0elast_failed_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\flastFailedAt\x12\x18\n" +
+	"\atargets\x18\b \x01(\rR\atargets\x12\x1d\n" +
+	"\n" +
+	"targets_up\x18\t \x01(\rR\ttargetsUp\x12\x12\n" +
+	"\x04down\x18\n" +
+	" \x03(\tR\x04down\"J\n" +
 	"\x05State\x12\v\n" +
 	"\aWAITING\x10\x00\x12\r\n" +
 	"\tRECEIVING\x10\x01\x12\n" +

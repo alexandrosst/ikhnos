@@ -53,5 +53,8 @@ spec:
   selector: {app.kubernetes.io/name: ikhnos-telemetry-cluster, app.kubernetes.io/instance: {{ .Release.Name }}}
   ports:
     - {name: self-metrics, port: {{ $port }}, targetPort: {{ $port }}, protocol: TCP}
+    {{- if include "agent.telemetrySourceHealthEnabled" . }}
+    - {name: source-health, port: {{ .Values.telemetry.health.sourcesPort | int }}, targetPort: {{ .Values.telemetry.health.sourcesPort | int }}, protocol: TCP}
+    {{- end }}
 {{- end }}
 {{- end }}

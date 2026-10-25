@@ -111,7 +111,7 @@ describe('a source that is not being read', () => {
     expect(p.groups.find((g) => g.scope === 'cluster')!.sources[0].read).toBeUndefined()
     expect(p.health).toBe('attention')
     expect(p.needsAttention).toBe(true)
-    expect(p.summary).toMatch(/· 2 not being read$/)
+    expect(p.summary).toMatch(/· 2 to look at$/)
   })
 
   test('partly read is shown but does not raise the picture, and a quiet or waiting source is not a fault', () => {
@@ -137,5 +137,44 @@ describe('a source that is not being read', () => {
     expect(screen.getByTestId('operator-picture-source-resourceUsage')).toHaveAttribute('data-read', 'failing')
     expect(screen.getByTestId('operator-picture-source-resourceUsage-state')).toHaveTextContent('Not reading')
     expect(screen.getByTestId('operator-picture-source-resourceUsage-why')).toHaveTextContent(/12 values could not be read/)
+  })
+})
+
+const tool = (state: 'failing' | 'degraded' | 'receiving', targets: number, targetsUp: number, down: string[]): AgentExportHealth => ({
+  ...healthy,
+  receivers: [],
+  sources: [{ receiver: 'kepler', signals: ['energy'], state, accepted: 0, failed: 0, targets, targetsUp, down }],
+})
+
+describe('a tool the collector scrapes', () => {
+  test('answering on only some of its nodes is told with the nodes that do not, and needs a look', () => {
+    const p = operatorPicture({ installed: ['energy'], diagnostics: diag(tool('degraded', 3, 2, ['node-b']), ['energy']), now: NOW, cluster: 'c' })
+    const r = p.groups[0].sources[0].read!
+    expect(r.state).toBe('degraded')
+    expect(r.health).toBe('attention')
+    expect(r.sentence).toMatch(/^It answered the collector with data on 2 of 3\. Not answering: node-b\. Look at the Kepler pods/)
+    expect(p.needsAttention).toBe(true)
+    expect(p.summary).toMatch(/· 1 to look at$/)
+  })
+
+  test('answering nowhere is said as such, and names the nodes it can, and "and others" when the list was cut', () => {
+    const p = operatorPicture({ installed: ['energy'], diagnostics: diag(tool('failing', 12, 0, ['a', 'b']), ['energy']), now: NOW, cluster: 'c' })
+    expect(p.groups[0].sources[0].read?.sentence).toMatch(/^None of its 12 targets answered the collector with data\. Not answering: a, b and others\./)
+    const one = operatorPicture({ installed: ['energy'], diagnostics: diag(tool('failing', 1, 0, ['a']), ['energy']), now: NOW, cluster: 'c' })
+    expect(one.groups[0].sources[0].read?.sentence).toMatch(/^None of its 1 target answered the collector with data\. Not answering: a\./)
+  })
+
+  test('answering on all of its nodes is not a fault', () => {
+    const p = operatorPicture({ installed: ['energy'], diagnostics: diag(tool('receiving', 3, 3, []), ['energy']), now: NOW, cluster: 'c' })
+    expect(p.groups[0].sources[0].read?.health).toBe('healthy')
+    expect(p.needsAttention).toBe(false)
+  })
+
+  test('the picture opens by itself and shows the word and the why', () => {
+    show(diag(tool('degraded', 3, 2, ['node-b']), ['energy']), ['energy'])
+    expect(screen.getByTestId('operator-picture')).toHaveAttribute('data-open', 'true')
+    expect(screen.getByTestId('operator-picture-source-energy')).toHaveAttribute('data-read', 'degraded')
+    expect(screen.getByTestId('operator-picture-source-energy-state')).toHaveTextContent('Partly reading')
+    expect(screen.getByTestId('operator-picture-source-energy-why')).toHaveTextContent(/Not answering: node-b/)
   })
 })

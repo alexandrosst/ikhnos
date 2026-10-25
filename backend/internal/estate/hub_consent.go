@@ -474,6 +474,13 @@ func (v *View) diagDoc() *agents.DiagnosticsDoc {
 				}
 				sd.Signals = append(sd.Signals, kernel.Printable(sig, 40))
 			}
+			sd.Targets, sd.TargetsUp = int(min(r.Targets, 100000)), int(min(r.TargetsUp, 100000))
+			for k, n := range r.Down {
+				if k == 10 {
+					break
+				}
+				sd.Down = append(sd.Down, kernel.Printable(n, 80))
+			}
 			if r.LastAcceptedAt != nil {
 				sd.LastAcceptedAt = kernel.RFC(r.LastAcceptedAt.AsTime())
 			}

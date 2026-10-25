@@ -191,5 +191,8 @@ spec:
             matchLabels: {app.kubernetes.io/name: ikhnos-agent, app.kubernetes.io/instance: {{ .Release.Name }}}
       ports:
         - {port: {{ .Values.telemetry.health.port | int }}, protocol: TCP}
+        {{- if include "agent.telemetrySourceHealthEnabled" . }}
+        - {port: {{ .Values.telemetry.health.sourcesPort | int }}, protocol: TCP}
+        {{- end }}
     {{- end }}
 {{- end }}

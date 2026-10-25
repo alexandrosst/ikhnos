@@ -203,6 +203,7 @@ telemetry:
     networkPolicy:
       enabled: true
     port: 8888
+    sourcesPort: 8889
   hostCollector:
     affinity: {}
     nodeSelector:

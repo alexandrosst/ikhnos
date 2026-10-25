@@ -1406,6 +1406,13 @@ message SourceHealth {
   uint64 failed = 5;
   google.protobuf.Timestamp last_accepted_at = 6;
   google.protobuf.Timestamp last_failed_at = 7;
+  // For an entry that is a scrape job of the cluster collector (kepler, dcgm-exporter, cluster-links...; `receiver` then names the job):
+  // how many targets it has (one per node for Kepler and DCGM), and how many of them answered with series (up, and more than none of
+  // them). The state is from these alone: all answered is RECEIVING, some is DEGRADED, none is FAILING. Zero for a receiver.
+  uint32 targets = 8;
+  uint32 targets_up = 9;
+  // The nodes (the target's address where it has none) whose target did not answer with series, at most ten.
+  repeated string down = 10;
 }
 
 message ExportRouteHealth {

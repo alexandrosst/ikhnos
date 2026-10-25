@@ -431,3 +431,80 @@ func TestTheReceiversThatReadTheClusterTellWhereASourceGoesSilentOrFails(t *test
 		t.Fatalf("a kubelet that stopped failing and brings nothing is silent: %+v", s)
 	}
 }
+
+// What the cluster collector serves on its source-health port, as the real collector wrote it (otelcol-contrib 0.160.0, see the chart's
+// TestSourceHealthInTheRealCollector): the scrape's own series of each target, labelled with the job, the instance and the node.
+const toolsFixture = `# HELP scrape_samples_scraped The number of samples the target exposed
+# TYPE scrape_samples_scraped gauge
+scrape_samples_scraped{instance="10.0.0.5:9102",job="kepler",k8s_node_name="node-b",node="node-b",otel_scope_name="github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver",otel_scope_schema_url="",otel_scope_version="0.160.0",server_port="9102",service_instance_id="10.0.0.5:9102",service_name="kepler",url_scheme="http"} 0
+scrape_samples_scraped{instance="10.0.0.4:9102",job="kepler",node="node-a",service_name="kepler"} 412
+scrape_samples_scraped{instance="10.0.0.6:9102",job="kepler",node="node-c",service_name="kepler"} 398
+scrape_samples_scraped{instance="10.0.1.1:9400",job="dcgm-exporter",node="gpu-1",service_name="dcgm-exporter"} 60
+scrape_samples_scraped{instance="app:9090",job="my-own-app",service_name="my-own-app"} 5
+# HELP target_info Target metadata
+# TYPE target_info gauge
+target_info{instance="10.0.0.5:9102",job="kepler"} 1
+# HELP up The scraping was successful
+# TYPE up gauge
+up{instance="10.0.0.5:9102",job="kepler",k8s_node_name="node-b",node="node-b",otel_scope_name="x",service_name="kepler"} 0
+up{instance="10.0.0.4:9102",job="kepler",node="node-a",service_name="kepler"} 1
+up{instance="10.0.0.6:9102",job="kepler",node="node-c",service_name="kepler"} 1
+up{instance="10.0.1.1:9400",job="dcgm-exporter",node="gpu-1",service_name="dcgm-exporter"} 1
+up{instance="app:9090",job="my-own-app",service_name="my-own-app"} 1
+`
+
+func toolOf(t *testing.T, h *ikhnosv1.ExportHealth, job string) *ikhnosv1.SourceHealth {
+	t.Helper()
+	if h == nil {
+		t.Fatal("no report")
+	}
+	for _, s := range h.Sources {
+		if s.Receiver == job {
+			return s
+		}
+	}
+	return nil
+}
+
+// The tools the collector scrapes are told by whether each target answered with series: all of them is receiving, some is degraded and names the
+// nodes that did not, none is failing; a target that answers with nothing does not count; and a job that is not a tool is not reported.
+func TestTheToolsTheCollectorScrapesAreToldByWhetherEachTargetAnswered(t *testing.T) {
+	f := newFleet()
+	f.dns["cluster.svc"] = []string{"10.0.0.9"}
+	m := f.monitor("cluster.svc:8889")
+	f.set("10.0.0.9:8889", toolsFixture)
+	m.Scrape(context.Background())
+	h := m.Report()
+
+	k := toolOf(t, h, "kepler")
+	if k == nil || k.State != ikhnosv1.SourceHealth_DEGRADED || k.Targets != 3 || k.TargetsUp != 2 || len(k.Down) != 1 || k.Down[0] != "node-b" {
+		t.Fatalf("kepler = %+v, want degraded, 2 of 3 answering, node-b down", k)
+	}
+	if len(k.Signals) != 1 || k.Signals[0] != "energy" {
+		t.Fatalf("kepler serves the energy signal: %v", k.Signals)
+	}
+	d := toolOf(t, h, "dcgm-exporter")
+	if d == nil || d.State != ikhnosv1.SourceHealth_RECEIVING || d.Targets != 1 || d.TargetsUp != 1 || len(d.Down) != 0 || d.Signals[0] != "accelerators" {
+		t.Fatalf("dcgm = %+v, want receiving on its one node", d)
+	}
+	if toolOf(t, h, "my-own-app") != nil {
+		t.Fatalf("a scrape target of the owner's application is not a tool: %+v", h.Sources)
+	}
+
+	// No target answers: failing. One that answers with no series does not count as answering.
+	f.set("10.0.0.9:8889", strings.NewReplacer(`node="node-a",service_name="kepler"} 1`, `node="node-a",service_name="kepler"} 0`, `node="node-c",service_name="kepler"} 1`, `node="node-c",service_name="kepler"} 1`,
+		`job="kepler",node="node-c",service_name="kepler"} 398`, `job="kepler",node="node-c",service_name="kepler"} 0`).Replace(toolsFixture))
+	m.Scrape(context.Background())
+	k = toolOf(t, m.Report(), "kepler")
+	if k.State != ikhnosv1.SourceHealth_FAILING || k.TargetsUp != 0 || len(k.Down) != 3 {
+		t.Fatalf("kepler with nothing answering with series = %+v, want failing, all three down", k)
+	}
+
+	// The endpoint cannot be read at all: nothing is claimed about the tools (the report says so by having no entry), not that they are down.
+	f.set("10.0.0.9:8889", "")
+	delete(f.body, "10.0.0.9:8889")
+	m.Scrape(context.Background())
+	if toolOf(t, m.Report(), "kepler") != nil {
+		t.Fatalf("an unreadable endpoint was reported as tools: %+v", m.Report().Sources)
+	}
+}

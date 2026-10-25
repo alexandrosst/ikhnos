@@ -1335,6 +1335,11 @@ telemetry:
   health:
     enabled: true
     port: 8888
+    # Whether the tools the cluster collector scrapes (Kepler, dcgm-exporter, the cluster links) answer it: the collector keeps only the
+    # scrape's own `up` and `scrape_samples_scraped` of each target in a pipeline of its own and serves them on this port, bound to
+    # the pod's own address like the counters above, and the agent reads them with those. Nothing the tools measured is in it.
+    # Only when one of those scrapes is on.
+    sourcesPort: 8889
     networkPolicy:
       enabled: true
 

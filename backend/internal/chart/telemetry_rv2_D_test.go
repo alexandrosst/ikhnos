@@ -483,6 +483,8 @@ func TestDcgmScrapeTransformAndScopeFilterInTheRealCollector(t *testing.T) {
 		}
 		cfg["exporters"] = map[string]any{"file": map[string]any{"path": out}}
 		delete(cfg["processors"].(map[string]any), "k8sattributes")
+		// The pipeline that serves the agent only the scrape's own up is another test's (telemetry_health_test.go).
+		delete(cfg["service"].(map[string]any)["pipelines"].(map[string]any), "metrics/source_health")
 		for _, p := range cfg["service"].(map[string]any)["pipelines"].(map[string]any) {
 			pm := p.(map[string]any)
 			pm["exporters"] = []any{"file"}

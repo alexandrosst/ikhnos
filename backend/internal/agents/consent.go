@@ -372,6 +372,11 @@ type SourceHealthDoc struct {
 	Failed         uint64      `json:"failed"`
 	LastAcceptedAt string      `json:"lastAcceptedAt,omitempty"`
 	LastFailedAt   string      `json:"lastFailedAt,omitempty"`
+	// For a tool the cluster collector scrapes (Receiver is then the scrape job: kepler, dcgm-exporter...): its targets (one per node), how many
+	// answered with series, and the nodes that did not. Targets 0 for a receiver, which is told by its counters above.
+	Targets   int      `json:"targets,omitempty"`
+	TargetsUp int      `json:"targetsUp,omitempty"`
+	Down      []string `json:"down,omitempty"`
 }
 
 // SourceHealthStates names the agent's source states; one this server does not know is shown as waiting.

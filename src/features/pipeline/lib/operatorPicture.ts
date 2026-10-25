@@ -47,6 +47,13 @@ const CHECK: Record<string, string> = {
   systemLogs: "The collector reads the node's log files: look at the node collector pods' logs for the error, and that the log directory is mounted.",
 }
 
+/** What to check when a tool the collector scrapes does not answer on some or all of its nodes. */
+const CHECK_TOOL: Record<string, string> = {
+  energy: "Look at the Kepler pods on those nodes: a node Kepler cannot run on holds its pod back, and one that started but serves nothing gives no energy data.",
+  accelerators: "Look at the dcgm-exporter pods on those nodes: a node without a GPU runs none, and one that started but serves nothing gives no GPU data.",
+  clusterLinks: "The collector reads the agent's own link service: look at the agent pod's logs.",
+}
+
 const rank = (s: W.SourceState) => READ_WORST_FIRST.indexOf(s)
 const agoWords = (iso: string | undefined, now: number) => (iso ? `${uptimeWords(Math.max(0, (now - Date.parse(iso)) / 1000))} ago` : undefined)
 
@@ -56,9 +63,16 @@ export function sourceRead(id: string, sources: readonly W.SourceHealthDoc[] | u
   if (mine.length === 0) return undefined
   const worst = mine.reduce((a, b) => (rank(b.state) < rank(a.state) ? b : a))
   const state = worst.state
-  const health: Health = state === 'failing' ? 'attention' : state === 'waiting' ? 'unknown' : 'healthy'
+  const tool = (worst.targets ?? 0) > 0
+  // A tool the collector scrapes that answers on only some of its nodes has data missing, which is more than a read that fails in part.
+  const health: Health = state === 'failing' || (tool && state === 'degraded') ? 'attention' : state === 'waiting' ? 'unknown' : 'healthy'
   let sentence: string | undefined
-  if (state === 'failing') {
+  if (tool && (state === 'failing' || state === 'degraded')) {
+    const targets = worst.targets ?? 0
+    const down = worst.down ?? []
+    const where = down.length > 0 ? ` Not answering: ${down.join(', ')}${targets - (worst.targetsUp ?? 0) > down.length ? ' and others' : ''}.` : ''
+    sentence = `${state === 'failing' ? `None of its ${targets} ${targets === 1 ? 'target' : 'targets'} answered the collector with data.` : `It answered the collector with data on ${worst.targetsUp ?? 0} of ${targets}.`}${where} ${CHECK_TOOL[id] ?? ''}`.trim()
+  } else if (state === 'failing') {
     sentence = `${worst.failed.toLocaleString()} values could not be read (the last ${agoWords(worst.lastFailedAt, now) ?? 'recently'}) and nothing has come in since. ${CHECK[id] ?? "Look at the collector pods' logs for the error."}`
   } else if (state === 'degraded') {
     sentence = `Some values cannot be read (the last ${agoWords(worst.lastFailedAt, now) ?? 'recently'}) while the rest come in. The cluster owner can see which in the collector pods' logs.`
@@ -68,13 +82,16 @@ export function sourceRead(id: string, sources: readonly W.SourceHealthDoc[] | u
   return { state, word: READ_WORD[state], health, sentence }
 }
 
-/** The signals among `installed` whose source is not being read, with the sentence for each. What the Pipeline page says about a collector. */
-export function failingSources(installed: readonly string[], d: AgentDiagnostics | undefined, now: number): { id: string; label: string; sentence: string }[] {
-  const out: { id: string; label: string; sentence: string }[] = []
+/**
+ * The signals among `installed` whose source needs a look, with the sentence for each: `partial` is a tool that answers on some of its nodes
+ * and not on others, otherwise the source is not being read at all. What the Pipeline page says about a collector.
+ */
+export function failingSources(installed: readonly string[], d: AgentDiagnostics | undefined, now: number): { id: string; label: string; sentence: string; partial: boolean }[] {
+  const out: { id: string; label: string; sentence: string; partial: boolean }[] = []
   for (const sig of TELEMETRY_SIGNALS) {
     if (!installed.includes(sig.id)) continue
     const r = sourceRead(sig.id, d?.exportHealth?.sources, now)
-    if (r?.state === 'failing') out.push({ id: sig.id, label: sig.label, sentence: r.sentence ?? '' })
+    if (r && r.health === 'attention') out.push({ id: sig.id, label: sig.label, sentence: r.sentence ?? '', partial: r.state === 'degraded' })
   }
   return out
 }
@@ -140,10 +157,10 @@ export function operatorPicture(o: { installed: string[]; diagnostics?: AgentDia
   const kinds = (['metrics', 'logs', 'traces'] as Modality[]).filter((m) => groups.some((g) => g.sources.some((s) => s.modality === m)))
   const destination = d?.installedTelemetryConfig?.exportEndpoint || undefined
   const count = groups.reduce((n, g) => n + g.sources.length, 0)
-  const unread = groups.reduce((n, g) => n + g.sources.filter((x) => x.read?.state === 'failing').length, 0)
+  const unread = groups.reduce((n, g) => n + g.sources.filter((x) => x.read?.health === 'attention').length, 0)
   const summary =
     installed.length === 0
       ? 'Nothing is collected here yet'
-      : `${count} ${count === 1 ? 'source' : 'sources'} · ${kinds.join(', ')}${destination ? ` · to ${destination}` : ''}${unread > 0 ? ` · ${unread} not being read` : ''}`
+      : `${count} ${count === 1 ? 'source' : 'sources'} · ${kinds.join(', ')}${destination ? ` · to ${destination}` : ''}${unread > 0 ? ` · ${unread} to look at` : ''}`
   return { health, summary, groups, collectors, lanes: a.rows, destination, needsAttention: health === 'attention' || health === 'down' }
 }

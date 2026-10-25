@@ -249,7 +249,11 @@ export function localVerdict(r: LocalRow, agent: Agent | undefined, destination:
   if (unread.length > 0) {
     const names = unread.map((u) => u.label).join(', ')
     const steps = [...unread.map((u) => ({ title: `Look at ${u.label}`, text: u.sentence })), ...agentSteps(agent, 'the collector')]
-    return { lastData, verdict: { state: 'attention', reason: `${unread.length === 1 ? 'One of the sources it collects is' : 'Some of the sources it collects are'} not being read: ${names}. Everything else keeps flowing.`, todo: { steps, action: collects } } }
+    const some = unread.some((u) => !u.partial)
+    const reason = some
+      ? `${unread.length === 1 ? 'One of the sources it collects is' : 'Some of the sources it collects are'} not being read: ${names}. Everything else keeps flowing.`
+      : `${unread.length === 1 ? 'One of the sources it collects is' : 'Some of the sources it collects are'} read on only some of the nodes: ${names}. Everything else keeps flowing.`
+    return { lastData, verdict: { state: 'attention', reason, todo: { steps, action: collects } } }
   }
   if (rows.some((x) => x.state === 'silent')) return { lastData, verdict: { state: 'attention', reason: lastData ? `No data has been sent for ${duration(now - Date.parse(lastData))}.` : 'No data has been sent recently.', todo } }
   if (rows.every((x) => x.state === 'waiting')) {

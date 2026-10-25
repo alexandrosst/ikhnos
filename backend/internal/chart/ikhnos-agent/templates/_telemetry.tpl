@@ -98,6 +98,7 @@
 {{- if lt (int .Values.telemetry.processors.batch.sendBatchMaxSize) (int .Values.telemetry.processors.batch.sendBatchSize) -}}{{- fail "telemetry.processors.batch.sendBatchMaxSize must be at least telemetry.processors.batch.sendBatchSize" -}}{{- end -}}
 {{- if ge (int .Values.telemetry.processors.memoryLimiter.spikeLimitPercentage) (int .Values.telemetry.processors.memoryLimiter.limitPercentage) -}}{{- fail "telemetry.processors.memoryLimiter.spikeLimitPercentage must be lower than telemetry.processors.memoryLimiter.limitPercentage (the collector refuses to start otherwise)" -}}{{- end -}}
 {{- if has (int .Values.telemetry.health.port) (list 4317 4318 (int (include "agent.telemetryProbePort" .))) -}}{{- fail (printf "telemetry.health.port %d is already a port of the collector (4317 and 4318 are OTLP, %s is its readiness probe): pick another" (int .Values.telemetry.health.port) (include "agent.telemetryProbePort" .)) -}}{{- end -}}
+{{- if has (int .Values.telemetry.health.sourcesPort) (list 4317 4318 (int .Values.telemetry.health.port) (int (include "agent.telemetryProbePort" .))) -}}{{- fail (printf "telemetry.health.sourcesPort %d is already a port of the collector (4317 and 4318 are OTLP, %d serves its own counters, %s is its readiness probe): pick another" (int .Values.telemetry.health.sourcesPort) (int .Values.telemetry.health.port) (include "agent.telemetryProbePort" .)) -}}{{- end -}}
 {{- if include "agent.telemetryEnabled" . -}}
 {{- if and (include "agent.telemetryDefaultUsed" (dict "root" . "scope" "all")) (not .Values.telemetry.export.otlp.endpoint) -}}{{- fail "telemetry.export.otlp.endpoint is required once any telemetry.* signal is enabled that has no route of its own (telemetry.export.routes.<metrics|logs|traces>.endpoint)" -}}{{- end -}}
 {{- end -}}
@@ -835,12 +836,19 @@ telemetry:
               port: {{ .Values.telemetry.health.port }}
 {{- end -}}
 
+{{/* Whether the cluster collector serves what its scrapes of the tools got (telemetry.health.sourcesPort): health is on, the cluster collector is,
+     and one of the scrapes that go through prometheus/infra is on (Kepler or an energy endpoint, dcgm-exporter or an accelerators endpoint, the cluster links). */}}
+{{- define "agent.telemetrySourceHealthEnabled" -}}
+{{- if and (include "agent.telemetryHealthEnabled" .) (include "agent.telemetryClusterEnabled" .) (or .Values.telemetry.energy.metrics.enabled .Values.telemetry.accelerators.metrics.enabled .Values.telemetry.clusterLinks.metrics.enabled) -}}true{{- end -}}
+{{- end -}}
+
 {{/* The names the agent resolves to find every collector pod (a headless Service each), comma separated,
      for IKHNOS_TELEMETRY_HEALTH_TARGETS. Only collectors this install deploys. */}}
 {{- define "agent.telemetryHealthTargets" -}}
 {{- $t := list -}}
 {{- if include "agent.telemetryHostEnabled" . -}}{{- $t = append $t (printf "%s-host-metrics.%s.svc:%d" (include "agent.telemetryName" .) .Release.Namespace (.Values.telemetry.health.port | int)) -}}{{- end -}}
 {{- if include "agent.telemetryClusterEnabled" . -}}{{- $t = append $t (printf "%s-cluster-metrics.%s.svc:%d" (include "agent.telemetryName" .) .Release.Namespace (.Values.telemetry.health.port | int)) -}}{{- end -}}
+{{- if include "agent.telemetrySourceHealthEnabled" . -}}{{- $t = append $t (printf "%s-cluster-metrics.%s.svc:%d" (include "agent.telemetryName" .) .Release.Namespace (.Values.telemetry.health.sourcesPort | int)) -}}{{- end -}}
 {{- join "," $t -}}
 {{- end -}}
 

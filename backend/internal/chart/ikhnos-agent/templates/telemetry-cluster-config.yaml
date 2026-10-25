@@ -563,6 +563,15 @@ data:
         error_mode: ignore
         metric_conditions: {{ $enConditions | toJson }}
       {{- end }}
+      {{- if include "agent.telemetrySourceHealthEnabled" . }}
+      # telemetry.health.sourcesPort: of everything the scrapes of Kepler, dcgm-exporter and the cluster links bring, only the scrape's own
+      # `up` (did the target answer) and `scrape_samples_scraped` (how many series it gave), per target. The processor drops whatever
+      # matches, so this keeps those two and drops the rest.
+      filter/source_health:
+        error_mode: ignore
+        metric_conditions:
+          - 'not (metric.name == "up" or metric.name == "scrape_samples_scraped")'
+      {{- end }}
       {{- include "agent.telemetryResourceDetectionYAML" . | nindent 6 }}
       {{- include "agent.telemetryRedactionYAML" . | nindent 6 }}
       {{- if has "probabilistic_sampler" $usedProcs }}
@@ -640,6 +649,15 @@ data:
     exporters:
       {{- include "agent.telemetryExporterYAML" (dict "root" . "scope" "cluster") | nindent 6 }}
       {{- include "agent.telemetryDebugExporterYAML" . | nindent 6 }}
+      {{- if include "agent.telemetrySourceHealthEnabled" . }}
+      # Served on the pod's own address for the agent alone (telemetry.health.sourcesPort); never sent anywhere. A target that is gone
+      # (a node removed) drops out after the expiry.
+      prometheus/source_health:
+        endpoint: "${env:POD_IP}:{{ .Values.telemetry.health.sourcesPort | int }}"
+        metric_expiration: 5m
+        resource_to_telemetry_conversion:
+          enabled: true
+      {{- end }}
 
     service:
       extensions: {{ $clusterExtensions | toJson }}
@@ -652,6 +670,12 @@ data:
           receivers: {{ $cMetricsInfra | toJson }}
           processors: {{ $procInfra | toJson }}
           exporters: {{ include "agent.telemetryExporterList" (dict "root" . "m" "metrics") }}
+        {{- end }}
+        {{- if include "agent.telemetrySourceHealthEnabled" . }}
+        metrics/source_health:
+          receivers: [prometheus/infra]
+          processors: [memory_limiter, filter/source_health]
+          exporters: [prometheus/source_health]
         {{- end }}
         {{- if $cMetricsApp }}
         metrics/app:

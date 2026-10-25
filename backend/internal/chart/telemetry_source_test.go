@@ -29,6 +29,11 @@ func requireSourceBeforeTail(t *testing.T, who string, pipelines map[string][]st
 		t.Fatalf("%s: no pipelines rendered", who)
 	}
 	for name, procs := range pipelines {
+		// The one that only keeps the scrapes' own up and sample counts for the agent (telemetry.health.sourcesPort) sends nothing anywhere, so there is no
+		// record in it for a source to be stamped on.
+		if name == "metrics/source_health" {
+			continue
+		}
 		want := wantProc[name]
 		if want == "" {
 			t.Errorf("%s: pipeline %s has no expected source processor (test table out of date)", who, name)
