@@ -38,6 +38,30 @@ A local operator can also send straight to FUSION, or to an endpoint you run, wi
 
 <Figure name="ComponentAnatomy" caption="The seven parts as pieces of software: how each runs, whom it talks to, and what it holds. The two kinds of part are not alike on purpose. The parts that talk to the outside hold as little as they can, and the part that may install holds no way out." />
 
+### The server
+
+One process, one replica, with one SQLite writer. It serves the web UI and the JSON API on `:8080` and takes agents on `:8443` over gRPC with mutual TLS. It keeps the approvals, the digital twin (what is declared and what is observed, kept apart), the history, the audit trail, and the certificate authority that signs every identity. It decides and records; it does not carry telemetry, and it never calls into a cluster.
+
+### The agent
+
+One pod per cluster, with read-only RBAC for the tier you approved. It watches the Kubernetes API, takes reports from the node probe and the flow observer, cuts what it sees down to what is allowed, and sends it on one stream that it opened itself. Whatever the server sends comes back on that stream. It also reads the collectors' counters, which is how the Pipeline page can say that data stopped at the cluster collector rather than somewhere else. It is never on the telemetry path.
+
+### The controller and the `IkhnosAgent` resource
+
+Optional, and a pair. The controller is a small program in its own Helm release whose only job is to install and keep the agent chart; it talks to the Kubernetes API and nothing else, so it holds no credential for the server. The resource is the note it works from: `spec` says what the agent should be, `status` says how that is going, including how many pods of each workload are ready. The agent can mark the resource revoked and read the workloads' status; the controller does the install, upgrade and removal.
+
+### The local operator
+
+The OpenTelemetry collectors that the agent chart installs: a DaemonSet with one pod per node (host and pod metrics, system logs, energy, GPUs) and one Deployment for the cluster (cluster state, events, traces, the applications' own metrics). They scrape tools such as Kepler and DCGM where those run, and they only send outward. They have permissions of their own, separate from the agent's, and only for the signals that were asked for.
+
+### The regional operator
+
+Optional. One OpenTelemetry collector gateway in a cluster you choose. It accepts OTLP from the clusters you named, only from a client certificate that its own certificate authority signed, and sends it on to one endpoint. It has no Kubernetes permissions and no channel to the server, except a heartbeat with no content if you turn it on. The server keeps a record of it and writes its configuration and certificates.
+
+### FUSION
+
+Optional, and off until you turn it on. It is part of the server's own release: the central operator (the one door in, which requires a client certificate), a store for each signal (Prometheus for metrics, Loki for logs, Tempo for traces) on its own volume, and Grafana already connected to them. It is where you keep telemetry if you have nowhere of your own to send it.
+
 There is one asymmetry to know about. A regional operator is something the server knows as an entity of its own: it has a record, its own certificate authority and a lifecycle you manage from the pages. A local operator has no entity of its own. It exists through its agent, one for one, and the server knows it from what that agent reports. That is coherent, because a cluster has exactly one of each, but it is why "operator" is a first-class thing for a region and an implicit one for a cluster.
 
 ## The words, and the ones we do not use
