@@ -174,3 +174,24 @@ func TestARequestTheDefinitionOfTheResourceDroppedIsAnErrorWithTheWayOut(t *test
 		t.Fatal("a refused read was not an error")
 	}
 }
+
+// What the controller counted is read from the status of the resource, and an older controller that wrote none gives nothing.
+func TestTheStoreReadsWhatTheControllerCountedUnderStatusWorkloads(t *testing.T) {
+	srv, _ := statusServer(t, map[string]any{"status": map[string]any{"phase": "Ready", "workloads": []any{
+		map[string]any{"name": "ikhnos-telemetry-kepler", "kind": "DaemonSet", "component": "telemetry-kepler", "wanted": 3, "ready": 2},
+		map[string]any{"name": "ikhnos-agent", "kind": "Deployment", "wanted": 1, "ready": 1, "rollingOut": true},
+	}}})
+	ws, err := relayStoreAt(t, srv.URL).(agent.WorkloadStore).Workloads(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ws) != 2 || ws[0].Name != "ikhnos-telemetry-kepler" || ws[0].Wanted != 3 || ws[0].Ready != 2 || ws[0].Component != "telemetry-kepler" || !ws[1].RollingOut {
+		t.Fatalf("workloads %+v", ws)
+	}
+
+	old, _ := statusServer(t, map[string]any{"status": map[string]any{"phase": "Ready"}})
+	ws, err = relayStoreAt(t, old.URL).(agent.WorkloadStore).Workloads(context.Background())
+	if err != nil || len(ws) != 0 {
+		t.Fatalf("workloads %+v, err %v", ws, err)
+	}
+}

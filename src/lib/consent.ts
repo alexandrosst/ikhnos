@@ -81,6 +81,9 @@ export interface AgentDiagnostics {
    *  collectors' own export counters. Undefined: the agent is not reading them (telemetry not installed,
    *  telemetry.health off in the chart, or an agent older than this field). See lib/exportHealth.ts. */
   exportHealth?: AgentExportHealth
+  /** What the release runs and how many pods of each are ready, as the controller that keeps the agent installed counted it. Undefined: nothing
+   *  keeps this agent installed, the relay is off (the agent may read the resource only then), or the controller is older than this. */
+  workloads?: W.WorkloadDoc[]
 }
 
 /** The agent's state for one route: waiting (nothing seen go out yet), exporting (data went out recently),

@@ -11,6 +11,9 @@ package relay
 const (
 	StatusRequested = "requested"
 	StatusRelay     = "relay"
+	// StatusWorkloads is the controller's too, and is not part of the relay: what the release runs and how many pods of each are ready. The agent
+	// only reads it, to tell the server.
+	StatusWorkloads = "workloads"
 )
 
 // The states of a request, as the controller says them (Result.State). "written" is said by the agent, before the controller has said
@@ -57,4 +60,20 @@ type Result struct {
 	Revision uint64 `json:"revision"`
 	State    string `json:"state"`
 	Reason   string `json:"reason,omitempty"`
+}
+
+// Workload is one thing the release runs (the agent, a collector, Kepler, the node probe) and how many of its pods are ready: what the
+// controller writes under status.workloads, and the agent reads.
+type Workload struct {
+	Name string `json:"name"`
+	// Kind is Deployment or DaemonSet.
+	Kind string `json:"kind"`
+	// Component is the part of the release it is, from its app.kubernetes.io/component label (the agent's own Deployment has none).
+	Component string `json:"component,omitempty"`
+	// Wanted is how many pods it asks for: its replicas, or the nodes a DaemonSet is to run on.
+	Wanted int32 `json:"wanted"`
+	// Ready is how many of them are running, updated and available.
+	Ready int32 `json:"ready"`
+	// RollingOut says the last change to it has not been carried out yet.
+	RollingOut bool `json:"rollingOut,omitempty"`
 }

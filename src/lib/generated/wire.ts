@@ -948,6 +948,7 @@ export interface DiagnosticsDoc {
   installedTelemetry?: string[]
   installedTelemetryConfig?: TelemetryConfigDoc
   exportHealth?: ExportHealthDoc
+  workloads?: WorkloadDoc[]
 }
 
 export interface DimDoc {
@@ -3101,6 +3102,16 @@ export interface Volume {
 export interface Workload {
   namespace: string
   names: string[]
+}
+
+export interface WorkloadDoc {
+  name: string
+  kind: string
+  component?: string
+  wanted: number
+  ready: number
+  rollingOut?: boolean
+  notReadySeconds?: number
 }
 
 export interface WorkspaceAtDoc {

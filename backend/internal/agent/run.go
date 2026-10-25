@@ -184,6 +184,8 @@ type Config struct {
 	Relay          RelayStore
 	// RelayEvery is how often a request is handed on and followed (0: 10 seconds).
 	RelayEvery time.Duration
+	// WorkloadsEvery is how often what the release runs is read from the resource of the controller that keeps it (0: 30 seconds; see workloads.go).
+	WorkloadsEvery time.Duration
 }
 
 var ErrRevoked = errors.New("this agent was revoked or rejected by the server")
@@ -209,6 +211,9 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	if cfg.Relay != nil && cfg.RelayTelemetry {
 		go a.relayLoop(ctx, cmp.Or(cfg.RelayEvery, 10*time.Second))
+		if ws, ok := cfg.Relay.(WorkloadStore); ok {
+			go a.workloadsLoop(ctx, ws, cmp.Or(cfg.WorkloadsEvery, 30*time.Second))
+		}
 	}
 	if cfg.RBACSelfCheck && cfg.Kube != nil {
 		go a.rbacCheckLoop(ctx)
@@ -306,7 +311,8 @@ type runner struct {
 
 	ex extra // enrollment end state and clock skew (enroll.go)
 
-	relay *relayState // the telemetry request the server last sent and what became of it (relay.go)
+	relay *relayState   // the telemetry request the server last sent and what became of it (relay.go)
+	wl    workloadState // what the release runs, as its controller counted it (workloads.go)
 }
 
 func (r *runner) dial(id *Identity) (*grpc.ClientConn, error) {

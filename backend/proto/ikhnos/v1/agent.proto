@@ -1330,6 +1330,28 @@ message Diagnostics {
   // own export counters (the chart's telemetry.health). Absent: the agent is not reading them (health is off,
   // no telemetry is installed, or an agent older than this field).
   ExportHealth export_health = 19;
+  // What the release runs and how many pods of each are ready, read by the agent from the status of the IkhnosAgent that keeps it installed
+  // (the controller writes it there). Absent: nothing keeps this agent installed, the cluster has not turned the relay on (the agent may
+  // read that resource only then), the controller is older than this, or it has not said yet.
+  repeated WorkloadStatus workloads = 20;
+}
+
+// One workload of the release (a Deployment or a DaemonSet) as the controller last counted its pods.
+message WorkloadStatus {
+  string name = 1;
+  // "Deployment" or "DaemonSet".
+  string kind = 2;
+  // The part of the release it is (app.kubernetes.io/component): telemetry-host, telemetry-cluster, telemetry-kepler, telemetry-dcgm, ...
+  // Empty for the agent's own Deployment.
+  string component = 3;
+  // Pods it asks for, and pods that are running, updated and available.
+  uint32 wanted = 4;
+  uint32 ready = 5;
+  // A change to it has not been carried out yet.
+  bool rolling_out = 6;
+  // How long the agent has seen it with fewer pods ready than it asks for, in seconds; 0 when all are ready. The agent keeps the time:
+  // a pod that has just been asked for is not a pod held back.
+  uint32 not_ready_seconds = 7;
 }
 
 // What the agent saw when it read the telemetry collectors' own export counters (otelcol_exporter_sent_* and

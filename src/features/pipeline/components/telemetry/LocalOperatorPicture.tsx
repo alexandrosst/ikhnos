@@ -124,7 +124,7 @@ export default function LocalOperatorPicture({ installed, diagnostics, connected
           )}
           <p className="text-xs text-nb-500" data-testid={`${testId}-note`}>
             {keptByController ? 'Kept by the Ikhnos controller in this cluster. ' : ''}
-            State comes from the collectors&apos; own counters: per kind of data going out, and per source where the collectors read it themselves (the kubelet, the host, the Kubernetes API, the logs), and for Kepler, DCGM and the cluster links whether each node's target answers the collector with data. That shows the tool is serving, not that its values are right. Which tool reads each source is the cluster owner&apos;s to set in Helm.
+            State comes from the collectors&apos; own counters: per kind of data going out, and per source where the collectors read it themselves (the kubelet, the host, the Kubernetes API, the logs), and for Kepler, DCGM and the cluster links whether each node's target answers the collector with data. That shows the tool is serving, not that its values are right. Where a controller keeps the release, it also counts the pods of each tool and of the collectors, which is how a pod held back on a node is seen. Which tool reads each source is the cluster owner&apos;s to set in Helm.
           </p>
         </div>
       )}

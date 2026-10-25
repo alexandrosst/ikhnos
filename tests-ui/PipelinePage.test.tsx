@@ -1024,6 +1024,16 @@ describe('PipelinePage - local operators', () => {
     expect(within(row).getByTestId('component-reason-local:a1')).toHaveTextContent(/read on only some of the nodes: Energy/)
   })
 
+  test('a Kepler pod held back on a node is said as the tool read on only some of the nodes, though the collector sends fine', async () => {
+    listTelemetryIntents.mockResolvedValue([intent({ signals: [{ id: 'energy', source: 'builtin' }], destination: { kind: 'external', endpoint: 'otel.example.com:4317' } })])
+    const workloads = [{ name: 'ikhnos-telemetry-kepler', kind: 'DaemonSet', component: 'telemetry-kepler', wanted: 3, ready: 2, notReadySeconds: 900 }]
+    topologyState = { agents: [installedAgent({ installedTelemetry: ['energy'], workloads, exportHealth: { sources: [], receivers: [], podsReached: 1, podsFailed: 0, routes: [{ exporter: 'otlp', signal: 'metrics', state: 'exporting', sent: 5, failed: 0, lastSentAt: minutesAgo(0) }] } })], clusters: [cl()] }
+    renderPage()
+    const row = await screen.findByTestId('component-local:a1')
+    expect(row).toHaveAttribute('data-state', 'attention')
+    expect(within(row).getByTestId('component-reason-local:a1')).toHaveTextContent(/read on only some of the nodes: Energy/)
+  })
+
   test('a local operator\'s menu has What it collects here (the agent\'s Telemetry section with the picture) above Change what it sends', async () => {
     const user = userEvent.setup()
     topologyState = { agents: [ag({ diagnostics: { installedTelemetry: ['resourceUsage'], reportedAt: minutesAgo(1) } } as Partial<Agent>)], clusters: [cl()] }

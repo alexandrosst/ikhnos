@@ -261,6 +261,7 @@ func (r *runner) diagnostics() *ikhnosv1.Diagnostics {
 	if r.cfg.ExportHealth != nil {
 		d.ExportHealth = r.cfg.ExportHealth.Report()
 	}
+	d.Workloads = r.workloadReport(time.Now())
 	if c != nil {
 		d.Scope = c.ScopeSummary()
 	} else {
@@ -569,6 +570,15 @@ func diagSignature(d *ikhnosv1.Diagnostics) []byte {
 		h.ScrapedAt = nil
 		for _, r := range h.Routes {
 			r.Sent, r.Failed, r.LastSentAt, r.LastFailedAt = 0, 0, nil, nil
+		}
+	}
+	// What the release runs: a change in how many pods are ready is a message, the seconds a pod has been missing are not (only whether it has
+	// been missing long enough to be held back, which the server is told the moment it is).
+	for _, w := range c.Workloads {
+		if time.Duration(w.NotReadySeconds)*time.Second >= WorkloadsHeldBackAfter {
+			w.NotReadySeconds = uint32(WorkloadsHeldBackAfter / time.Second)
+		} else {
+			w.NotReadySeconds = 0
 		}
 	}
 	b, _ := proto.MarshalOptions{Deterministic: true}.Marshal(c)

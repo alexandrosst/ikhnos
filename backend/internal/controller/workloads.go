@@ -8,6 +8,8 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"ikhnos/internal/relay"
 )
 
 // ConditionWorkloadsReady is true when every pod the release asks for is running and rolled out. It is not part of Ready: Ready says the
@@ -24,22 +26,10 @@ const (
 	maxWorkloadMessage = 400
 )
 
-// Workload is one thing the release runs (the agent, a collector, Kepler, the node probe) and how many of its pods are ready.
-type Workload struct {
-	Name string `json:"name"`
-	// Kind is Deployment or DaemonSet.
-	Kind string `json:"kind"`
-	// Component is the part of the release it is, from its app.kubernetes.io/component label (the agent's own Deployment has none).
-	Component string `json:"component,omitempty"`
-	// Wanted is how many pods it asks for: its replicas, or the nodes a DaemonSet is to run on.
-	Wanted int32 `json:"wanted"`
-	// Ready is how many of them are running, updated and available.
-	Ready int32 `json:"ready"`
-	// RollingOut says the last change to it has not been carried out yet.
-	RollingOut bool `json:"rollingOut,omitempty"`
-}
+// Workload is what the status says of one thing the release runs (see package relay).
+type Workload = relay.Workload
 
-func (w Workload) done() bool { return !w.RollingOut && w.Ready >= w.Wanted }
+func done(w Workload) bool { return !w.RollingOut && w.Ready >= w.Wanted }
 
 func (r *Reconciler) observeEvery() time.Duration {
 	if r.ObserveEvery < 0 {
@@ -121,7 +111,7 @@ func workloadsCondition(obj int64, ws []Workload) *Condition {
 // allDone is whether every workload has its pods.
 func allDone(ws []Workload) bool {
 	for _, w := range ws {
-		if !w.done() {
+		if !done(w) {
 			return false
 		}
 	}

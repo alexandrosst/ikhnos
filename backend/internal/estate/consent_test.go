@@ -922,3 +922,27 @@ func TestExportHealthRelaysWhereTheSourcesGoSilentOrFail(t *testing.T) {
 		t.Errorf("Sources = %#v, want an empty list", ss)
 	}
 }
+
+func TestDiagnosticsRelayWhatTheReleaseRunsAndBoundIt(t *testing.T) {
+	at := time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
+	v := NewView()
+	var many []*ikhnosv1.WorkloadStatus
+	for i := 0; i < 40; i++ {
+		many = append(many, &ikhnosv1.WorkloadStatus{Name: fmt.Sprintf("w%d", i), Kind: "Deployment", Wanted: 1, Ready: 1})
+	}
+	many[0] = &ikhnosv1.WorkloadStatus{Name: "ikhnos-telemetry-kepler", Kind: "DaemonSet", Component: "telemetry-kepler", Wanted: 3, Ready: 2, NotReadySeconds: 600, RollingOut: true}
+	v.NoteDiagnostics(&ikhnosv1.Diagnostics{AgentVersion: "1", Workloads: many}, false, at)
+	got := v.diagDoc().Workloads
+	if len(got) != maxWorkloadsReported {
+		t.Fatalf("a malformed report with many workloads must be bounded: %d", len(got))
+	}
+	if k := got[0]; k.Name != "ikhnos-telemetry-kepler" || k.Kind != "DaemonSet" || k.Component != "telemetry-kepler" || k.Wanted != 3 || k.Ready != 2 || k.NotReadySeconds != 600 || !k.RollingOut {
+		t.Errorf("workload = %+v", k)
+	}
+	// An agent that says nothing of it says nothing of it.
+	v2 := NewView()
+	v2.NoteDiagnostics(&ikhnosv1.Diagnostics{AgentVersion: "1"}, false, at)
+	if w := v2.diagDoc().Workloads; w != nil {
+		t.Errorf("Workloads = %#v, want none", w)
+	}
+}

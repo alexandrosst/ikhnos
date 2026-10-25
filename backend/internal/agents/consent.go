@@ -323,6 +323,25 @@ type DiagnosticsDoc struct {
 	// it from the collectors' own export counters. Nil: the agent is not reading them (telemetry not
 	// installed, health turned off in the chart, or an agent older than this field).
 	ExportHealth *ExportHealthDoc `json:"exportHealth,omitempty"`
+	// Workloads is what the release runs and how many pods of each are ready, as the controller that keeps the agent installed last counted it
+	// and the agent read it. Absent: nothing keeps the agent installed, the relay is off (the agent may read its resource only then), or the
+	// controller is older than this.
+	Workloads []WorkloadDoc `json:"workloads,omitempty"`
+}
+
+// WorkloadDoc is one entry of DiagnosticsDoc.Workloads: a Deployment or DaemonSet of the release.
+type WorkloadDoc struct {
+	Name string `json:"name"`
+	// Kind is Deployment or DaemonSet.
+	Kind string `json:"kind"`
+	// Component is the part of the release it is (telemetry-host, telemetry-cluster, telemetry-kepler, telemetry-dcgm, ...); empty for the agent.
+	Component string `json:"component,omitempty"`
+	Wanted    int    `json:"wanted"`
+	Ready     int    `json:"ready"`
+	// RollingOut: a change to it has not been carried out yet.
+	RollingOut bool `json:"rollingOut,omitempty"`
+	// NotReadySeconds is how long the agent has seen it with fewer pods ready than it asks for (0: none missing).
+	NotReadySeconds int `json:"notReadySeconds,omitempty"`
 }
 
 // ExportHealthDoc is DiagnosticsDoc.ExportHealth: the state the agent worked out for each route, relayed

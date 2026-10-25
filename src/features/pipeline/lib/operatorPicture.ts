@@ -7,8 +7,9 @@ import { arrivalCheck, type ArrivalRow } from './telemetrySetup'
 
 /**
  * The local operator in one picture: what its collectors take in, the collectors themselves, and where each kind of data goes out, with the
- * state of each stage. It is drawn only from what the agent already reports (the signals the chart runs, and the collectors' own counters per
- * signal type), so it says nothing about a single tool: a source is shown on or off, and the state sits on the stage that is known.
+ * state of each stage. It is drawn only from what the agent already reports: the signals the chart runs, the collectors' own counters per signal
+ * type and per source, whether each scraped tool answers on each node, and, where a controller keeps the release, how many pods of each
+ * workload are ready. The state sits on the stage that is known; a stage nothing is known about is not a fault.
  */
 
 export type PictureScope = 'node' | 'cluster' | 'application'
@@ -49,16 +50,57 @@ const CHECK: Record<string, string> = {
 
 /** What to check when a tool the collector scrapes does not answer on some or all of its nodes. */
 const CHECK_TOOL: Record<string, string> = {
-  energy: "Look at the Kepler pods on those nodes: a node Kepler cannot run on holds its pod back, and one that started but serves nothing gives no energy data.",
-  accelerators: "Look at the dcgm-exporter pods on those nodes: a node without a GPU runs none, and one that started but serves nothing gives no GPU data.",
+  energy: "Look at the Kepler pods on those nodes: one that started but serves nothing gives no energy data.",
+  accelerators: "Look at the dcgm-exporter pods on those nodes: one that started but serves nothing gives no GPU data.",
   clusterLinks: "The collector reads the agent's own link service: look at the agent pod's logs.",
 }
+
+/** The bundled tools whose pods the controller counts, by the component the chart labels them with, and how the picture names them. */
+const TOOL_PODS: Record<string, { component: string; name: string }> = {
+  energy: { component: 'telemetry-kepler', name: 'Kepler' },
+  accelerators: { component: 'telemetry-dcgm', name: 'dcgm-exporter' },
+}
+
+/** How long a workload is seen with pods missing before it is held back rather than starting: the same as the agent's (WorkloadsHeldBackAfter). */
+export const HELD_BACK_SECONDS = 180
 
 const rank = (s: W.SourceState) => READ_WORST_FIRST.indexOf(s)
 const agoWords = (iso: string | undefined, now: number) => (iso ? `${uptimeWords(Math.max(0, (now - Date.parse(iso)) / 1000))} ago` : undefined)
 
-/** How the collectors read one signal's source, from the receivers that serve it; undefined when no receiver of the agent's report serves it. */
-export function sourceRead(id: string, sources: readonly W.SourceHealthDoc[] | undefined, now: number): SourceRead | undefined {
+const heldBack = (w: W.WorkloadDoc) => w.ready < w.wanted && !w.rollingOut && (w.notReadySeconds ?? 0) >= HELD_BACK_SECONDS
+
+/**
+ * Whether the pods of the tool behind a source are all there, from what the controller counted: undefined when they are (or nothing is known),
+ * waiting while the missing ones are starting, degraded or failing when they have been missing long enough to be held back.
+ */
+function podsRead(id: string, workloads: readonly W.WorkloadDoc[] | undefined): SourceRead | undefined {
+  const t = TOOL_PODS[id]
+  const w = t && workloads?.find((x) => x.component === t.component)
+  if (!t || !w || w.ready >= w.wanted) return undefined
+  if (!heldBack(w)) return { state: 'waiting', word: READ_WORD.waiting, health: 'unknown', sentence: `${t.name}: ${w.ready} of ${w.wanted} pods are ready, the others are starting.` }
+  const since = uptimeWords(w.notReadySeconds ?? 0)
+  const state: W.SourceState = w.ready === 0 ? 'failing' : 'degraded'
+  const lead = w.ready === 0 ? `None of ${t.name}'s ${w.wanted} pods is ready` : `${t.name} runs on ${w.ready} of the ${w.wanted} nodes it is asked to`
+  return { state, word: READ_WORD[state], health: 'attention', sentence: `${lead}, for ${since} now. A node it cannot run on, a taint or an image that does not start holds the others back: the events of those pods say which.` }
+}
+
+/**
+ * How the collectors read one signal's source, from the receivers that serve it, and whether the pods of the tool behind it are there; undefined
+ * when neither is known. The source is as bad as the worse of the two, and says both.
+ */
+export function sourceRead(id: string, sources: readonly W.SourceHealthDoc[] | undefined, now: number, workloads?: readonly W.WorkloadDoc[]): SourceRead | undefined {
+  const scraped = scrapeRead(id, sources, now)
+  const pods = podsRead(id, workloads)
+  if (!pods) return scraped
+  if (!scraped) return pods
+  // Pods that are only starting do not make a source that is being read any less read.
+  if (pods.state === 'waiting') return { ...scraped, sentence: [scraped.sentence, pods.sentence].filter(Boolean).join(' ') }
+  if (rank(pods.state) < rank(scraped.state)) return { ...pods, sentence: [pods.sentence, scraped.sentence].filter(Boolean).join(' ') }
+  if (rank(pods.state) === rank(scraped.state) && pods.health === 'attention') return { ...scraped, sentence: [scraped.sentence, pods.sentence].filter(Boolean).join(' ') }
+  return scraped
+}
+
+function scrapeRead(id: string, sources: readonly W.SourceHealthDoc[] | undefined, now: number): SourceRead | undefined {
   const mine = (sources ?? []).filter((r) => r.signals.includes(id))
   if (mine.length === 0) return undefined
   const worst = mine.reduce((a, b) => (rank(b.state) < rank(a.state) ? b : a))
@@ -90,7 +132,7 @@ export function failingSources(installed: readonly string[], d: AgentDiagnostics
   const out: { id: string; label: string; sentence: string; partial: boolean }[] = []
   for (const sig of TELEMETRY_SIGNALS) {
     if (!installed.includes(sig.id)) continue
-    const r = sourceRead(sig.id, d?.exportHealth?.sources, now)
+    const r = sourceRead(sig.id, d?.exportHealth?.sources, now, d?.workloads)
     if (r && r.health === 'attention') out.push({ id: sig.id, label: sig.label, sentence: r.sentence ?? '', partial: r.state === 'degraded' })
   }
   return out
@@ -133,14 +175,14 @@ export function operatorPicture(o: { installed: string[]; diagnostics?: AgentDia
   const { installed, diagnostics: d } = o
   const groups: PictureGroup[] = GROUPS.map((g) => ({
     ...g,
-    sources: TELEMETRY_SIGNALS.filter((s) => s.scope === g.scope && installed.includes(s.id)).map((s) => ({ id: s.id, label: s.label, modality: s.modality, what: s.what, read: sourceRead(s.id, d?.exportHealth?.sources, o.now) })),
+    sources: TELEMETRY_SIGNALS.filter((s) => s.scope === g.scope && installed.includes(s.id)).map((s) => ({ id: s.id, label: s.label, modality: s.modality, what: s.what, read: sourceRead(s.id, d?.exportHealth?.sources, o.now, d?.workloads) })),
   })).filter((g) => g.sources.length > 0)
 
   // The lanes and their health are the ones "Is data arriving?" shows, so the two never disagree.
   const a = arrivalCheck({ wanted: installed, diagnostics: d, connected: o.connected, waited: 0, now: o.now, cluster: o.cluster, namespace: o.namespace })
   const reach = exportReach(d)
   const h = d?.exportHealth
-  const collectors: PictureCollectors =
+  let collectors: PictureCollectors =
     reach === 'ok' && h
       ? h.podsFailed > 0
         ? { health: 'attention', text: `${h.podsReached} collector ${h.podsReached === 1 ? 'pod' : 'pods'} read, ${h.podsFailed} could not be read` }
@@ -149,6 +191,13 @@ export function operatorPicture(o: { installed: string[]; diagnostics?: AgentDia
         ? // The error itself is in the sentence above the picture ("Is data arriving?"); here it would be said a third time.
         { health: 'attention', text: 'The agent cannot read their counters' }
         : { health: 'unknown', text: d ? 'This agent does not report its collectors' : 'The agent has not reported yet' }
+
+  // The counters of the collector pods that are there say nothing of a pod that is not: where a controller keeps the release, it counts them.
+  const missing = (d?.workloads ?? []).filter((w) => (w.component === 'telemetry-host' || w.component === 'telemetry-cluster') && w.ready < w.wanted)
+  if (missing.length > 0) {
+    const parts = missing.map((w) => `${w.component === 'telemetry-host' ? 'node collectors' : 'cluster collector'}: ${w.ready} of ${w.wanted} pods ready${w.rollingOut ? ' (a change is being rolled out)' : heldBack(w) ? ` for ${uptimeWords(w.notReadySeconds ?? 0)}` : ''}`)
+    collectors = { health: missing.some(heldBack) ? 'attention' : collectors.health, text: `${collectors.text} · ${parts.join(', ')}` }
+  }
 
   // Nothing known about a stage is not a fault; the picture's own state is the worst of the stages that are known.
   // A source that is not being read is a thing to look at even while the data of the others flows; one that is read in part is shown, not raised.

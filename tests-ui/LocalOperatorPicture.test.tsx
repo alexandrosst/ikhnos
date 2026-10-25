@@ -178,3 +178,61 @@ describe('a tool the collector scrapes', () => {
     expect(screen.getByTestId('operator-picture-source-energy-why')).toHaveTextContent(/Not answering: node-b/)
   })
 })
+
+const wl = (over: Partial<import('@/lib/generated/wire').WorkloadDoc>) => ({ name: 'ikhnos-telemetry-kepler', kind: 'DaemonSet', component: 'telemetry-kepler', wanted: 3, ready: 3, ...over })
+const withWorkloads = (d: AgentDiagnostics, workloads: ReturnType<typeof wl>[]): AgentDiagnostics => ({ ...d, workloads })
+
+describe('the pods of a tool, where a controller keeps the release', () => {
+  test('a pod held back on a node is said at the tool, and asks to be looked at, though no scrape target exists for it', () => {
+    const d = withWorkloads(diag(healthy, ['energy']), [wl({ ready: 2, notReadySeconds: 720 })])
+    const p = operatorPicture({ installed: ['energy'], diagnostics: d, now: NOW, cluster: 'c' })
+    const r = p.groups[0].sources[0].read!
+    expect(r.state).toBe('degraded')
+    expect(r.health).toBe('attention')
+    expect(r.sentence).toMatch(/^Kepler runs on 2 of the 3 nodes it is asked to, for 12 min now\. A node it cannot run on, a taint/)
+    expect(p.needsAttention).toBe(true)
+  })
+
+  test('none of the pods ready is not reading, and a tool that is not in the cluster says nothing', () => {
+    const none = operatorPicture({ installed: ['energy'], diagnostics: withWorkloads(diag(healthy, ['energy']), [wl({ ready: 0, notReadySeconds: 600 })]), now: NOW, cluster: 'c' })
+    expect(none.groups[0].sources[0].read?.state).toBe('failing')
+    expect(none.groups[0].sources[0].read?.sentence).toMatch(/^None of Kepler's 3 pods is ready/)
+    // The accelerators' tool is not Kepler's: its pods say nothing of energy.
+    const other = operatorPicture({ installed: ['energy'], diagnostics: withWorkloads(diag(healthy, ['energy']), [wl({ component: 'telemetry-dcgm', ready: 0, notReadySeconds: 600 })]), now: NOW, cluster: 'c' })
+    expect(other.groups[0].sources[0].read).toBeUndefined()
+  })
+
+  test('pods that are only starting, or being rolled out, are not a fault and do not make a source that is read less read', () => {
+    const starting = operatorPicture({ installed: ['energy'], diagnostics: withWorkloads(diag(healthy, ['energy']), [wl({ ready: 2, notReadySeconds: 40 })]), now: NOW, cluster: 'c' })
+    expect(starting.groups[0].sources[0].read).toMatchObject({ state: 'waiting', health: 'unknown' })
+    expect(starting.needsAttention).toBe(false)
+    const rolling = operatorPicture({ installed: ['energy'], diagnostics: withWorkloads(diag(healthy, ['energy']), [wl({ ready: 2, rollingOut: true, notReadySeconds: 900 })]), now: NOW, cluster: 'c' })
+    expect(rolling.groups[0].sources[0].read?.health).toBe('unknown')
+    // Answering on both nodes that run it, the third pod starting: still being read.
+    const d = withWorkloads(diag(tool('receiving', 2, 2, []), ['energy']), [wl({ ready: 2, notReadySeconds: 40 })])
+    const read = operatorPicture({ installed: ['energy'], diagnostics: d, now: NOW, cluster: 'c' }).groups[0].sources[0].read!
+    expect(read.state).toBe('receiving')
+    expect(read.sentence).toBe('Kepler: 2 of 3 pods are ready, the others are starting.')
+  })
+
+  test('all pods ready adds nothing, and the scrape and the pods are both said when both are wrong', () => {
+    const ok = operatorPicture({ installed: ['energy'], diagnostics: withWorkloads(diag(tool('receiving', 3, 3, []), ['energy']), [wl({})]), now: NOW, cluster: 'c' })
+    expect(ok.groups[0].sources[0].read?.sentence).toBeUndefined()
+    const both = operatorPicture({ installed: ['energy'], diagnostics: withWorkloads(diag(tool('degraded', 2, 1, ['node-b']), ['energy']), [wl({ ready: 2, notReadySeconds: 600 })]), now: NOW, cluster: 'c' })
+    const s = both.groups[0].sources[0].read!.sentence!
+    expect(s).toMatch(/Not answering: node-b/)
+    expect(s).toMatch(/Kepler runs on 2 of the 3 nodes/)
+  })
+
+  test('the collectors say a pod of theirs that is missing, which their counters cannot', () => {
+    const base = diag(healthy, ['resourceUsage'])
+    const host = { name: 'ikhnos-telemetry-host', kind: 'DaemonSet', component: 'telemetry-host', wanted: 3, ready: 2 }
+    const held = operatorPicture({ installed: ['resourceUsage'], diagnostics: withWorkloads(base, [{ ...host, notReadySeconds: 600 }]), now: NOW, cluster: 'c' })
+    expect(held.collectors.text).toBe('4 collector pods read · node collectors: 2 of 3 pods ready for 10 min')
+    expect(held.collectors.health).toBe('attention')
+    expect(held.needsAttention).toBe(true)
+    const starting = operatorPicture({ installed: ['resourceUsage'], diagnostics: withWorkloads(base, [{ ...host, notReadySeconds: 20 }]), now: NOW, cluster: 'c' })
+    expect(starting.collectors.health).toBe('healthy')
+    expect(starting.needsAttention).toBe(false)
+  })
+})
