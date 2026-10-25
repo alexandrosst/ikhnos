@@ -179,7 +179,8 @@ function TelemetryPanelBody({
   const request = newestRequest(extras.telemetry, sent)
   const availability = askAvailability(extras.keptByController, extras.capabilities)
   const [via, setVia] = useState<'ask' | 'helm' | 'controller' | undefined>(undefined)
-  const mode = via ?? (availability === 'yes' ? 'ask' : 'helm')
+  // A controller keeps this release when the agent says so (`yes`, `old`): a helm upgrade of it is put back by the controller, so it is not offered there.
+  const mode = via ?? (availability === 'yes' ? 'ask' : availability === 'old' ? 'controller' : 'helm')
 
   // A regional operator destination: its receiver wants a client certificate only the server can issue, so
   // there is no ready command - only an explicit "Generate" that asks the server for one (and issues a new
@@ -358,7 +359,7 @@ function TelemetryPanelBody({
               onChange={setVia}
               items={[
                 ...(availability === 'none' ? [] : [{ id: 'ask' as const, label: 'Ask the cluster', testId: `${p}-via-ask` }]),
-                { id: 'helm' as const, label: 'helm', testId: `${p}-via-helm` },
+                ...(availability === 'none' ? [{ id: 'helm' as const, label: 'helm', testId: `${p}-via-helm` }] : []),
                 { id: 'controller' as const, label: 'kubectl (controller)', testId: `${p}-via-controller` },
               ]}
             />
@@ -438,11 +439,6 @@ function TelemetryPanelBody({
               })}
             </ul>
           )}
-          {installed.length > 0 && (
-            <p className="mt-1.5 text-xs text-nb-500" data-testid="telemetry-installed-note">
-              The settings below start from these. The command they create states every signal: the ones left ticked stay on (or turn on), every other one is turned off.
-            </p>
-          )}
 
           {installed.length > 0 && (
             <div className="mt-3" data-testid="export-health">
@@ -481,7 +477,15 @@ function TelemetryPanelBody({
             <ChevronRight size={ICON_SM} className="transition-transform group-open:rotate-90" aria-hidden />
             Change telemetry
           </summary>
-          <div className="mt-3 rounded-lg border border-nb-850 bg-nb-925 p-3">{form}</div>
+          <div className="mt-3 rounded-lg border border-nb-850 bg-nb-925 p-3">
+            {installed.length > 0 && (
+              // Said where it matters, in the form, rather than under the chips on every visit.
+              <p className="mb-3 text-xs text-nb-500" data-testid="telemetry-installed-note">
+                The settings below start from what is installed now. The command they create states every signal: the ones left ticked stay on (or turn on), every other one is turned off.
+              </p>
+            )}
+            {form}
+          </div>
         </details>
       )}
     </div>

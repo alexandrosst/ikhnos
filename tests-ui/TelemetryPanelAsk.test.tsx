@@ -133,12 +133,22 @@ describe('TelemetryPanel: asking the cluster', () => {
     render(tree())
     await user.click(screen.getByTestId('tp-traces'))
     await toRun(user)
-    // Offered, but it explains instead of sending: the controller is there, the agent cannot pass a request to it.
+    // Starts on the patch of the resource (the controller is there). Ask is offered, but it explains instead of sending: the agent cannot pass a request to it.
+    expect(screen.getByTestId('tp-via-controller')).toHaveAttribute('aria-selected', 'true')
     await user.click(screen.getByTestId('tp-via-ask'))
     expect(screen.getByTestId('tp-ask-old')).toHaveTextContent('too old')
     expect(screen.queryByTestId('tp-ask-send')).not.toBeInTheDocument()
-    await user.click(screen.getByTestId('tp-via-helm'))
-    expect(await screen.findByTestId('helm-command')).toBeInTheDocument()
+    // A controller keeps this release, so a helm upgrade would be put back: the patch of the resource is the command, and helm is not offered.
+    expect(screen.queryByTestId('tp-via-helm')).not.toBeInTheDocument()
+    await user.click(screen.getByTestId('tp-via-controller'))
+    expect(await screen.findByTestId('tp-controller')).toBeInTheDocument()
+  })
+
+  test('the note on how the settings start is in the form, not under the installed signals', () => {
+    render(<MemoryRouter><TelemetryPanel testIdPrefix="tp" agentId="a1" clusterId="cl-1" diagnostics={INSTALLED} /></MemoryRouter>)
+    const note = screen.getByTestId('telemetry-installed-note')
+    expect(screen.getByTestId('tp-change')).toContainElement(note)
+    expect(note).toHaveTextContent('start from what is installed now')
   })
 
   test('lists what the form changes that a request does not carry, so it is not taken for sent', async () => {
