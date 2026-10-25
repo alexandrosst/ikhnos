@@ -48,6 +48,12 @@ rules:
   - apiGroups: [networking.k8s.io]
     resources: [networkpolicies]
     verbs: [get, list, watch, create, update, patch, delete]
+  # A destination reached over mutual TLS (a regional operator, FUSION's central operator): the agent chart makes a Role and a binding that
+  # let the agent renew the client certificate in the Secret the resource names. Holding the Secrets' verbs it grants is above.
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources: [roles, rolebindings]
+    resourceNames: [ikhnos-agent-cert-renew]
+    verbs: [get, list, watch, update, patch, delete]
 {{- end }}
   # The identity purge is a post-delete hook Job; Helm watches it until it finishes.
   - apiGroups: [batch]
