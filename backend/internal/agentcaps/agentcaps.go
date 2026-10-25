@@ -53,6 +53,10 @@ const (
 	LinkCapabilities = "link-capabilities"
 	// ChunkedSync: the agent sends a large inventory in pieces and not in one message.
 	ChunkedSync = "chunked-sync"
+	// TelemetryRelay: the agent hands the telemetry request in its Config (what the server asks the cluster to collect) to the controller
+	// that keeps it installed, and says in its heartbeat what became of it. An agent without it ignores the request, and the server
+	// cannot tell whether it was taken.
+	TelemetryRelay = "telemetry-relay"
 )
 
 // registry holds the description of every name. It is the one place a name is defined.
@@ -63,6 +67,7 @@ var registry = map[string]string{
 	SelfStats:        "reports its own resource use in its heartbeat",
 	LinkCapabilities: "reports which link measurements its node can make in its heartbeat",
 	ChunkedSync:      "sends a large inventory in pieces rather than in one message",
+	TelemetryRelay:   "hands the telemetry the server asks for to the controller that keeps it, and reports what became of it in its heartbeat",
 }
 
 // Names returns every capability this build knows, sorted.

@@ -69,6 +69,16 @@ var capabilityProbes = map[string]func(t *testing.T){
 			t.Fatalf("no link capabilities: %+v", c)
 		}
 	},
+	agentcaps.TelemetryRelay: func(t *testing.T) {
+		// A cluster that has not turned the relay on still answers: refused, in words, in its next heartbeat.
+		r := newTestRunner()
+		r.relay = newRelayState()
+		r.cfg = Config{ControllerResource: "this-cluster"}
+		r.noteRelayRequest(&ikhnosv1.Config{TelemetryRequest: &ikhnosv1.TelemetryRequest{Revision: 3}})
+		if s := r.relayStatus(); s == nil || s.Revision != 3 || s.State != "refused" || s.Reason == "" {
+			t.Fatalf("a request was not answered: %+v", s)
+		}
+	},
 	agentcaps.ChunkedSync: func(t *testing.T) {
 		big := &ikhnosv1.Sync{Seq: 1, Full: true}
 		for i := 0; i < 50; i++ {

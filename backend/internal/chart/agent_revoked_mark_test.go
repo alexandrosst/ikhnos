@@ -2,6 +2,7 @@ package chart
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"ikhnos/internal/install"
@@ -43,6 +44,30 @@ func TestAnAgentTheControllerKeepsMayPatchTheStatusOfItsOwnResourceAndNothingEls
 	}
 	if roles, bindings, _ = marks(); roles != 0 || bindings != 0 {
 		t.Fatalf("an agent installed with Helm was given the right to patch a resource: %d %d", roles, bindings)
+	}
+
+	// With the relay on, the agent also reads that one status, to see what the controller made of a request; still not the object.
+	roles, bindings, rules = marks("--set", "controller.resource="+install.ControllerResourceName, "--set", "controller.relayTelemetry=true")
+	if roles != 1 || bindings != 1 || len(rules) != 1 || rules[0] != "[ikhnos.io][ikhnosagents/status][this-cluster][get patch]" {
+		t.Fatalf("with the relay on: roles %d, bindings %d, rules %v", roles, bindings, rules)
+	}
+}
+
+// The agent is told to pass a telemetry request on only when the relay is on, and only when a controller keeps it: the relay is a way to a
+// resource, and without one there is nothing to write to.
+func TestTheAgentIsToldToRelayTelemetryOnlyWhenTheRelayIsOnAndAControllerKeepsIt(t *testing.T) {
+	relays := func(args ...string) bool {
+		out, err := helmTemplate(t, args...)
+		if err != nil {
+			t.Fatalf("helm template %v: %v\n%s", args, err, out)
+		}
+		return strings.Contains(out, "IKHNOS_RELAY_TELEMETRY")
+	}
+	if relays() || relays("--set", "controller.relayTelemetry=true") || relays("--set", "controller.resource="+install.ControllerResourceName) {
+		t.Fatal("the agent was told to relay without both a controller and the relay being on")
+	}
+	if !relays("--set", "controller.resource="+install.ControllerResourceName, "--set", "controller.relayTelemetry=true") {
+		t.Fatal("the agent was not told to relay when a controller keeps it and the relay is on")
 	}
 }
 

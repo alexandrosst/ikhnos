@@ -42,6 +42,11 @@ controller:
   # an agent the server revokes marks that resource (the chart gives it the right to patch that one object, nothing else) and the
   # controller removes the agent and its identity: revoking in Ikhnos leaves nothing of it in the cluster.
   resource: ""
+  # Whether the server may ask this cluster to collect more or less telemetry (which signals, how much of the traces; never where it goes).
+  # Off (default), a request is answered "refused" and nothing is written. On, the agent hands the request to the controller through the
+  # status of the IkhnosAgent (the chart then also lets it read that status), and the controller applies it inside what it was installed
+  # to allow, or says why not. Only meaningful with controller.resource: the controller sets both.
+  relayTelemetry: false
 
 identity:
   # false (default): `helm uninstall` leaves the identity Secret (the agent's key and certificate) in the namespace on purpose, so an

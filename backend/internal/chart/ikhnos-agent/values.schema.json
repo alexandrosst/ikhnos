@@ -48,7 +48,11 @@
       "properties": {
         "resource": {
           "type": "string",
-          "description": "The IkhnosAgent that a controller keeps this agent from. The controller sets it. When set, an agent that the server revokes marks that resource and the controller removes the agent and its identity; the agent gets the right to patch that one object and nothing else."
+          "description": "The IkhnosAgent that a controller keeps this agent from. The controller sets it. When set, an agent that the server revokes writes status.revoked on that resource and the controller removes the agent and its identity; the agent gets the right to patch the status of that one object and nothing else."
+        },
+        "relayTelemetry": {
+          "type": "boolean",
+          "description": "Whether the server may ask this cluster to collect more or less telemetry (signals and the share of traces kept, never the destination). The agent hands the request to the controller through the IkhnosAgent's status. Only with controller.resource; the controller sets it."
         }
       }
     },

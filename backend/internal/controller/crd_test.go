@@ -138,7 +138,7 @@ func walk(t *testing.T, path string, schema map[string]any, typ reflect.Type) {
 		if want != "boolean" {
 			t.Errorf("%s: schema type %q, Go bool", path, want)
 		}
-	case reflect.Int, reflect.Int32, reflect.Int64:
+	case reflect.Int, reflect.Int32, reflect.Int64, reflect.Uint32, reflect.Uint64:
 		if want != "integer" {
 			t.Errorf("%s: schema type %q, Go integer", path, want)
 		}

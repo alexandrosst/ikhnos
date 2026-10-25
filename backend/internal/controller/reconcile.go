@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"ikhnos/internal/install"
+	"ikhnos/internal/relay"
 )
 
 // Phases an IkhnosAgent is in.
@@ -41,6 +42,11 @@ type Status struct {
 	// Revoked is written by the agent, not the controller, when the server revokes it (see install.RevokedAnnotation for the way older
 	// agents said it). The controller keeps it when it writes its own fields.
 	Revoked *Revoked `json:"revoked,omitempty"`
+	// Requested is the telemetry the server asked this cluster for, written by the agent (see package relay). The controller keeps it when it
+	// writes its own fields; reading it is the controller's next step.
+	Requested *relay.Request `json:"requested,omitempty"`
+	// Relay is what became of the request. The controller will write it; until it does, it keeps whatever is there.
+	Relay *relay.Result `json:"relay,omitempty"`
 }
 
 // Revoked is the agent's word that the server revoked it.
@@ -444,6 +450,8 @@ func (r *Reconciler) setStatus(ctx context.Context, obj *unstructured.Unstructur
 	}
 	st.Conditions = []Condition{c}
 	st.Revoked = old.Revoked // the agent's word, not the controller's: writing the status must not take it away
+	st.Requested = old.Requested
+	st.Relay = old.Relay
 	if equalStatus(old, st) {
 		return nil
 	}

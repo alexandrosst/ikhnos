@@ -104,6 +104,8 @@ kubectl -n <namespace> delete secret ikhnos-agent-identity
 
 `controller.resource` is set by the controller, never by hand: it names the `IkhnosAgent` that keeps this agent, and gives the agent the right to patch that one object so that a revoked agent can mark it and be removed.
 
+`controller.relayTelemetry` (default `false`) lets the agent pass on a request from the Ikhnos server to collect more or less telemetry: which signals, and how much of the traces. The agent cannot apply it, so it writes it under `status.requested` of the `IkhnosAgent` that keeps it (and reads `status.relay` back); the controller checks it against what you allowed (`allowTelemetry`, the access tier), applies it with Helm, or says why not. Only *what* is collected can be asked for, never *where* it goes, and no credential. It needs `controller.resource`, so it is set by the controller too. Left off, a request from the server is answered "this cluster keeps its own settings", and the agent is given no right to read the resource.
+
 To have `helm uninstall` remove it as well, install (or upgrade) with `--set identity.purgeOnUninstall=true`. A post-delete hook then runs a
 short Job (`ikhnos purge-identity`) with a Role of its own that can read and delete that one Secret and nothing else, and removes the Role and
 the Job again when it has finished; a failed Job stays, for `kubectl logs`, and fails the uninstall. The agent is not coming back under that

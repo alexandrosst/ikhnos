@@ -19,6 +19,7 @@ import (
 	kubefake "k8s.io/client-go/kubernetes/fake"
 
 	"ikhnos/internal/install"
+	"ikhnos/internal/relay"
 )
 
 const ns = "ikhnos-system"
@@ -910,6 +911,37 @@ func TestAnAgentThatSaysItInTheStatusIsRemovedAndTheStatusKeepsTheWord(t *testin
 	g.must("a")
 	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(context.Background(), "a", metav1.GetOptions{}); !apierrors.IsNotFound(err) {
 		t.Fatalf("the agent that said it in the status was not removed: %v", err)
+	}
+}
+
+func TestWhatTheAgentAsksForInTheStatusSurvivesTheControllersOwnStatusWrites(t *testing.T) {
+	g := newRig(t)
+	g.secret("enroll", "token", "ikh_abc")
+	g.agent("a", goodSpec())
+	g.must("a")
+
+	u := g.get("a")
+	pct := 25
+	req := map[string]any{"revision": int64(3), "signals": map[string]any{"traces": true}, "tracesSamplingPercentage": int64(pct)}
+	if err := unstructured.SetNestedMap(u.Object, req, "status", "requested"); err != nil {
+		t.Fatal(err)
+	}
+	if err := unstructured.SetNestedMap(u.Object, map[string]any{"revision": int64(3), "state": "applied"}, "status", "relay"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Update(context.Background(), u, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.r.setStatus(context.Background(), u, Status{Phase: "Ready"}, g.r.cond(u, "True", "Installed", "ok")); err != nil {
+		t.Fatal(err)
+	}
+	st := g.status("a")
+	if st.Requested == nil || st.Requested.Revision != 3 || st.Requested.Signals == nil || !st.Requested.Signals.Traces ||
+		st.Requested.TracesSamplingPercentage == nil || *st.Requested.TracesSamplingPercentage != pct {
+		t.Fatalf("the controller's status write took away what the agent asked for: %+v", st.Requested)
+	}
+	if st.Relay == nil || st.Relay.State != relay.Applied {
+		t.Fatalf("the controller's status write took away the relay's word: %+v", st.Relay)
 	}
 }
 

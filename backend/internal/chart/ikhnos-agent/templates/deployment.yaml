@@ -125,6 +125,10 @@ spec:
             {{- with (dig "controller" "resource" "" .Values.AsMap) }}
             # The IkhnosAgent a controller keeps this agent from: a revoked agent marks it, and the controller removes the agent.
             - {name: IKHNOS_CONTROLLER_RESOURCE, value: {{ . | quote }}}
+            {{- if dig "controller" "relayTelemetry" false $.Values.AsMap }}
+            # The server may ask this cluster to collect more or less telemetry; the agent hands the request to the controller.
+            - {name: IKHNOS_RELAY_TELEMETRY, value: "true"}
+            {{- end }}
             {{- end }}
             - name: IKHNOS_TOKEN
               valueFrom: {secretKeyRef: {name: ikhnos-agent-enrollment, key: token, optional: true}}

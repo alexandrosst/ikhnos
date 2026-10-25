@@ -8,8 +8,8 @@ import (
 
 func TestEveryNameInTheRegistryIsWellformedAndDescribed(t *testing.T) {
 	names := Names()
-	if len(names) != 6 {
-		t.Fatalf("%d names, want the six of the first protocol version: %v", len(names), names)
+	if len(names) != 7 {
+		t.Fatalf("%d names, want the six of the first protocol version and the telemetry relay: %v", len(names), names)
 	}
 	for _, n := range names {
 		if !Wellformed(n) {
@@ -35,7 +35,7 @@ func TestNamesAreSortedAndUnique(t *testing.T) {
 }
 
 func TestTheConstantsAreTheRegistryKeys(t *testing.T) {
-	for _, n := range []string{ConfigDigest, Diagnostics, ReleaseInfo, SelfStats, LinkCapabilities, ChunkedSync} {
+	for _, n := range []string{ConfigDigest, Diagnostics, ReleaseInfo, SelfStats, LinkCapabilities, ChunkedSync, TelemetryRelay} {
 		if _, ok := Describe(n); !ok {
 			t.Errorf("the constant %q is not in the registry", n)
 		}

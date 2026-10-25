@@ -35,7 +35,7 @@ func TestTheVersionAndNamesAnAgentStatesAreRecorded(t *testing.T) {
 	r := newHubRig(t)
 	f := r.connectedWith(t, &ikhnosv1.Hello{AgentVersion: "fake", ProtocolVersion: agentcaps.ProtocolVersion, Capabilities: agentcaps.Names()})
 	p, caps := f.declared()
-	if p != 1 || strings.Join(caps, ",") != strings.Join(agentcaps.Names(), ",") || len(caps) != 6 {
+	if p != 1 || strings.Join(caps, ",") != strings.Join(agentcaps.Names(), ",") || len(caps) != 7 {
 		t.Fatalf("recorded protocol %d, names %v", p, caps)
 	}
 }

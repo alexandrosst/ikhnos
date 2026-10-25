@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"cmp"
 	"context"
 	"crypto"
 	"crypto/tls"
@@ -176,6 +177,13 @@ type Config struct {
 	// ControllerResource is the name of the IkhnosAgent a controller keeps this agent from, said in the Hello so that the server knows a
 	// revoke removes the agent by itself. Empty: nothing keeps it.
 	ControllerResource string
+	// RelayTelemetry is whether this cluster turned the telemetry relay on (relay.telemetry in the controller's chart), and Relay where the
+	// agent hands a request to the controller and reads what became of it (nil: nowhere to). Off, a request from the server is said to be
+	// refused, in words, and nothing is written.
+	RelayTelemetry bool
+	Relay          RelayStore
+	// RelayEvery is how often a request is handed on and followed (0: 10 seconds).
+	RelayEvery time.Duration
 }
 
 var ErrRevoked = errors.New("this agent was revoked or rejected by the server")
@@ -195,9 +203,12 @@ func Run(ctx context.Context, cfg Config) error {
 	if cfg.FlowWindow == 0 {
 		cfg.FlowWindow = 15 * time.Second
 	}
-	a := &runner{cfg: cfg, log: cfg.Log, root: ctx, started: time.Now(), probs: newProblemSet(), dg: newDiagState()}
+	a := &runner{cfg: cfg, log: cfg.Log, root: ctx, started: time.Now(), probs: newProblemSet(), dg: newDiagState(), relay: newRelayState()}
 	if cfg.ExportHealth != nil {
 		go cfg.ExportHealth.Run(ctx)
+	}
+	if cfg.Relay != nil && cfg.RelayTelemetry {
+		go a.relayLoop(ctx, cmp.Or(cfg.RelayEvery, 10*time.Second))
 	}
 	if cfg.RBACSelfCheck && cfg.Kube != nil {
 		go a.rbacCheckLoop(ctx)
@@ -294,6 +305,8 @@ type runner struct {
 	versionAt   time.Time
 
 	ex extra // enrollment end state and clock skew (enroll.go)
+
+	relay *relayState // the telemetry request the server last sent and what became of it (relay.go)
 }
 
 func (r *runner) dial(id *Identity) (*grpc.ClientConn, error) {

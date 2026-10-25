@@ -40,7 +40,7 @@ The controller alone, to ask for agents yourself with `kubectl`:
 helm install ikhnos-controller oci://ghcr.io/<owner>/ikhnos-controller --namespace ikhnos-system --create-namespace
 ```
 
-The controller watches the `IkhnosAgent` resources of its own namespace, and installs the agent into that namespace. The CRD is in `crds/`, which Helm installs once and **never upgrades**: after an upgrade that changes it, apply it yourself (`kubectl apply -f crds/ikhnosagents.yaml`). This release added `status.revoked`, so apply it when you upgrade: without it an agent the server revoked says so, the API server drops the field, and the agent logs that the definition is older than the controller instead of being removed.
+The controller watches the `IkhnosAgent` resources of its own namespace, and installs the agent into that namespace. The CRD is in `crds/`, which Helm installs once and **never upgrades**: after an upgrade that changes it, apply it yourself (`kubectl apply -f crds/ikhnosagents.yaml`). This release added `status.revoked`, so apply it when you upgrade: without it an agent the server revoked says so, the API server drops the field, and the agent logs that the definition is older than the controller instead of being removed. It also adds `status.requested` and `status.relay` (the telemetry relay below), so apply it for that too.
 
 Built from source, the chart's image names are placeholders. Name your own:
 
@@ -114,3 +114,7 @@ The controller installs the agent with `controller.resource` set to the name of 
 ## Removing
 
 Delete the `IkhnosAgent` first (the controller uninstalls the agent), then `helm uninstall ikhnos-controller`. A resource whose uninstall cannot finish is let go without touching the release by annotating it `ikhnos.io/skip-uninstall: "true"`. Helm leaves the CRD in place; remove it with `kubectl delete crd ikhnosagents.ikhnos.io` when no resource remains.
+
+## The server's telemetry requests (`status.requested`, `status.relay`)
+
+An agent installed with `controller.relayTelemetry=true` passes on a request from the Ikhnos server to collect more or less telemetry (which signals, how much of the traces) by writing it under `status.requested` of its resource; the chart then also lets it `get` that one status, to read `status.relay` back. It is the *what* only: no destination, no credential. The controller keeps both fields when it writes its own, and a status patch cannot reach the spec. The controller does not act on a request yet; an agent that is asked tells the server "written" and waits.

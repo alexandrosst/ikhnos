@@ -366,6 +366,7 @@ func (r *runner) stream(ctx context.Context, id *Identity) error {
 		return err
 	}
 	r.enforce(ov)
+	r.noteRelayRequest(cfg)
 	r.log.Info("streaming", "approved_tier", cfg.ApprovedAccessTier, "collecting_tier", tier, "paused", len(ov.paused), "extra_excluded_namespaces", len(ov.excluded))
 	r.cfg.Health.Connected()
 
@@ -438,7 +439,7 @@ func (r *runner) stream(ctx context.Context, id *Identity) error {
 	beatMsg := func(force bool) *ikhnosv1.AgentMessage {
 		return &ikhnosv1.AgentMessage{Msg: &ikhnosv1.AgentMessage_Heartbeat{Heartbeat: &ikhnosv1.Heartbeat{
 			Modules: r.collector.Modules(), ClockSkewMs: r.clockSkewMs(), Diagnostics: r.diagToSend(force), SelfStats: r.selfStats(), LinkCapabilities: r.linkCapabilities(),
-			AppliedConfigDigest: appliedDigest}}}
+			AppliedConfigDigest: appliedDigest, TelemetryRelay: r.relayStatus()}}}
 	}
 	if err := sendDiff(true); err != nil {
 		return err
@@ -617,11 +618,17 @@ func (r *runner) stream(ctx context.Context, id *Identity) error {
 					return errReconfigure
 				}
 				r.enforce(o)
+				r.noteRelayRequest(c)
 				applyConfig(c, o)
 				appliedDigest = c.Digest
 				if err := send(beatMsg(false)); err != nil { // says what is now in force, if that changed
 					return err
 				}
+			}
+		case <-r.relayChanges():
+			// What became of the server's telemetry request is told as it happens: an administrator is watching for it.
+			if err := send(beatMsg(false)); err != nil {
+				return err
 			}
 		case <-r.collectorChanges():
 			if debounce == nil {

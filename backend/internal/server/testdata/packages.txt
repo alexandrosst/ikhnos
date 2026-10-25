@@ -20,6 +20,7 @@ agent > link
 agent > measure
 agent > pki
 agent > probe
+agent > relay
 agent/collect > facts
 agents > accounts
 agents > agentcaps
@@ -69,6 +70,7 @@ connectivity > model
 connectivity > observed
 connectivity > store
 controller > install
+controller > relay
 controller/helminstall > chart
 controller/helminstall > controller
 decisionloop > accounts
