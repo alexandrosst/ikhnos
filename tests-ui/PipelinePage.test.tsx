@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { ApiError } from '@/lib/api'
 import { isReloadHeld } from '@/lib/staleBuild'
@@ -8,10 +8,16 @@ import PipelinePage from '@/features/pipeline/PipelinePage'
 import type { CreatedOperator, FusionStatus, IssuedCertificate, OperatorHeartbeatEnabled, OperatorRemoval } from '@/lib/api'
 import type { Agent, Cluster, OperatorDestinationEntry, RegionalOperator, TelemetryIntent } from '@/lib/types'
 
+function Where() {
+  const l = useLocation()
+  return <output data-testid="where">{l.pathname + l.search}</output>
+}
+
 function renderPage() {
   return render(
     <MemoryRouter>
       <PipelinePage />
+      <Where />
     </MemoryRouter>,
   )
 }
@@ -980,7 +986,7 @@ describe('PipelinePage - local operators', () => {
     expect(within(offline).queryByRole('button', { name: /What to do/ })).not.toBeInTheDocument()
   })
 
-  test('a collector whose route is failing is Not working, and its What to do offers the wizard to change what it sends', async () => {
+  test('a collector whose route is failing is Not working, and its What to do leads to the picture of its collectors in the agent\'s Telemetry section', async () => {
     const user = userEvent.setup()
     listTelemetryIntents.mockResolvedValue([intent({ destination: { kind: 'external', endpoint: 'otel.example.com:4317' } })])
     topologyState = { agents: [installedAgent({ exportHealth: { podsReached: 1, podsFailed: 0, routes: [{ exporter: 'otlp', signal: 'metrics', state: 'failing', sent: 0, failed: 3 }] } })], clusters: [cl()] }
@@ -989,8 +995,21 @@ describe('PipelinePage - local operators', () => {
     expect(row).toHaveAttribute('data-state', 'down')
     expect(within(row).getByTestId('component-reason-local:a1')).toHaveTextContent('Sending to otel.example.com:4317 is failing.')
     await user.click(within(row).getByRole('button', { name: 'What to do about edge-agent collector' }))
-    await user.click(screen.getByRole('button', { name: 'Change what it sends' }))
-    expect(telemetryStart).toHaveBeenCalledWith('a1')
+    await user.click(screen.getByRole('button', { name: 'See what it collects' }))
+    expect(screen.getByTestId('where')).toHaveTextContent('/agents?open=a1')
+  })
+
+  test('a local operator\'s menu has What it collects here (the agent\'s Telemetry section with the picture) above Change what it sends', async () => {
+    const user = userEvent.setup()
+    topologyState = { agents: [ag({ diagnostics: { installedTelemetry: ['resourceUsage'], reportedAt: minutesAgo(1) } } as Partial<Agent>)], clusters: [cl()] }
+    renderPage()
+    await screen.findByTestId('component-local:a1')
+    await user.click(screen.getByTestId('component-menu-local:a1'))
+    const items = screen.getAllByRole('menuitem').map((i) => i.textContent)
+    expect(items.findIndex((t) => /What it collects here/.test(t ?? ''))).toBeGreaterThanOrEqual(0)
+    expect(items.findIndex((t) => /What it collects here/.test(t ?? ''))).toBeLessThan(items.findIndex((t) => /Change what it sends/.test(t ?? '')))
+    await user.click(screen.getByTestId('local-collects-edge-agent collector'))
+    expect(screen.getByTestId('where')).toHaveTextContent('/agents?open=a1')
   })
 
   test('someone who is not an administrator gets the destination from the read model, and no operator is loaded', async () => {

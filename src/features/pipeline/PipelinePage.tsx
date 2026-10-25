@@ -145,7 +145,9 @@ export default function PipelinePage() {
     const op = r.operator
     if (!op) {
       if (r.kind === 'agent') return [{ key: 'agents', label: 'Open in Agents', onSelect: () => navigate('/agents'), testId: `agent-open-${r.name}` }]
-      return [{ key: 'configure', label: 'Change what it sends…', onSelect: () => telemetry.start(r.agentId), disabled: !canConsent, title: canConsent ? undefined : 'Changing telemetry needs permission to edit', testId: `local-configure-${r.name}` }]
+      return [
+        { key: 'collects', label: 'What it collects here', title: 'Opens the agent’s Telemetry section: the picture, the arrival check and the ways to change it', onSelect: () => navigate(`/agents?open=${encodeURIComponent(r.agentId ?? '')}`), disabled: !r.agentId, testId: `local-collects-${r.name}` },
+        { key: 'configure', label: 'Change what it sends…', onSelect: () => telemetry.start(r.agentId), disabled: !canConsent, title: canConsent ? undefined : 'Changing telemetry needs permission to edit', testId: `local-configure-${r.name}` }]
     }
     const remove: RowMenuItem = { key: 'delete', label: 'Stop and remove…', danger: true, onSelect: () => setRemoving({ operator: op, mode: 'delete' }), testId: `operator-delete-${op.name}` }
     if (r.ended) return [remove]
@@ -175,6 +177,7 @@ export default function PipelinePage() {
     setTodoFor(null)
     if (!row) return
     if (kind === 'configure') telemetry.start(row.agentId)
+    else if (kind === 'collects' && row.agentId) navigate(`/agents?open=${encodeURIComponent(row.agentId)}`)
     else if (kind === 'address' && row.operator) setAddressFor(row.operator)
     else if (kind === 'renew' && row.operator) setConfirmRenew(row.operator)
     else navigate(kind === 'fusion' ? '/fusion' : '/agents')

@@ -6,6 +6,7 @@ import { CopyCommand } from '@/components/ui/CopyCommand'
 import { ServerCommand } from '@/components/ui/ServerCommand'
 import { AskTheCluster } from '@/features/pipeline/components/telemetry/AskTheCluster'
 import ArrivalCheck from '@/features/pipeline/components/telemetry/ArrivalCheck'
+import LocalOperatorPicture from '@/features/pipeline/components/telemetry/LocalOperatorPicture'
 import { ControllerPatch } from '@/features/pipeline/components/telemetry/ControllerPatch'
 import GuidedWizard from '@/features/pipeline/components/telemetry/GuidedWizard'
 import { TelemetryRequestLine } from '@/features/pipeline/components/telemetry/TelemetryRequestLine'
@@ -49,6 +50,7 @@ function TelemetryPanelBody({
   initialScope,
   initialDestination,
   standalone = false,
+  showPicture = false,
   onBackToCluster,
   onDone,
   testIdPrefix = 'telemetry-panel',
@@ -72,6 +74,8 @@ function TelemetryPanelBody({
    * modal whose entire purpose is configuring telemetry (the standalone TelemetryWizard) shouldn't hide its
    * own form behind a second disclosure - the inline usage on an already-expanded agent row keeps it. */
   standalone?: boolean
+  /** Open the picture of the local operator at first: the person came by a link that asked to see what is collected here. */
+  showPicture?: boolean
   /** Standalone only: goes back to choosing the cluster. */
   onBackToCluster?: () => void
   /** Standalone only: closes the dialog the setup is in, offered on its last screen. */
@@ -444,6 +448,12 @@ function TelemetryPanelBody({
             <div className="mt-3" data-testid="export-health">
               <div className="mb-1.5 text-sm font-medium text-nb-300">Is data arriving?</div>
               <ArrivalCheck passive wanted={installed} diagnostics={d} connected={agents?.find((a) => a.id === agentId)?.connected} cluster={clusterName ?? 'the cluster'} namespace={target?.namespace} testId="export-health-check" />
+            </div>
+          )}
+
+          {installed.length > 0 && (
+            <div className="mt-3">
+              <LocalOperatorPicture installed={installed} diagnostics={d} connected={agents?.find((a) => a.id === agentId)?.connected} cluster={clusterName ?? 'the cluster'} namespace={target?.namespace} keptByController={extras.keptByController} openOnArrival={showPicture} testId="operator-picture" />
             </div>
           )}
 

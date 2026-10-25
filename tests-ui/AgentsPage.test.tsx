@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, test, vi } from 'vitest'
 import AgentsPage from '@/features/agents/AgentsPage'
 import type { Agent, Cluster } from '@/lib/types'
@@ -11,7 +11,7 @@ import type { Agent, Cluster } from '@/lib/types'
 const cl = (over: Partial<Cluster> = {}) => ({ id: 'c1', name: 'edge-1', tier: 'edge', source: 'discovered', state: 'live', orgId: 'o', ...over }) as Cluster
 const ag = (over: Partial<Agent> = {}) => ({ id: 'a1', clusterId: 'c1', status: 'approved', accessTier: 2, name: 'edge-1', version: '1.0.0', modules: [], fingerprint: 'x', ...over }) as Agent
 
-let topologyState: { agents: Agent[]; clusters: Cluster[]; sites: never[]; suggestions: never[] }
+let topologyState: { agents: Agent[]; clusters: Cluster[]; sites: never[]; suggestions: never[]; nodes?: never[] }
 let serverState: { status: string; canEdit: () => boolean; state?: { agents: Agent[] } }
 
 vi.mock('@/store/topology', () => ({
@@ -19,15 +19,27 @@ vi.mock('@/store/topology', () => ({
 }))
 vi.mock('@/store/server', () => ({
   useServer: (selector?: (s: typeof serverState) => unknown) => (selector ? selector(serverState) : serverState),
+  useConn: () => ({ org: 'o' }),
+}))
+// The consent form and the telemetry panel have their own tests and stores; this page test is about where the page puts the Telemetry section.
+vi.mock('@/features/agents/components/AgentInsight', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/features/agents/components/AgentInsight')>()), ConsentPanel: () => null }))
+vi.mock('@/features/pipeline/components/telemetry/TelemetryPanel', () => ({
+  TelemetryPanel: ({ agentId, showPicture }: { agentId?: string; showPicture?: boolean }) => <div data-testid="telemetry-stub" data-agent={agentId} data-show-picture={String(!!showPicture)} />,
 }))
 vi.mock('@/features/discovery/components/ConnectFlow', () => ({
   useConnectFlow: () => ({ start: vi.fn(), dialogs: null, canStart: false, wizardOpen: false }),
 }))
 
-function renderPage() {
+function Where() {
+  const l = useLocation()
+  return <output data-testid="where">{l.pathname + l.search}</output>
+}
+
+function renderPage(entry = '/agents') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[entry]}>
       <AgentsPage />
+      <Where />
     </MemoryRouter>,
   )
 }
@@ -56,5 +68,26 @@ describe('AgentsPage', () => {
     const btn = screen.getByRole('button', { name: /Set up telemetry/ })
     expect(btn).not.toBeDisabled()
     expect(btn).not.toHaveAttribute('title')
+  })
+
+  test('a link from the Pipeline page (?open=<agent>) opens that agent at its Telemetry section with the picture asked for, and is spent at once', async () => {
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    const diagnostics = { reportedAt: new Date().toISOString(), agentVersion: '1', uptimeSeconds: 1, installedTier: 2, approvedTier: 2, effectiveTier: 2, pausedCollectors: [], excludedNamespaces: 0, collectors: [], informers: [], problems: [], installedTelemetry: ['resourceUsage'] }
+    topologyState = { agents: [ag({ connected: true })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
+    serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }), diagnostics } as unknown as Agent] } }
+    renderPage('/agents?open=a1')
+    expect(screen.getByTestId('telemetry-stub')).toHaveAttribute('data-agent', 'a1')
+    expect(screen.getByTestId('telemetry-stub')).toHaveAttribute('data-show-picture', 'true')
+    await waitFor(() => expect(scroll).toHaveBeenCalled())
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/agents$/)
+  })
+
+  test('without the link, no agent is open', () => {
+    const diagnostics = { reportedAt: new Date().toISOString(), agentVersion: '1', uptimeSeconds: 1, installedTier: 2, approvedTier: 2, effectiveTier: 2, pausedCollectors: [], excludedNamespaces: 0, collectors: [], informers: [], problems: [], installedTelemetry: ['resourceUsage'] }
+    topologyState = { agents: [ag({ connected: true })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
+    serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }), diagnostics } as unknown as Agent] } }
+    renderPage('/agents')
+    expect(screen.queryByTestId('telemetry-stub')).toBeNull()
   })
 })

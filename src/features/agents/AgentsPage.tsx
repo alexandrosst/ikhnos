@@ -62,6 +62,10 @@ export default function AgentsPage() {
   const tab = ((t) => (t === 'suggestions' || t === 'seen' ? t : 'agents'))(sp.get('tab'))
   const map = sp.get('view') === 'map'
   const [open, setOpen] = useState<string | null>(null)
+  // `/agents?open=<id>` (from the Pipeline page's "What it collects here"): that agent opens at its Telemetry section with the picture of its
+  // local operator showing. The parameter is spent at once, so closing the row, or a reload, does not open it again.
+  const wantOpen = sp.get('open')
+  const [pictureFor, setPictureFor] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | AgentHealth>('all')
   const [revoking, setRevoking] = useState<Agent | null>(null)
   const [diagnosing, setDiagnosing] = useState<string | null>(null)
@@ -102,6 +106,24 @@ export default function AgentsPage() {
     el?.scrollIntoView({ block: 'start' })
     el?.focus({ preventScroll: true })
   }, [target])
+
+  // Taken in while rendering (React's way of adjusting state to a changed input), and only once the agent is in the list: a link followed
+  // before the first state has arrived waits for it.
+  const [taken, setTaken] = useState<string | null>(null)
+  if (!wantOpen && taken) setTaken(null)
+  if (wantOpen && wantOpen !== taken && agents.some((a) => a.id === wantOpen)) {
+    setTaken(wantOpen)
+    setOpen(wantOpen)
+    setPictureFor(wantOpen)
+  }
+  useEffect(() => {
+    if (wantOpen && wantOpen === taken) setSp((p) => { p.delete('open'); return p }, { replace: true })
+  }, [wantOpen, taken, setSp])
+  useEffect(() => {
+    if (!pictureFor || open !== pictureFor) return
+    const t = setTimeout(() => document.getElementById(`telemetry-${pictureFor}`)?.scrollIntoView({ block: 'start' }), 0)
+    return () => clearTimeout(t)
+  }, [pictureFor, open])
 
   const cluster = (id?: string) => clusters.find((c) => c.id === id)
   const site = (c?: Cluster) => sites.find((s) => s.id === c?.siteId)
@@ -328,7 +350,7 @@ export default function AgentsPage() {
                       {expanded && (
                         <tr>
                           <Td colSpan={7} className="bg-nb-930/40 py-4">
-                            <AgentDetail agent={a} extras={extrasOf(rawAgents, a.id)} canConsent={canConsent} onRevoke={canAdminister && connected && a.status === 'approved' ? () => setRevoking(a) : undefined} />
+                            <AgentDetail agent={a} extras={extrasOf(rawAgents, a.id)} canConsent={canConsent} showPicture={pictureFor === a.id} onRevoke={canAdminister && connected && a.status === 'approved' ? () => setRevoking(a) : undefined} />
                           </Td>
                         </tr>
                       )}
@@ -381,7 +403,7 @@ export default function AgentsPage() {
 }
 
 /** Everything the server knows about one agent that does not fit in a row. */
-function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent; extras: AgentExtras; canConsent: boolean; onRevoke?: () => void }) {
+function AgentDetail({ agent: a, extras, canConsent, showPicture = false, onRevoke }: { agent: Agent; extras: AgentExtras; canConsent: boolean; showPicture?: boolean; onRevoke?: () => void }) {
   const l = a.link
   const certLeft = msUntil(a.certExpiresAt)
   const ip = a.connectingIp
@@ -411,9 +433,9 @@ function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent;
             )}
             {canConsent && (
               // Its own full-width row: the form walks through four steps, and a request's state line reads in sentences.
-              <div className="md:col-span-2 xl:col-span-3">
+              <div id={`telemetry-${a.id}`} className="md:col-span-2 xl:col-span-3">
                 <Heading>Telemetry</Heading>
-                <TelemetryPanel diagnostics={extras.diagnostics} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} />
+                <TelemetryPanel diagnostics={extras.diagnostics} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} showPicture={showPicture} />
               </div>
             )}
           </div>
@@ -425,7 +447,7 @@ function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent;
             <Heading>Observability intent</Heading>
             <ConsentPanel agent={a} diagnostics={undefined} consent={extras.consent} />
           </div>
-          <div className="md:col-span-2">
+          <div id={`telemetry-${a.id}`} className="md:col-span-2">
             <Heading>Telemetry</Heading>
             <TelemetryPanel diagnostics={undefined} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} />
           </div>

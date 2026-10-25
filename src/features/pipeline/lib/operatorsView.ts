@@ -16,7 +16,7 @@ export const KIND_PLURAL: Record<Kind, string> = { agent: 'Discovery agents', lo
 /** What a "What to do" button opens: numbered steps (each may carry the exact command) and, when the page can do it for you, one action. */
 export interface Todo {
   steps: { title: string; text?: string; command?: string }[]
-  action?: { kind: 'configure' | 'address' | 'renew' | 'fusion' | 'agents'; label: string }
+  action?: { kind: 'configure' | 'collects' | 'address' | 'renew' | 'fusion' | 'agents'; label: string }
 }
 
 /** One step of getting a new component going, for the row that shows it while it is 'setup'. `now` is the one it is waiting on. */
@@ -219,6 +219,8 @@ export function agentVerdict(a: Agent, now: number): Verdict {
  *  honest state is Unknown - never Healthy - and the reason names the agent. */
 export function localVerdict(r: LocalRow, agent: Agent | undefined, destination: string, now: number): { verdict: Verdict; lastData?: string } {
   const configure: Todo['action'] = { kind: 'configure', label: 'Change what it sends' }
+  // Where the data stops is the picture of the collectors, in the agent's Telemetry section, which is also where it is changed from.
+  const collects: Todo['action'] = { kind: 'collects', label: 'See what it collects' }
   if (agent?.connected === false) {
     const since = agent.lastHeartbeat ? duration(now - Date.parse(agent.lastHeartbeat)) : undefined
     return { verdict: { state: 'unknown', reason: `Its agent has not reported${since ? ` for ${since}` : ''}, so what this collector is doing is not known.` } }
@@ -239,7 +241,7 @@ export function localVerdict(r: LocalRow, agent: Agent | undefined, destination:
   }
   const rows = r.diagnostics?.exportHealth && exportReach(r.diagnostics) === 'ok' ? exportRows(r.installed, r.diagnostics.exportHealth) : undefined
   if (!rows) return { lastData, verdict: { state: 'unknown', reason: 'It does not report its export counters, so it is not known whether data is flowing.' } }
-  const todo: Todo = { steps: [...agentSteps(agent, 'the collector'), { title: `Check that ${destination} is reachable from the cluster` }], action: configure }
+  const todo: Todo = { steps: [...agentSteps(agent, 'the collector'), { title: `Check that ${destination} is reachable from the cluster` }], action: collects }
   if (rows.some((x) => x.state === 'failing')) return { lastData, verdict: { state: 'down', reason: `Sending to ${destination} is failing.`, todo } }
   if (rows.some((x) => x.state === 'silent')) return { lastData, verdict: { state: 'attention', reason: lastData ? `No data has been sent for ${duration(now - Date.parse(lastData))}.` : 'No data has been sent recently.', todo } }
   if (rows.every((x) => x.state === 'waiting')) {
