@@ -891,6 +891,8 @@ export interface Destination {
   authSecret: string
   authKey: string
   operator: string
+  mtlsSecret?: string
+  serverName?: string
 }
 
 export type DestinationKind = 'external' | 'operator' | 'fusion'
@@ -1466,6 +1468,7 @@ export interface InstallSource {
 
 export interface IntentCommandDoc {
   command?: string
+  controller?: IntentControllerDoc
   endpoint?: string
   installFragment: string
   namespace: string
@@ -1479,6 +1482,14 @@ export interface IntentCommandDoc {
 
 export interface IntentCommandRequest {
   telemetry: Telemetry | null
+}
+
+export interface IntentControllerDoc {
+  command: string
+  patch: string
+  needsTelemetryPermission: boolean
+  allowTelemetry: string
+  problems: string[]
 }
 
 export interface InviteDoc {

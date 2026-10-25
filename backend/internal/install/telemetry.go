@@ -126,6 +126,11 @@ type Destination struct {
 	// Operator is the id of the regional operator the destination is, or empty. Its receiver needs mutual TLS, which only the
 	// server's own fragment can state (it holds the Secret), so for one the command does not state it off.
 	Operator string `json:"operator"`
+	// MTLSSecret is the Secret (holding tls.crt, tls.key and ca.crt) that the destination is reached with over mutual TLS, and ServerName the
+	// name its certificate is verified against (empty: the endpoint's host). A destination with one is gRPC with its certificate verified:
+	// a regional operator's receiver, written in a resource, where the server's own command is not there to state it.
+	MTLSSecret string `json:"mtlsSecret,omitempty"`
+	ServerName string `json:"serverName,omitempty"`
 }
 
 // Routes send each kind of signal to a destination of its own. Without Split everything goes to Telemetry.Destination.

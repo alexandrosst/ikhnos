@@ -113,7 +113,18 @@ It also holds, in its own namespace, Secrets (Helm keeps its release records the
 
 ### Telemetry
 
-`spec.telemetry` is the Telemetry panel's draft in a resource's words: the signals, where each comes from, the scope, the destination (or one per kind of signal), the processing and the owner stamp. A resource states all of the agent's telemetry: the controller installs the chart again with only what the resource says (the install is `ResetValues`), so a `helm upgrade` of this release is put back, and the panel's `kubectl (controller)` tab patches the resource instead. Credentials are never in it: a destination names the Secret it is read from, the same Secret the panel's command creates. Extra processors and a regional operator as the destination are not on a resource yet; the panel says so and the helm command stays.
+`spec.telemetry` is the Telemetry panel's draft in a resource's words: the signals, where each comes from, the scope, the destination (or one per kind of signal), the processing and the owner stamp. A resource states all of the agent's telemetry: the controller installs the chart again with only what the resource says (the install is `ResetValues`), so a `helm upgrade` of this release is put back, and the panel's `kubectl (controller)` tab patches the resource instead. Credentials are never in it: a destination names the Secret it is read from, the same Secret the panel's command creates. A regional operator (FUSION's central operator included) is a destination with `mtls`: the Secret that holds the client certificate (`tls.crt`, `tls.key`, `ca.crt`) and the name the operator's certificate is verified against, written like this and not by hand:
+
+```yaml
+spec:
+  telemetry:
+    signals: {resourceUsage: true}
+    destination:
+      endpoint: central.ikhnos-system.svc:4317
+      mtls: {secretName: central-export-mtls, serverName: central.ikhnos-system.svc}
+```
+
+The certificate is the server's to issue, so the panel's **Generate commands** step writes both: the `kubectl` command that makes the Secret (shown once) and the patch that states the destination in the resource. For an agent a controller keeps that replaces the helm command, which the controller would put back. Extra processors are not on a resource yet; the panel says so and the helm command stays.
 
 Telemetry is off by default in the chart, because its collectors read the pods, nodes, workloads and events cluster-wide, and the agent's ClusterRole for them can be created only by someone who holds what it grants. With `allowTelemetry: true` the controller holds those reads, and may create the ConfigMaps and NetworkPolicies telemetry makes; with it off, a resource that turns a signal on is refused with a message. When the panel's `kubectl (controller)` tab needs the permission it prints the command: `helm upgrade ikhnos-controller <chart> -n ikhnos-system --reset-then-reuse-values --set allowTelemetry=true`. Take `spec.telemetry` out of a resource (and let the controller upgrade) before turning `allowTelemetry` off again, since removing telemetry's objects needs the permissions too. The same test as above holds these rules to the agent chart rendered for every telemetry choice, in both directions.
 

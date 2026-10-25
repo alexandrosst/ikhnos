@@ -99,6 +99,16 @@ func DestinationCommand(op store.Operator, endpoint string, certPEM, keyPEM, caP
 	return values, secretCmd, nil
 }
 
+// OperatorReach is what a resource needs to send to this operator over mutual TLS: the address, the Secret ClientSecretCommand makes and
+// the name the operator's certificate is verified against (nothing for the central operator at its in-cluster name).
+func OperatorReach(op store.Operator, endpoint string) install.OperatorTLS {
+	serverName := ""
+	if operators.OperatorNeedsServerName(op) {
+		serverName = operators.OperatorServerName(op)
+	}
+	return install.OperatorTLS{Endpoint: endpoint, SecretName: ClientTLSSecretName(op), ServerName: serverName}
+}
+
 // ClientSecretCommand is the Secret holding the client certificate an agent
 // presents to this operator. One Secret per operator, whatever number of the agent's signal types export to
 // it: every route to the same operator names this same Secret. ensureNamespace says the Secret is applied before the install that

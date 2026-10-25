@@ -130,7 +130,8 @@ spec:
                   description: >-
                     What the agent collects and where it sends it, as the Telemetry panel sets it. It is all of the agent's telemetry (what it does not
                     say is the chart's default), so without it the agent has none. The controller must have been given allowTelemetry. Extra processors
-                    and a regional operator as the destination are not here: use the helm command for those.
+                    are not here: use the helm command for those. A regional operator is a destination with mtls, which the server's own command for
+                    the operator writes, with the Secret that holds the certificate.
                   properties:
                     signals:
                       type: object
@@ -283,6 +284,17 @@ spec:
                         authKey:
                           type: string
                           description: The key of that Secret. Default token.
+                        mtls:
+                          type: object
+                          description: Reach the destination over mutual TLS, the way a regional operator is reached. The certificate is in a Secret in this namespace that the server's own command for the operator makes.
+                          required: [secretName]
+                          properties:
+                            secretName:
+                              type: string
+                              description: A Secret in this namespace that holds tls.crt, tls.key and ca.crt.
+                            serverName:
+                              type: string
+                              description: The name the destination's certificate is verified against. Empty, the host of the endpoint.
                     routes:
                       type: object
                       description: Send each kind of signal to a destination of its own, instead of everything to destination.
@@ -312,6 +324,17 @@ spec:
                             authKey:
                               type: string
                               description: The key of that Secret. Default token.
+                            mtls:
+                              type: object
+                              description: Reach the destination over mutual TLS, the way a regional operator is reached. The certificate is in a Secret in this namespace that the server's own command for the operator makes.
+                              required: [secretName]
+                              properties:
+                                secretName:
+                                  type: string
+                                  description: A Secret in this namespace that holds tls.crt, tls.key and ca.crt.
+                                serverName:
+                                  type: string
+                                  description: The name the destination's certificate is verified against. Empty, the host of the endpoint.
                         logs:
                           type: object
                           description: Where telemetry goes. The credential is read from the Secret authSecret, never written here.
@@ -335,6 +358,17 @@ spec:
                             authKey:
                               type: string
                               description: The key of that Secret. Default token.
+                            mtls:
+                              type: object
+                              description: Reach the destination over mutual TLS, the way a regional operator is reached. The certificate is in a Secret in this namespace that the server's own command for the operator makes.
+                              required: [secretName]
+                              properties:
+                                secretName:
+                                  type: string
+                                  description: A Secret in this namespace that holds tls.crt, tls.key and ca.crt.
+                                serverName:
+                                  type: string
+                                  description: The name the destination's certificate is verified against. Empty, the host of the endpoint.
                         traces:
                           type: object
                           description: Where telemetry goes. The credential is read from the Secret authSecret, never written here.
@@ -358,6 +392,17 @@ spec:
                             authKey:
                               type: string
                               description: The key of that Secret. Default token.
+                            mtls:
+                              type: object
+                              description: Reach the destination over mutual TLS, the way a regional operator is reached. The certificate is in a Secret in this namespace that the server's own command for the operator makes.
+                              required: [secretName]
+                              properties:
+                                secretName:
+                                  type: string
+                                  description: A Secret in this namespace that holds tls.crt, tls.key and ca.crt.
+                                serverName:
+                                  type: string
+                                  description: The name the destination's certificate is verified against. Empty, the host of the endpoint.
                     processing:
                       type: object
                       properties:

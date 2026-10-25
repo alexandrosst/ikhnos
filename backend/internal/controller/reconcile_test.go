@@ -809,6 +809,29 @@ func TestAControllerGivenTelemetryInstallsItAndTakesItAwayWhenTheResourceNoLonge
 	}
 }
 
+func TestAControllerInstallsAnOperatorDestinationWithTheSecretTheResourceNames(t *testing.T) {
+	g := newRig(t)
+	g.r.AllowTelemetry = true
+	g.secret("enroll", "token", "ikh_abc")
+	g.agent("a", specWithTelemetry(map[string]any{
+		"signals": map[string]any{"resourceUsage": true},
+		"destination": map[string]any{
+			"endpoint": "central.ikhnos.svc:4317",
+			"mtls":     map[string]any{"secretName": "central-export-mtls", "serverName": "central.ikhnos-system.svc"},
+		},
+	}))
+	g.must("a")
+	if g.status("a").Phase != PhaseReady {
+		t.Fatalf("status %+v", g.status("a"))
+	}
+	otlp := g.inst.lastApplied()["telemetry"].(map[string]any)["export"].(map[string]any)["otlp"].(map[string]any)
+	tls := otlp["tls"].(map[string]any)
+	mtls := tls["mtls"].(map[string]any)
+	if otlp["endpoint"] != "central.ikhnos.svc:4317" || otlp["protocol"] != "grpc" || tls["insecure"] != false || mtls["enabled"] != true || mtls["secretName"] != "central-export-mtls" || tls["serverName"] != "central.ikhnos-system.svc" {
+		t.Fatalf("otlp values %v", otlp)
+	}
+}
+
 func TestTelemetryThatCannotBeInstalledIsInvalidWithTheReasonAndInstallsNothing(t *testing.T) {
 	g := newRig(t)
 	g.r.AllowTelemetry = true

@@ -16,6 +16,8 @@ import { forgetUpgrades, lastUpgrade } from './upgradeServer'
 // backend/internal/server/admin_telemetry_intent_block_test.go). The page sends its settings and shows the answer.
 
 let role: 'viewer' | 'editor' | 'admin' | 'owner' | undefined
+// Whether a controller keeps the agent (and can take the server's requests): what the server has heard from it, as the panel reads it.
+let keptByController = false
 const listOperators = vi.fn()
 const listTelemetryIntents = vi.fn()
 const createTelemetryIntent = vi.fn()
@@ -31,7 +33,10 @@ const CONN = { url: 'https://example.test', org: 'org-1' }
 const connFn = () => CONN
 const reloadInfo = vi.fn(async () => undefined)
 vi.mock('@/store/server', () => ({
-  useServer: (selector?: (s: { role?: string; conn: () => typeof CONN; reloadInfo: () => Promise<void> }) => unknown) => (selector ? selector({ role, conn: connFn, reloadInfo }) : { role, conn: connFn, reloadInfo }),
+  useServer: (selector?: (s: { role?: string; conn: () => typeof CONN; reloadInfo: () => Promise<void>; state: unknown }) => unknown) => {
+    const state = { agents: keptByController ? [{ id: 'agent-1', keptByController: true, capabilities: ['telemetry-relay'] }] : [] }
+    return selector ? selector({ role, conn: connFn, reloadInfo, state }) : { role, conn: connFn, reloadInfo, state }
+  },
   useConn: () => CONN,
 }))
 vi.mock('@/lib/api', async (importOriginal) => {
@@ -86,6 +91,7 @@ const answer = (over: Record<string, unknown> = {}) => ({ installFragment: FRAGM
 beforeEach(() => {
   forgetUpgrades()
   role = 'admin'
+  keptByController = false
   for (const m of [listOperators, listTelemetryIntents, createTelemetryIntent, updateTelemetryIntentScope, updateTelemetryIntentDestination, getTelemetryIntentCommand]) m.mockReset()
   listOperators.mockResolvedValue([operator])
   listTelemetryIntents.mockResolvedValue([])
@@ -463,3 +469,49 @@ describe('TelemetryPanel with signal types going to different destinations', () 
   })
 })
 
+
+describe('TelemetryPanel with a regional operator destination, for an agent a controller keeps', () => {
+  const PATCH = `kubectl --namespace ikhnos-system patch ikhnosagents.ikhnos.io this-cluster --type json -p '[{"op":"add","path":"/spec/telemetry","value":{"signals":{"resourceUsage":true}}}]'`
+  const controller = (over: Record<string, unknown> = {}) => ({ command: `${SECRET} && \\\n${PATCH}`, patch: PATCH, needsTelemetryPermission: true, allowTelemetry: 'helm upgrade ikhnos-controller oci://x --set allowTelemetry=true', problems: [], ...over })
+
+  test('shows the Secret and the patch of the resource, with the permission the controller needs, and not the helm upgrade the controller would undo', async () => {
+    keptByController = true
+    getTelemetryIntentCommand.mockResolvedValue(answer({ controller: controller() }))
+    const user = userEvent.setup()
+    render(tree())
+    await pickOperator(user)
+    await toRun(user)
+    await user.click(await generateButton())
+    const shown = (await screen.findByTestId('tp-operator-controller-command')).textContent ?? ''
+    expect(shown).toContain('kubectl create secret generic op-eu-export-mtls')
+    expect(shown).toContain('patch ikhnosagents.ikhnos.io this-cluster')
+    expect(screen.getByTestId('tp-operator-controller')).toHaveTextContent('puts back anything a helm upgrade changes')
+    expect(screen.getByTestId('tp-operator-controller-allow')).toHaveTextContent('allowTelemetry=true')
+    expect(screen.queryByTestId('tp-operator-command')).not.toBeInTheDocument()
+  })
+
+  test('says so when the resource cannot state the settings, and keeps the helm command with a warning that it will not last', async () => {
+    keptByController = true
+    getTelemetryIntentCommand.mockResolvedValue(answer({ controller: controller({ command: '', patch: '', problems: ['extra processors are not on a resource yet: use the helm command'] }) }))
+    const user = userEvent.setup()
+    render(tree())
+    await pickOperator(user)
+    await toRun(user)
+    await user.click(await generateButton())
+    expect(await screen.findByTestId('tp-operator-command')).toBeInTheDocument()
+    expect(screen.getByTestId('tp-operator-controller-problems')).toHaveTextContent('will not last')
+    expect(screen.getByTestId('tp-operator-controller-problems')).toHaveTextContent('extra processors')
+  })
+
+  test('an agent nothing keeps gets the helm command alone, as before', async () => {
+    getTelemetryIntentCommand.mockResolvedValue(answer({ controller: controller() }))
+    const user = userEvent.setup()
+    render(tree())
+    await pickOperator(user)
+    await toRun(user)
+    await user.click(await generateButton())
+    expect(await screen.findByTestId('tp-operator-command')).toBeInTheDocument()
+    expect(screen.queryByTestId('tp-operator-controller')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('tp-operator-controller-problems')).not.toBeInTheDocument()
+  })
+})

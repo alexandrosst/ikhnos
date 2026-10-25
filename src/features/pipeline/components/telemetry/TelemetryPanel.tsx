@@ -10,7 +10,7 @@ import LocalOperatorPicture from '@/features/pipeline/components/telemetry/Local
 import { ControllerPatch } from '@/features/pipeline/components/telemetry/ControllerPatch'
 import GuidedWizard from '@/features/pipeline/components/telemetry/GuidedWizard'
 import { TelemetryRequestLine } from '@/features/pipeline/components/telemetry/TelemetryRequestLine'
-import type { TelemetryRequestDoc } from '@/lib/generated/wire'
+import type { IntentControllerDoc, TelemetryRequestDoc } from '@/lib/generated/wire'
 import { askAvailability, newestRequest } from '@/lib/telemetryRequest'
 import { upgradeRequest, useAgentUpgradeCommand } from '@/lib/agentUpgrade'
 import { api, atLeast } from '@/lib/api'
@@ -178,6 +178,7 @@ function TelemetryPanelBody({
   const [sent, setSent] = useState<TelemetryRequestDoc | undefined>(undefined)
   const request = newestRequest(extras.telemetry, sent)
   const availability = askAvailability(extras.keptByController, extras.capabilities)
+  const kept = availability !== 'none'
   const [via, setVia] = useState<'ask' | 'helm' | 'controller' | undefined>(undefined)
   // A controller keeps this release when the agent says so (`yes`, `old`): a helm upgrade of it is put back by the controller, so it is not offered there.
   const mode = via ?? (availability === 'yes' ? 'ask' : availability === 'old' ? 'controller' : 'helm')
@@ -217,7 +218,7 @@ function TelemetryPanelBody({
   // Everything the generated block depends on. It is stale the moment any of it differs from what it was
   // generated from, and then shows dimmed and uncopyable rather than a command that is wrong now.
   const snapshot = useMemo(() => JSON.stringify({ draft, install, measurementsOn, agentId, operatorId, targetKey, namespace: target?.namespace, release: target?.release }), [draft, install, measurementsOn, agentId, operatorId, targetKey, target?.namespace, target?.release])
-  const [generated, setGenerated] = useState<{ snapshot: string; text: string; action: 'created' | 'updated'; endpointNote?: string } | null>(null)
+  const [generated, setGenerated] = useState<{ snapshot: string; text: string; action: 'created' | 'updated'; endpointNote?: string; controller?: IntentControllerDoc } | null>(null)
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState<{ snapshot: string; message: string } | null>(null)
   const generate = async () => {
@@ -234,6 +235,7 @@ function TelemetryPanelBody({
         snapshot: asked,
         text: result.command,
         action,
+        controller: result.controller,
         endpointNote: theirs && theirs !== draft.exportEndpoint.trim() ? `These commands send to ${theirs}, the address Ikhnos has for ${operatorLabel}.` : undefined,
       })
     } catch (e) {
@@ -308,7 +310,35 @@ function TelemetryPanelBody({
                   </p>
                 )}
                 {generated.endpointNote && <p className="mt-1" data-testid={`${p}-operator-endpoint-note`}>{generated.endpointNote}</p>}
-                <CopyCommand text={generated.text} stale={staleGenerated} multiline testId={`${p}-operator-command`} />
+                {kept && generated.controller && generated.controller.problems.length === 0 ? (
+                  // A controller keeps this agent: a helm upgrade would be put back, so the commands are the Secret and a patch of the resource.
+                  <div className="space-y-2" data-testid={`${p}-operator-controller`}>
+                    <p className="text-nb-400">
+                      A controller keeps this agent, and it puts back anything a <code className="font-mono text-nb-300">helm upgrade</code> changes. These commands make the Secret and state the
+                      destination in the <code className="font-mono text-nb-300">IkhnosAgent</code> resource, where the controller keeps it.
+                    </p>
+                    <CopyCommand text={generated.controller.command} stale={staleGenerated} multiline testId={`${p}-operator-controller-command`} />
+                    {generated.controller.needsTelemetryPermission && (
+                      <div className="space-y-1.5" data-testid={`${p}-operator-controller-permission`}>
+                        <p className="text-nb-400">
+                          The controller must have been given the permissions telemetry needs (its chart&apos;s <code className="font-mono text-nb-300">allowTelemetry</code> value); without them it refuses the resource and says so in its status.
+                          {generated.controller.allowTelemetry ? ' If it was installed without them, run this first; it keeps everything else the controller was given:' : ''}
+                        </p>
+                        {generated.controller.allowTelemetry && <CopyCommand text={generated.controller.allowTelemetry} testId={`${p}-operator-controller-allow`} />}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {kept && (
+                      <p className="mb-1 text-warn" role="status" data-testid={`${p}-operator-controller-problems`}>
+                        A controller keeps this agent and puts back what a helm upgrade changes, so this command will not last.
+                        {generated.controller?.problems.length ? ` The resource cannot state these settings: ${generated.controller.problems[0]}.` : ''}
+                      </p>
+                    )}
+                    <CopyCommand text={generated.text} stale={staleGenerated} multiline testId={`${p}-operator-command`} />
+                  </>
+                )}
               </div>
             ) : (
               <p>Nothing to run until step 1 has been done.</p>

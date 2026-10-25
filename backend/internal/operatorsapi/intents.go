@@ -146,6 +146,7 @@ func (h *API) telemetryIntentCommand(w http.ResponseWriter, r *http.Request) {
 	}
 	// What the printed endpoints are only taken on trust for (see DestWarnings), once per operator.
 	var warnings []string
+	reach := map[string]install.OperatorTLS{} // how a resource reaches each operator the command sends to
 	warned := map[string]bool{}
 	warn := func(op store.Operator, d store.Destination) {
 		if key := op.ID + "|" + d.Address; !warned[key] {
@@ -201,6 +202,7 @@ func (h *API) telemetryIntentCommand(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			warn(op, d)
+			reach[op.ID] = OperatorReach(op, h.DestEndpoint(op, d))
 			values = append(values, RouteValues(op, h.DestEndpoint(op, d), m)...)
 		}
 		if len(unrouted) > 0 {
@@ -219,6 +221,7 @@ func (h *API) telemetryIntentCommand(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				warn(op, ti.Destination)
+				reach[op.ID] = OperatorReach(op, h.DestEndpoint(op, ti.Destination))
 				values = append(values, ExportBlock("telemetry.export.otlp", op, h.DestEndpoint(op, ti.Destination), true)...)
 			}
 			values = append(values, ClearRoutes(unrouted...)...)
@@ -237,6 +240,7 @@ func (h *API) telemetryIntentCommand(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		warn(op, ti.Destination)
+		reach[op.ID] = OperatorReach(op, h.DestEndpoint(op, ti.Destination))
 		destination, secretCmd, err := DestinationCommand(op, h.DestEndpoint(op, ti.Destination), certPEM, keyPEM, caPEM, rns)
 		if err != nil {
 			h.fail(w, r, h.cfgErr(r, err))
@@ -267,6 +271,7 @@ func (h *API) telemetryIntentCommand(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		resp.Command, resp.Problems = block, []string{}
+		resp.Controller = h.controllerBlock(r, img, spec.TowardOperators(receiverAuth), reach, rns, agent.AccessTier, secretCommands)
 	}
 	resp.Warnings = warnings
 	httpkit.WriteJSON(w, 200, resp)

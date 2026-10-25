@@ -3,6 +3,7 @@ package install
 import (
 	"encoding/json"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -174,6 +175,8 @@ func jsonNames(t reflect.Type) []string {
 }
 
 func TestEveryFieldOfThePanelsTelemetryIsOnTheResourceOrIsSaidNotToBe(t *testing.T) {
+	// The resource's own fields: it says in one object (mtls) what the draft says in two (mtlsSecret and serverName).
+	only := map[string][]string{"Destination": {"mtls"}}
 	// For each part of the draft: its resource counterpart, and the fields of the draft that a resource deliberately does not have.
 	for _, c := range []struct {
 		name     string
@@ -189,7 +192,7 @@ func TestEveryFieldOfThePanelsTelemetryIsOnTheResourceOrIsSaidNotToBe(t *testing
 		{"Workload", reflect.TypeOf(Workload{}), reflect.TypeOf(ResourceWorkload{}), nil},
 		{"ScopeOverride", reflect.TypeOf(ScopeOverride{}), reflect.TypeOf(ResourceScope{}), nil},
 		{"Scopes", reflect.TypeOf(Scopes{}), reflect.TypeOf(ResourceScopes{}), nil},
-		{"Destination", reflect.TypeOf(Destination{}), reflect.TypeOf(ResourceDestination{}), []string{"operator"}},
+		{"Destination", reflect.TypeOf(Destination{}), reflect.TypeOf(ResourceDestination{}), []string{"operator", "mtlsSecret", "serverName"}},
 		{"Routes", reflect.TypeOf(Routes{}), reflect.TypeOf(ResourceRoutes{}), []string{"installed", "kept"}},
 		{"Processing", reflect.TypeOf(Processing{}), reflect.TypeOf(ResourceProcessing{}), []string{"extra"}},
 	} {
@@ -213,9 +216,67 @@ func TestEveryFieldOfThePanelsTelemetryIsOnTheResourceOrIsSaidNotToBe(t *testing
 			}
 		}
 		for n := range got {
-			if !want[n] {
+			if !want[n] && !slices.Contains(only[c.name], n) {
 				t.Errorf("%s.%s is on a resource and not in the panel's draft", c.name, n)
 			}
 		}
+	}
+}
+
+func TestAnOperatorDestinationIsOnAResourceAsMutualTLSWhenTheServerSaysHowToReachIt(t *testing.T) {
+	op := OperatorTLS{Endpoint: "central.fusion.example.com:4317", SecretName: "ikhnos-operator-client-op-1", ServerName: "central.fusion.example.com"}
+	draft := valid()
+	draft.Destination = Destination{Endpoint: "placeholder:4317", Protocol: "http", Insecure: true, AuthSecret: "left-over", Operator: "op-1"}
+
+	if _, err := ResourceOfOperators(draft, nil); err == nil {
+		t.Fatal("an operator the server said nothing of was accepted")
+	}
+	r, err := ResourceOfOperators(draft, map[string]OperatorTLS{"op-1": op})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := r.Destination
+	if d == nil || d.Endpoint != op.Endpoint || d.MTLS == nil || d.MTLS.SecretName != op.SecretName || d.MTLS.ServerName != op.ServerName {
+		t.Fatalf("the destination is %+v", d)
+	}
+	if d.Protocol != "" || d.Insecure || d.AuthSecret != "" {
+		t.Errorf("what an earlier destination left in the draft reached the resource: %+v", d)
+	}
+	if p := r.Problems(2, true); len(p) != 0 {
+		t.Fatalf("the resource is refused: %v", p)
+	}
+
+	// The release the controller installs states the same as the server's own command does for an operator.
+	vals, err := r.Values(2, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, v := range vals {
+		got[v.Key] = v.Value
+	}
+	for k, want := range map[string]string{
+		"telemetry.export.otlp.endpoint":            op.Endpoint,
+		"telemetry.export.otlp.protocol":            "grpc",
+		"telemetry.export.otlp.tls.insecure":        "false",
+		"telemetry.export.otlp.tls.mtls.enabled":    "true",
+		"telemetry.export.otlp.tls.mtls.secretName": op.SecretName,
+		"telemetry.export.otlp.tls.serverName":      op.ServerName,
+		"telemetry.export.otlp.auth.secretName":     "",
+	} {
+		if g, ok := got[k]; !ok || g != want {
+			t.Errorf("%s = %q (present %v), want %q", k, g, ok, want)
+		}
+	}
+}
+
+func TestAnMTLSDestinationOfAResourceNeedsItsSecretAndEndpoint(t *testing.T) {
+	r := ResourceTelemetry{Signals: ResourceSignals{ResourceUsage: true}, Destination: &ResourceDestination{Endpoint: "x:4317", MTLS: &ResourceMTLS{}}}
+	if p := r.Problems(0, false); len(p) == 0 || !strings.Contains(strings.Join(p, " "), "mtls.secretName") {
+		t.Errorf("an mTLS destination without a Secret is accepted: %v", p)
+	}
+	r.Destination = &ResourceDestination{MTLS: &ResourceMTLS{SecretName: "s"}}
+	if p := r.Problems(0, false); len(p) == 0 {
+		t.Errorf("an mTLS destination without an endpoint is accepted")
 	}
 }

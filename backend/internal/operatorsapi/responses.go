@@ -75,7 +75,10 @@ type heartbeatEnabledDoc struct {
 // page's telemetry the whole block (Command). Problems says what is wrong with that telemetry, and is absent when none was asked about;
 // the other keys depend on where the intent sends.
 type intentCommandDoc struct {
-	Command         string                        `json:"command,omitempty"`
+	Command string `json:"command,omitempty"`
+	// Controller is the same change for an agent that a controller keeps: the Secrets, and a patch of its IkhnosAgent resource that states the
+	// operator as a destination reached over mutual TLS. A helm upgrade of such an agent does not last, the controller puts the release back.
+	Controller      *intentControllerDoc          `json:"controller,omitempty"`
 	Endpoint        *string                       `json:"endpoint,omitempty"`
 	InstallFragment string                        `json:"installFragment"`
 	Namespace       string                        `json:"namespace"`
@@ -85,4 +88,17 @@ type intentCommandDoc struct {
 	Release         string                        `json:"release"`
 	SecretCommands  []string                      `json:"secretCommands"`
 	Warnings        []string                      `json:"warnings,omitempty"`
+}
+
+// intentControllerDoc is the change written as a patch of the IkhnosAgent resource, after the commands that create the Secrets.
+type intentControllerDoc struct {
+	// Command is the whole block: the Secrets, then the patch. Patch is the patch alone.
+	Command string `json:"command"`
+	Patch   string `json:"patch"`
+	// NeedsTelemetryPermission is whether the controller must have been installed with allowTelemetry, and AllowTelemetry the command that
+	// gives it (empty when this server cannot name the controller's chart).
+	NeedsTelemetryPermission bool   `json:"needsTelemetryPermission"`
+	AllowTelemetry           string `json:"allowTelemetry"`
+	// Problems say why there is no patch for these settings.
+	Problems []string `json:"problems"`
 }

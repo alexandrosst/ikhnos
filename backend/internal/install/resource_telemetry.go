@@ -75,12 +75,21 @@ type ResourceScopes struct {
 // ResourceDestination is where telemetry goes. Protocol is "grpc" (the default), "http" or "zipkin" (spans only). The credential is read
 // from the Secret AuthSecret, key AuthKey (default token), and sent in the header AuthHeader (default Authorization).
 type ResourceDestination struct {
-	Endpoint   string `json:"endpoint,omitempty"`
-	Protocol   string `json:"protocol,omitempty"`
-	Insecure   bool   `json:"insecure,omitempty"`
-	AuthHeader string `json:"authHeader,omitempty"`
-	AuthSecret string `json:"authSecret,omitempty"`
-	AuthKey    string `json:"authKey,omitempty"`
+	// MTLS reaches the destination over mutual TLS with the certificate in a Secret: how a regional operator is reached. The Secret is
+	// made by the command the server writes (the certificate is its own to issue), and holds tls.crt, tls.key and ca.crt.
+	MTLS       *ResourceMTLS `json:"mtls,omitempty"`
+	Endpoint   string        `json:"endpoint,omitempty"`
+	Protocol   string        `json:"protocol,omitempty"`
+	Insecure   bool          `json:"insecure,omitempty"`
+	AuthHeader string        `json:"authHeader,omitempty"`
+	AuthSecret string        `json:"authSecret,omitempty"`
+	AuthKey    string        `json:"authKey,omitempty"`
+}
+
+// ResourceMTLS is the Secret a destination is reached with over mutual TLS, and the name its certificate is verified against.
+type ResourceMTLS struct {
+	SecretName string `json:"secretName"`
+	ServerName string `json:"serverName,omitempty"`
 }
 
 // ResourceRoutes send each kind of signal to a destination of its own, instead of everything to Destination.
@@ -192,7 +201,12 @@ func destinationOf(d ResourceDestination) Destination {
 	if d.Protocol == "" {
 		d.Protocol = "grpc"
 	}
-	return Destination{Endpoint: d.Endpoint, Protocol: d.Protocol, Insecure: d.Insecure, AuthHeader: d.AuthHeader, AuthSecret: d.AuthSecret, AuthKey: d.AuthKey}
+	out := Destination{Endpoint: d.Endpoint, Protocol: d.Protocol, Insecure: d.Insecure, AuthHeader: d.AuthHeader, AuthSecret: d.AuthSecret, AuthKey: d.AuthKey}
+	if d.MTLS != nil {
+		out.Protocol, out.Insecure, out.AuthHeader, out.AuthSecret, out.AuthKey = "grpc", false, "", "", ""
+		out.MTLSSecret, out.ServerName = d.MTLS.SecretName, d.MTLS.ServerName
+	}
+	return out
 }
 
 // Values are the Helm values of the telemetry, the ones the panel's command states, written for a release that is installed whole.
@@ -241,13 +255,44 @@ func (r ResourceTelemetry) Problems(tier int, measurements bool) []string {
 	default:
 		out = append(out, fmt.Sprintf("telemetry.processing.debug %q is not basic or detailed", t.Processing.Debug))
 	}
+	dests := map[string]*ResourceDestination{"destination": r.Destination}
+	if rt := r.Routes; rt != nil {
+		dests["routes.metrics"], dests["routes.logs"], dests["routes.traces"] = rt.Metrics, rt.Logs, rt.Traces
+	}
+	for _, name := range []string{"destination", "routes.metrics", "routes.logs", "routes.traces"} {
+		d := dests[name]
+		if d == nil || d.MTLS == nil {
+			continue
+		}
+		if err := checkNames([2]string{"telemetry." + name + ".mtls.secretName", d.MTLS.SecretName}); err != nil || d.MTLS.SecretName == "" {
+			out = append(out, fmt.Sprintf("telemetry.%s.mtls.secretName must name the Secret that holds the client certificate", name))
+		}
+		if strings.TrimSpace(d.Endpoint) == "" {
+			out = append(out, fmt.Sprintf("telemetry.%s.endpoint is required with mtls", name))
+		}
+		if d.Protocol != "" && d.Protocol != "grpc" {
+			out = append(out, fmt.Sprintf("telemetry.%s.protocol must be grpc with mtls", name))
+		}
+	}
 	return out
+}
+
+// OperatorTLS is how a regional operator is reached from a cluster: the address, the Secret that holds the client certificate and the name
+// the operator's certificate is verified against. Only the server knows them (it issues the certificate), and it says them to ResourceOfOperators.
+type OperatorTLS struct {
+	Endpoint   string
+	SecretName string
+	ServerName string
 }
 
 // ResourceOf is the resource's telemetry for a draft of the panel, or nil when the draft turns telemetry off (a resource with none is
 // an agent with none). A draft the resource cannot state is refused: one that leaves a group "as installed" (a resource states
-// everything), one with extra processors, one that sends to a regional operator.
-func ResourceOf(t Telemetry) (*ResourceTelemetry, error) {
+// everything), one with extra processors, one that sends to a regional operator (see ResourceOfOperators).
+func ResourceOf(t Telemetry) (*ResourceTelemetry, error) { return ResourceOfOperators(t, nil) }
+
+// ResourceOfOperators is ResourceOf for a draft that may send to regional operators: each is stated as a destination reached over mutual
+// TLS with the Secret that operators says. An operator it says nothing of is refused, as ResourceOf refuses all of them.
+func ResourceOfOperators(t Telemetry, operators map[string]OperatorTLS) (*ResourceTelemetry, error) {
 	if !t.Active() {
 		return nil, nil
 	}
@@ -258,14 +303,34 @@ func ResourceOf(t Telemetry) (*ResourceTelemetry, error) {
 	if len(t.Processing.Extra) > 0 {
 		no = append(no, "extra processors are not on a resource yet: use the helm command")
 	}
-	for _, d := range []Destination{t.Destination, t.Routes.Metrics, t.Routes.Logs, t.Routes.Traces} {
-		if strings.TrimSpace(d.Operator) != "" {
-			no = append(no, "a regional operator as the destination is not on a resource yet (its mutual TLS is set by the server's own command): use the helm command")
-			break
+	toward := func(d Destination) Destination {
+		id := strings.TrimSpace(d.Operator)
+		if id == "" {
+			return d
+		}
+		op, ok := operators[id]
+		if !ok {
+			no = append(no, "a regional operator as the destination needs its certificate and address, which only the server’s own command states: use the helm command")
+			return d
+		}
+		return Destination{Endpoint: op.Endpoint, Protocol: "grpc", MTLSSecret: op.SecretName, ServerName: op.ServerName}
+	}
+	if !t.Routes.Split {
+		t.Destination = toward(t.Destination)
+	} else {
+		for _, m := range t.ActiveLanes() {
+			switch m {
+			case Metrics:
+				t.Routes.Metrics = toward(t.Routes.Metrics)
+			case Logs:
+				t.Routes.Logs = toward(t.Routes.Logs)
+			default:
+				t.Routes.Traces = toward(t.Routes.Traces)
+			}
 		}
 	}
 	if len(no) > 0 {
-		return nil, &ProblemsError{Problems: no}
+		return nil, &ProblemsError{Problems: dedupe(no)}
 	}
 	if p := t.Problems(); len(p) > 0 {
 		return nil, &ProblemsError{Problems: p}
@@ -339,6 +404,9 @@ func nilIfEmpty(t []Tag) []Tag {
 
 func destinationTo(d Destination) ResourceDestination {
 	out := ResourceDestination{Endpoint: strings.TrimSpace(d.Endpoint), Insecure: d.Insecure, AuthSecret: strings.TrimSpace(d.AuthSecret)}
+	if secret := strings.TrimSpace(d.MTLSSecret); secret != "" {
+		return ResourceDestination{Endpoint: out.Endpoint, MTLS: &ResourceMTLS{SecretName: secret, ServerName: strings.TrimSpace(d.ServerName)}}
+	}
 	if d.Protocol != "grpc" && d.Protocol != "" {
 		out.Protocol = d.Protocol
 	}
@@ -348,6 +416,18 @@ func destinationTo(d Destination) ResourceDestination {
 		}
 		if h := strings.TrimSpace(d.AuthHeader); h != "Authorization" {
 			out.AuthHeader = h
+		}
+	}
+	return out
+}
+
+func dedupe(in []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, s := range in {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
 		}
 	}
 	return out

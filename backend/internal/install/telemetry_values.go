@@ -193,6 +193,18 @@ func (t Telemetry) Values() ([]Value, error) {
 // credential. A regional operator's receiver is mutual TLS, which only the server's own fragment (it holds the Secret and the name to
 // verify) can state; everything else states it off, so a certificate an earlier command installed does not linger.
 func destinationValues(base string, d Destination) []Value {
+	if secret := strings.TrimSpace(d.MTLSSecret); secret != "" {
+		// Stated in full, the way the server's own fragment states an operator: gRPC, verified, the Secret and the name, no credential.
+		return []Value{
+			Set(base+".protocol", "grpc"),
+			flag(base+".tls.insecure", false),
+			SetString(base+".tls.caFile", ""),
+			flag(base+".tls.mtls.enabled", true),
+			SetString(base+".tls.mtls.secretName", secret),
+			SetString(base+".tls.serverName", strings.TrimSpace(d.ServerName)),
+			SetString(base+".auth.secretName", ""),
+		}
+	}
 	v := []Value{
 		Set(base+".protocol", d.Protocol),
 		flag(base+".tls.insecure", d.Insecure),

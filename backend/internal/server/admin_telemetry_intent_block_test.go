@@ -271,3 +271,41 @@ func TestTheBlockIsAskedForByAdministratorsOnly(t *testing.T) {
 		t.Fatalf("an unknown field: %d", r.Code)
 	}
 }
+
+func TestForAnAgentAControllerKeepsTheServerAlsoWritesThePatchOfItsResource(t *testing.T) {
+	b := newBlockRig(t)
+	b.intent(t, opDest(b.opID), nil)
+
+	code, doc := b.command(t, singleSpec(nil))
+	if code != 200 {
+		t.Fatalf("command: %d", code)
+	}
+	c, _ := doc["controller"].(map[string]any)
+	if c == nil {
+		t.Fatalf("no controller block: %v", doc)
+	}
+	if p, _ := c["problems"].([]any); len(p) != 0 {
+		t.Fatalf("problems = %v", p)
+	}
+	patch, _ := c["patch"].(string)
+	secrets, _ := doc["secretCommands"].([]any)
+	block, _ := c["command"].(string)
+	if len(secrets) != 1 || !strings.HasPrefix(block, "{ "+secrets[0].(string)+"\n} && \\\nkubectl --namespace ikhnos-system patch ikhnosagents.ikhnos.io this-cluster --type json -p ") {
+		t.Fatalf("the Secret comes first and the patch last:\n%.500s", block)
+	}
+	// The destination is the operator's, over mutual TLS with the Secret the first command makes. What the page held is not in it.
+	endpoint := operators.OperatorServiceName(b.opID) + ".ikhnos-system.svc:4317"
+	for _, want := range []string{`"endpoint":"` + endpoint + `"`, `"mtls":{"secretName":"` + b.opID + `-export-mtls"`, `"resourceUsage":true`} {
+		if !strings.Contains(patch, want) {
+			t.Errorf("the patch lacks %q:\n%s", want, patch)
+		}
+	}
+	for _, not := range []string{"placeholder.ikhnos-system", "old-token", "x-api-key", `"insecure"`, `"protocol"`} {
+		if strings.Contains(patch, not) {
+			t.Errorf("the patch has %q:\n%s", not, patch)
+		}
+	}
+	if c["needsTelemetryPermission"] != true {
+		t.Errorf("the controller needs the permission for telemetry, and the answer does not say so: %v", c)
+	}
+}
