@@ -129,6 +129,6 @@ func etagMatches(header, etag string) bool {
 // withoutDiagnostics removes what only people who can change an agent's access may see.
 func withoutDiagnostics(doc *StateDoc) {
 	for i := range doc.Agents {
-		doc.Agents[i].Diagnostics, doc.Agents[i].Consent, doc.Agents[i].Teardown = nil, nil, nil
+		doc.Agents[i].Diagnostics, doc.Agents[i].Consent, doc.Agents[i].Teardown, doc.Agents[i].Telemetry = nil, nil, nil, nil
 	}
 }

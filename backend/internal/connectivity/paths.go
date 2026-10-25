@@ -137,6 +137,8 @@ type ConfigFacts struct {
 	Tier      int
 	ClusterID string
 	Consent   agents.Consent
+	// Telemetry is what an administrator asked this cluster to collect; a zero Revision means nobody has asked for anything.
+	Telemetry agents.TelemetryRequest
 
 	Heartbeat, Resync int32
 	ServerTime        int64
@@ -174,6 +176,13 @@ var configSections = []configSection{
 		b.cfg.ApprovedAccessTier = uint32(f.Tier)
 		b.cfg.PausedCollectors = append([]string(nil), f.Consent.Paused...)
 		b.cfg.ExcludedNamespaces = append([]string(nil), f.Consent.Excluded...)
+	}},
+	{"telemetry", []string{"telemetry_request"}, func(f ConfigFacts, b *configBuild) {
+		// A request that was made and taken back is still sent (with nothing in it), so that the cluster drops what it was asked: the
+		// absence of the field would not tell an agent that was asked from one that never was. Never asked: no field.
+		if f.Telemetry.Revision > 0 {
+			b.cfg.TelemetryRequest = f.Telemetry.Proto()
+		}
 	}},
 	{"timing", []string{"heartbeat_seconds", "resync_seconds"}, func(f ConfigFacts, b *configBuild) {
 		b.cfg.HeartbeatSeconds, b.cfg.ResyncSeconds = f.Heartbeat, f.Resync

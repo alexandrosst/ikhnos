@@ -102,6 +102,13 @@ type ViewExt struct {
 	Consent     Consent
 	ConsentAt   time.Time // when this consent was last changed (zero if it never has been); drives the staleness signal in consentDoc
 	ConsentLoad bool
+	// TelemetryRequest is what an administrator has asked this cluster to collect (see TelemetryRequest), TelemetryRequestAt when it was last
+	// changed, TelemetryRequestLoad whether it has been read from the store. TelemetryRelay is what the agent last said became of it: in
+	// memory only, since the agent says it again in every heartbeat.
+	TelemetryRequest     TelemetryRequest
+	TelemetryRequestAt   time.Time
+	TelemetryRequestLoad bool
+	TelemetryRelay       *TelemetryRelay
 	// namespace is this agent's own Kubernetes namespace, from its Hello (empty before an agent that reports it has
 	// connected at least once since this server started; not persisted, same as diagnostics). Used to print a
 	// helm command against the release that is actually running instead of guessing ikhnos-system.

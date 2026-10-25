@@ -177,6 +177,7 @@ export interface AgentDoc {
   pendingExpiresAt?: string
   diagnostics?: DiagnosticsDoc
   consent?: ConsentDoc
+  telemetry?: TelemetryRequestDoc
   hardenHelm?: string
   teardown?: TeardownDoc
 }
@@ -2584,6 +2585,11 @@ export interface SetAgentConsentRequest {
   excludedNamespaces: string[]
 }
 
+export interface SetAgentTelemetryRequest {
+  signals?: TelemetrySignals
+  tracesSamplingPercent?: number
+}
+
 export interface SetAgentTierRequest {
   tier: number | null
 }
@@ -2876,6 +2882,31 @@ export interface TelemetryIntentScopeRequest {
 }
 
 export type TelemetryIntentStatus = 'active' | 'revoked'
+
+export interface TelemetryRequestDoc {
+  revision: number
+  signals?: TelemetrySignals
+  tracesSamplingPercent?: number
+  requested: boolean
+  state: string
+  reason?: string
+  setAt?: string
+}
+
+export interface TelemetrySignals {
+  resourceUsage: boolean
+  energy: boolean
+  kubernetesState: boolean
+  nodeRuntime: boolean
+  networkLatency: boolean
+  clusterLinks: boolean
+  applicationMetrics: boolean
+  systemLogs: boolean
+  kubernetesEvents: boolean
+  applicationLogs: boolean
+  traces: boolean
+  accelerators: boolean
+}
 
 export type TestState = 'pending' | 'reachable' | 'unreachable'
 

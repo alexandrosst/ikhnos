@@ -59,6 +59,8 @@ func TestTheEstateMountsItsRoutesWithTheRolesTheyAsk(t *testing.T) {
 		// Narrowing an agent's tier or consent is an editor's; widening is an administrator's, which the hub checks.
 		"POST /api/v1/orgs/{org}/agents/{id}/tier":    httpkit.EditorRole,
 		"POST /api/v1/orgs/{org}/agents/{id}/consent": httpkit.EditorRole,
+		// Asking a cluster to collect less is an editor's, more an administrator's, which the hub checks.
+		"POST /api/v1/orgs/{org}/agents/{id}/telemetry": httpkit.EditorRole,
 	}
 	if len(got) != len(want) {
 		t.Fatalf("mounted %v, want %v", got, want)

@@ -47,6 +47,7 @@ editor	GET /api/v1/orgs/{org}/proposals/{id}
 editor	GET /api/v1/orgs/{org}/telemetry-intents
 editor	GET /api/v1/orgs/{org}/telemetry-intents/{id}
 editor	POST /api/v1/orgs/{org}/agents/{id}/consent
+editor	POST /api/v1/orgs/{org}/agents/{id}/telemetry
 editor	POST /api/v1/orgs/{org}/agents/{id}/tier
 editor	POST /api/v1/orgs/{org}/decide
 editor	POST /api/v1/orgs/{org}/decisions

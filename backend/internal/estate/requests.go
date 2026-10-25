@@ -1,6 +1,9 @@
 package estate
 
-import "ikhnos/internal/install"
+import (
+	"ikhnos/internal/agents"
+	"ikhnos/internal/install"
+)
 
 // The bodies this package's routes read. They were anonymous structs at the handlers; naming them puts them in the TypeScript written
 // from the Go types (internal/wire), so the page sends what the server reads.
@@ -38,6 +41,13 @@ type setAgentTierRequest struct {
 type setAgentConsentRequest struct {
 	PausedCollectors   []string `json:"pausedCollectors"`
 	ExcludedNamespaces []string `json:"excludedNamespaces"`
+}
+
+// setAgentTelemetryRequest is the body of POST /agents/{id}/telemetry: what to ask the cluster to collect, which replaces the last request.
+// Neither field: the request taken back, and the cluster's own settings stand. The destination is not in it, and never will be.
+type setAgentTelemetryRequest struct {
+	Signals               *agents.TelemetrySignals `json:"signals,omitempty"`
+	TracesSamplingPercent *int                     `json:"tracesSamplingPercent,omitempty"`
 }
 
 // addressTestsRequest is the body of POST /agents/{id}/address-tests.

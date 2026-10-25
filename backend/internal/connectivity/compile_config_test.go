@@ -10,9 +10,11 @@ import (
 	"ikhnos/internal/measure"
 )
 
+var tracesShare = 25
+
 func baseFacts() ConfigFacts {
 	return ConfigFacts{
-		Tier: 2, ClusterID: "cl-a", Heartbeat: 30, Resync: 600, ServerTime: 1700000000, MeasureSeconds: 20,
+		Tier: 2, ClusterID: "cl-a", Telemetry: agents.TelemetryRequest{Revision: 3, TracesSamplingPercent: &tracesShare}, Heartbeat: 30, Resync: 600, ServerTime: 1700000000, MeasureSeconds: 20,
 		Peers: []*ikhnosv1.LinkPeer{
 			{ClusterId: "cl-b", Name: "b", Addresses: []string{"10.0.0.2"}, Throughput: true},
 			{ClusterId: "cl-c", Name: "c", Addresses: []string{"10.0.0.3"}},
@@ -128,5 +130,32 @@ func TestCompileConfigChangesNothingItIsGiven(t *testing.T) {
 	cfg.ExcludedNamespaces[0] = "changed"
 	if f.Consent.Paused[0] != "flow" || f.Consent.Excluded[0] != "shop" {
 		t.Fatal("the Config shares the consent's slices")
+	}
+}
+
+// The telemetry request is in the Config only once somebody has asked, and a request taken back is still there (revision and nothing
+// else), so that the cluster drops it; it is part of the digest, so asking again, or taking it back, is pushed.
+func TestTheTelemetryRequestIsInTheConfigAndItsDigest(t *testing.T) {
+	f := baseFacts()
+	withIt, _ := CompileConfig(f)
+	if got := withIt.GetTelemetryRequest(); got.GetRevision() != 3 || got.GetTracesSamplingPercentage() != 25 || got.GetSignals() != nil {
+		t.Fatalf("the request is not in the Config as asked: %v", got)
+	}
+
+	never := baseFacts()
+	never.Telemetry = agents.TelemetryRequest{}
+	without, _ := CompileConfig(never)
+	if without.TelemetryRequest != nil {
+		t.Fatalf("a Config that nobody asked anything of carries a request: %v", without.TelemetryRequest)
+	}
+
+	taken := baseFacts()
+	taken.Telemetry = agents.TelemetryRequest{Revision: 4}
+	back, _ := CompileConfig(taken)
+	if back.TelemetryRequest == nil || back.TelemetryRequest.Revision != 4 || back.TelemetryRequest.Signals != nil || back.TelemetryRequest.TracesSamplingPercentage != nil {
+		t.Fatalf("a request taken back must be sent as a revision with nothing in it: %v", back.TelemetryRequest)
+	}
+	if withIt.Digest == without.Digest || withIt.Digest == back.Digest || without.Digest == back.Digest {
+		t.Fatal("asking, not asking and taking back share a digest, so a change would not be pushed")
 	}
 }

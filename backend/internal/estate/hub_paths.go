@@ -38,6 +38,7 @@ func (h *Hub) compileFor(a store.Agent, v *View) (*ikhnosv1.Config, []connectivi
 		resync = int32(max(h.ConsistencyEvery/time.Second, 1))
 	}
 	consent := h.ConsentOf(a.ID) // before taking h.mu: it may read the store
+	telemetry := h.TelemetryRequestOf(a.ID)
 	var orgAgents []store.Agent
 	var runnersPaused map[string]bool
 	if a.ClusterID != "" && len(connectivity.PeersOf(set.Links, a.ClusterID)) > 0 {
@@ -51,7 +52,7 @@ func (h *Hub) compileFor(a store.Agent, v *View) (*ikhnosv1.Config, []connectivi
 	}
 	creds := h.linkCredsFor(a, set.Links) // before h.mu: it may read and write the store
 	facts := connectivity.ConfigFacts{
-		Tier: a.AccessTier, ClusterID: a.ClusterID, Consent: consent, Heartbeat: HeartbeatSeconds, Resync: resync,
+		Tier: a.AccessTier, ClusterID: a.ClusterID, Consent: consent, Telemetry: telemetry, Heartbeat: HeartbeatSeconds, Resync: resync,
 		ServerTime: h.C.Now().Unix(), MeasureSeconds: int32(set.MeasureSeconds), IperfClients: creds.Clients, IperfServer: creds.Server,
 	}
 	h.Mu.Lock()

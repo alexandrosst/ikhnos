@@ -63,6 +63,7 @@ func TestAnotherOrganisationsIdIsNotFoundOnEveryRouteThatTakesAnId(t *testing.T)
 		"POST /agents/{id}/revoke":                 {"agent", map[string]any{"reason": "x"}},
 		"POST /agents/{id}/tier":                   {"agent", map[string]any{"tier": 0}},
 		"POST /agents/{id}/consent":                {"agent", map[string]any{"pausedCollectors": []string{"flow"}}},
+		"POST /agents/{id}/telemetry":              {"agent", map[string]any{"tracesSamplingPercent": 10}},
 		"GET /agents/{id}/address-tests":           {"agent", nil},
 		"POST /agents/{id}/address-tests":          {"agent", map[string]any{"addresses": []string{"203.0.113.9:443"}}},
 		"GET /operators/{id}":                      {"operator", nil},

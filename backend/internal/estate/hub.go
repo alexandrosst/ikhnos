@@ -270,6 +270,12 @@ func (h *Hub) Restore(ctx context.Context) {
 			h.Mu.Unlock()
 			h.ensureConsent(a.ID, v)
 		}
+		if data, _, err := h.C.Store.LoadSnapshot(ctx, agents.TelemetryRequestKey(a.ID)); err == nil && len(data) > 2 {
+			h.Mu.Lock()
+			v := h.ViewFor(a.ID)
+			h.Mu.Unlock()
+			h.ensureTelemetryRequest(a.ID, v)
+		}
 	}
 }
 
@@ -562,6 +568,7 @@ func (h *Hub) Connect(stream ikhnosv1.AgentService_ConnectServer) error {
 					v.NoteDiagnostics(m.Heartbeat.Diagnostics, false, h.C.Now())
 				}
 				resend := v.NoteConfigEcho(m.Heartbeat.AppliedConfigDigest, now)
+				v.noteTelemetryRelay(m.Heartbeat.TelemetryRelay)
 				if asm != nil && asm.expired(h.C.Now()) {
 					asm = nil // a picture that never finished arriving
 				}
@@ -1078,6 +1085,9 @@ type AgentDoc struct {
 	// in the document for people who may change an agent's access; the state handler removes them for everyone else.
 	Diagnostics *agents.DiagnosticsDoc `json:"diagnostics,omitempty"`
 	Consent     *agents.ConsentDoc     `json:"consent,omitempty"`
+	// Telemetry is what an administrator has asked this cluster to collect, next to what the cluster said became of it. Absent when
+	// nothing was ever asked. Only for people who may change an agent's access, like Consent.
+	Telemetry *agents.TelemetryRequestDoc `json:"telemetry,omitempty"`
 	// HardenHelm is set whenever the approved tier is below the installed ceiling: the exact command that would
 	// also shrink the cluster's own RBAC to match, since narrowing here only changes what the agent reports.
 	// Filled in by the /state handler, which has the image settings this needs; empty until then.
@@ -1323,6 +1333,7 @@ func (h *Hub) buildAgentDocs(ctx context.Context, now time.Time) ([]AgentDoc, []
 			if a.Status == store.StatusApproved {
 				d.Diagnostics = v.diagDoc()
 				d.Consent = v.consentDoc()
+				d.Telemetry = v.telemetryRequestDoc()
 			}
 			d.Measuring = len(v.Targets)
 			if v.consCount > 0 {

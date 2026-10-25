@@ -57,6 +57,8 @@ func WireTypes() []wire.Root {
 		{Value: approveAgentRequest{}},
 		{Value: setAgentTierRequest{}},
 		{Value: setAgentConsentRequest{}},
+		{Value: setAgentTelemetryRequest{}},
+		{Value: agents.TelemetryRequestDoc{}},
 		{Value: addressTestsRequest{}},
 		{Value: serverClusterRequest{}},
 	}

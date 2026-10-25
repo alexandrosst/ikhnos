@@ -110,6 +110,8 @@ func (h *API) Mount(r httpkit.Router) {
 	// Narrowing an agent's tier or consent is an editor's; widening either is an administrator's, like approving (checked in the hub).
 	r.Handle("POST "+o+"/agents/{id}/tier", httpkit.EditorRole, h.setAgentTier)
 	r.Handle("POST "+o+"/agents/{id}/consent", httpkit.EditorRole, h.setAgentConsent)
+	// Asking a cluster to collect less is an editor's, collecting more an administrator's (checked in the hub).
+	r.Handle("POST "+o+"/agents/{id}/telemetry", httpkit.EditorRole, h.setAgentTelemetry)
 }
 
 // UpgradeCommand is the command that changes the ceiling of an agent's install to a tier (installcfg's AgentUpgradeCommand), for the
@@ -310,6 +312,22 @@ func (h *API) setAgentConsent(w http.ResponseWriter, r *http.Request) {
 	// asked for: right after a save this is unconfirmed with a fresh SetAt (nothing has had time to apply
 	// yet), exactly as a client that reloaded the page a second later would also be told.
 	httpkit.WriteJSON(w, 200, hub.ConsentDocFor(id))
+}
+
+// setAgentTelemetry asks an agent's cluster to collect what the body names, or takes the request back. Turning anything on takes an
+// administrator. The answer is the request next to what the cluster said became of it (AgentDoc.Telemetry).
+func (h *API) setAgentTelemetry(w http.ResponseWriter, r *http.Request) {
+	var req setAgentTelemetryRequest
+	if err := httpkit.Decode(r, &req); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	doc, err := h.For(r).SetTelemetryRequest(r.Context(), httpkit.Actor(r), r.PathValue("id"), agents.TelemetryRequest{Signals: req.Signals, TracesSamplingPercent: req.TracesSamplingPercent})
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	httpkit.WriteJSON(w, 200, doc)
 }
 
 // startAddressTests answers POST .../agents/{id}/address-tests: the cluster this agent is in tries each address.

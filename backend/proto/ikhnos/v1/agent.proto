@@ -185,6 +185,9 @@ message Heartbeat {
   // The digest (Config.digest) of the last Config this agent applied. Sent on every heartbeat. Empty before the agent has applied
   // one, and from an agent older than this field: the server then treats what is in force as unknown, never as stale.
   string applied_config_digest = 6;
+  // What became of the last TelemetryRequest this agent was sent (see TelemetryRelayStatus). Absent from an agent older than this field,
+  // and from an agent that was never sent one.
+  TelemetryRelayStatus telemetry_relay = 7;
 }
 
 message ModuleStatus {
@@ -696,6 +699,50 @@ message Config {
   // echoes it in Heartbeat.applied_config_digest, so the server learns what is in force, not only what it sent. Empty from an
   // older server; the agent then echoes nothing.
   string digest = 12;
+  // What the server asks this cluster to collect, when an administrator has asked for anything: the "what" of the telemetry (which
+  // signals, how much of the traces), never the "where" (the destination and its credentials are not in this protocol). The agent hands
+  // it to the controller that keeps it installed, which checks it against what the cluster's owner allowed and applies it, or says why
+  // not (Heartbeat.telemetry_relay). Absent: nobody has asked for anything, and the cluster's own settings stand.
+  TelemetryRequest telemetry_request = 13;
+}
+
+// TelemetryRequest is what an administrator asked this cluster's local operator to collect. The Revision is the server's and rises with
+// every change, including taking the request back, so what is in force can always be told from what was asked.
+//
+// A request with no signals and no sampling is the administrator taking the request back: the cluster's own settings stand again.
+message TelemetryRequest {
+  uint64 revision = 1;
+  // The telemetry signals to collect: the whole set, so a signal not named true is off. Unset: no request about signals.
+  TelemetrySignals signals = 2;
+  // How much of the traces to keep (1-100). Unset: no request, the cluster's own value stands. Meaningful only with the traces signal.
+  optional uint32 traces_sampling_percentage = 3;
+}
+
+// TelemetrySignals mirrors the signals of the IkhnosAgent resource (spec.telemetry.signals), one flag each.
+message TelemetrySignals {
+  bool resource_usage = 1;
+  bool energy = 2;
+  bool kubernetes_state = 3;
+  bool node_runtime = 4;
+  bool network_latency = 5;
+  bool cluster_links = 6;
+  bool application_metrics = 7;
+  bool system_logs = 8;
+  bool kubernetes_events = 9;
+  bool application_logs = 10;
+  bool traces = 11;
+  bool accelerators = 12;
+}
+
+// TelemetryRelayStatus is what the cluster says became of a TelemetryRequest: the revision it is about, and where that revision got to.
+message TelemetryRelayStatus {
+  uint64 revision = 1;
+  // One of "written" (the agent put it where the controller reads it), "applied" (the controller installed it), "refused" (the cluster
+  // does not take it: the relay is off here, or the controller's limits do not allow it) or "reverted" (it was installed, did not
+  // work, and was put back). Unknown to an older server: it shows the text as it is.
+  string state = 2;
+  // Why, in a sentence a person can read, for every state but "written" and "applied".
+  string reason = 3;
 }
 
 // One other cluster this cluster's link is measured to. The server is the only place that knows which address belongs
@@ -1357,10 +1404,10 @@ message ExportRouteHealth {
 }
 
 // The effective configuration behind Diagnostics.installed_telemetry_config - the destination, the
-// processor settings telemetry-intent.md names as mattering most for "safe by default", and which source
+// processor settings telemetry-request.md names as mattering most for "safe by default", and which source
 // backs energy/accelerators when either is on. Purely informational, exactly like installed_tier: this
 // server never pushes or changes any of it, and every value here is read straight from the chart's own
-// rendered configuration (telemetry is declarative-only - see telemetry-intent.md's "Four commitments"),
+// rendered configuration (telemetry is declarative-only - see telemetry-request.md's "Four commitments"),
 // never from anything the collector does at runtime.
 message InstalledTelemetryConfig {
   // telemetry.export.otlp.endpoint, as rendered into this install's collectors. Empty only if somehow no
