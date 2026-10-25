@@ -33,6 +33,10 @@ spec:
         - name: Chart
           type: string
           jsonPath: .status.release.chartVersion
+        - name: Pods
+          type: string
+          description: Whether every pod the release asks for is ready (the WorkloadsReady condition).
+          jsonPath: .status.conditions[?(@.type=="WorkloadsReady")].status
         - name: Age
           type: date
           jsonPath: .metadata.creationTimestamp
@@ -410,6 +414,32 @@ spec:
                       type: string
                 valuesHash:
                   type: string
+                workloads:
+                  type: array
+                  maxItems: 16
+                  description: >-
+                    Written by the controller for a release that is installed as the spec asks: what it runs (the agent, the collectors,
+                    Kepler, the node probe) and how many pods of each are ready, as the controller last looked. The WorkloadsReady
+                    condition says it in one sentence.
+                  items:
+                    type: object
+                    required: [name, kind, wanted, ready]
+                    properties:
+                      name:
+                        type: string
+                      kind:
+                        type: string
+                        enum: [Deployment, DaemonSet]
+                      component:
+                        type: string
+                      wanted:
+                        type: integer
+                        format: int32
+                      ready:
+                        type: integer
+                        format: int32
+                      rollingOut:
+                        type: boolean
                 revoked:
                   type: object
                   description: >-

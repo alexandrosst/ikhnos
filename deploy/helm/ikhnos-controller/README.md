@@ -40,7 +40,17 @@ The controller alone, to ask for agents yourself with `kubectl`:
 helm install ikhnos-controller oci://ghcr.io/<owner>/ikhnos-controller --namespace ikhnos-system --create-namespace
 ```
 
-The controller watches the `IkhnosAgent` resources of its own namespace, and installs the agent into that namespace. The CRD is in `crds/`, which Helm installs once and **never upgrades**: after an upgrade that changes it, apply it yourself (`kubectl apply -f crds/ikhnosagents.yaml`). This release added `status.revoked`, so apply it when you upgrade: without it an agent the server revoked says so, the API server drops the field, and the agent logs that the definition is older than the controller instead of being removed. It also adds `status.requested` and `status.relay` (the telemetry relay below), so apply it for that too.
+The controller watches the `IkhnosAgent` resources of its own namespace, and installs the agent into that namespace. The CRD is in `crds/`, which Helm installs once and **never upgrades**: after an upgrade that changes it, apply it yourself (`kubectl apply -f crds/ikhnosagents.yaml`). This release added `status.revoked`, so apply it when you upgrade: without it an agent the server revoked says so, the API server drops the field, and the agent logs that the definition is older than the controller instead of being removed. It also adds `status.requested` and `status.relay` (the telemetry relay below), so apply it for that too. It adds `status.workloads` and a `Pods` column as well (below); an older definition drops them without an error.
+
+**What the release runs.** For a release that is installed as the spec asks, the controller looks at the agent's Deployment and the collectors', Kepler's, DCGM's and the node probe's DaemonSets (the ones the chart labels) every minute, every 15 seconds while a pod is missing, and writes how many pods of each are ready to `status.workloads`. The `WorkloadsReady` condition says it in a sentence, and `kubectl get ikhnosagent` shows it in the `Pods` column:
+
+```sh
+kubectl -n ikhnos-system get ikhnosagent
+kubectl -n ikhnos-system get ikhnosagent this-cluster -o jsonpath='{.status.conditions[?(@.type=="WorkloadsReady")].message}'
+# ikhnos-telemetry-kepler: 2 of 3 pods ready
+```
+
+`Ready` stays true: it says the release is installed as the spec asks, and a pod held back on one node (a node Kepler cannot run on, a taint, no GPU) does not make that untrue. The controller only reports it; it restarts nothing.
 
 Built from source, the chart's image names are placeholders. Name your own:
 

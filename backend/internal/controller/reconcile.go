@@ -47,6 +47,9 @@ type Status struct {
 	Requested *relay.Request `json:"requested,omitempty"`
 	// Relay is what became of the request. The controller will write it; until it does, it keeps whatever is there.
 	Relay *relay.Result `json:"relay,omitempty"`
+	// Workloads is what the release runs and how many pods of each are ready, as the controller last looked (see observe). Only of a release that
+	// is installed as the spec asks.
+	Workloads []Workload `json:"workloads,omitempty"`
 }
 
 // Revoked is the agent's word that the server revoked it.
@@ -95,6 +98,9 @@ type Reconciler struct {
 	// RelayDeadline is how long the agent has to be ready after a request was applied (0: DefaultRelayDeadline); RelayPoll how often that
 	// is looked at (0: 2 seconds).
 	RelayDeadline, RelayPoll time.Duration
+	// ObserveEvery is how often the controller looks at the pods of an installed release (0: DefaultObserveEvery; negative: it looks only when
+	// something else makes it look at the resource).
+	ObserveEvery time.Duration
 	// BootstrapConfigMap names the ConfigMap the chart wrote the first resource's spec into (empty: none; see Bootstrap).
 	BootstrapConfigMap string
 	Log                *slog.Logger
@@ -234,7 +240,8 @@ func (r *Reconciler) apply(ctx context.Context, obj *unstructured.Unstructured) 
 	if cur != nil && cur.Deployed && cur.ChartVersion == chartVersion && Hash(cur.Values) == want {
 		st := r.ready(obj, cur, want)
 		st.Relay = plan.answer() // a request that is already in force (the controller stopped before it said so) or that was refused
-		return 0, r.setStatus(ctx, obj, st, r.cond(obj, "True", "Installed", "the release is installed as the spec asks"))
+		again := r.watch(ctx, obj, &st)
+		return again, r.setStatus(ctx, obj, st, r.cond(obj, "True", "Installed", "the release is installed as the spec asks"))
 	}
 	// An attempt that has failed before, for this very resource and these very values, is tried again with its failure still on the resource:
 	// writing "Installing" over it for the length of each attempt leaves the reason there for a moment and gone the rest of the time.
@@ -262,7 +269,24 @@ func (r *Reconciler) apply(ctx context.Context, obj *unstructured.Unstructured) 
 	r.log().Info("agent release applied", "release", ReleaseName, "revision", rel.Revision, "chart", rel.ChartVersion)
 	st := r.ready(obj, rel, want)
 	st.Relay = plan.answer()
-	return 0, r.setStatus(ctx, obj, st, r.cond(obj, "True", "Installed", "the release is installed as the spec asks"))
+	again := r.watch(ctx, obj, &st)
+	return again, r.setStatus(ctx, obj, st, r.cond(obj, "True", "Installed", "the release is installed as the spec asks"))
+}
+
+// watch adds to the status of an installed release what it runs and whether every pod is there, and says when to look again.
+func (r *Reconciler) watch(ctx context.Context, obj *unstructured.Unstructured, st *Status) time.Duration {
+	every := r.observeEvery()
+	if every == 0 {
+		return 0
+	}
+	st.Workloads = r.observe(ctx)
+	if c := workloadsCondition(obj.GetGeneration(), st.Workloads); c != nil {
+		st.Conditions = append(st.Conditions, *c)
+	}
+	if !allDone(st.Workloads) {
+		return min(every, observeWhileWaiting)
+	}
+	return every
 }
 
 // putBack installs the spec alone again after a request that was applied did not leave the agent running, and says so under status.relay.
@@ -492,13 +516,16 @@ func (r *Reconciler) setStatus(ctx context.Context, obj *unstructured.Unstructur
 	if raw, ok := fresh.Object["status"].(map[string]any); ok {
 		_ = runtime.DefaultUnstructuredConverter.FromUnstructured(raw, &old)
 	}
-	c.LastTransitionTime = r.now().UTC().Format(time.RFC3339)
-	for _, o := range old.Conditions {
-		if o.Type == c.Type && o.Status == c.Status {
-			c.LastTransitionTime = o.LastTransitionTime
+	conds := append([]Condition{c}, st.Conditions...)
+	for i := range conds {
+		conds[i].LastTransitionTime = r.now().UTC().Format(time.RFC3339)
+		for _, o := range old.Conditions {
+			if o.Type == conds[i].Type && o.Status == conds[i].Status {
+				conds[i].LastTransitionTime = o.LastTransitionTime
+			}
 		}
 	}
-	st.Conditions = []Condition{c}
+	st.Conditions = conds
 	st.Revoked = old.Revoked // the agent's word, not the controller's: writing the status must not take it away
 	st.Requested = old.Requested
 	if st.Relay == nil {

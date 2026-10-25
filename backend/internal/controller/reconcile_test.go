@@ -359,7 +359,8 @@ func TestWithoutATokenSecretNothingIsInstalledYetAndItIsLookedForAgain(t *testin
 		t.Fatal(err)
 	}
 	g.secret("enroll", "token", "ikh_abc")
-	if d := g.must("a"); d != 0 || g.inst.applies() != 1 || g.status("a").Phase != PhaseReady {
+	// An installed release is looked at again, to see its pods (see workloads.go).
+	if d := g.must("a"); d != DefaultObserveEvery || g.inst.applies() != 1 || g.status("a").Phase != PhaseReady {
 		t.Fatalf("after the Secret came: %v, %d applies, %+v", d, g.inst.applies(), g.status("a"))
 	}
 }
