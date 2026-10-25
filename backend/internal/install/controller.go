@@ -190,7 +190,9 @@ func (c ControllerInstall) BootstrapValues(a AgentResource, token string) ([]Val
 	if token == "" {
 		return nil, fmt.Errorf("install: there is no token to enroll with")
 	}
-	values := []Value{Set("maxAccessTier", strconv.Itoa(c.MaxTier))}
+	// relay.telemetry: a cluster set up with the controller can be told by the server to collect more or less telemetry (which signals, how
+	// much of the traces), within what the controller was allowed; it is a switch of the chart for a cluster that wants it off.
+	values := []Value{Set("maxAccessTier", strconv.Itoa(c.MaxTier)), Set("relay.telemetry", "true")}
 	if r := strings.TrimRight(c.Registry, "/"); r != "" {
 		values = append(values,
 			Set("image.repository", r+"/controller"),

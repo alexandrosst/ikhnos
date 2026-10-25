@@ -53,6 +53,8 @@ spec:
             - --max-access-tier={{ .Values.maxAccessTier }}
             - --allow-telemetry={{ .Values.allowTelemetry | default false }}
             - --timeout={{ .Values.timeout }}
+            - --relay-telemetry={{ (.Values.relay | default dict).telemetry | default false }}
+            - --relay-deadline={{ (.Values.relay | default dict).deadline | default "3m" }}
           env:
             - name: POD_NAMESPACE
               valueFrom: {fieldRef: {fieldPath: metadata.namespace}}

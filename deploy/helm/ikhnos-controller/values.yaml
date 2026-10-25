@@ -38,6 +38,16 @@ allowTelemetry: false
 # How long one install, upgrade or uninstall (with its hooks) may take.
 timeout: 5m
 
+# The Ikhnos server can ask a cluster to collect more or less telemetry: which signals, and how much of the traces. It never says where the
+# data goes (that stays in the IkhnosAgent, yours) and sends no credential. With telemetry on, the agent passes such a request to this
+# controller, which applies it over the resource's own spec.telemetry within what allowTelemetry and the access tier allow, waits for the
+# agent to be ready again, and puts the cluster back to the resource's own settings if it is not; each step is told to the server. Off,
+# the cluster keeps its own settings and says so when asked. A signal can be turned on only when allowTelemetry is on; turning signals off
+# needs nothing.
+relay:
+  telemetry: false
+  deadline: 3m   # how long the agent has to be ready after a request was applied, before the cluster is put back
+
 resources:
   requests: {cpu: 10m, memory: 48Mi}
   limits: {memory: 256Mi}

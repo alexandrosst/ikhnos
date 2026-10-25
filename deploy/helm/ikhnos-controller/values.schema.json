@@ -74,6 +74,14 @@
       "type": "string",
       "pattern": "^[0-9]+(ms|s|m|h)$"
     },
+    "relay": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "telemetry": {"type": "boolean"},
+        "deadline": {"type": "string", "pattern": "^[0-9]+(ms|s|m|h)$"}
+      }
+    },
     "resources": {
       "type": "object"
     },

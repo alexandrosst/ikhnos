@@ -149,6 +149,16 @@ func TestAPlainBootstrapSaysOnlyWhatTheInstallNeeds(t *testing.T) {
 	if !strings.Contains(got, "maxAccessTier=2") || !strings.Contains(got, "bootstrap.token=tok") {
 		t.Errorf("a plain install:\n%s", got)
 	}
+	// The one command turns the telemetry relay on (the server may then ask the cluster for more or less telemetry, within what the
+	// controller was allowed); the raise and the allow commands leave it as it is.
+	if !strings.Contains(got, "--set relay.telemetry=true") {
+		t.Errorf("the one-command install does not turn the relay on:\n%s", got)
+	}
+	for _, cmd := range []func() (string, error){ControllerInstall{Chart: "oci://x/c", MaxTier: 1}.RaiseCeiling, ControllerInstall{Chart: "oci://x/c"}.AllowTelemetry} {
+		if c, err := cmd(); err != nil || strings.Contains(c, "relay") {
+			t.Errorf("a command that is not the install touches the relay: %v\n%s", err, c)
+		}
+	}
 	// A resource that asks for less than the controller may give is said.
 	got, err = ControllerInstall{Chart: "oci://x/c", MaxTier: 2}.Bootstrap(AgentResource{Server: "h:1", CAPin: "sha256/x", Tier: 1}, "tok")
 	if err != nil || !strings.Contains(got, "--set bootstrap.accessTier=1") {

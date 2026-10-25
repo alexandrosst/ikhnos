@@ -88,6 +88,13 @@ type Reconciler struct {
 	// collectors watch: allowTelemetry in its chart). A resource that turns a signal on is refused without it, for the same reason a tier
 	// above MaxTier is: Kubernetes would refuse to create the ClusterRole.
 	AllowTelemetry bool
+	// RelayTelemetry is whether this controller acts on the telemetry the server asks of the cluster (relay.telemetry in its chart): the
+	// agents it installs are told to pass the requests on, and it reads them (see relay.go). Off, a request is answered by the agent at once
+	// and the controller reads none.
+	RelayTelemetry bool
+	// RelayDeadline is how long the agent has to be ready after a request was applied (0: DefaultRelayDeadline); RelayPoll how often that
+	// is looked at (0: 2 seconds).
+	RelayDeadline, RelayPoll time.Duration
 	// BootstrapConfigMap names the ConfigMap the chart wrote the first resource's spec into (empty: none; see Bootstrap).
 	BootstrapConfigMap string
 	Log                *slog.Logger
@@ -213,15 +220,21 @@ func (r *Reconciler) apply(ctx context.Context, obj *unstructured.Unstructured) 
 		return WaitingForSecret, r.setStatus(ctx, obj, Status{Phase: PhasePending, ObservedGeneration: obj.GetGeneration()},
 			r.cond(obj, "False", "WaitingForToken", wait))
 	}
-	values, err := r.values(obj.GetName(), spec, token)
+	plan := r.planRelay(obj.GetName(), obj, spec, token)
+	values, err := r.values(obj.GetName(), plan.spec, token)
 	if err != nil {
-		return 0, r.setStatus(ctx, obj, Status{Phase: PhaseInvalid, ObservedGeneration: obj.GetGeneration()},
-			r.cond(obj, "False", "InvalidSpec", err.Error()))
+		st := Status{Phase: PhaseInvalid, ObservedGeneration: obj.GetGeneration()}
+		if plan.fresh != nil { // a request cannot be applied to what cannot be installed; it is told, not left waiting
+			st.Relay = &relay.Result{Revision: plan.fresh.Revision, State: relay.Refused, Reason: "the resource cannot be installed as it is, so nothing can be changed on it: " + reasonOf(err)}
+		}
+		return 0, r.setStatus(ctx, obj, st, r.cond(obj, "False", "InvalidSpec", err.Error()))
 	}
 	want := Hash(values)
 	chartVersion := r.Installer.ChartVersion()
 	if cur != nil && cur.Deployed && cur.ChartVersion == chartVersion && Hash(cur.Values) == want {
-		return 0, r.setStatus(ctx, obj, r.ready(obj, cur, want), r.cond(obj, "True", "Installed", "the release is installed as the spec asks"))
+		st := r.ready(obj, cur, want)
+		st.Relay = plan.answer() // a request that is already in force (the controller stopped before it said so) or that was refused
+		return 0, r.setStatus(ctx, obj, st, r.cond(obj, "True", "Installed", "the release is installed as the spec asks"))
 	}
 	// An attempt that has failed before, for this very resource and these very values, is tried again with its failure still on the resource:
 	// writing "Installing" over it for the length of each attempt leaves the reason there for a moment and gone the rest of the time.
@@ -232,13 +245,46 @@ func (r *Reconciler) apply(ctx context.Context, obj *unstructured.Unstructured) 
 		}
 	}
 	rel, err := r.Installer.Apply(ctx, r.Namespace, ReleaseName, values)
+	if err == nil && plan.overlay && plan.fresh != nil {
+		// A change the server asked for has to leave the agent running; if it does not, the cluster is put back as its owner has it.
+		if err = r.settle(ctx); err != nil {
+			return r.putBack(ctx, obj, spec, token, plan, err)
+		}
+	}
 	if err != nil {
+		if plan.overlay && plan.fresh != nil {
+			return r.putBack(ctx, obj, spec, token, plan, err)
+		}
 		_ = r.setStatus(ctx, obj, Status{Phase: PhaseFailed, ObservedGeneration: obj.GetGeneration(), ValuesHash: want},
 			r.cond(obj, "False", "InstallFailed", err.Error()))
 		return 0, fmt.Errorf("installing the agent release: %w", err)
 	}
 	r.log().Info("agent release applied", "release", ReleaseName, "revision", rel.Revision, "chart", rel.ChartVersion)
-	return 0, r.setStatus(ctx, obj, r.ready(obj, rel, want), r.cond(obj, "True", "Installed", "the release is installed as the spec asks"))
+	st := r.ready(obj, rel, want)
+	st.Relay = plan.answer()
+	return 0, r.setStatus(ctx, obj, st, r.cond(obj, "True", "Installed", "the release is installed as the spec asks"))
+}
+
+// putBack installs the spec alone again after a request that was applied did not leave the agent running, and says so under status.relay.
+// The answer is written before anything else can go wrong, so that a controller that cannot put the cluster back does not try the request
+// again and again: it goes on trying the spec, as it does with any release that fails.
+func (r *Reconciler) putBack(ctx context.Context, obj *unstructured.Unstructured, spec Spec, token string, plan relayPlan, cause error) (time.Duration, error) {
+	why := "putting it back"
+	res := &relay.Result{Revision: plan.fresh.Revision, State: relay.Reverted, Reason: reasonOf(fmt.Errorf("%v; the cluster was put back to its own settings", cause))}
+	r.log().Warn("a telemetry request did not leave the agent running; putting the cluster back", "revision", plan.fresh.Revision, "err", cause)
+	values, err := r.values(obj.GetName(), spec, token)
+	if err == nil {
+		var rel *Release
+		if rel, err = r.Installer.Apply(ctx, r.Namespace, ReleaseName, values); err == nil {
+			st := r.ready(obj, rel, Hash(values))
+			st.Relay = res
+			return 0, r.setStatus(ctx, obj, st, r.cond(obj, "True", "Installed", "the release is installed as the spec asks"))
+		}
+	}
+	res.Reason = reasonOf(fmt.Errorf("%v; and %s failed: %v", cause, why, err))
+	_ = r.setStatus(ctx, obj, Status{Phase: PhaseFailed, ObservedGeneration: obj.GetGeneration(), Relay: res},
+		r.cond(obj, "False", "InstallFailed", err.Error()))
+	return 0, fmt.Errorf("putting the agent release back after a telemetry request: %w", err)
 }
 
 // failedBefore is whether the resource, as it is now, already says that installing these values failed (the values are what makes it the
@@ -281,7 +327,11 @@ func (r *Reconciler) values(name string, spec Spec, token string) (map[string]an
 		return nil, err
 	}
 	// The agent is told which resource keeps it, so that a revoked agent can say so on it (see install.RevokedAnnotation).
-	return Merge(Merge(r.Defaults, v), map[string]any{"controller": map[string]any{"resource": name}}), nil
+	ctl := map[string]any{"resource": name}
+	if r.RelayTelemetry {
+		ctl["relayTelemetry"] = true // only when on: a release of a controller that never heard of it is not changed by it
+	}
+	return Merge(Merge(r.Defaults, v), map[string]any{"controller": ctl}), nil
 }
 
 func (r *Reconciler) ready(obj *unstructured.Unstructured, rel *Release, hash string) Status {
@@ -451,7 +501,9 @@ func (r *Reconciler) setStatus(ctx context.Context, obj *unstructured.Unstructur
 	st.Conditions = []Condition{c}
 	st.Revoked = old.Revoked // the agent's word, not the controller's: writing the status must not take it away
 	st.Requested = old.Requested
-	st.Relay = old.Relay
+	if st.Relay == nil {
+		st.Relay = old.Relay // the answer stands until the controller gives another
+	}
 	if equalStatus(old, st) {
 		return nil
 	}

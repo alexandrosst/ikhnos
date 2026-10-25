@@ -115,6 +115,14 @@ The controller installs the agent with `controller.resource` set to the name of 
 
 Delete the `IkhnosAgent` first (the controller uninstalls the agent), then `helm uninstall ikhnos-controller`. A resource whose uninstall cannot finish is let go without touching the release by annotating it `ikhnos.io/skip-uninstall: "true"`. Helm leaves the CRD in place; remove it with `kubectl delete crd ikhnosagents.ikhnos.io` when no resource remains.
 
-## The server's telemetry requests (`status.requested`, `status.relay`)
+## The server's telemetry requests (`relay.telemetry`)
 
-An agent installed with `controller.relayTelemetry=true` passes on a request from the Ikhnos server to collect more or less telemetry (which signals, how much of the traces) by writing it under `status.requested` of its resource; the chart then also lets it `get` that one status, to read `status.relay` back. It is the *what* only: no destination, no credential. The controller keeps both fields when it writes its own, and a status patch cannot reach the spec. The controller does not act on a request yet; an agent that is asked tells the server "written" and waits.
+The Ikhnos server can ask a cluster to collect more or less telemetry: which signals, and how much of the traces. It is the *what* only. It never says where the data goes, and sends no credential: the destination is in your `IkhnosAgent`, and the server cannot change it. The one-command install turns this on; with `relay.telemetry=false` (the chart's default when you install the chart yourself) the cluster keeps its own settings and answers the server so.
+
+With it on, the agents the controller installs pass a request to the controller through `status.requested` of their resource, and the controller:
+
+1. checks it against what you gave it: a signal can be turned on only with `allowTelemetry`, cluster links need access tier 2, and your `spec.telemetry` has to be able to send somewhere (a destination) for any signal to be on. A request it cannot take is *refused*, with the reason, and not tried again;
+2. lays it over your `spec.telemetry` (the signals and the share of the traces replace yours; everything else, the destination above all, stays) and upgrades the release. Your resource is not edited, so deleting the request, or the server taking it back, returns the cluster to exactly what you wrote;
+3. waits up to `relay.deadline` (3 minutes) for the agent to be ready again. If it is not, it installs your spec alone again and says *reverted*, and does not try that request again. A request with a higher revision is tried afresh.
+
+What became of it is in `status.relay` of the resource (`kubectl get ikhnosagent <name> -o jsonpath='{.status.relay}'`), and the server's Agents page shows the same. Turning signals *off* needs nothing from `allowTelemetry`.
