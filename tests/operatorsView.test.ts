@@ -109,7 +109,7 @@ test('localVerdict: judged by what its agent reports exporting - and Unknown, ne
   const quiet = v(row({ diagnostics: withRoutes([{ state: 'silent', lastSentAt: ago(14 * MIN) }]) }))
   assert.equal(quiet.verdict.state, 'attention')
   assert.equal(quiet.verdict.reason, 'No data has been sent for 14 min.')
-  assert.equal(quiet.verdict.todo?.action?.kind, 'configure')
+  assert.equal(quiet.verdict.todo?.action?.kind, 'collects')
   const failing = v(row({ diagnostics: withRoutes([{ state: 'failing' }]) }))
   assert.equal(failing.verdict.state, 'down')
   assert.equal(failing.verdict.reason, 'Sending to eu-west is failing.')
