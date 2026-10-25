@@ -161,6 +161,11 @@ export interface AgentExtras {
   /** The server's own conditions for the agent (absent from an older server). */
   conditions?: AgentCondition[]
   protocolVersion?: number
+  /** What was asked of this agent's cluster to collect, next to what the cluster said became of it. Absent when nothing was ever asked. */
+  telemetry?: W.TelemetryRequestDoc
+  /** What the agent's last Hello said it does (agentcaps), and whether a controller keeps it installed. Empty/false until it has connected since the server started. */
+  capabilities?: string[]
+  keptByController?: boolean
 }
 
 /** The two fields of an agent that only editors and administrators receive. */
@@ -171,6 +176,9 @@ export function extrasOf(agents: readonly unknown[] | undefined, id: string): Ag
     diagnostics: a.diagnostics ? { ...a.diagnostics, pausedCollectors: a.diagnostics.pausedCollectors ?? [], collectors: a.diagnostics.collectors ?? [], informers: a.diagnostics.informers ?? [], problems: a.diagnostics.problems ?? [], installedTelemetry: a.diagnostics.installedTelemetry ?? [] } : undefined,
     conditions: a.conditions ?? undefined,
     protocolVersion: a.protocolVersion,
+    telemetry: a.telemetry,
+    capabilities: a.capabilities ?? [],
+    keptByController: a.keptByController === true,
     consent: a.consent
       ? {
           pausedCollectors: a.consent.pausedCollectors ?? [],

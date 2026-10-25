@@ -4,12 +4,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, ICON_SM, RunStep } from '@/components/ui/primitives'
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import { ServerCommand } from '@/components/ui/ServerCommand'
+import { AskTheCluster } from '@/features/pipeline/components/telemetry/AskTheCluster'
 import ArrivalCheck from '@/features/pipeline/components/telemetry/ArrivalCheck'
 import { ControllerPatch } from '@/features/pipeline/components/telemetry/ControllerPatch'
 import GuidedWizard from '@/features/pipeline/components/telemetry/GuidedWizard'
+import { TelemetryRequestLine } from '@/features/pipeline/components/telemetry/TelemetryRequestLine'
+import type { TelemetryRequestDoc } from '@/lib/generated/wire'
+import { askAvailability, newestRequest } from '@/lib/telemetryRequest'
 import { upgradeRequest, useAgentUpgradeCommand } from '@/lib/agentUpgrade'
 import { api, atLeast } from '@/lib/api'
-import { describeTelemetryChanges, measurementsRunning, telemetrySecrets, TELEMETRY_CREDENTIAL_VAR, seedTelemetryFromInstalled, TELEMETRY_SIGNALS, type AgentDiagnostics, type InstallInfo, type ReleaseTarget } from '@/lib/consent'
+import { describeTelemetryChanges, extrasOf, measurementsRunning, telemetrySecrets, TELEMETRY_CREDENTIAL_VAR, seedTelemetryFromInstalled, TELEMETRY_SIGNALS, type AgentDiagnostics, type InstallInfo, type ReleaseTarget } from '@/lib/consent'
 import { clearDraft, loadDraft, saveDraft } from '@/features/pipeline/lib/draftStore'
 import { keptSummary, telemetryActive, telemetryProblems, type TelemetryInput } from '@/lib/install'
 import { receiverAuthOf } from '@/features/pipeline/lib/operatorHealth'
@@ -163,8 +167,15 @@ function TelemetryPanelBody({
     [draft, hadTelemetry, measurementsOn, conn.org, clusterId, target],
   )
   const upgrade = useAgentUpgradeCommand(problems.length > 0 ? null : upgradeAsk)
-  // An agent that a controller keeps is changed in its resource, not by helm: the same change is offered in both words.
-  const [via, setVia] = useState<'helm' | 'controller'>('helm')
+  // An agent that a controller keeps is changed in its resource, not by helm: the same change is offered in both words. When the controller
+  // can also take a request from the server, asking the cluster is the third way, and the one shown first.
+  const rawAgents = useServer((s) => s.state?.agents)
+  const extras = extrasOf(Array.isArray(rawAgents) ? rawAgents : undefined, agentId ?? '')
+  const [sent, setSent] = useState<TelemetryRequestDoc | undefined>(undefined)
+  const request = newestRequest(extras.telemetry, sent)
+  const availability = askAvailability(extras.keptByController, extras.capabilities)
+  const [via, setVia] = useState<'ask' | 'helm' | 'controller' | undefined>(undefined)
+  const mode = via ?? (availability === 'yes' ? 'ask' : 'helm')
 
   // A regional operator destination: its receiver wants a client certificate only the server can issue, so
   // there is no ready command - only an explicit "Generate" that asks the server for one (and issues a new
@@ -306,7 +317,7 @@ function TelemetryPanelBody({
   // Everything an external (non-operator) destination needs, as the numbered steps the wizard's last screen shows.
   const commandSection = (
     <ol className="space-y-4" data-testid={`${p}-run-steps`}>
-      {needsCredential && (
+      {needsCredential && mode !== 'ask' && (
         <RunStep n={1} title="Put the destination’s credential in your shell">
           {secrets.length > 1 || secrets[0]?.lanes.length ? (
             <div data-testid={`${p}-credential-hint`} className="space-y-1.5">
@@ -326,8 +337,8 @@ function TelemetryPanelBody({
           )}
         </RunStep>
       )}
-      <RunStep n={needsCredential ? 2 : 1} title={turningOff ? 'Run the command in that cluster to turn all telemetry off' : 'Run the command in that cluster'}>
-        <p>The cluster&apos;s owner runs this. It changes only the telemetry settings and keeps everything else in the release as it is.</p>
+      <RunStep n={needsCredential && mode !== 'ask' ? 2 : 1} title={mode === 'ask' ? 'Ask the cluster' : turningOff ? 'Run the command in that cluster to turn all telemetry off' : 'Run the command in that cluster'}>
+        {mode !== 'ask' && <p>The cluster&apos;s owner runs this. It changes only the telemetry settings and keeps everything else in the release as it is.</p>}
         {problems.length > 0 ? (
           // Without a complete draft there is nothing to ask the server for, and a bare upgrade would change nothing: showing it as "the command" would let it be copied and run.
           <p role="status" className="mt-1 text-warn" data-testid={`${p}-command-blocked`}>
@@ -339,11 +350,35 @@ function TelemetryPanelBody({
             <Tabs
               label="How the agent is installed"
               className="mb-2 mt-2"
-              value={via}
+              value={mode}
               onChange={setVia}
-              items={[{ id: 'helm', label: 'helm', testId: `${p}-via-helm` }, { id: 'controller', label: 'kubectl (controller)', testId: `${p}-via-controller` }]}
+              items={[
+                ...(availability === 'none' ? [] : [{ id: 'ask' as const, label: 'Ask the cluster', testId: `${p}-via-ask` }]),
+                { id: 'helm' as const, label: 'helm', testId: `${p}-via-helm` },
+                { id: 'controller' as const, label: 'kubectl (controller)', testId: `${p}-via-controller` },
+              ]}
             />
-            {via === 'helm' ? <ServerCommand command={upgrade} /> : <ControllerPatch command={upgrade} testId={`${p}-controller`} />}
+            {availability === 'none' && agentId && mode !== 'ask' && (
+              <p className="mb-2 text-xs text-nb-500" data-testid={`${p}-ask-none`}>The server can ask the cluster itself when a controller keeps this agent installed.</p>
+            )}
+            {mode === 'ask' ? (
+              <AskTheCluster
+                agentId={agentId}
+                availability={availability}
+                draft={draft}
+                installed={installed}
+                installedShare={config?.tracesSamplingPercent}
+                changes={changes}
+                request={request}
+                isAdmin={isAdmin}
+                onAnswer={setSent}
+                testId={`${p}-ask`}
+              />
+            ) : mode === 'helm' ? (
+              <ServerCommand command={upgrade} />
+            ) : (
+              <ControllerPatch command={upgrade} testId={`${p}-controller`} />
+            )}
           </>
         )}
       </RunStep>
@@ -412,6 +447,12 @@ function TelemetryPanelBody({
           )}
 
         </>
+      )}
+
+      {request && (
+        <div className="mt-3">
+          <TelemetryRequestLine request={request} testId={`${testIdPrefix}-request`} />
+        </div>
       )}
 
       {restored && (

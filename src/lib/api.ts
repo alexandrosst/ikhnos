@@ -399,6 +399,10 @@ export const api = {
   // consent: an editor may only narrow what an approved agent shares, up to the ceiling its install (Helm access.tier) allows.
   // A tier above the ceiling is refused with a 400 whose body carries `helm`, the command the cluster's owner runs to raise it.
   setAgentTier: (c: Conn, id: string, tier: number) => call<{ accessTier: number; installedTier: number }>(c, 'POST', `/api/v1/agents/${id}/tier`, { tier }),
+  // Ask an approved agent's cluster to collect a set of signals and a share of the traces, or (an empty body) take the request back. Only the "what":
+  // the destination and its credentials are not part of a request. Turning anything on takes an administrator.
+  setAgentTelemetry: (c: Conn, id: string, request: { signals?: W.TelemetrySignals; tracesSamplingPercent?: number }) =>
+    call<W.TelemetryRequestDoc>(c, 'POST', `/api/v1/agents/${encodeURIComponent(id)}/telemetry`, request),
   setAgentConsent: (c: Conn, id: string, consent: { pausedCollectors: string[]; excludedNamespaces: string[] }) =>
     call<{ pausedCollectors: string[]; excludedNamespaces: string[] }>(c, 'POST', `/api/v1/agents/${id}/consent`, consent),
 
