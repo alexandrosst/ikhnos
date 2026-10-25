@@ -8,21 +8,44 @@ description: Which parts carry telemetry (the data plane) and which decide and c
 
 Ikhnos has two kinds of parts. Some carry telemetry from where it is produced to where it is read. Others decide what is allowed and configure the cluster. This page names each part once and says how they work together, so that the other pages can use the words without explaining them again.
 
-## Two planes
+## Two planes, each spread out
 
-**The data plane** is everything that moves telemetry:
+Ikhnos is built as a **control plane** and a **data plane**, and each of them is distributed: it has a part where telemetry is produced (in each cluster), a part in between (in a region) where there is one, and a part at the centre.
 
-- the **local operator**: the collectors that the agent's chart installs in a cluster, one per node and one for the cluster as a whole. They gather metrics, logs and traces and send them on;
-- the **regional operator**: a gateway that receives the telemetry of several clusters in a region and forwards it;
-- **FUSION**: the central gateway and the stores behind it (Prometheus, Loki, Tempo, Grafana).
+<Figure name="DistributedPlanes" caption="Rows are the planes and columns are where a part runs. The control plane has nothing of its own in a region: a regional operator is a record the server keeps and a configuration it generates, and it has no channel back unless you turn on a content-free heartbeat." />
 
-These are three tiers of the same kind of thing, from the cluster to the centre. None of them talks to the Ikhnos server about what to do; they carry data.
+**The control plane** is everything that decides and configures: the **server**, the **discovery agent** in each cluster, and, where you use one, the **controller** and the **`IkhnosAgent` resource**. **The data plane** is everything that moves telemetry: the **local operator** in each cluster, the **regional operator**, and **FUSION** at the centre. The two never run through each other. The server is not on the telemetry path and the agent is not on it either. It reads the collectors' counters, which is how a page can say where data stops, and that is all.
 
-**The control plane** is everything that decides and configures:
+## The control plane
 
-- the **server**: where decisions, approvals and the pages live;
-- the **discovery agent** in each cluster: the server's one door into the cluster and the cluster's one door out. It senses (topology, flows, health) and reports what it finds, and it receives what the server approves;
-- the **controller** and the **`IkhnosAgent` resource**: the cluster's own installer. They keep the agent, and the local operator that comes in the same install, installed and up to date.
+<Figure name="ControlPlaneParts" caption="The agent and the controller never call each other. The IkhnosAgent resource is the note between them, and the Kubernetes API is the only thing they share." />
+
+- the **server**: where decisions, approvals and the pages live. Agents dial in to it; it never calls into a cluster;
+- the **discovery agent** in each cluster: the server's one door into the cluster and the cluster's one door out. It senses (topology, flows, health), reports what it finds, and receives what the server approves, on the one stream it opened;
+- the **controller** and the **`IkhnosAgent` resource**: the cluster's own installer, optional. They keep the agent, and the local operator that comes in the same install, installed and up to date.
+
+## The data plane
+
+<Figure name="DataPlaneParts" caption="Three tiers of one kind of thing. Telemetry goes up the solid arrows and never through the server or the agent." />
+
+- the **local operator**: the collectors that the agent's chart installs in a cluster, one per node and one for the cluster as a whole. They gather metrics, logs and traces from the cluster and from tools such as Kepler and DCGM, and send them on;
+- the **regional operator**: optional. A gateway that receives the telemetry of several clusters in a region, only from clusters that present a certificate its own CA signed, and forwards it;
+- **FUSION**: optional. The central operator, which is the one door in, and the stores behind it (Prometheus, Loki, Tempo) with Grafana already connected.
+
+A local operator can also send straight to FUSION, or to an endpoint you run, without a regional operator in between. None of the three talks to the Ikhnos server about what to do; they carry data.
+
+## What each part is
+
+<Figure name="ComponentAnatomy" caption="The seven parts as pieces of software: how each runs, whom it talks to, and what it holds. The two kinds of part are not alike on purpose. The parts that talk to the outside hold as little as they can, and the part that may install holds no way out." />
+
+There is one asymmetry to know about. A regional operator is something the server knows as an entity of its own: it has a record, its own certificate authority and a lifecycle you manage from the pages. A local operator has no entity of its own. It exists through its agent, one for one, and the server knows it from what that agent reports. That is coherent, because a cluster has exactly one of each, but it is why "operator" is a first-class thing for a region and an implicit one for a cluster.
+
+## The words, and the ones we do not use
+
+- **Agent** is the discovery agent only: the control plane's part in a cluster. It is not the collectors.
+- **Operator** is the telemetry tier: local, regional and FUSION's central operator. We never call the controller an operator, even though a Kubernetes controller with its own resource is what Kubernetes people call an operator, so that the word has one meaning here.
+- **Controller** is ours, the installer. It is not the OpenTelemetry Operator, which Ikhnos does not use.
+- **Relay** means only the server's request path to a cluster's agent. It is not a word for carrying telemetry.
 
 ## What is in a cluster
 
