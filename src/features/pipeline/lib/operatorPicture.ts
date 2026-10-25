@@ -4,6 +4,7 @@ import { exportReach } from '../../../lib/exportHealth'
 import { TELEMETRY_SIGNALS, type Modality } from '../../../lib/install'
 import { type Health, worstOf } from '../../../lib/status'
 import { arrivalCheck, type ArrivalRow } from './telemetrySetup'
+import type { LinkState } from './pipelineFlow'
 
 /**
  * The local operator in one picture: what its collectors take in, the collectors themselves, and where each kind of data goes out, with the
@@ -212,4 +213,18 @@ export function operatorPicture(o: { installed: string[]; diagnostics?: AgentDia
       ? 'Nothing is collected here yet'
       : `${count} ${count === 1 ? 'source' : 'sources'} · ${kinds.join(', ')}${destination ? ` · to ${destination}` : ''}${unread > 0 ? ` · ${unread} to look at` : ''}`
   return { health, summary, groups, collectors, lanes: a.rows, destination, needsAttention: health === 'attention' || health === 'down' }
+}
+
+/**
+ * The line from one source into the collectors, drawn as the pipeline draws the line between two nodes: dashes that move when the collectors
+ * are reading it, still and amber when it is quiet or partly read, red when it is not read, grey and dashed when it is not known. A source the
+ * agent does not report on a receiver of its own is not known, which is not a fault.
+ */
+export function sourceLink(read: SourceRead | undefined): LinkState {
+  switch (read?.state) {
+    case 'receiving': return 'flowing'
+    case 'silent': case 'degraded': return 'stalled'
+    case 'failing': return 'broken'
+    default: return 'unknown'
+  }
 }

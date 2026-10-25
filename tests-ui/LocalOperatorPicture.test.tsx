@@ -236,3 +236,22 @@ describe('the pods of a tool, where a controller keeps the release', () => {
     expect(starting.needsAttention).toBe(false)
   })
 })
+
+describe('the line from each source into the collectors', () => {
+  test('is drawn as the pipeline draws a link: moving when read, still when quiet or partly read, red when not read, dashed grey when not known', () => {
+    for (const [state, link] of [['receiving', 'flowing'], ['silent', 'stalled'], ['degraded', 'stalled'], ['failing', 'broken'], ['waiting', 'unknown']] as const) {
+      const { unmount } = show(diag(kubelet(state), ['resourceUsage']), ['resourceUsage'], { openOnArrival: true })
+      expect(screen.getByTestId('operator-picture-source-resourceUsage-edge')).toHaveAttribute('data-link', link)
+      unmount()
+    }
+  })
+
+  test('is one for every source, and a source the agent does not report on is not known, which is not a fault', () => {
+    show(diag(kubelet('receiving'), ['resourceUsage', 'kubernetesEvents']), ['resourceUsage', 'kubernetesEvents'], { openOnArrival: true })
+    expect(screen.getByTestId('operator-picture-source-resourceUsage-edge')).toHaveAttribute('data-link', 'flowing')
+    expect(screen.getByTestId('operator-picture-source-kubernetesEvents-edge')).toHaveAttribute('data-link', 'unknown')
+    // The moving one is the only one that moves.
+    expect(screen.getByTestId('operator-picture-source-resourceUsage-edge').querySelector('.flow-dash')).not.toBeNull()
+    expect(screen.getByTestId('operator-picture-source-kubernetesEvents-edge').querySelector('.flow-dash')).toBeNull()
+  })
+})

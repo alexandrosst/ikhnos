@@ -1,10 +1,12 @@
 import clsx from 'clsx'
 import { AlertTriangle, CheckCircle2, ChevronRight, HelpCircle } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { ICON_SM } from '@/components/ui/primitives'
 import type { AgentDiagnostics } from '@/lib/consent'
-import { operatorPicture } from '@/features/pipeline/lib/operatorPicture'
+import { operatorPicture, sourceLink } from '@/features/pipeline/lib/operatorPicture'
 import type { SourceRead } from '@/features/pipeline/lib/operatorPicture'
+import { Arrow as FlowArrow } from '@/features/pipeline/components/operators/FlowArrow'
+import { LINK_TONE } from '@/features/pipeline/lib/pipelineFlow'
 import { HealthWord } from './ArrivalCheck'
 
 /** How a source is being read, in its own words: the glyph and colour of its health, never colour alone. */
@@ -75,27 +77,38 @@ export default function LocalOperatorPicture({ installed, diagnostics, connected
           {installed.length === 0 ? (
             <p className="text-xs text-nb-500">No telemetry signal is enabled in this install, so there is nothing for the collectors to take in. Turn signals on under Change telemetry.</p>
           ) : (
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1.5fr)_auto_minmax(0,1fr)_auto_minmax(0,1.2fr)]">
-              <div className="space-y-3" data-testid={`${testId}-sources`}>
-                {pic.groups.map((g) => (
-                  <div key={g.scope} data-testid={`${testId}-group-${g.scope}`}>
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-nb-400">{g.title} <span className="font-normal normal-case tracking-normal text-nb-500">· {g.sub}</span></div>
-                    <ul className="mt-1 flex flex-col gap-1">
+            <div
+              className="grid gap-2 md:grid-cols-[minmax(0,1.5fr)_2.5rem_minmax(0,1fr)_auto_minmax(0,1.2fr)] md:gap-x-3 md:gap-y-1"
+              style={{ '--rows': pic.groups.reduce((n, g) => n + 1 + g.sources.length, 0) } as CSSProperties}
+            >
+              {/* On a wide screen every source is a row of its own and the collectors span all of them, so the line of each source ends in the box. */}
+              <div className="contents" data-testid={`${testId}-sources`}>
+                {pic.groups.map((g, gi) => (
+                  <div key={g.scope} className="contents" data-testid={`${testId}-group-${g.scope}`}>
+                    <div className={clsx('text-[11px] font-semibold uppercase tracking-wide text-nb-400 md:col-start-1', gi > 0 && 'md:mt-2')}>{g.title} <span className="font-normal normal-case tracking-normal text-nb-500">· {g.sub}</span></div>
+                    <ul className="contents">
                       {g.sources.map((s) => (
-                        <li key={s.id} title={s.what} className="rounded-lg border border-nb-850 bg-nb-950 px-2.5 py-1.5" data-testid={`${testId}-source-${s.id}`} data-read={s.read?.state}>
+                        <li key={s.id} title={s.what} className="relative rounded-lg border border-nb-850 bg-nb-950 px-2.5 py-1.5 md:col-start-1" data-testid={`${testId}-source-${s.id}`} data-read={s.read?.state}>
                           <div className="flex items-center justify-between gap-2 text-sm text-nb-300">
                             <span>{s.label} <span className="text-xs text-nb-500">{s.modality}</span></span>
                             {s.read && <ReadWord read={s.read} testId={`${testId}-source-${s.id}-state`} />}
                           </div>
                           {s.read?.sentence && <p className="mt-0.5 text-xs text-nb-400" data-testid={`${testId}-source-${s.id}-why`}>{s.read.sentence}</p>}
+                          <span
+                            className={clsx('pointer-events-none absolute left-full top-1/2 hidden h-3 w-[calc(2.5rem+1.5rem)] -translate-y-1/2 md:block', LINK_TONE[sourceLink(s.read)])}
+                            data-testid={`${testId}-source-${s.id}-edge`}
+                            data-link={sourceLink(s.read)}
+                            aria-hidden
+                          >
+                            <FlowArrow link={sourceLink(s.read)} v={false} className="absolute inset-0 h-full w-full" />
+                          </span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 ))}
               </div>
-              <Arrow />
-              <div className="self-center rounded-lg border border-nb-800 bg-nb-950 px-3 py-2.5" data-testid={`${testId}-collectors`} data-health={pic.collectors.health}>
+              <div className="flex flex-col justify-center rounded-lg border border-nb-800 bg-nb-950 px-3 py-2.5 md:col-start-3 md:row-start-1 md:[grid-row-end:span_var(--rows)]" data-testid={`${testId}-collectors`} data-health={pic.collectors.health}>
                 <div className="text-sm font-medium text-nb-300">Collectors</div>
                 <div className="text-xs text-nb-500">OpenTelemetry, installed with this agent</div>
                 <div className="mt-1.5 flex items-start gap-1.5 text-xs text-nb-400">
@@ -103,8 +116,8 @@ export default function LocalOperatorPicture({ installed, diagnostics, connected
                 </div>
                 <div className="mt-0.5 text-xs text-nb-400" data-testid={`${testId}-collectors-text`}>{pic.collectors.text}</div>
               </div>
-              <Arrow />
-              <div className="self-center" data-testid={`${testId}-lanes`}>
+              <div className="md:col-start-4 md:row-start-1 md:[grid-row-end:span_var(--rows)] md:flex md:items-center"><Arrow /></div>
+              <div className="self-center md:col-start-5 md:row-start-1 md:[grid-row-end:span_var(--rows)]" data-testid={`${testId}-lanes`}>
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-nb-400">Goes out to <span className="font-normal normal-case tracking-normal text-nb-300" data-testid={`${testId}-destination`}>{pic.destination ?? 'its destination'}</span></div>
                 {pic.lanes.length === 0 ? (
                   <p className="mt-1 text-xs text-nb-500" data-testid={`${testId}-no-lanes`}>What goes out is not known: {pic.collectors.text.toLowerCase()}.</p>
