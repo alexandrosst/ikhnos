@@ -1,4 +1,5 @@
-import type { AgentDiagnostics } from '../../../lib/consent'
+import { uptimeWords, type AgentDiagnostics } from '../../../lib/consent'
+import type * as W from '../../../lib/generated/wire'
 import { exportReach } from '../../../lib/exportHealth'
 import { TELEMETRY_SIGNALS, type Modality } from '../../../lib/install'
 import { type Health, worstOf } from '../../../lib/status'
@@ -18,6 +19,64 @@ export interface PictureSource {
   modality: Modality
   /** One sentence on what it collects, for the hover text. */
   what: string
+  /** What the collectors' own counters say about reading it, when the agent reports it for this source (not every source has a receiver of its own). */
+  read?: SourceRead
+}
+
+/** How one source is being read, in the product's words, and the sentence that says what is wrong and what to check when something is. */
+export interface SourceRead {
+  state: W.SourceState
+  word: string
+  health: Health
+  sentence?: string
+}
+
+const READ_WORD: Record<W.SourceState, string> = { waiting: 'Waiting', receiving: 'Reading', silent: 'Quiet', degraded: 'Partly reading', failing: 'Not reading' }
+/** Worst first. A source several receivers serve (the kubelet's) is as bad as its worst one. */
+const READ_WORST_FIRST: W.SourceState[] = ['failing', 'degraded', 'silent', 'waiting', 'receiving']
+
+/**
+ * What to check when a source cannot be read, from what the chart does for it. Said as a thing to look at, never as a cause: the counters
+ * say that values could not be read, not why.
+ */
+const CHECK: Record<string, string> = {
+  resourceUsage: "The kubelet's certificate is verified: where a node's kubelet serves one of its own (kubeadm's default, AKS), the install needs telemetry.kubelet.insecureSkipVerify=true. Look at the node collector pods' logs for the error.",
+  nodeRuntime: "It reads the kubelet, which is verified by its certificate: see the same note as Resource usage, and the node collector pods' logs.",
+  kubernetesState: "The collector reads the Kubernetes API with the agent's read-only access: look at the cluster collector pod's logs for the error.",
+  kubernetesEvents: "The collector reads the Kubernetes API with the agent's read-only access: look at the cluster collector pod's logs for the error.",
+  systemLogs: "The collector reads the node's log files: look at the node collector pods' logs for the error, and that the log directory is mounted.",
+}
+
+const rank = (s: W.SourceState) => READ_WORST_FIRST.indexOf(s)
+const agoWords = (iso: string | undefined, now: number) => (iso ? `${uptimeWords(Math.max(0, (now - Date.parse(iso)) / 1000))} ago` : undefined)
+
+/** How the collectors read one signal's source, from the receivers that serve it; undefined when no receiver of the agent's report serves it. */
+export function sourceRead(id: string, sources: readonly W.SourceHealthDoc[] | undefined, now: number): SourceRead | undefined {
+  const mine = (sources ?? []).filter((r) => r.signals.includes(id))
+  if (mine.length === 0) return undefined
+  const worst = mine.reduce((a, b) => (rank(b.state) < rank(a.state) ? b : a))
+  const state = worst.state
+  const health: Health = state === 'failing' ? 'attention' : state === 'waiting' ? 'unknown' : 'healthy'
+  let sentence: string | undefined
+  if (state === 'failing') {
+    sentence = `${worst.failed.toLocaleString()} values could not be read (the last ${agoWords(worst.lastFailedAt, now) ?? 'recently'}) and nothing has come in since. ${CHECK[id] ?? "Look at the collector pods' logs for the error."}`
+  } else if (state === 'degraded') {
+    sentence = `Some values cannot be read (the last ${agoWords(worst.lastFailedAt, now) ?? 'recently'}) while the rest come in. The cluster owner can see which in the collector pods' logs.`
+  } else if (state === 'silent') {
+    sentence = 'Nothing has come in for a few minutes. That is normal while nothing here is producing anything.'
+  }
+  return { state, word: READ_WORD[state], health, sentence }
+}
+
+/** The signals among `installed` whose source is not being read, with the sentence for each. What the Pipeline page says about a collector. */
+export function failingSources(installed: readonly string[], d: AgentDiagnostics | undefined, now: number): { id: string; label: string; sentence: string }[] {
+  const out: { id: string; label: string; sentence: string }[] = []
+  for (const sig of TELEMETRY_SIGNALS) {
+    if (!installed.includes(sig.id)) continue
+    const r = sourceRead(sig.id, d?.exportHealth?.sources, now)
+    if (r?.state === 'failing') out.push({ id: sig.id, label: sig.label, sentence: r.sentence ?? '' })
+  }
+  return out
 }
 
 export interface PictureGroup {
@@ -57,7 +116,7 @@ export function operatorPicture(o: { installed: string[]; diagnostics?: AgentDia
   const { installed, diagnostics: d } = o
   const groups: PictureGroup[] = GROUPS.map((g) => ({
     ...g,
-    sources: TELEMETRY_SIGNALS.filter((s) => s.scope === g.scope && installed.includes(s.id)).map((s) => ({ id: s.id, label: s.label, modality: s.modality, what: s.what })),
+    sources: TELEMETRY_SIGNALS.filter((s) => s.scope === g.scope && installed.includes(s.id)).map((s) => ({ id: s.id, label: s.label, modality: s.modality, what: s.what, read: sourceRead(s.id, d?.exportHealth?.sources, o.now) })),
   })).filter((g) => g.sources.length > 0)
 
   // The lanes and their health are the ones "Is data arriving?" shows, so the two never disagree.
@@ -75,13 +134,16 @@ export function operatorPicture(o: { installed: string[]; diagnostics?: AgentDia
         : { health: 'unknown', text: d ? 'This agent does not report its collectors' : 'The agent has not reported yet' }
 
   // Nothing known about a stage is not a fault; the picture's own state is the worst of the stages that are known.
-  const health: Health = installed.length === 0 ? 'unknown' : worstOf([a.health, collectors.health === 'unknown' ? 'healthy' : collectors.health])
+  // A source that is not being read is a thing to look at even while the data of the others flows; one that is read in part is shown, not raised.
+  const reads = groups.flatMap((g) => g.sources.map((x) => x.read?.health ?? 'healthy'))
+  const health: Health = installed.length === 0 ? 'unknown' : worstOf([a.health, collectors.health === 'unknown' ? 'healthy' : collectors.health, ...reads.map((h) => (h === 'unknown' ? 'healthy' : h))])
   const kinds = (['metrics', 'logs', 'traces'] as Modality[]).filter((m) => groups.some((g) => g.sources.some((s) => s.modality === m)))
   const destination = d?.installedTelemetryConfig?.exportEndpoint || undefined
   const count = groups.reduce((n, g) => n + g.sources.length, 0)
+  const unread = groups.reduce((n, g) => n + g.sources.filter((x) => x.read?.state === 'failing').length, 0)
   const summary =
     installed.length === 0
       ? 'Nothing is collected here yet'
-      : `${count} ${count === 1 ? 'source' : 'sources'} · ${kinds.join(', ')}${destination ? ` · to ${destination}` : ''}`
+      : `${count} ${count === 1 ? 'source' : 'sources'} · ${kinds.join(', ')}${destination ? ` · to ${destination}` : ''}${unread > 0 ? ` · ${unread} not being read` : ''}`
   return { health, summary, groups, collectors, lanes: a.rows, destination, needsAttention: health === 'attention' || health === 'down' }
 }

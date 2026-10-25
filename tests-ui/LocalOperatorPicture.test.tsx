@@ -7,14 +7,15 @@ import type { AgentDiagnostics, AgentExportHealth } from '@/lib/consent'
 const NOW = Date.parse('2026-10-06T12:10:00Z')
 
 function diag(h: AgentExportHealth | undefined, installed: string[], endpoint = 'otel.example.com:4317'): AgentDiagnostics {
+  if (h && !h.sources) h = { ...h, sources: [] }
   return {
     reportedAt: '2026-10-06T12:09:00Z', agentVersion: '1', uptimeSeconds: 1, installedTier: 2, approvedTier: 2, effectiveTier: 2, pausedCollectors: [], excludedNamespaces: 0,
     collectors: [], informers: [], problems: [], installedTelemetry: installed, exportHealth: h,
     installedTelemetryConfig: { exportEndpoint: endpoint, redactionEnabled: false, resourceDetectionEnabled: false },
   } as unknown as AgentDiagnostics
 }
-const healthy: AgentExportHealth = { podsReached: 4, podsFailed: 0, routes: [{ exporter: 'otlp', signal: 'metrics', state: 'exporting', sent: 9, failed: 0, lastSentAt: '2026-10-06T12:09:40Z' }] }
-const failing: AgentExportHealth = { podsReached: 4, podsFailed: 0, routes: [{ exporter: 'otlp', signal: 'metrics', state: 'failing', sent: 0, failed: 5, lastFailedAt: '2026-10-06T12:09:40Z' }] }
+const healthy: AgentExportHealth = { sources: [], podsReached: 4, podsFailed: 0, routes: [{ exporter: 'otlp', signal: 'metrics', state: 'exporting', sent: 9, failed: 0, lastSentAt: '2026-10-06T12:09:40Z' }] }
+const failing: AgentExportHealth = { sources: [], podsReached: 4, podsFailed: 0, routes: [{ exporter: 'otlp', signal: 'metrics', state: 'failing', sent: 0, failed: 5, lastFailedAt: '2026-10-06T12:09:40Z' }] }
 const show = (d: AgentDiagnostics | undefined, installed: string[], extra: Record<string, unknown> = {}) =>
   render(<LocalOperatorPicture installed={installed} diagnostics={d} cluster="vradipus" now={NOW} {...extra} />)
 
@@ -39,7 +40,7 @@ describe('operatorPicture: the local operator from what the agent reports', () =
   })
 
   test('counters that cannot be read, or collector pods that failed to be read, are said at the collectors', () => {
-    const unreadable = operatorPicture({ installed: ['resourceUsage'], diagnostics: diag({ podsReached: 0, podsFailed: 3, lastError: 'no such host', routes: [] }, ['resourceUsage']), now: NOW, cluster: 'c' })
+    const unreadable = operatorPicture({ installed: ['resourceUsage'], diagnostics: diag({ sources: [], receivers: [], podsReached: 0, podsFailed: 3, lastError: 'no such host', routes: [] }, ['resourceUsage']), now: NOW, cluster: 'c' })
     expect(unreadable.collectors.text).toBe('The agent cannot read their counters')
     expect(unreadable.needsAttention).toBe(true)
     const partial = operatorPicture({ installed: ['resourceUsage'], diagnostics: diag({ ...healthy, podsReached: 2, podsFailed: 1 }, ['resourceUsage']), now: NOW, cluster: 'c' })
@@ -90,5 +91,51 @@ describe('LocalOperatorPicture', () => {
     show(undefined, [])
     fireEvent.click(screen.getByTestId('operator-picture-toggle'))
     expect(screen.getByTestId('operator-picture-body')).toHaveTextContent(/No telemetry signal is enabled/)
+  })
+})
+
+const AT = '2026-10-06T12:09:30Z'
+const kubelet = (state: 'failing' | 'degraded' | 'receiving' | 'silent' | 'waiting'): AgentExportHealth => ({
+  ...healthy,
+  receivers: [],
+  sources: [{ receiver: 'kubelet_stats', signals: ['resourceUsage', 'nodeRuntime'], state, accepted: 100, failed: 12, lastAcceptedAt: '2026-10-06T11:00:00Z', lastFailedAt: AT }],
+})
+
+describe('a source that is not being read', () => {
+  test('is told per source, for each signal its receiver serves, while the data that does flow stays healthy', () => {
+    const p = operatorPicture({ installed: ['resourceUsage', 'nodeRuntime', 'kubernetesEvents'], diagnostics: diag(kubelet('failing'), ['resourceUsage', 'nodeRuntime', 'kubernetesEvents']), now: NOW, cluster: 'c' })
+    const node = p.groups.find((g) => g.scope === 'node')!.sources
+    expect(node.map((s) => [s.id, s.read?.state])).toEqual([['resourceUsage', 'failing'], ['nodeRuntime', 'failing']])
+    expect(node[0].read?.sentence).toMatch(/12 values could not be read \(the last 30 s ago\) and nothing has come in since.*insecureSkipVerify/)
+    // The events have no receiver in the report: nothing is claimed about how they are read.
+    expect(p.groups.find((g) => g.scope === 'cluster')!.sources[0].read).toBeUndefined()
+    expect(p.health).toBe('attention')
+    expect(p.needsAttention).toBe(true)
+    expect(p.summary).toMatch(/· 2 not being read$/)
+  })
+
+  test('partly read is shown but does not raise the picture, and a quiet or waiting source is not a fault', () => {
+    for (const state of ['degraded', 'silent', 'waiting'] as const) {
+      const p = operatorPicture({ installed: ['resourceUsage'], diagnostics: diag(kubelet(state), ['resourceUsage']), now: NOW, cluster: 'c' })
+      expect(p.groups[0].sources[0].read?.state).toBe(state)
+      expect(p.needsAttention).toBe(false)
+    }
+  })
+
+  test('the worst of the receivers that serve one signal is the signal\'s', () => {
+    const h: AgentExportHealth = { ...healthy, receivers: [], sources: [
+      { receiver: 'hostmetrics', signals: ['resourceUsage'], state: 'receiving', accepted: 9, failed: 0 },
+      { receiver: 'kubelet_stats', signals: ['resourceUsage', 'nodeRuntime'], state: 'failing', accepted: 9, failed: 3, lastFailedAt: AT },
+    ] }
+    const p = operatorPicture({ installed: ['resourceUsage', 'nodeRuntime'], diagnostics: diag(h, ['resourceUsage', 'nodeRuntime']), now: NOW, cluster: 'c' })
+    expect(p.groups[0].sources.map((s) => s.read?.state)).toEqual(['failing', 'failing'])
+  })
+
+  test('the picture shows it, and opens by itself', () => {
+    show(diag(kubelet('failing'), ['resourceUsage']), ['resourceUsage'])
+    expect(screen.getByTestId('operator-picture')).toHaveAttribute('data-open', 'true')
+    expect(screen.getByTestId('operator-picture-source-resourceUsage')).toHaveAttribute('data-read', 'failing')
+    expect(screen.getByTestId('operator-picture-source-resourceUsage-state')).toHaveTextContent('Not reading')
+    expect(screen.getByTestId('operator-picture-source-resourceUsage-why')).toHaveTextContent(/12 values could not be read/)
   })
 })

@@ -1,10 +1,23 @@
 import clsx from 'clsx'
-import { ChevronRight } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ChevronRight, HelpCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { ICON_SM } from '@/components/ui/primitives'
 import type { AgentDiagnostics } from '@/lib/consent'
 import { operatorPicture } from '@/features/pipeline/lib/operatorPicture'
+import type { SourceRead } from '@/features/pipeline/lib/operatorPicture'
 import { HealthWord } from './ArrivalCheck'
+
+/** How a source is being read, in its own words: the glyph and colour of its health, never colour alone. */
+function ReadWord({ read, testId }: { read: SourceRead; testId: string }) {
+  const Icon = read.health === 'attention' ? AlertTriangle : read.health === 'unknown' ? HelpCircle : CheckCircle2
+  const tone = read.health === 'attention' ? 'text-warn' : read.health === 'unknown' ? 'text-nb-500' : 'text-ok'
+  return (
+    <span className={clsx('inline-flex shrink-0 items-center gap-1 text-xs font-medium', tone)} data-testid={testId}>
+      <Icon size={ICON_SM} aria-hidden />
+      {read.word}
+    </span>
+  )
+}
 
 const Arrow = () => (
   <div className="hidden items-center justify-center text-nb-500 md:flex" aria-hidden>
@@ -69,9 +82,12 @@ export default function LocalOperatorPicture({ installed, diagnostics, connected
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-nb-400">{g.title} <span className="font-normal normal-case tracking-normal text-nb-500">· {g.sub}</span></div>
                     <ul className="mt-1 flex flex-col gap-1">
                       {g.sources.map((s) => (
-                        <li key={s.id} title={s.what} className="flex items-center justify-between gap-2 rounded-lg border border-nb-850 bg-nb-950 px-2.5 py-1.5 text-sm text-nb-300" data-testid={`${testId}-source-${s.id}`}>
-                          <span>{s.label}</span>
-                          <span className="text-xs text-nb-500">{s.modality}</span>
+                        <li key={s.id} title={s.what} className="rounded-lg border border-nb-850 bg-nb-950 px-2.5 py-1.5" data-testid={`${testId}-source-${s.id}`} data-read={s.read?.state}>
+                          <div className="flex items-center justify-between gap-2 text-sm text-nb-300">
+                            <span>{s.label} <span className="text-xs text-nb-500">{s.modality}</span></span>
+                            {s.read && <ReadWord read={s.read} testId={`${testId}-source-${s.id}-state`} />}
+                          </div>
+                          {s.read?.sentence && <p className="mt-0.5 text-xs text-nb-400" data-testid={`${testId}-source-${s.id}-why`}>{s.read.sentence}</p>}
                         </li>
                       ))}
                     </ul>
@@ -108,7 +124,7 @@ export default function LocalOperatorPicture({ installed, diagnostics, connected
           )}
           <p className="text-xs text-nb-500" data-testid={`${testId}-note`}>
             {keptByController ? 'Kept by the Ikhnos controller in this cluster. ' : ''}
-            State comes from the collectors&apos; own counters, per kind of data. Which tool reads each source is the cluster owner&apos;s to set in Helm.
+            State comes from the collectors&apos; own counters: per kind of data going out, and per source where the collectors read it themselves (the kubelet, the host, the Kubernetes API, the logs). Energy and GPU tools are not read per tool yet. Which tool reads each source is the cluster owner&apos;s to set in Helm.
           </p>
         </div>
       )}

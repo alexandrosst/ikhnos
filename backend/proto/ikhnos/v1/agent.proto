@@ -1352,6 +1352,9 @@ message ExportHealth {
   // the stage before the routes above: whether the applications' data reaches the collector at all. A signal with
   // no entry has not been seen arriving.
   repeated ReceiverHealth receivers = 6;
+  // One entry per collector receiver that reads a source of the cluster itself (the kubelet, the host, the Kubernetes API, the container
+  // logs), from the same counters. Where a source goes silent or errors is told here, not by the routes above, which are the other end.
+  repeated SourceHealth sources = 7;
 }
 
 // What the collectors' OTLP receiver took in, from its own counters (otelcol_receiver_accepted_* and refused_*),
@@ -1376,6 +1379,33 @@ message ReceiverHealth {
   uint64 refused = 4;
   google.protobuf.Timestamp last_accepted_at = 5;
   google.protobuf.Timestamp last_refused_at = 6;
+}
+
+// What one collector receiver that reads a source of the cluster took in and failed to read, from its own counters
+// (otelcol_receiver_accepted_*, otelcol_receiver_refused_* and otelcol_scraper_errored_*), summed over the collector pods. The receiver is
+// the collector's name for it (hostmetrics, kubelet_stats...), and `signals` the telemetry signals of the install that it reads for
+// (resourceUsage, nodeRuntime...): the agent knows which receiver serves which signal, the server only relays. Never what was read.
+message SourceHealth {
+  string receiver = 1;
+  repeated string signals = 2;
+  enum State {
+    // Nothing has been seen to come in or fail, or not enough readings yet to say.
+    WAITING = 0;
+    // Data came in recently.
+    RECEIVING = 1;
+    // Data came in before but none recently.
+    SILENT = 2;
+    // Some reads failed recently, and some data still came in.
+    DEGRADED = 3;
+    // Reads failed recently and nothing came in since.
+    FAILING = 4;
+  }
+  State state = 3;
+  // Accepted points or records, and failed ones (refused, or errored by a scraper), since each pod started.
+  uint64 accepted = 4;
+  uint64 failed = 5;
+  google.protobuf.Timestamp last_accepted_at = 6;
+  google.protobuf.Timestamp last_failed_at = 7;
 }
 
 message ExportRouteHealth {

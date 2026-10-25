@@ -20,6 +20,9 @@ import (
 )
 
 // ViewFor returns the agent's view, making an empty one if the agent has never connected. Caller holds h.mu.
+// maxSourcesReported bounds the receivers an agent may tell about: the chart has a handful, so more is a malformed report.
+const maxSourcesReported = 16
+
 func (h *Hub) ViewFor(id string) *View {
 	v := h.Views[id]
 	if v == nil {
@@ -424,7 +427,7 @@ func (v *View) diagDoc() *agents.DiagnosticsDoc {
 		out.InstalledTelemetryConfig = cfg
 	}
 	if h := d.ExportHealth; h != nil {
-		doc := &agents.ExportHealthDoc{PodsReached: int(h.PodsReached), PodsFailed: int(h.PodsFailed), LastError: kernel.Printable(h.LastError, 300), Routes: []agents.ExportRouteHealthDoc{}, Receivers: []agents.ReceiverHealthDoc{}}
+		doc := &agents.ExportHealthDoc{PodsReached: int(h.PodsReached), PodsFailed: int(h.PodsFailed), LastError: kernel.Printable(h.LastError, 300), Routes: []agents.ExportRouteHealthDoc{}, Receivers: []agents.ReceiverHealthDoc{}, Sources: []agents.SourceHealthDoc{}}
 		if h.ScrapedAt != nil {
 			doc.ScrapedAt = kernel.RFC(h.ScrapedAt.AsTime())
 		}
@@ -455,6 +458,29 @@ func (v *View) diagDoc() *agents.DiagnosticsDoc {
 				rd.LastRefusedAt = kernel.RFC(r.LastRefusedAt.AsTime())
 			}
 			doc.Receivers = append(doc.Receivers, rd)
+		}
+		for i, r := range h.Sources {
+			if i == maxSourcesReported {
+				break
+			}
+			state := agents.SourceHealthStates[r.State]
+			if state == "" {
+				state = agents.SourceWaiting
+			}
+			sd := agents.SourceHealthDoc{Receiver: kernel.Printable(r.Receiver, 60), Signals: []string{}, State: state, Accepted: r.Accepted, Failed: r.Failed}
+			for j, sig := range r.Signals {
+				if j == 8 {
+					break
+				}
+				sd.Signals = append(sd.Signals, kernel.Printable(sig, 40))
+			}
+			if r.LastAcceptedAt != nil {
+				sd.LastAcceptedAt = kernel.RFC(r.LastAcceptedAt.AsTime())
+			}
+			if r.LastFailedAt != nil {
+				sd.LastFailedAt = kernel.RFC(r.LastFailedAt.AsTime())
+			}
+			doc.Sources = append(doc.Sources, sd)
 		}
 		out.ExportHealth = doc
 	}

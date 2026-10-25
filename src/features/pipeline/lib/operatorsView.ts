@@ -1,5 +1,6 @@
 import { extrasOf, releaseTarget, type AgentDiagnostics } from '../../../lib/consent'
 import { exportReach, exportRows } from '../../../lib/exportHealth'
+import { failingSources } from './operatorPicture'
 import { CENTRAL_OPERATOR_ID, type FusionKind } from '../../fusion/lib/fusionStatus'
 import { ago } from '../../../lib/observed'
 import type { Agent, Cluster, OperatorDestination, RegionalOperator, TelemetryIntent } from '../../../lib/types'
@@ -243,6 +244,13 @@ export function localVerdict(r: LocalRow, agent: Agent | undefined, destination:
   if (!rows) return { lastData, verdict: { state: 'unknown', reason: 'It does not report its export counters, so it is not known whether data is flowing.' } }
   const todo: Todo = { steps: [...agentSteps(agent, 'the collector'), { title: `Check that ${destination} is reachable from the cluster` }], action: collects }
   if (rows.some((x) => x.state === 'failing')) return { lastData, verdict: { state: 'down', reason: `Sending to ${destination} is failing.`, todo } }
+  // The data that does flow is fine, and a source that is not being read is a thing to look at all the same.
+  const unread = failingSources(r.installed, r.diagnostics, now)
+  if (unread.length > 0) {
+    const names = unread.map((u) => u.label).join(', ')
+    const steps = [...unread.map((u) => ({ title: `Look at ${u.label}`, text: u.sentence })), ...agentSteps(agent, 'the collector')]
+    return { lastData, verdict: { state: 'attention', reason: `${unread.length === 1 ? 'One of the sources it collects is' : 'Some of the sources it collects are'} not being read: ${names}. Everything else keeps flowing.`, todo: { steps, action: collects } } }
+  }
   if (rows.some((x) => x.state === 'silent')) return { lastData, verdict: { state: 'attention', reason: lastData ? `No data has been sent for ${duration(now - Date.parse(lastData))}.` : 'No data has been sent recently.', todo } }
   if (rows.every((x) => x.state === 'waiting')) {
     const asked = r.intent ? now - Date.parse(r.intent.createdAt) : Infinity

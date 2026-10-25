@@ -884,3 +884,31 @@ func TestExportHealthRelaysWhatTheReceiverTookIn(t *testing.T) {
 		t.Errorf("Receivers = %#v, want an empty list", rs)
 	}
 }
+
+func TestExportHealthRelaysWhereTheSourcesGoSilentOrFail(t *testing.T) {
+	at := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	v := NewView()
+	var many []*ikhnosv1.SourceHealth
+	for i := 0; i < 40; i++ {
+		many = append(many, &ikhnosv1.SourceHealth{Receiver: "r"})
+	}
+	many[0] = &ikhnosv1.SourceHealth{Receiver: "kubelet_stats", Signals: []string{"resourceUsage", "nodeRuntime"}, State: ikhnosv1.SourceHealth_FAILING, Accepted: 9, Failed: 3, LastAcceptedAt: timestamppb.New(at.Add(-time.Hour)), LastFailedAt: timestamppb.New(at)}
+	many[1] = &ikhnosv1.SourceHealth{Receiver: "hostmetrics", State: ikhnosv1.SourceHealth_State(99)}
+	v.NoteDiagnostics(&ikhnosv1.Diagnostics{AgentVersion: "1", ExportHealth: &ikhnosv1.ExportHealth{Sources: many}}, false, at)
+	got := v.diagDoc().ExportHealth
+	if got == nil || len(got.Sources) != maxSourcesReported {
+		t.Fatalf("a malformed report with many sources must be bounded: %+v", got)
+	}
+	k := got.Sources[0]
+	if k.Receiver != "kubelet_stats" || len(k.Signals) != 2 || k.State != "failing" || k.Accepted != 9 || k.Failed != 3 || k.LastAcceptedAt != "2026-10-06T11:00:00Z" || k.LastFailedAt != "2026-10-06T12:00:00Z" {
+		t.Errorf("source = %+v", k)
+	}
+	if got.Sources[1].State != "waiting" || got.Sources[1].Signals == nil {
+		t.Errorf("an unknown state is waiting and signals are never null: %+v", got.Sources[1])
+	}
+	v2 := NewView()
+	v2.NoteDiagnostics(&ikhnosv1.Diagnostics{AgentVersion: "1", ExportHealth: &ikhnosv1.ExportHealth{}}, false, at)
+	if ss := v2.diagDoc().ExportHealth.Sources; ss == nil || len(ss) != 0 {
+		t.Errorf("Sources = %#v, want an empty list", ss)
+	}
+}

@@ -338,6 +338,49 @@ type ExportHealthDoc struct {
 	// Receivers is the stage before Routes: what the collectors' OTLP receiver, the one applications push to,
 	// has taken in, one entry per signal type seen. A signal with no entry has not been seen arriving.
 	Receivers []ReceiverHealthDoc `json:"receivers"`
+	// Sources is where the data starts: one entry per collector receiver that reads a source of the cluster (the kubelet, the host, the
+	// Kubernetes API, the container logs), from its own counters, for the signals of the install it serves.
+	Sources []SourceHealthDoc `json:"sources"`
+}
+
+// SourceState is the agent's state for a receiver that reads a source of the cluster: waiting (nothing seen yet), receiving (data came in
+// recently), silent (it did before, not recently), degraded (some reads failed recently and some data still came in) or failing (reads
+// failed recently and nothing came in since).
+type SourceState string
+
+// The states of a source, from the quietest to the loudest.
+const (
+	SourceWaiting   SourceState = "waiting"
+	SourceReceiving SourceState = "receiving"
+	SourceSilent    SourceState = "silent"
+	SourceDegraded  SourceState = "degraded"
+	SourceFailing   SourceState = "failing"
+)
+
+// WireWords is the list of SourceState's words, as the generated types give it.
+func (SourceState) WireWords() []string {
+	return []string{string(SourceWaiting), string(SourceReceiving), string(SourceSilent), string(SourceDegraded), string(SourceFailing)}
+}
+
+// SourceHealthDoc is one such receiver. Signals are the telemetry signals of the install it reads for (the agent knows which receiver
+// serves which); Accepted and Failed are summed over the collector pods since each started.
+type SourceHealthDoc struct {
+	Receiver       string      `json:"receiver"`
+	Signals        []string    `json:"signals"`
+	State          SourceState `json:"state"`
+	Accepted       uint64      `json:"accepted"`
+	Failed         uint64      `json:"failed"`
+	LastAcceptedAt string      `json:"lastAcceptedAt,omitempty"`
+	LastFailedAt   string      `json:"lastFailedAt,omitempty"`
+}
+
+// SourceHealthStates names the agent's source states; one this server does not know is shown as waiting.
+var SourceHealthStates = map[ikhnosv1.SourceHealth_State]SourceState{
+	ikhnosv1.SourceHealth_WAITING:   SourceWaiting,
+	ikhnosv1.SourceHealth_RECEIVING: SourceReceiving,
+	ikhnosv1.SourceHealth_SILENT:    SourceSilent,
+	ikhnosv1.SourceHealth_DEGRADED:  SourceDegraded,
+	ikhnosv1.SourceHealth_FAILING:   SourceFailing,
 }
 
 // ReceiverState is the agent's state for what the OTLP receiver takes in: waiting (nothing seen arrive yet), receiving (data arrived

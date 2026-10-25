@@ -999,6 +999,21 @@ describe('PipelinePage - local operators', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('/agents?open=a1')
   })
 
+  test('a collector that sends fine but cannot read one of its sources needs attention, names it, and leads to the picture', async () => {
+    const user = userEvent.setup()
+    listTelemetryIntents.mockResolvedValue([intent({ destination: { kind: 'external', endpoint: 'otel.example.com:4317' } })])
+    const sources = [{ receiver: 'kubelet_stats', signals: ['resourceUsage'], state: 'failing', accepted: 4, failed: 9, lastFailedAt: minutesAgo(1) }]
+    topologyState = { agents: [installedAgent({ exportHealth: { sources, receivers: [], podsReached: 1, podsFailed: 0, routes: [{ exporter: 'otlp', signal: 'metrics', state: 'exporting', sent: 5, failed: 0, lastSentAt: minutesAgo(0) }] } })], clusters: [cl()] }
+    renderPage()
+    const row = await screen.findByTestId('component-local:a1')
+    expect(row).toHaveAttribute('data-state', 'attention')
+    expect(within(row).getByTestId('component-reason-local:a1')).toHaveTextContent('One of the sources it collects is not being read: Resource usage. Everything else keeps flowing.')
+    await user.click(within(row).getByRole('button', { name: 'What to do about edge-agent collector' }))
+    expect(screen.getByText('Look at Resource usage')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'See what it collects' }))
+    expect(screen.getByTestId('where')).toHaveTextContent('/agents?open=a1')
+  })
+
   test('a local operator\'s menu has What it collects here (the agent\'s Telemetry section with the picture) above Change what it sends', async () => {
     const user = userEvent.setup()
     topologyState = { agents: [ag({ diagnostics: { installedTelemetry: ['resourceUsage'], reportedAt: minutesAgo(1) } } as Partial<Agent>)], clusters: [cl()] }

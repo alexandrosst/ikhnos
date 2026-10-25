@@ -1114,6 +1114,7 @@ export interface ExportHealthDoc {
   lastError?: string
   routes: ExportRouteHealthDoc[]
   receivers: ReceiverHealthDoc[]
+  sources: SourceHealthDoc[]
 }
 
 export interface ExportRouteHealthDoc {
@@ -2711,6 +2712,18 @@ export interface SiteLink {
 }
 
 export type SiteLinkSource = 'measured' | 'declared'
+
+export interface SourceHealthDoc {
+  receiver: string
+  signals: string[]
+  state: SourceState
+  accepted: number
+  failed: number
+  lastAcceptedAt?: string
+  lastFailedAt?: string
+}
+
+export type SourceState = 'waiting' | 'receiving' | 'silent' | 'degraded' | 'failing'
 
 export interface Span {
   spanId: string

@@ -344,3 +344,90 @@ func TestWhatTheOTLPReceiverTookInIsReportedApartFromTheExporters(t *testing.T) 
 		t.Fatalf("traces after refusals: %+v", r)
 	}
 }
+
+func sourceOf(t *testing.T, h *ikhnosv1.ExportHealth, receiver string) *ikhnosv1.SourceHealth {
+	t.Helper()
+	if h == nil {
+		t.Fatal("no report")
+	}
+	for _, s := range h.Sources {
+		if s.Receiver == receiver {
+			return s
+		}
+	}
+	return nil
+}
+
+func scraperErrors(receiver, scraper string, n int) string {
+	return fmt.Sprintf("otelcol_scraper_errored_metric_points_total{receiver=%q,scraper=%q} %d\n", receiver, scraper, n)
+}
+
+// The receivers that read a source of the cluster tell what they took in and what they failed to read, each for the signals it serves, and
+// are never mistaken for the OTLP receiver or for a destination.
+func TestTheReceiversThatReadTheClusterTellWhereASourceGoesSilentOrFails(t *testing.T) {
+	f := newFleet()
+	f.dns["host.svc"] = []string{"10.0.0.1"}
+	m := f.monitor("host.svc:8888")
+	ctx := context.Background()
+	body := func(kubelet, kubeletErr, host, hostErr, events int) string {
+		return receiverLine("kubelet_stats", "accepted_metric_points", kubelet) + scraperErrors("kubelet_stats", "node", kubeletErr) +
+			receiverLine("hostmetrics", "accepted_metric_points", host) + scraperErrors("hostmetrics", "process", hostErr) +
+			receiverLine("k8sobjects", "accepted_log_records", events) +
+			receiverLine("prometheus/infra", "accepted_metric_points", 5) + counter("otlp", "metrics", 1, 0)
+	}
+
+	// The first reading is only a baseline: nothing is claimed.
+	f.set("10.0.0.1:8888", body(100, 0, 500, 0, 7))
+	m.Scrape(ctx)
+	h := m.Report()
+	if s := sourceOf(t, h, "kubelet_stats"); s == nil || s.State != ikhnosv1.SourceHealth_WAITING {
+		t.Fatalf("after the first reading: %+v", s)
+	}
+	// Only the receivers that read the cluster are here; a Prometheus scrape is not, and neither is a destination.
+	if len(h.Sources) != 3 || sourceOf(t, h, "prometheus/infra") != nil {
+		t.Fatalf("sources = %+v", h.Sources)
+	}
+	if k := sourceOf(t, h, "kubelet_stats"); len(k.Signals) != 2 || k.Signals[0] != "resourceUsage" || k.Signals[1] != "nodeRuntime" {
+		t.Fatalf("the kubelet serves two signals: %+v", k.Signals)
+	}
+
+	// Everything grows: receiving.
+	f.advance(30 * time.Second)
+	f.set("10.0.0.1:8888", body(160, 0, 900, 0, 9))
+	m.Scrape(ctx)
+	h = m.Report()
+	for _, r := range []string{"kubelet_stats", "hostmetrics", "k8sobjects"} {
+		if s := sourceOf(t, h, r); s.State != ikhnosv1.SourceHealth_RECEIVING || s.LastAcceptedAt == nil {
+			t.Fatalf("%s after growth: %+v", r, s)
+		}
+	}
+
+	// The kubelet stops answering (its certificate is refused: the scraper errors and nothing comes in): failing. The host reads most things and
+	// fails one (a process it may not see): degraded. The events stay quiet: nothing is wrong yet.
+	f.advance(30 * time.Second)
+	f.set("10.0.0.1:8888", body(160, 12, 1300, 40, 9))
+	m.Scrape(ctx)
+	h = m.Report()
+	if s := sourceOf(t, h, "kubelet_stats"); s.State != ikhnosv1.SourceHealth_FAILING || s.Failed != 12 || s.LastFailedAt == nil {
+		t.Fatalf("kubelet failing: %+v", s)
+	}
+	if s := sourceOf(t, h, "hostmetrics"); s.State != ikhnosv1.SourceHealth_DEGRADED {
+		t.Fatalf("host degraded: %+v", s)
+	}
+	if s := sourceOf(t, h, "k8sobjects"); s.State != ikhnosv1.SourceHealth_RECEIVING {
+		t.Fatalf("events within the window: %+v", s)
+	}
+
+	// Quiet for longer than the window: the events are silent, which is not an error; the failures are no longer recent.
+	for i := 0; i < 8; i++ {
+		f.advance(30 * time.Second)
+		m.Scrape(ctx)
+	}
+	h = m.Report()
+	if s := sourceOf(t, h, "k8sobjects"); s.State != ikhnosv1.SourceHealth_SILENT {
+		t.Fatalf("events after four quiet minutes: %+v", s)
+	}
+	if s := sourceOf(t, h, "kubelet_stats"); s.State != ikhnosv1.SourceHealth_SILENT {
+		t.Fatalf("a kubelet that stopped failing and brings nothing is silent: %+v", s)
+	}
+}

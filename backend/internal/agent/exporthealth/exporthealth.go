@@ -322,6 +322,18 @@ func (m *Monitor) Report() *ikhnosv1.ExportHealth {
 	})
 	for _, k := range keys {
 		st := m.routes[k]
+		if strings.HasPrefix(k.exporter, sourcePrefix) {
+			recv := strings.TrimPrefix(k.exporter, sourcePrefix)
+			sh := &ikhnosv1.SourceHealth{Receiver: recv, Signals: SourceReceivers[recv], State: m.sourceState(st, now), Accepted: st.sent, Failed: st.failed}
+			if !st.lastSent.IsZero() {
+				sh.LastAcceptedAt = timestamppb.New(st.lastSent)
+			}
+			if !st.lastFailed.IsZero() {
+				sh.LastFailedAt = timestamppb.New(st.lastFailed)
+			}
+			out.Sources = append(out.Sources, sh)
+			continue
+		}
 		if strings.HasPrefix(k.exporter, receiverPrefix) {
 			rc := &ikhnosv1.ReceiverHealth{Signal: k.signal, Accepted: st.sent, Refused: st.failed}
 			switch m.state(st, now) {
@@ -380,6 +392,10 @@ func parse(r io.Reader) (map[route]counts, error) {
 		line := sc.Text()
 		if strings.HasPrefix(line, "otelcol_receiver_") {
 			parseReceiver(line, out)
+			continue
+		}
+		if strings.HasPrefix(line, "otelcol_scraper_errored_") {
+			parseScraperErrors(line, out)
 			continue
 		}
 		if !strings.HasPrefix(line, "otelcol_exporter_") {
@@ -441,7 +457,12 @@ func parseReceiver(line string, out map[route]counts) {
 	if !ok {
 		return
 	}
-	if r := labels["receiver"]; r != "otlp" && !strings.HasPrefix(r, "otlp/") {
+	r := labels["receiver"]
+	if _, ok := SourceReceivers[r]; ok {
+		parseSource(r, name, value, out)
+		return
+	}
+	if r != "otlp" && !strings.HasPrefix(r, "otlp/") {
 		return
 	}
 	name = strings.TrimSuffix(strings.TrimPrefix(name, "otelcol_receiver_"), "_total")
@@ -476,6 +497,102 @@ func parseReceiver(line string, out map[route]counts) {
 		c.sent += uint64(value)
 	}
 	out[k] = c
+}
+
+// sourcePrefix marks a route that is the counters of a receiver reading a source of the cluster, kept in the same table as the rest.
+const sourcePrefix = "source:"
+
+// SourceReceivers are the collector receivers that read a source of the cluster itself, by the name the chart gives them, and the telemetry
+// signals of the install each one reads for. A receiver that serves two signals (the kubelet's serves resource usage and node runtime) tells
+// about both. The Prometheus scrapes (Kepler, DCGM, the cluster links) are not here: they share one receiver, and a scrape that fails still
+// puts out its own up=0 point, so the counters of the receiver cannot tell a dead target from a live one.
+var SourceReceivers = map[string][]string{
+	"hostmetrics":        {"resourceUsage"},
+	"kubelet_stats":      {"resourceUsage", "nodeRuntime"},
+	"k8s_cluster":        {"kubernetesState"},
+	"k8sobjects":         {"kubernetesEvents"},
+	"filelog/containers": {"systemLogs"},
+	"journald":           {"systemLogs"},
+}
+
+// dataType is the signal type a counter name ends in: spans, metric_points or log_records.
+func dataType(name string) string {
+	switch name {
+	case "spans":
+		return "traces"
+	case "metric_points":
+		return "metrics"
+	case "log_records":
+		return "logs"
+	}
+	return ""
+}
+
+// parseSource adds one accepted or refused counter of a source receiver. name is what follows otelcol_receiver_ without its _total.
+func parseSource(receiver, name string, value float64, out map[route]counts) {
+	name = strings.TrimSuffix(strings.TrimPrefix(name, "otelcol_receiver_"), "_total")
+	var refused bool
+	switch {
+	case strings.HasPrefix(name, "refused_"):
+		refused, name = true, strings.TrimPrefix(name, "refused_")
+	case strings.HasPrefix(name, "accepted_"):
+		name = strings.TrimPrefix(name, "accepted_")
+	default:
+		return
+	}
+	sig := dataType(name)
+	if sig == "" || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+		return
+	}
+	k := route{sourcePrefix + receiver, sig}
+	c := out[k]
+	if refused {
+		c.failed += uint64(value)
+	} else {
+		c.sent += uint64(value)
+	}
+	out[k] = c
+}
+
+// parseScraperErrors reads one otelcol_scraper_errored_* line: the points a scraper could not read, which for the receivers that scrape
+// (the host and the kubelet) is where a failing read shows, since nothing is refused.
+func parseScraperErrors(line string, out map[route]counts) {
+	name, labels, value, ok := splitSample(line)
+	if !ok {
+		return
+	}
+	recv := labels["receiver"]
+	if _, known := SourceReceivers[recv]; !known {
+		return
+	}
+	sig := dataType(strings.TrimSuffix(strings.TrimPrefix(name, "otelcol_scraper_errored_"), "_total"))
+	if sig == "" || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+		return
+	}
+	k := route{sourcePrefix + recv, sig}
+	c := out[k]
+	c.failed += uint64(value)
+	out[k] = c
+}
+
+// sourceState is the state of a source receiver. It differs from a route's in one thing: reads that fail while others succeed are
+// degraded, not failing, since a scraper that cannot read one thing (a process it may not see) still brings the rest.
+func (m *Monitor) sourceState(st *routeState, now time.Time) ikhnosv1.SourceHealth_State {
+	recent := func(t time.Time) bool { return !t.IsZero() && now.Sub(t) <= m.cfg.Window }
+	switch {
+	case recent(st.lastFailed) && !st.lastSent.Before(st.lastFailed):
+		// Data came in as late as the failures did, so the failing reads are a part of what is read, not all of it.
+		return ikhnosv1.SourceHealth_DEGRADED
+	case recent(st.lastFailed):
+		return ikhnosv1.SourceHealth_FAILING
+	case recent(st.lastSent):
+		return ikhnosv1.SourceHealth_RECEIVING
+	case !st.ready:
+		return ikhnosv1.SourceHealth_WAITING
+	case st.sent > 0 || st.failed > 0:
+		return ikhnosv1.SourceHealth_SILENT
+	}
+	return ikhnosv1.SourceHealth_WAITING
 }
 
 // splitSample splits "name{k=\"v\",...} 12 [timestamp]" into its parts. Label values are quoted and may hold
