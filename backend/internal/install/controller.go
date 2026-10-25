@@ -251,3 +251,18 @@ func (c ControllerInstall) AllowTelemetry() (string, error) {
 	return Helm{Verb: Upgrade, Release: ControllerRelease, Chart: c.Chart, Version: c.Version, Namespace: DefaultNamespace, ResetThenReuse: true,
 		Values: []Value{Set("allowTelemetry", "true")}, Layout: OneLine}.Render()
 }
+
+// Definition is the command that makes the IkhnosAgent definition in the cluster the one in the controller's chart. Helm installs a chart's
+// definitions once and never upgrades them, so a controller that was upgraded can sit on an older one, and an older one drops the fields it
+// does not know from a resource without saying so. It is safe to run again: it applies what is there. A command that changes a resource
+// starts with it.
+func (c ControllerInstall) Definition() (string, error) {
+	if err := (Helm{Release: ControllerRelease, Chart: c.Chart, Version: c.Version, Namespace: DefaultNamespace}).Check(); err != nil {
+		return "", err
+	}
+	cmd := "helm show crds " + Arg(c.Chart)
+	if c.Version != "" {
+		cmd += " --version " + Arg(c.Version)
+	}
+	return cmd + " | kubectl apply --server-side --force-conflicts -f -", nil
+}

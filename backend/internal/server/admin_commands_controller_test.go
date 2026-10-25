@@ -189,3 +189,25 @@ func TestTheCommandThatGivesTheControllerTelemetryPermissionIsInTheAnswer(t *tes
 		t.Fatalf("no chart: %+v", c)
 	}
 }
+
+// A command that changes the resource of an agent a controller keeps starts with the definition of the resource: an old one in the cluster
+// (Helm never upgrades it) would drop the new fields of the patch without a word, so running the command is what makes it work.
+func TestAControllerPatchStartsWithTheCommandThatBringsTheDefinitionUpToDate(t *testing.T) {
+	a := adminRigWith(t, installcfg.Settings{AgentAddr: "ik.example.com:8443", ImageRegistry: "reg.example/team", ControllerChartVersion: "0.0.0-edge.abc"})
+	_, cookie := a.user(t, "ed", accounts.RoleEditor)
+	out := a.controllerUpgrade(t, cookie, map[string]any{"tier": 1})
+	first := "helm show crds oci://reg.example/team/ikhnos-controller --version 0.0.0-edge.abc | kubectl apply --server-side --force-conflicts -f - && \\\nkubectl --namespace "
+	if !strings.HasPrefix(out.Controller.Command, first) {
+		t.Fatalf("the command does not start with the definition:\n%.400s", out.Controller.Command)
+	}
+	if strings.Contains(out.Controller.Patch, "helm show crds") {
+		t.Fatalf("the patch alone is the patch: %s", out.Controller.Patch)
+	}
+	// A server with no chart to name says nothing it cannot back.
+	b := adminRigWith(t, installcfg.Settings{AgentAddr: "x:1"})
+	_, cookieB := b.user(t, "ed", accounts.RoleEditor)
+	out = b.controllerUpgrade(t, cookieB, map[string]any{"tier": 1})
+	if strings.Contains(out.Controller.Command, "helm show crds") || !strings.HasPrefix(out.Controller.Command, "kubectl --namespace ") {
+		t.Fatalf("no chart: %.300s", out.Controller.Command)
+	}
+}

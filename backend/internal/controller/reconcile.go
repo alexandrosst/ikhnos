@@ -105,6 +105,9 @@ type Reconciler struct {
 	BootstrapConfigMap string
 	Log                *slog.Logger
 	Now                func() time.Time
+
+	// warnedRevision is one more than the revision of an old definition the log already said so for (0: none) (so it is said once, not at every look).
+	warnedRevision int
 }
 
 func (r *Reconciler) now() time.Time {
@@ -515,6 +518,9 @@ func (r *Reconciler) setStatus(ctx context.Context, obj *unstructured.Unstructur
 	var old Status
 	if raw, ok := fresh.Object["status"].(map[string]any); ok {
 		_ = runtime.DefaultUnstructuredConverter.FromUnstructured(raw, &old)
+	}
+	if dc := r.definitionCondition(ctx, obj.GetGeneration()); dc != nil {
+		st.Conditions = append(st.Conditions, *dc)
 	}
 	conds := append([]Condition{c}, st.Conditions...)
 	for i := range conds {

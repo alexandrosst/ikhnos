@@ -59,7 +59,7 @@ type controllerUpgradeDoc struct {
 // controllerUpgrade writes the resource patch for a request: the tier, and the telemetry as the resource states it. Telemetry that
 // the resource cannot state (extra processors, a regional operator, a part left as installed) is told as problems, and the helm
 // block remains.
-func controllerUpgrade(req agentUpgradeRequest, namespace string, secretCommands []string, allowTelemetry string) controllerUpgradeDoc {
+func controllerUpgrade(req agentUpgradeRequest, namespace string, secretCommands []string, allowTelemetry, definition string) controllerUpgradeDoc {
 	doc := controllerUpgradeDoc{Problems: []string{}}
 	if req.Tier == nil && req.Telemetry == nil {
 		return doc
@@ -97,7 +97,7 @@ func controllerUpgrade(req agentUpgradeRequest, namespace string, secretCommands
 		return doc
 	}
 	doc.Patch = cmd
-	doc.Command = install.Chain(append(append([]string{}, secretCommands...), cmd))
+	doc.Command = install.Chain(append(append(definitionFirst(definition), secretCommands...), cmd))
 	return doc
 }
 
@@ -146,7 +146,7 @@ func (h *API) agentUpgradeCommand(w http.ResponseWriter, r *http.Request) {
 		doc.SecretCommand = install.Chain(commands)
 	}
 	doc.Command = install.Chain(append(commands, upgrade))
-	doc.Controller = controllerUpgrade(req, up.TargetNamespace(), commands, h.allowTelemetryCommand(img))
+	doc.Controller = controllerUpgrade(req, up.TargetNamespace(), commands, h.allowTelemetryCommand(img), h.definitionCommand(img))
 	httpkit.WriteJSON(w, http.StatusOK, doc)
 }
 
@@ -172,4 +172,25 @@ func installChoices(tier int, c install.Collectors, s install.Scope, purgeIdenti
 		return nil, kernel.Errf(kernel.KindInvalid, "%s", pe.Problems[0])
 	}
 	return v, err
+}
+
+// definitionCommand is the command that brings the IkhnosAgent definition of the cluster up to the controller chart's, or "" when this
+// server has no chart to name. A command that patches the resource starts with it, so that a patch does not lose a field to an old definition.
+func (h *API) definitionCommand(img kernel.ImageConfig) string {
+	ref, version := h.Settings.ControllerChart(img)
+	if ref == "" {
+		return ""
+	}
+	cmd, err := install.ControllerInstall{Chart: ref, Version: version}.Definition()
+	if err != nil {
+		return ""
+	}
+	return cmd
+}
+
+func definitionFirst(definition string) []string {
+	if definition == "" {
+		return []string{}
+	}
+	return []string{definition}
 }

@@ -36,7 +36,15 @@ func (h *API) controllerBlock(_ *http.Request, img kernel.ImageConfig, spec inst
 		doc.Problems = append(doc.Problems, err.Error())
 		return doc
 	}
-	doc.Patch, doc.Command = patch, install.Chain(append(append([]string{}, secretCommands...), patch))
+	doc.Patch = patch
+	first := []string{}
+	// Its definition first: an old one in the cluster drops the destination from the resource without a word (Helm never upgrades it).
+	if ref, version := h.Settings.ControllerChart(img); ref != "" {
+		if cmd, err := (install.ControllerInstall{Chart: ref, Version: version}).Definition(); err == nil {
+			first = append(first, cmd)
+		}
+	}
+	doc.Command = install.Chain(append(append(first, secretCommands...), patch))
 	doc.NeedsTelemetryPermission = true
 	if ref, version := h.Settings.ControllerChart(img); ref != "" {
 		if cmd, err := (install.ControllerInstall{Chart: ref, Version: version}).AllowTelemetry(); err == nil {

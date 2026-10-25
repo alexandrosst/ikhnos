@@ -395,7 +395,8 @@ func TestTheControllerHoldsNothingThatNoRenderedObjectOrRoleAsksFor(t *testing.T
 			agentRules = append(agentRules, o.Rules...)
 		}
 	}
-	onlyTheControllers := map[string]bool{"ikhnos.io/ikhnosagents": true, "ikhnos.io/ikhnosagents/status": true}
+	// The controller reads its own definition (see ownDefinition) and the resource it keeps, neither of which the agent chart makes.
+	onlyTheControllers := map[string]bool{"ikhnos.io/ikhnosagents": true, "ikhnos.io/ikhnosagents/status": true, "apiextensions.k8s.io/customresourcedefinitions": true}
 	rendered := map[string]bool{} // what rendering the chart reads is asked for too, without being something the chart makes
 	for _, r := range agentLookups(t) {
 		rendered[r.group+"/"+r.resource] = true
@@ -460,6 +461,9 @@ func TestTheControllersClusterWideReadsAreExactlyWhatTheAgentsClusterRolesGrant(
 			}
 			for _, r := range ctl.cluster {
 				if has(r.Resources, "clusterroles") || has(r.Resources, "clusterrolebindings") {
+					continue
+				}
+				if ownDefinition(r) {
 					continue
 				}
 				// The one namespace it renders the agent chart into, to read (TestTheControllerCanMakeEveryReadTheAgentChartMakesWhileRendering).
@@ -623,4 +627,11 @@ func TestTheControllerCanMakeEveryReadTheAgentChartMakesWhileRendering(t *testin
 	if !sawNamespace {
 		t.Error("the pod-security pre-flight's read of the namespace was not found")
 	}
+}
+
+// ownDefinition is the one rule that is not about what the agent chart makes: the controller reads the definition of IkhnosAgent, to tell
+// whether the cluster's is older than itself (Helm never upgrades it). It may read that one object, and only read it.
+func ownDefinition(r rbacv1.PolicyRule) bool {
+	return has(r.APIGroups, "apiextensions.k8s.io") && has(r.Resources, "customresourcedefinitions") && len(r.Resources) == 1 &&
+		len(r.ResourceNames) == 1 && r.ResourceNames[0] == "ikhnosagents.ikhnos.io" && len(r.Verbs) == 1 && r.Verbs[0] == "get"
 }

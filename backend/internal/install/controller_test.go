@@ -214,3 +214,23 @@ func TestABootstrapValueIsOneShellWord(t *testing.T) {
 		t.Errorf("a value was not passed as it was written:\n%s", raw)
 	}
 }
+
+func TestTheDefinitionOfTheResourceIsAppliedFromTheControllersChart(t *testing.T) {
+	got, err := ControllerInstall{Chart: "oci://reg.example/ikhnos-controller", Version: "0.1.0"}.Definition()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "helm show crds oci://reg.example/ikhnos-controller --version 0.1.0 | kubectl apply --server-side --force-conflicts -f -"; got != want {
+		t.Fatalf("got %s\nwant %s", got, want)
+	}
+	if got, _ := (ControllerInstall{Chart: "./ikhnos-controller"}).Definition(); got != "helm show crds ./ikhnos-controller | kubectl apply --server-side --force-conflicts -f -" {
+		t.Fatalf("no version: %s", got)
+	}
+	// A hostile chart is one shell word, and one that Helm would read as an option is not made into a command.
+	if cmd, err := (ControllerInstall{Chart: "a; rm -rf /"}).Definition(); err != nil || !strings.HasPrefix(cmd, "helm show crds 'a; rm -rf /' | kubectl") {
+		t.Errorf("a hostile chart: %s, %v", cmd, err)
+	}
+	if _, err := (ControllerInstall{Chart: "-x"}).Definition(); err == nil {
+		t.Error("a chart that begins with a dash is not a chart")
+	}
+}
