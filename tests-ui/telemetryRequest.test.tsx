@@ -53,6 +53,10 @@ describe('what a request leaves out', () => {
     expect(isSignalChange('Sends to a:1 instead of b:2')).toBe(false)
     expect(notInARequest(['Turns on Traces', 'Sends to a:1 instead of b:2', 'Changes the tags stamped on everything it sends'])).toEqual(['Sends to a:1 instead of b:2', 'Changes the tags stamped on everything it sends'])
   })
+  test('where a signal is collected from is said for what it means here: it stays as the owner set it', () => {
+    expect(notInARequest(['Turns on Traces', 'Collects traces from all namespaces'])).toEqual(['Where traces are collected from stays as the owner set it'])
+    expect(notInARequest(['Changes where application logs are collected from all namespaces to payments'])).toEqual(['Where application logs are collected from stays as the owner set it'])
+  })
 })
 
 describe('sameAsRequest', () => {

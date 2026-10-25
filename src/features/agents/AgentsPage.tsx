@@ -404,13 +404,14 @@ function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent;
               )}
             </div>
             {canConsent && (
-              <div>
+              <div className="xl:col-span-2">
                 <Heading>Observability intent</Heading>
                 <ConsentPanel agent={a} diagnostics={extras.diagnostics} consent={extras.consent} />
               </div>
             )}
             {canConsent && (
-              <div>
+              // Its own full-width row: the form walks through four steps, and a request's state line reads in sentences.
+              <div className="md:col-span-2 xl:col-span-3">
                 <Heading>Telemetry</Heading>
                 <TelemetryPanel diagnostics={extras.diagnostics} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} />
               </div>
@@ -424,7 +425,7 @@ function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent;
             <Heading>Observability intent</Heading>
             <ConsentPanel agent={a} diagnostics={undefined} consent={extras.consent} />
           </div>
-          <div>
+          <div className="md:col-span-2">
             <Heading>Telemetry</Heading>
             <TelemetryPanel diagnostics={undefined} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} />
           </div>

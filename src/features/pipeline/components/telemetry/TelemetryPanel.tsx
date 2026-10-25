@@ -403,6 +403,7 @@ function TelemetryPanelBody({
       review={{ diff: changes, installed: installed.length > 0, kept: hadTelemetry ? keptSummary(draft) : [] }}
       onBackToCluster={onBackToCluster}
       onDone={onDone}
+      asking={mode === 'ask' && availability !== 'none'}
       runSection={
         telemetryActive(draft) || turningOff ? (
           <div className="space-y-3" data-testid={`${p}-run`}>

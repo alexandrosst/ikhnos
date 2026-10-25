@@ -32,8 +32,21 @@ export function requestOf(draft: TelemetryInput): { signals: W.TelemetrySignals;
 /** The lines of a form's review that a request does carry: signals turned on or off. Every other line is a change a request leaves out. */
 export const isSignalChange = (line: string): boolean => /^Turns (on|off) /.test(line)
 
-/** The changes in a form's review that a request cannot carry (destination, tags, scopes, processors...): they need the command. */
-export const notInARequest = (changes: readonly string[]): string[] => changes.filter((l) => !isSignalChange(l))
+/**
+ * The changes in a form's review that a request cannot carry (destination, tags, scopes, processors...): they need the command. A line
+ * about where a signal is collected from ("Collects traces from all namespaces") is what the form would state for a signal turned on, not
+ * something to be done by the request, so it is said for what it means here: the scope stays as the owner set it.
+ */
+export function notInARequest(changes: readonly string[]): string[] {
+  const out: string[] = []
+  for (const l of changes) {
+    if (isSignalChange(l)) continue
+    const m = /^(?:Collects (.+) from .+|Changes where (.+) are collected from .+)$/.exec(l)
+    const line = m ? `Where ${m[1] ?? m[2]} are collected from stays as the owner set it` : l
+    if (!out.includes(line)) out.push(line)
+  }
+  return out
+}
 
 /** What the share of traces is asked to be, or why it cannot be: the server takes a whole number from 1 to 100, and only with traces on. */
 export function shareProblem(draft: TelemetryInput): string | undefined {

@@ -83,6 +83,7 @@ export default function GuidedWizard({
   clusterName,
   namespace,
   runSection,
+  asking = false,
   checkSection,
   review,
   problems = [],
@@ -107,6 +108,8 @@ export default function GuidedWizard({
   initialDestination?: string
   /** The command to run, or the button that generates it. Built by the caller, which holds what it depends on. Nothing before it shows a command. */
   runSection?: ReactNode
+  /** The change is made by asking the cluster, not by running a command: the run screen says so and does not claim a command was run. */
+  asking?: boolean
   /** The check that data arrives, once the command has been run. Built by the caller, which holds what the agent reports. */
   checkSection?: ReactNode
   /** What the command changes against what the install reports: the list, whether anything is installed, and what the form shows but the install does not report. */
@@ -360,9 +363,11 @@ export default function GuidedWizard({
 
         {phase === 'run' && (
           <div className="space-y-4" data-testid={`${p}-guided-step-run`}>
-            <StepHeading title={`Run it in ${cluster}`}>
+            <StepHeading title={asking ? `Ask ${cluster}` : `Run it in ${cluster}`}>
               <span data-testid={`${p}-guided-run-summary`}>
-                {turningOff
+                {asking
+                  ? 'The server sends the signals and the share of traces. The cluster decides whether to take them, and says what it did.'
+                  : turningOff
                   ? 'Every signal turned off. Nothing changes until the command is run.'
                   : `${onSignals.length} ${onSignals.length === 1 ? 'signal' : 'signals'} to ${destinationName}. Nothing changes until the command is run.`}
               </span>
@@ -371,7 +376,7 @@ export default function GuidedWizard({
             <StepNav
               testIdPrefix={p}
               onBack={() => setPhase('review')}
-              next={turningOff ? (onDone ? { label: 'Done', onClick: onDone, testId: `${p}-guided-done` } : undefined) : { label: 'I have run it: check that data arrives', onClick: () => setPhase('check'), testId: `${p}-guided-check` }}
+              next={turningOff ? (onDone ? { label: 'Done', onClick: onDone, testId: `${p}-guided-done` } : undefined) : { label: asking ? 'Check that data arrives' : 'I have run it: check that data arrives', onClick: () => setPhase('check'), testId: `${p}-guided-check` }}
             />
           </div>
         )}

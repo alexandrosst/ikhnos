@@ -83,6 +83,11 @@ describe('TelemetryPanel: asking the cluster', () => {
     await toRun(user)
     expect(screen.getByTestId('tp-via-ask')).toHaveAttribute('aria-selected', 'true')
     expect(screen.queryByTestId('tp-credential-hint')).not.toBeInTheDocument()
+    // The screen does not claim a command was run: it is a request, and what comes next is looking at what the cluster did.
+    expect(screen.getByTestId('tp-guided-step-run')).toHaveTextContent('Ask the cluster')
+    expect(screen.getByTestId('tp-guided-step-run')).not.toHaveTextContent('Nothing changes until the command is run')
+    expect(screen.getByTestId('tp-guided-check')).toHaveTextContent('Check that data arrives')
+    expect(screen.getByTestId('tp-guided-check')).not.toHaveTextContent('I have run it')
     await user.click(screen.getByTestId('tp-ask-send'))
     await waitFor(() => expect(setAgentTelemetry).toHaveBeenCalledTimes(1))
     const [, id, body] = setAgentTelemetry.mock.calls[0] as [unknown, string, { signals: Record<string, boolean>; tracesSamplingPercent?: number }]
