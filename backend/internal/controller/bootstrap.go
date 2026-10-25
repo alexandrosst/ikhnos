@@ -76,6 +76,12 @@ func (r *Reconciler) Bootstrap(ctx context.Context) error {
 		return err
 	}
 	if cm.Annotations[BootstrapApplied] == digest {
+		// Said out loud, because a person who sees a controller and no agent has nowhere else to learn why: the same request (this spec,
+		// this token) was already carried out, and what a person has deleted since is not made again.
+		if _, err := r.Dyn.Resource(GVR).Namespace(r.Namespace).Get(ctx, install.ControllerResourceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
+			r.log().Warn("the agent this controller was installed to ask for is not there, and is not asked for again: this request (the same choices and the same token) was already carried out. To ask again, run the install command with a new token, or remove the annotation "+BootstrapApplied+" from the ConfigMap "+r.BootstrapConfigMap,
+				"name", install.ControllerResourceName)
+		}
 		return nil
 	}
 

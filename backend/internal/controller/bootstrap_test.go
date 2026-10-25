@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -36,6 +37,8 @@ const goodBootstrap = `{"server":{"address":"ikhnos.example.com:8443","caPin":"s
 
 func TestTheBootstrapMakesTheResourceOnceAndSaysSo(t *testing.T) {
 	g := newRig(t)
+	var logs strings.Builder
+	g.r.Log = slog.New(slog.NewTextHandler(&logs, nil))
 	g.bootstrapMap(goodBootstrap)
 	if err := g.r.Bootstrap(context.Background()); err != nil {
 		t.Fatal(err)
@@ -62,6 +65,9 @@ func TestTheBootstrapMakesTheResourceOnceAndSaysSo(t *testing.T) {
 	}
 	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(context.Background(), "this-cluster", metav1.GetOptions{}); err == nil {
 		t.Fatal("a deleted resource was made again from a bootstrap that had been applied")
+	}
+	if !strings.Contains(logs.String(), "not asked for again") || !strings.Contains(logs.String(), BootstrapApplied) {
+		t.Errorf("the controller did not say why there is no agent, and how to ask again; it logged: %q", logs.String())
 	}
 }
 
