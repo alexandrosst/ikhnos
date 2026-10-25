@@ -164,8 +164,11 @@ func TestAControllerViewIsOfferedWhenTheControllersChartCanBeNamed(t *testing.T)
 			t.Errorf("%q is not in the controller's install:\n%s", want, str("install"))
 		}
 	}
-	if strings.Contains(str("install"), "kubectl") || strings.Count(str("install"), "helm ") != 1 {
-		t.Errorf("the install is more than one command:\n%s", str("install"))
+	// One install, after the one step that makes the IkhnosAgent definition current (Helm would leave an older one as it is).
+	def := "helm show crds oci://reg.example/team/ikhnos-controller --version 0.0.0-edge.abc | kubectl apply --server-side --force-conflicts -f - && \\\n"
+	rest := strings.TrimPrefix(str("install"), def)
+	if rest == str("install") || strings.Contains(rest, "kubectl") || strings.Count(rest, "helm ") != 1 {
+		t.Errorf("the install is more than the definition and one command:\n%s", str("install"))
 	}
 	for _, gone := range []string{"secret", "manifest", "manifestCommand"} {
 		if _, there := c[gone]; there {
@@ -173,7 +176,7 @@ func TestAControllerViewIsOfferedWhenTheControllersChartCanBeNamed(t *testing.T)
 		}
 	}
 	// A refused ceiling has its own command.
-	if want := "helm upgrade ikhnos-controller oci://reg.example/team/ikhnos-controller --version 0.0.0-edge.abc --namespace ikhnos-system --reset-then-reuse-values --set maxAccessTier=1"; str("raise") != want {
+	if want := def + "helm upgrade ikhnos-controller oci://reg.example/team/ikhnos-controller --version 0.0.0-edge.abc --namespace ikhnos-system --reset-then-reuse-values --set maxAccessTier=1"; str("raise") != want {
 		t.Errorf("the command that raises the ceiling:\n%s", str("raise"))
 	}
 	// The pin the helm command carries is the pin the controller's command carries.

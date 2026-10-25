@@ -217,7 +217,7 @@ func (h *API) controllerSteps(r *http.Request, img kernel.ImageConfig, secret st
 		doc.Raise = ""
 		return doc
 	}
-	doc.Available, doc.Install = true, cmd
+	doc.Available, doc.Install, doc.Raise = true, ctl.WithDefinition(cmd), ctl.WithDefinition(doc.Raise)
 	return doc
 }
 

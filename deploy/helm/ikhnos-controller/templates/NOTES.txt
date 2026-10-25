@@ -35,5 +35,6 @@ This controller may install agents up to access tier {{ .Values.maxAccessTier }}
 {{- if .Release.IsUpgrade }}
 
 Helm does not upgrade a chart's CRDs. If this version changes the IkhnosAgent definition, apply it yourself:
-  kubectl apply -f https://raw.githubusercontent.com/<owner>/ikhnos/<this version>/deploy/helm/ikhnos-controller/crds/ikhnosagents.yaml
+  helm show crds <this chart> --version <this version> | kubectl apply --server-side --force-conflicts -f -
+(The commands the Ikhnos page writes for this controller start with that step, so running them is enough.)
 {{- end }}

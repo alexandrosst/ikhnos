@@ -266,3 +266,15 @@ func (c ControllerInstall) Definition() (string, error) {
 	}
 	return cmd + " | kubectl apply --server-side --force-conflicts -f -", nil
 }
+
+// WithDefinition is cmd, a command that installs or changes the controller with Helm, after the one that brings the IkhnosAgent definition up
+// to date. Helm never upgrades a definition it installed once, so a controller upgraded by itself can sit on an older definition; running the
+// command the page writes is then what makes the cluster current, with nothing for the person to remember. (Where the definition cannot be
+// written, the command stands alone.)
+func (c ControllerInstall) WithDefinition(cmd string) string {
+	def, err := c.Definition()
+	if err != nil {
+		return cmd
+	}
+	return Chain([]string{def, cmd})
+}

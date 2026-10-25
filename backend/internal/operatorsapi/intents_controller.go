@@ -47,8 +47,9 @@ func (h *API) controllerBlock(_ *http.Request, img kernel.ImageConfig, spec inst
 	doc.Command = install.Chain(append(append(first, secretCommands...), patch))
 	doc.NeedsTelemetryPermission = true
 	if ref, version := h.Settings.ControllerChart(img); ref != "" {
-		if cmd, err := (install.ControllerInstall{Chart: ref, Version: version}).AllowTelemetry(); err == nil {
-			doc.AllowTelemetry = cmd
+		ctl := install.ControllerInstall{Chart: ref, Version: version}
+		if cmd, err := ctl.AllowTelemetry(); err == nil {
+			doc.AllowTelemetry = ctl.WithDefinition(cmd)
 		}
 	}
 	return doc

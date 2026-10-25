@@ -156,11 +156,12 @@ func (h *API) allowTelemetryCommand(img kernel.ImageConfig) string {
 	if ref == "" {
 		return ""
 	}
-	cmd, err := install.ControllerInstall{Chart: ref, Version: version}.AllowTelemetry()
+	ctl := install.ControllerInstall{Chart: ref, Version: version}
+	cmd, err := ctl.AllowTelemetry()
 	if err != nil {
 		return ""
 	}
-	return cmd
+	return ctl.WithDefinition(cmd)
 }
 
 // installChoices are the Helm values for what a new install is asked to switch on or narrow (install.AgentChoices, which the controller

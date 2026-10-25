@@ -234,3 +234,18 @@ func TestTheDefinitionOfTheResourceIsAppliedFromTheControllersChart(t *testing.T
 		t.Error("a chart that begins with a dash is not a chart")
 	}
 }
+
+func TestACommandThatInstallsTheControllerStartsWithItsDefinitionWhereItCanBeWritten(t *testing.T) {
+	c := ControllerInstall{Chart: "oci://reg.example/ikhnos-controller", Version: "0.1.0"}
+	raise, err := c.RaiseCeiling()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := c.WithDefinition(raise)
+	if !strings.HasPrefix(got, "helm show crds oci://reg.example/ikhnos-controller --version 0.1.0 | kubectl apply --server-side --force-conflicts -f - && \\\nhelm upgrade ikhnos-controller ") || !strings.HasSuffix(got, raise) {
+		t.Fatalf("got\n%s", got)
+	}
+	if got := (ControllerInstall{Chart: "-x"}).WithDefinition("helm upgrade y"); got != "helm upgrade y" {
+		t.Fatalf("where the definition cannot be written the command stands alone: %s", got)
+	}
+}

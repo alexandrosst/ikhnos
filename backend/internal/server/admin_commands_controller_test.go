@@ -173,7 +173,8 @@ func TestTheCommandThatGivesTheControllerTelemetryPermissionIsInTheAnswer(t *tes
 	a := adminRigWith(t, installcfg.Settings{AgentAddr: "ik.example.com:8443", ImageRegistry: "reg.example/team", ControllerChartVersion: "0.0.0-edge.abc"})
 	_, cookie := a.user(t, "ed", accounts.RoleEditor)
 	out := a.controllerUpgrade(t, cookie, map[string]any{"telemetry": telemetryDraft(nil)})
-	want := "helm upgrade ikhnos-controller oci://reg.example/team/ikhnos-controller --version 0.0.0-edge.abc --namespace ikhnos-system --reset-then-reuse-values --set allowTelemetry=true"
+	// The upgrade of the controller starts with the definition: Helm would leave an older one as it is.
+	want := "helm show crds oci://reg.example/team/ikhnos-controller --version 0.0.0-edge.abc | kubectl apply --server-side --force-conflicts -f - && \\\nhelm upgrade ikhnos-controller oci://reg.example/team/ikhnos-controller --version 0.0.0-edge.abc --namespace ikhnos-system --reset-then-reuse-values --set allowTelemetry=true"
 	if c := out.Controller; !c.NeedsTelemetryPermission || c.AllowTelemetry != want {
 		t.Fatalf("telemetry on: %+v\nwant %s", c, want)
 	}
