@@ -358,6 +358,14 @@ func TestWithoutATokenSecretNothingIsInstalledYetAndItIsLookedForAgain(t *testin
 	if err := g.kube.CoreV1().Secrets(ns).Delete(context.Background(), "enroll", metav1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
+	// A key that is there and empty (a token written from a variable that was not set) is not a token either.
+	g.secret("enroll", "token", " \n")
+	if d := g.must("a"); d != WaitingForSecret || g.inst.applies() != 0 || g.status("a").Conditions[0].Reason != "WaitingForToken" || !strings.Contains(g.status("a").Conditions[0].Message, "is empty") {
+		t.Fatalf("an empty token: waited %v, %d applies, %+v", d, g.inst.applies(), g.status("a").Conditions)
+	}
+	if err := g.kube.CoreV1().Secrets(ns).Delete(context.Background(), "enroll", metav1.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
 	g.secret("enroll", "token", "ikh_abc")
 	// An installed release is looked at again, to see its pods (see workloads.go).
 	if d := g.must("a"); d != DefaultObserveEvery || g.inst.applies() != 1 || g.status("a").Phase != PhaseReady {

@@ -405,22 +405,18 @@ func (h *Hub) Connect(stream ikhnosv1.AgentService_ConnectServer) error {
 		v.NoteDiagnostics(hello.Diagnostics, true, h.C.Now())
 		h.Mu.Unlock()
 	}
-	// Both end up in commands a person pastes into a shell, so what is not a plain Kubernetes name is not kept at all.
-	if ns := hello.Namespace; kernel.NsNameRe.MatchString(ns) {
-		h.Mu.Lock()
-		v.Ext.Namespace = ns
-		h.Mu.Unlock()
+	// Both end up in commands a person pastes into a shell, so what is not a plain Kubernetes name is not kept at all. What this hello does not
+	// say replaces what an earlier one did: an agent reinstalled without a controller, or in another namespace, is not the one it was.
+	ns, rel, res := hello.Namespace, hello.ReleaseName, kernel.Printable(hello.ControllerResource, 253) // the last is a Kubernetes object name
+	if !kernel.NsNameRe.MatchString(ns) {
+		ns = ""
 	}
-	if rel := hello.ReleaseName; len(rel) <= 53 && kernel.NsNameRe.MatchString(rel) { // Helm's own release-name length limit
-		h.Mu.Lock()
-		v.Ext.ReleaseName = rel
-		h.Mu.Unlock()
+	if len(rel) > 53 || !kernel.NsNameRe.MatchString(rel) { // Helm's own release-name length limit
+		rel = ""
 	}
-	if res := kernel.Printable(hello.ControllerResource, 253); res != "" { // a Kubernetes object name
-		h.Mu.Lock()
-		v.Ext.ControllerResource = res
-		h.Mu.Unlock()
-	}
+	h.Mu.Lock()
+	v.Ext.Namespace, v.Ext.ReleaseName, v.Ext.ControllerResource = ns, rel, res
+	h.Mu.Unlock()
 	h.Mu.Lock()
 	v.Ext.Protocol, v.Ext.Caps = hello.ProtocolVersion, agentcaps.Clean(hello.Capabilities)
 	h.Mu.Unlock()

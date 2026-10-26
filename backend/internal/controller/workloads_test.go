@@ -2,12 +2,16 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 var releaseLabels = func(component string) map[string]string {
@@ -179,5 +183,41 @@ func TestWhatIsNotTheReleasesIsNotObserved(t *testing.T) {
 		if w.Name == "someone-elses" {
 			t.Fatalf("observed %+v", w)
 		}
+	}
+}
+
+// An API server that does not answer for a moment must not take the account of the pods away from the status.
+func TestWhenThePodsCannotBeListedTheLastAccountStands(t *testing.T) {
+	g := newRig(t)
+	g.secret("enroll", "token", "ikh_abc")
+	g.agent("a", goodSpec())
+	g.deployment("ikhnos-agent", 1, 1)
+	g.daemonSet("ikhnos-telemetry-host", "telemetry-host", 3, 2)
+	g.must("a")
+	before := g.status("a")
+	if len(before.Workloads) != 2 || condition(before, ConditionWorkloadsReady) == nil {
+		t.Fatalf("the starting point: %+v", before)
+	}
+	g.kube.PrependReactor("list", "daemonsets", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("etcdserver: request timed out")
+	})
+	again := g.must("a")
+	after := g.status("a")
+	if len(after.Workloads) != 2 || condition(after, ConditionWorkloadsReady) == nil || condition(after, ConditionWorkloadsReady).Message != condition(before, ConditionWorkloadsReady).Message {
+		t.Fatalf("the account was lost when the list failed: %+v", after)
+	}
+	if again == 0 {
+		t.Fatal("the pods are not looked at again after a failed look")
+	}
+}
+
+func TestTheWorkloadsMessageIsCutByCharacters(t *testing.T) {
+	var ws []Workload
+	for i := 0; i < 40; i++ {
+		ws = append(ws, Workload{Name: strings.Repeat("é", 20) + string(rune('a'+i%26)), Wanted: 3, Ready: 1})
+	}
+	c := workloadsCondition(1, ws)
+	if c == nil || !utf8.ValidString(c.Message) || utf8.RuneCountInString(c.Message) > maxWorkloadMessage {
+		t.Fatalf("condition %+v", c)
 	}
 }

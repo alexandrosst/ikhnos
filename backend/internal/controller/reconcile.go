@@ -283,7 +283,19 @@ func (r *Reconciler) watch(ctx context.Context, obj *unstructured.Unstructured, 
 	if every == 0 {
 		return 0
 	}
-	st.Workloads = r.observe(ctx)
+	ws, ok := r.observe(ctx)
+	if !ok {
+		// The API did not answer: what the status said last stands, instead of an account that is gone until the next look.
+		old := statusOf(obj)
+		st.Workloads = old.Workloads
+		for _, c := range old.Conditions {
+			if c.Type == ConditionWorkloadsReady {
+				st.Conditions = append(st.Conditions, c)
+			}
+		}
+		return min(every, observeWhileWaiting)
+	}
+	st.Workloads = ws
 	if c := workloadsCondition(obj.GetGeneration(), st.Workloads); c != nil {
 		st.Conditions = append(st.Conditions, *c)
 	}
@@ -388,7 +400,11 @@ func tokenOf(sec *corev1.Secret, ref *SecretKeyRef) (string, string, error) {
 	if !ok {
 		return "", fmt.Sprintf("the Secret %q has no key %q", ref.Name, ref.TokenKey()), nil
 	}
-	return strings.TrimSpace(string(b)), "", nil
+	tok := strings.TrimSpace(string(b))
+	if tok == "" {
+		return "", fmt.Sprintf("the key %q of the Secret %q is empty", ref.TokenKey(), ref.Name), nil
+	}
+	return tok, "", nil
 }
 
 // finish uninstalls the release of a resource that is being deleted, and then lets it go.

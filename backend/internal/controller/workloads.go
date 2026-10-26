@@ -42,18 +42,19 @@ func (r *Reconciler) observeEvery() time.Duration {
 }
 
 // observe reads what the release runs: the Deployments and DaemonSets it made, by the labels the chart puts on them. It never fails the
-// reconcile: what cannot be read is left out, and the status says nothing of it rather than something untrue.
-func (r *Reconciler) observe(ctx context.Context) []Workload {
+// reconcile: what cannot be read is not guessed at (the second result is false), and the caller keeps what the status said before rather than
+// writing something untrue or taking the account away for a moment.
+func (r *Reconciler) observe(ctx context.Context) ([]Workload, bool) {
 	opts := metav1.ListOptions{LabelSelector: "app.kubernetes.io/instance=" + ReleaseName + ",app.kubernetes.io/part-of=ikhnos"}
 	ds, err := r.Kube.AppsV1().Deployments(r.Namespace).List(ctx, opts)
 	if err != nil {
 		r.log().Debug("cannot list the release's Deployments", "err", err)
-		return nil
+		return nil, false
 	}
 	sets, err := r.Kube.AppsV1().DaemonSets(r.Namespace).List(ctx, opts)
 	if err != nil {
 		r.log().Debug("cannot list the release's DaemonSets", "err", err)
-		return nil
+		return nil, false
 	}
 	var out []Workload
 	for _, d := range ds.Items {
@@ -81,7 +82,7 @@ func (r *Reconciler) observe(ctx context.Context) []Workload {
 	if len(out) > maxWorkloads {
 		out = out[:maxWorkloads]
 	}
-	return out
+	return out, true
 }
 
 // workloadsCondition says in one sentence whether every workload has its pods; nil when there is nothing to say.
@@ -102,9 +103,7 @@ func workloadsCondition(obj int64, ws []Workload) *Condition {
 		return &Condition{Type: ConditionWorkloadsReady, Status: "True", Reason: "AllPodsReady", Message: "every pod the release asks for is ready", ObservedGeneration: obj}
 	}
 	msg := strings.Join(not, "; ")
-	if len(msg) > maxWorkloadMessage {
-		msg = msg[:maxWorkloadMessage-1] + "…"
-	}
+	msg = cutRunes(msg, maxWorkloadMessage-1)
 	return &Condition{Type: ConditionWorkloadsReady, Status: "False", Reason: "PodsNotReady", Message: msg, ObservedGeneration: obj}
 }
 

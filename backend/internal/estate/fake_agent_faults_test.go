@@ -196,3 +196,22 @@ func TestAPlainWhereIRunIsKept(t *testing.T) {
 		t.Fatalf("a plain namespace and release were not kept: %q %q", ns, rel)
 	}
 }
+
+func TestAnAgentThatComesBackWithoutAControllerOrANamespaceIsNotTakenForTheOneItWas(t *testing.T) {
+	r := newHubRig(t)
+	f := r.newFakeAgentWith(t, fakeAgentCtx(t), &ikhnosv1.Hello{AgentVersion: "1.0.0", ProtocolVersion: 1, Namespace: "team-a", ReleaseName: "ikhnos-2", ControllerResource: "edge"})
+	read := func() (string, string, string) {
+		r.hub.Mu.Lock()
+		defer r.hub.Mu.Unlock()
+		e := r.hub.Views[f.ID].Ext
+		return e.Namespace, e.ReleaseName, e.ControllerResource
+	}
+	if ns, rel, res := read(); ns != "team-a" || rel != "ikhnos-2" || res != "edge" {
+		t.Fatalf("the starting point: %q %q %q", ns, rel, res)
+	}
+	f.Hello = &ikhnosv1.Hello{AgentVersion: "1.0.0", ProtocolVersion: 1}
+	f.restart()
+	if ns, rel, res := read(); ns != "" || rel != "" || res != "" {
+		t.Fatalf("an agent that no longer says where it runs or who keeps it is still taken for the old one: %q %q %q", ns, rel, res)
+	}
+}
