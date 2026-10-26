@@ -1,11 +1,12 @@
-import { Settings2 } from 'lucide-react'
+import { Settings2, X } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import StateChip from '@/features/pipeline/components/operators/StateChip'
 import { HealthWord } from '@/features/pipeline/components/telemetry/ArrivalCheck'
 import LocalOperatorPicture from '@/features/pipeline/components/telemetry/LocalOperatorPicture'
 import { operatorPicture } from '@/features/pipeline/lib/operatorPicture'
 import type { ComponentRow } from '@/features/pipeline/lib/operatorsView'
-import { Button, Modal, ICON_SM } from '@/components/ui/primitives'
+import { Button, ICON_SM } from '@/components/ui/primitives'
 import type { AgentExtras } from '@/lib/consent'
 import { TELEMETRY_SIGNALS } from '@/lib/install'
 
@@ -29,9 +30,15 @@ export default function LocalOperatorDetail({ row, extras, connected, namespace,
   const installed = d?.installedTelemetry ?? []
   const pic = operatorPicture({ installed, diagnostics: d, connected, now, cluster: row.cluster?.name ?? 'the cluster', namespace })
   const { state, reason } = row.verdict
+  const box = useRef<HTMLDivElement>(null)
+  // Opened from a link or a click far down a long list: bring it into view once.
+  useEffect(() => { box.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }) }, [])
   return (
-    <Modal open side onClose={onClose} title={row.name} description={row.cluster ? `Local operator · ${row.cluster.name}` : 'Local operator'} width="max-w-4xl">
-      <div className="space-y-5" data-testid="local-operator-detail" data-state={state}>
+    <div ref={box} className="space-y-5 border-y border-nb-850 bg-nb-950/60 px-5 py-5" data-testid="local-operator-detail" data-state={state}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-nb-200">{row.name} <span className="font-normal text-nb-500">· what it collects, and where it goes</span></h2>
+          <Button size="sm" onClick={onClose} aria-label={`Close the detail of ${row.name}`} data-testid="local-operator-close"><X size={ICON_SM} aria-hidden /> Close</Button>
+        </div>
         <section className="flex flex-wrap items-start gap-x-3 gap-y-2" data-testid="local-operator-state">
           <StateChip state={state} />
           <p className="min-w-0 flex-1 basis-60 text-sm text-nb-400">{reason ?? (state === 'healthy' ? 'Its collectors are reading what they are asked to and the data is leaving.' : '')}</p>
@@ -53,8 +60,8 @@ export default function LocalOperatorDetail({ row, extras, connected, namespace,
           </section>
         )}
 
-        <section aria-labelledby="lod-picture">
-          <h3 id="lod-picture" className="mb-2 text-sm font-medium text-nb-300">What it collects, and where it goes</h3>
+        <section aria-label="What it collects, and where it goes">
+
           <LocalOperatorPicture bare installed={installed} diagnostics={d} connected={connected} cluster={row.cluster?.name ?? 'the cluster'} namespace={namespace} keptByController={extras.keptByController} testId="operator-picture" />
         </section>
 
@@ -69,7 +76,6 @@ export default function LocalOperatorDetail({ row, extras, connected, namespace,
             </ul>
           </section>
         )}
-      </div>
-    </Modal>
+    </div>
   )
 }

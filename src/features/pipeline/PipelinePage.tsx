@@ -200,6 +200,24 @@ export default function PipelinePage() {
   const chips = (['all', ...KINDS] as const).filter((k) => k === 'all' || counts[k])
   const empty = ready && rows.length === 0 && !loadError
 
+  // The detail of a local operator opens in the list, right under its row, as wide as the table: the picture needs the room.
+  const renderDetail = (r: ComponentRow) => {
+    if (!r.agentId) return null
+    const a = agents.find((x) => x.id === r.agentId)
+    return (
+      <LocalOperatorDetail
+        row={r}
+        extras={extrasOf(rawAgents, r.agentId)}
+        connected={a?.connected}
+        namespace={a?.namespace}
+        now={now}
+        canConsent={canConsent}
+        onChange={() => { const id = r.agentId; setDetailFor(null); telemetry.start(id) }}
+        onClose={() => setDetailFor(null)}
+      />
+    )
+  }
+
   return (
     <>
       <PageHeader
@@ -264,7 +282,7 @@ export default function PipelinePage() {
             )}
           </div>
 
-          <ComponentsTable rows={shown} now={now} menuFor={menuFor} onWhatToDo={setTodoFor} onOpen={(r) => setDetailFor(r.id)} />
+          <ComponentsTable rows={shown} now={now} menuFor={menuFor} onWhatToDo={setTodoFor} onOpen={(r) => setDetailFor((cur) => (cur === r.id ? null : r.id))} expandedId={detailRow?.id} renderExpanded={renderDetail} />
           {!admin && <p className="mt-3 text-xs text-nb-500">Regional operators are only shown to organisation administrators.</p>}
 
           {admin && (
@@ -295,19 +313,6 @@ export default function PipelinePage() {
             </details>
           )}
         </>
-      )}
-
-      {detailRow && detailRow.agentId && (
-        <LocalOperatorDetail
-          row={detailRow}
-          extras={extrasOf(rawAgents, detailRow.agentId)}
-          connected={agents.find((a) => a.id === detailRow.agentId)?.connected}
-          namespace={agents.find((a) => a.id === detailRow.agentId)?.namespace}
-          now={now}
-          canConsent={canConsent}
-          onChange={() => { const id = detailRow.agentId; setDetailFor(null); telemetry.start(id) }}
-          onClose={() => setDetailFor(null)}
-        />
       )}
 
       {todoFor?.verdict.todo && <WhatToDoModal row={todoFor} todo={todoFor.verdict.todo} onClose={() => setTodoFor(null)} onAction={doTodo} busy={renewing !== null && todoFor.verdict.todo.action?.kind === 'renew' ? 'Another renewal is in progress' : undefined} />}

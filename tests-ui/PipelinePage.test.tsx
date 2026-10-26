@@ -1050,7 +1050,7 @@ describe('PipelinePage - local operators', () => {
     expect(screen.getByTestId('where')).not.toHaveTextContent('/agents')
   })
 
-  test('the name of a local operator opens its detail too, with what is installed and the way to change it, and Escape closes it', async () => {
+  test('the name of a local operator opens its detail in the list under its row, with what is installed and the way to change it; the name again, or Close, closes it', async () => {
     const user = userEvent.setup()
     topologyState = { agents: [installedAgent()], clusters: [cl()] }
     renderPage()
@@ -1058,7 +1058,14 @@ describe('PipelinePage - local operators', () => {
     const detail = screen.getByTestId('local-operator-detail')
     expect(within(screen.getByTestId('local-operator-installed')).getAllByRole('listitem').map((l) => l.textContent)).toEqual(['Resource usage', 'System logs'])
     expect(within(detail).getByTestId('local-operator-change')).toBeEnabled()
-    await user.keyboard('{Escape}')
+    // under its own row, in the table, not in a side panel
+    expect(detail.closest('table')).not.toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    await user.click(within(detail).getByTestId('local-operator-close'))
+    expect(screen.queryByTestId('local-operator-detail')).toBeNull()
+    await user.click(screen.getByTestId('local-open-edge-agent collector'))
+    expect(screen.getByTestId('local-operator-detail')).toBeInTheDocument()
+    await user.click(screen.getByTestId('local-open-edge-agent collector'))
     expect(screen.queryByTestId('local-operator-detail')).toBeNull()
   })
 
