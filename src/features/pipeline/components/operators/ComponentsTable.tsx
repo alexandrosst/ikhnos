@@ -44,7 +44,7 @@ const SORT_BY = {
   lastData: (r: ComponentRow) => (r.lastData ? Date.parse(r.lastData) || undefined : undefined),
 }
 
-export default function ComponentsTable({ rows: unsorted, now, menuFor, onWhatToDo }: { rows: ComponentRow[]; now: number; menuFor: (row: ComponentRow) => RowMenuItem[]; onWhatToDo: (row: ComponentRow) => void }) {
+export default function ComponentsTable({ rows: unsorted, now, menuFor, onWhatToDo, onOpen }: { rows: ComponentRow[]; now: number; menuFor: (row: ComponentRow) => RowMenuItem[]; onWhatToDo: (row: ComponentRow) => void; /** Opens the detail of a local operator: its name is the button. */ onOpen?: (row: ComponentRow) => void }) {
   const { sorted: rows, sort, toggle } = useSort(unsorted, SORT_BY)
   return (
     <Table cols={COLS} stack data-testid="components-table">
@@ -59,7 +59,11 @@ export default function ComponentsTable({ rows: unsorted, now, menuFor, onWhatTo
             <tr key={r.id} className="group relative hover:bg-nb-930/60 max-md:border-b max-md:border-nb-850/60 max-md:px-1 max-md:py-3" data-testid={r.operator ? `operator-${r.operator.name}` : `component-${r.id}`} data-kind={r.kind} data-state={state}>
               <Td valign="top" className="max-md:block max-md:border-0 max-md:py-0 max-md:pr-12">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="min-w-0 truncate font-medium text-nb-300" title={r.name}>{r.name}</span>
+                  {onOpen && r.kind === 'local' && r.agentId ? (
+                    <button type="button" className="min-w-0 truncate text-left font-medium text-nb-300 hover:text-accent hover:underline" title={`${r.name}: what it collects and where it goes`} onClick={() => onOpen(r)} data-testid={`local-open-${r.name}`}>{r.name}</button>
+                  ) : (
+                    <span className="min-w-0 truncate font-medium text-nb-300" title={r.name}>{r.name}</span>
+                  )}
                   {r.cluster && <TierBadge tier={r.cluster.tier} />}
                 </div>
                 <div className="mt-0.5 truncate text-xs text-nb-500">

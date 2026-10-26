@@ -24,7 +24,7 @@ vi.mock('@/store/server', () => ({
 // The consent form and the telemetry panel have their own tests and stores; this page test is about where the page puts the Telemetry section.
 vi.mock('@/features/agents/components/AgentInsight', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/features/agents/components/AgentInsight')>()), ConsentPanel: () => null }))
 vi.mock('@/features/pipeline/components/telemetry/TelemetryPanel', () => ({
-  TelemetryPanel: ({ agentId, showPicture }: { agentId?: string; showPicture?: boolean }) => <div data-testid="telemetry-stub" data-agent={agentId} data-show-picture={String(!!showPicture)} />,
+  TelemetryPanel: ({ agentId }: { agentId?: string }) => <div data-testid="telemetry-stub" data-agent={agentId} />,
 }))
 vi.mock('@/features/discovery/components/ConnectFlow', () => ({
   useConnectFlow: () => ({ start: vi.fn(), dialogs: null, canStart: false, wizardOpen: false }),
@@ -70,16 +70,12 @@ describe('AgentsPage', () => {
     expect(btn).not.toHaveAttribute('title')
   })
 
-  test('a link from the Pipeline page (?open=<agent>) opens that agent at its Telemetry section with the picture asked for, and is spent at once', async () => {
-    const scroll = vi.fn()
-    Element.prototype.scrollIntoView = scroll
+  test('a link from the Pipeline page (?open=<agent>) opens that agent\'s row, and is spent at once', async () => {
     const diagnostics = { reportedAt: new Date().toISOString(), agentVersion: '1', uptimeSeconds: 1, installedTier: 2, approvedTier: 2, effectiveTier: 2, pausedCollectors: [], excludedNamespaces: 0, collectors: [], informers: [], problems: [], installedTelemetry: ['resourceUsage'] }
     topologyState = { agents: [ag({ connected: true })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
     serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }), diagnostics } as unknown as Agent] } }
     renderPage('/agents?open=a1')
     expect(screen.getByTestId('telemetry-stub')).toHaveAttribute('data-agent', 'a1')
-    expect(screen.getByTestId('telemetry-stub')).toHaveAttribute('data-show-picture', 'true')
-    await waitFor(() => expect(scroll).toHaveBeenCalled())
     expect(screen.getByTestId('where')).toHaveTextContent(/^\/agents$/)
   })
 

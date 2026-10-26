@@ -13,9 +13,9 @@ function Where() {
   return <output data-testid="where">{l.pathname + l.search}</output>
 }
 
-function renderPage() {
+function renderPage(route = '/') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[route]}>
       <PipelinePage />
       <Where />
     </MemoryRouter>,
@@ -986,24 +986,26 @@ describe('PipelinePage - local operators', () => {
     expect(within(offline).queryByRole('button', { name: /What to do/ })).not.toBeInTheDocument()
   })
 
-  test('a collector whose route is failing is Not working, and its What to do leads to the picture of its collectors in the agent\'s Telemetry section', async () => {
+  test('a collector whose route is failing is Not working, and its What to do leads to the detail with the picture of its collectors', async () => {
     const user = userEvent.setup()
     listTelemetryIntents.mockResolvedValue([intent({ destination: { kind: 'external', endpoint: 'otel.example.com:4317' } })])
-    topologyState = { agents: [installedAgent({ exportHealth: { podsReached: 1, podsFailed: 0, routes: [{ exporter: 'otlp', signal: 'metrics', state: 'failing', sent: 0, failed: 3 }] } })], clusters: [cl()] }
+    topologyState = { agents: [installedAgent({ reportedAt: minutesAgo(1), exportHealth: { podsReached: 1, podsFailed: 0, routes: [{ exporter: 'otlp', signal: 'metrics', state: 'failing', sent: 0, failed: 3 }] } })], clusters: [cl()] }
     renderPage()
     const row = await screen.findByTestId('component-local:a1')
     expect(row).toHaveAttribute('data-state', 'down')
     expect(within(row).getByTestId('component-reason-local:a1')).toHaveTextContent('Sending to otel.example.com:4317 is failing.')
     await user.click(within(row).getByRole('button', { name: 'What to do about edge-agent collector' }))
     await user.click(screen.getByRole('button', { name: 'See what it collects' }))
-    expect(screen.getByTestId('where')).toHaveTextContent('/agents?open=a1')
+    expect(screen.getByTestId('local-operator-detail')).toHaveAttribute('data-state', 'down')
+    expect(screen.getByTestId('operator-picture')).toBeInTheDocument()
+    expect(screen.getByTestId('local-operator-arrival')).toHaveTextContent(/destination is refusing the data/)
   })
 
-  test('a collector that sends fine but cannot read one of its sources needs attention, names it, and leads to the picture', async () => {
+  test('a collector that sends fine but cannot read one of its sources needs attention, names it, and leads to the picture in its detail', async () => {
     const user = userEvent.setup()
     listTelemetryIntents.mockResolvedValue([intent({ destination: { kind: 'external', endpoint: 'otel.example.com:4317' } })])
     const sources = [{ receiver: 'kubelet_stats', signals: ['resourceUsage'], state: 'failing', accepted: 4, failed: 9, lastFailedAt: minutesAgo(1) }]
-    topologyState = { agents: [installedAgent({ exportHealth: { sources, receivers: [], podsReached: 1, podsFailed: 0, routes: [{ exporter: 'otlp', signal: 'metrics', state: 'exporting', sent: 5, failed: 0, lastSentAt: minutesAgo(0) }] } })], clusters: [cl()] }
+    topologyState = { agents: [installedAgent({ reportedAt: minutesAgo(1), exportHealth: { sources, receivers: [], podsReached: 1, podsFailed: 0, routes: [{ exporter: 'otlp', signal: 'metrics', state: 'exporting', sent: 5, failed: 0, lastSentAt: minutesAgo(0) }] } })], clusters: [cl()] }
     renderPage()
     const row = await screen.findByTestId('component-local:a1')
     expect(row).toHaveAttribute('data-state', 'attention')
@@ -1011,7 +1013,7 @@ describe('PipelinePage - local operators', () => {
     await user.click(within(row).getByRole('button', { name: 'What to do about edge-agent collector' }))
     expect(screen.getByText('Look at Resource usage')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'See what it collects' }))
-    expect(screen.getByTestId('where')).toHaveTextContent('/agents?open=a1')
+    expect(within(screen.getByTestId('operator-picture')).getByTestId('operator-picture-source-resourceUsage-state')).toHaveTextContent('Not reading')
   })
 
   test('a tool that answers on only some of the nodes is said as read on only some of them', async () => {
@@ -1034,7 +1036,7 @@ describe('PipelinePage - local operators', () => {
     expect(within(row).getByTestId('component-reason-local:a1')).toHaveTextContent(/read on only some of the nodes: Energy/)
   })
 
-  test('a local operator\'s menu has What it collects here (the agent\'s Telemetry section with the picture) above Change what it sends', async () => {
+  test('a local operator\'s menu has What it collects here (its detail, with the picture) above Change what it sends', async () => {
     const user = userEvent.setup()
     topologyState = { agents: [ag({ diagnostics: { installedTelemetry: ['resourceUsage'], reportedAt: minutesAgo(1) } } as Partial<Agent>)], clusters: [cl()] }
     renderPage()
@@ -1044,7 +1046,27 @@ describe('PipelinePage - local operators', () => {
     expect(items.findIndex((t) => /What it collects here/.test(t ?? ''))).toBeGreaterThanOrEqual(0)
     expect(items.findIndex((t) => /What it collects here/.test(t ?? ''))).toBeLessThan(items.findIndex((t) => /Change what it sends/.test(t ?? '')))
     await user.click(screen.getByTestId('local-collects-edge-agent collector'))
-    expect(screen.getByTestId('where')).toHaveTextContent('/agents?open=a1')
+    expect(screen.getByTestId('local-operator-detail')).toBeInTheDocument()
+    expect(screen.getByTestId('where')).not.toHaveTextContent('/agents')
+  })
+
+  test('the name of a local operator opens its detail too, with what is installed and the way to change it, and Escape closes it', async () => {
+    const user = userEvent.setup()
+    topologyState = { agents: [installedAgent()], clusters: [cl()] }
+    renderPage()
+    await user.click(await screen.findByTestId('local-open-edge-agent collector'))
+    const detail = screen.getByTestId('local-operator-detail')
+    expect(within(screen.getByTestId('local-operator-installed')).getAllByRole('listitem').map((l) => l.textContent)).toEqual(['Resource usage', 'System logs'])
+    expect(within(detail).getByTestId('local-operator-change')).toBeEnabled()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByTestId('local-operator-detail')).toBeNull()
+  })
+
+  test('a link from the agent (/pipeline?open=<agent>) opens that local operator\'s detail, and is spent at once', async () => {
+    topologyState = { agents: [installedAgent()], clusters: [cl()] }
+    renderPage('/pipeline?open=a1')
+    expect(await screen.findByTestId('local-operator-detail')).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/pipeline$/)
   })
 
   test('someone who is not an administrator gets the destination from the read model, and no operator is loaded', async () => {

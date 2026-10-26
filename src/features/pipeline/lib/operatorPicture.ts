@@ -199,6 +199,8 @@ export interface OperatorPicture {
   groups: PictureGroup[]
   collectors: PictureCollectors
   lanes: ArrivalRow[]
+  /** "Is data arriving?" in one sentence, and the one thing to do about it when there is something: what the lanes are the rows of. */
+  arrival: { health: Health; headline: string; todo?: string }
   destination?: string
   /** Whether the picture should be open without being asked: something along the path needs a look. */
   needsAttention: boolean
@@ -254,7 +256,7 @@ export function operatorPicture(o: { installed: string[]; diagnostics?: AgentDia
     installed.length === 0
       ? 'Nothing is collected here yet'
       : `${count} ${count === 1 ? 'source' : 'sources'} · ${kinds.join(', ')}${destination ? ` · to ${destination}` : ''}${unread > 0 ? ` · ${unread} to look at` : ''}`
-  return { health, summary, groups, collectors, lanes: a.rows, destination, needsAttention: health === 'attention' || health === 'down' }
+  return { health, summary, groups, collectors, lanes: a.rows, arrival: { health: a.health, headline: a.headline, todo: a.todo }, destination, needsAttention: health === 'attention' || health === 'down' }
 }
 
 /**

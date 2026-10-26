@@ -104,7 +104,7 @@ function Edges({ specs }: { specs: EdgeSpec[] }) {
  * state. Closed by default, a line says what it is; it opens by itself when something along the path needs a look, and a person's own
  * click is never fought after that. Drawn from what the agent reports (see operatorPicture), so it is the same state as "Is data arriving?".
  */
-export default function LocalOperatorPicture({ installed, diagnostics, connected, cluster, namespace, keptByController, openOnArrival = false, testId = 'operator-picture', now: fixedNow }: {
+export default function LocalOperatorPicture({ installed, diagnostics, connected, cluster, namespace, keptByController, openOnArrival = false, bare = false, testId = 'operator-picture', now: fixedNow }: {
   installed: string[]
   diagnostics?: AgentDiagnostics
   connected?: boolean
@@ -114,6 +114,8 @@ export default function LocalOperatorPicture({ installed, diagnostics, connected
   keptByController?: boolean
   /** Open at first, because this is what a link asked to see ("What it collects here"); a person's click still wins afterwards. */
   openOnArrival?: boolean
+  /** Always open and with no header of its own: for a place that already says what it is (the detail of a local operator). */
+  bare?: boolean
   testId?: string
   /** Pins the clock, for a test. */
   now?: number
@@ -127,7 +129,7 @@ export default function LocalOperatorPicture({ installed, diagnostics, connected
   const pic = operatorPicture({ installed, diagnostics, connected, now: fixedNow ?? clock, cluster, namespace })
   // A person's own choice wins once made; until then it follows whether something needs a look.
   const [chosen, setChosen] = useState<boolean | undefined>(openOnArrival ? true : undefined)
-  const open = chosen ?? pic.needsAttention
+  const open = bare || (chosen ?? pic.needsAttention)
   const body = `${testId}-body`
   const specs = useMemo<EdgeSpec[]>(() => {
     const sources = pic.groups.flatMap((g) => g.sources)
@@ -137,8 +139,8 @@ export default function LocalOperatorPicture({ installed, diagnostics, connected
     ]
   }, [pic, testId])
   return (
-    <div className="rounded-xl border border-nb-850 bg-nb-925" data-testid={testId} data-open={open} data-health={pic.health}>
-      <button
+    <div className={bare ? undefined : 'rounded-xl border border-nb-850 bg-nb-925'} data-testid={testId} data-open={open} data-health={pic.health}>
+      {!bare && <button
         type="button"
         className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left"
         aria-expanded={open}
@@ -150,9 +152,9 @@ export default function LocalOperatorPicture({ installed, diagnostics, connected
         <span className="text-sm font-medium text-nb-300">Local operator</span>
         <span className="min-w-0 flex-1 basis-48 truncate text-xs text-nb-400" data-testid={`${testId}-summary`}>{pic.summary}</span>
         {installed.length > 0 && <HealthWord health={pic.health} testId={`${testId}-state`} />}
-      </button>
+      </button>}
       {open && (
-        <div id={body} className="space-y-3 border-t border-nb-850 px-4 py-3" data-testid={body}>
+        <div id={body} className={bare ? 'space-y-3' : 'space-y-3 border-t border-nb-850 px-4 py-3'} data-testid={body}>
           {installed.length === 0 ? (
             <p className="text-xs text-nb-500">No telemetry signal is enabled in this install, so there is nothing for the collectors to take in. Turn signals on under Change telemetry.</p>
           ) : (

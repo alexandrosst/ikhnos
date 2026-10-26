@@ -6,6 +6,7 @@ import { ConfirmModal } from '@/components/forms'
 import ComponentsTable from '@/features/pipeline/components/operators/ComponentsTable'
 import CreateOperatorModal from '@/features/pipeline/components/operators/CreateOperatorModal'
 import { useFusion } from '@/features/fusion/components/useFusion'
+import LocalOperatorDetail from '@/features/pipeline/components/operators/LocalOperatorDetail'
 import HealthModal from '@/features/pipeline/components/operators/HealthModal'
 import { HEARTBEAT_WHAT } from '@/features/pipeline/components/operators/HeartbeatCommands'
 import { OperatorAddressModal } from '@/features/pipeline/components/operators/OperatorAddress'
@@ -24,6 +25,7 @@ import { operatorFromDestination } from '@/features/pipeline/lib/destinationCata
 import { CENTRAL_OPERATOR_ID, fusionSentence } from '@/features/fusion/lib/fusionStatus'
 import { isReportingHealth, receiverAuthOf } from '@/features/pipeline/lib/operatorHealth'
 import { buildComponents, buildHops, KIND_PLURAL, KINDS, needAttention, type ComponentRow, type Kind, type Todo } from '@/features/pipeline/lib/operatorsView'
+import { extrasOf } from '@/lib/consent'
 import type { RegionalOperator } from '@/lib/types'
 import { useOperatorDestinations, useOperators, useTelemetryIntents } from '@/lib/useOperators'
 import { useServer } from '@/store/server'
@@ -93,10 +95,22 @@ export default function PipelinePage() {
   const [certsFor, setCertsFor] = useState<RegionalOperator | null>(null)
   const [sendersFor, setSendersFor] = useState<RegionalOperator | null>(null)
   const [todoFor, setTodoFor] = useState<ComponentRow | null>(null)
+  // The detail of one local operator (its picture), opened from its row, from "What to do", or by `/pipeline?open=<agent id>` (the link on the agent).
+  const [detailFor, setDetailFor] = useState<string | null>(null)
 
   // What a destination can be named by: the full list for an administrator, the read model for anyone else.
   const known = useMemo(() => (admin ? operators : destinations.map(operatorFromDestination)), [admin, operators, destinations])
   const rows = useMemo(() => buildComponents({ agents, clusters, rawAgents, intents, operators, known, now }), [agents, clusters, rawAgents, intents, operators, known, now])
+  const detailRow = detailFor ? rows.find((r) => r.id === detailFor && r.kind === 'local') : undefined
+  // The parameter is spent at once, so closing the detail, or a reload, does not open it again; it waits for the list if that is not here yet.
+  const wantOpen = sp.get('open')
+  useEffect(() => {
+    if (!wantOpen) return
+    const row = rows.find((r) => r.kind === 'local' && r.agentId === wantOpen)
+    if (!row) return
+    setDetailFor(row.id)
+    setSp((p) => { const n = new URLSearchParams(p); n.delete('open'); return n }, { replace: true })
+  }, [wantOpen, rows, setSp])
   const fusionKind = fusionSentence(fusion.status).kind
   const hops = useMemo(
     () => buildHops(rows, { kind: fusionKind, lastDataAt: fusion.status?.lastDataAt }).filter((h) => admin || (h.key !== 'regional' && h.key !== 'central')),
@@ -146,7 +160,7 @@ export default function PipelinePage() {
     if (!op) {
       if (r.kind === 'agent') return [{ key: 'agents', label: 'Open in Agents', onSelect: () => navigate('/agents'), testId: `agent-open-${r.name}` }]
       return [
-        { key: 'collects', label: 'What it collects here', title: 'Opens the agent’s Telemetry section: the picture, the arrival check and the ways to change it', onSelect: () => navigate(`/agents?open=${encodeURIComponent(r.agentId ?? '')}`), disabled: !r.agentId, testId: `local-collects-${r.name}` },
+        { key: 'collects', label: 'What it collects here', title: 'The picture of what it collects and where it goes, and whether data is arriving', onSelect: () => setDetailFor(r.id), disabled: !r.agentId, testId: `local-collects-${r.name}` },
         { key: 'configure', label: 'Change what it sends…', onSelect: () => telemetry.start(r.agentId), disabled: !canConsent, title: canConsent ? undefined : 'Changing telemetry needs permission to edit', testId: `local-configure-${r.name}` }]
     }
     const remove: RowMenuItem = { key: 'delete', label: 'Stop and remove…', danger: true, onSelect: () => setRemoving({ operator: op, mode: 'delete' }), testId: `operator-delete-${op.name}` }
@@ -177,7 +191,7 @@ export default function PipelinePage() {
     setTodoFor(null)
     if (!row) return
     if (kind === 'configure') telemetry.start(row.agentId)
-    else if (kind === 'collects' && row.agentId) navigate(`/agents?open=${encodeURIComponent(row.agentId)}`)
+    else if (kind === 'collects' && row.agentId) setDetailFor(row.id)
     else if (kind === 'address' && row.operator) setAddressFor(row.operator)
     else if (kind === 'renew' && row.operator) setConfirmRenew(row.operator)
     else navigate(kind === 'fusion' ? '/fusion' : '/agents')
@@ -250,7 +264,7 @@ export default function PipelinePage() {
             )}
           </div>
 
-          <ComponentsTable rows={shown} now={now} menuFor={menuFor} onWhatToDo={setTodoFor} />
+          <ComponentsTable rows={shown} now={now} menuFor={menuFor} onWhatToDo={setTodoFor} onOpen={(r) => setDetailFor(r.id)} />
           {!admin && <p className="mt-3 text-xs text-nb-500">Regional operators are only shown to organisation administrators.</p>}
 
           {admin && (
@@ -281,6 +295,19 @@ export default function PipelinePage() {
             </details>
           )}
         </>
+      )}
+
+      {detailRow && detailRow.agentId && (
+        <LocalOperatorDetail
+          row={detailRow}
+          extras={extrasOf(rawAgents, detailRow.agentId)}
+          connected={agents.find((a) => a.id === detailRow.agentId)?.connected}
+          namespace={agents.find((a) => a.id === detailRow.agentId)?.namespace}
+          now={now}
+          canConsent={canConsent}
+          onChange={() => { const id = detailRow.agentId; setDetailFor(null); telemetry.start(id) }}
+          onClose={() => setDetailFor(null)}
+        />
       )}
 
       {todoFor?.verdict.todo && <WhatToDoModal row={todoFor} todo={todoFor.verdict.todo} onClose={() => setTodoFor(null)} onAction={doTodo} busy={renewing !== null && todoFor.verdict.todo.action?.kind === 'renew' ? 'Another renewal is in progress' : undefined} />}
