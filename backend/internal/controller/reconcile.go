@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -536,6 +537,11 @@ func (r *Reconciler) setStatus(ctx context.Context, obj *unstructured.Unstructur
 	st.Requested = old.Requested
 	if st.Relay == nil {
 		st.Relay = old.Relay // the answer stands until the controller gives another
+	}
+	if st.Relay != nil && utf8.RuneCountInString(st.Relay.Reason) > maxRelayReason {
+		rel := *st.Relay // whatever worded it, the definition would refuse the whole status for a reason longer than it allows
+		rel.Reason = cutRunes(rel.Reason, maxRelayReason-1)
+		st.Relay = &rel
 	}
 	if equalStatus(old, st) {
 		return nil

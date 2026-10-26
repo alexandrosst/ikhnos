@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"unicode/utf8"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -22,8 +23,8 @@ const resourceAPIVersion = "ikhnos.io/v1alpha1"
 // field without saying so (Helm never updates a CRD it has installed), and an agent that took that for success would never be removed.
 func MarkResourceRevoked(kube kubernetes.Interface, namespace, name string) func(ctx context.Context, reason string) error {
 	return func(ctx context.Context, reason string) error {
-		if len(reason) > 200 {
-			reason = reason[:200]
+		if utf8.RuneCountInString(reason) > 200 { // the definition counts characters; a cut inside one would be written back as something else
+			reason = string([]rune(reason)[:200])
 		}
 		body, err := json.Marshal(map[string]any{"status": map[string]any{"revoked": map[string]string{"reason": reason}}})
 		if err != nil {

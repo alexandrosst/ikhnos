@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -70,8 +71,12 @@ func (r *Reconciler) planRelay(name string, obj *unstructured.Unstructured, spec
 	}
 	if st.Relay != nil && st.Relay.Revision == req.Revision {
 		// Answered. An applied request that asks for something stays in force; anything else (refused, put back, or taken back) is not.
+		// It is held to what a fresh one is: if the spec has changed since, or the controller no longer has the permissions, so that the
+		// request can no longer be installed, the spec alone is in force; a stale request must not keep an edit of the owner's from taking effect.
 		if st.Relay.State == relay.Applied && req.Asks() {
-			p.spec, p.overlay = withRequest(spec, *req), true
+			if merged := withRequest(spec, *req); r.admits(name, merged, token) == "" {
+				p.spec, p.overlay = merged, true
+			}
 		}
 		return p
 	}
@@ -80,16 +85,23 @@ func (r *Reconciler) planRelay(name string, obj *unstructured.Unstructured, spec
 		return p
 	}
 	merged := withRequest(spec, *req)
-	if merged.AsksForTelemetry() && !r.AllowTelemetry {
-		p.refused = "this cluster's controller was not given the permissions telemetry needs (allowTelemetry in its chart), so it cannot turn a signal on"
-		return p
-	}
-	if _, err := r.values(name, merged, token); err != nil {
-		p.refused = "this cluster cannot take it: " + reasonOf(err)
+	if why := r.admits(name, merged, token); why != "" {
+		p.refused = why
 		return p
 	}
 	p.spec, p.overlay = merged, true
 	return p
+}
+
+// admits is why the spec with a request over it cannot be installed by this controller, or "" when it can.
+func (r *Reconciler) admits(name string, merged Spec, token string) string {
+	if merged.AsksForTelemetry() && !r.AllowTelemetry {
+		return "this cluster's controller was not given the permissions telemetry needs (allowTelemetry in its chart), so it cannot turn a signal on"
+	}
+	if _, err := r.values(name, merged, token); err != nil {
+		return "this cluster cannot take it: " + reasonOf(err)
+	}
+	return ""
 }
 
 // withRequest is the spec as a request would have it: the signals and the share of the traces replaced, the rest the owner's. A request
@@ -124,10 +136,19 @@ func reasonOf(err error) string {
 	if pe, ok := err.(*install.ProblemsError); ok {
 		msg = strings.Join(pe.Problems, "; ")
 	}
-	if len(msg) > 450 {
-		msg = msg[:450] + "…"
+	return cutRunes(msg, 450)
+}
+
+// maxRelayReason is the longest status.relay.reason the definition accepts (characters, not bytes).
+const maxRelayReason = 500
+
+// cutRunes cuts s to at most n characters, with an ellipsis when it was cut. It never splits a character, so what it returns is valid text
+// the API server accepts, and it counts characters, which is how the definition's maxLength counts.
+func cutRunes(s string, n int) string {
+	if utf8.RuneCountInString(s) <= n {
+		return s
 	}
-	return msg
+	return string([]rune(s)[:n]) + "…"
 }
 
 // settle waits for what the release runs to be ready after a change: the agent and the telemetry collectors, each rolled out with no old

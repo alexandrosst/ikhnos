@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -343,3 +344,43 @@ func TestAControllerThatWasNotAskedToRelayReadsNoRequestAndLeavesTheAgentNotToPa
 }
 
 var _ = unstructured.Unstructured{}
+
+// A request that was applied stays over the owner's spec only while the spec with it over it can be installed. An owner who then takes the
+// destination out of the resource would otherwise find the resource Invalid for as long as the old request stood.
+func TestAnAppliedRequestThatTheOwnersLaterEditMakesUninstallableGivesWayToTheEdit(t *testing.T) {
+	g := relayRig(t)
+	g.request("a", asked(1, map[string]any{"resourceUsage": true, "traces": true}, nil))
+	g.must("a")
+	if r := g.status("a").Relay; r == nil || r.State != relay.Applied {
+		t.Fatalf("the starting point: %+v", r)
+	}
+	g.setSpec("a", specWithTelemetry(map[string]any{"signals": map[string]any{}}))
+	g.must("a")
+	st := g.status("a")
+	if st.Phase != PhaseReady {
+		t.Fatalf("an edit of the owner's was held back by an old request: %s %+v", st.Phase, st.Conditions)
+	}
+	if _, on := g.inst.lastApplied()["telemetry"]; on {
+		t.Fatalf("the old request was still over the owner's spec: %v", g.inst.lastApplied()["telemetry"])
+	}
+}
+
+func TestAReasonIsCutByCharactersAndNeverPastWhatTheDefinitionAllows(t *testing.T) {
+	long := strings.Repeat("é", 700)
+	got := reasonOf(errors.New(long))
+	if !utf8.ValidString(got) || utf8.RuneCountInString(got) != 451 {
+		t.Fatalf("a reason cut in the middle of a character or at the wrong length: %d characters, valid %v", utf8.RuneCountInString(got), utf8.ValidString(got))
+	}
+	// The refusal that wraps a long reason in a sentence of its own must still fit.
+	g := relayRig(t)
+	g.inst.mu.Lock()
+	g.inst.applyErr = nil
+	g.inst.mu.Unlock()
+	st := Status{Relay: &relay.Result{Revision: 9, State: relay.Refused, Reason: "the resource cannot be installed as it is, so nothing can be changed on it: " + got}}
+	if err := g.r.setStatus(context.Background(), g.get("a"), st, Condition{Type: "Ready", Status: "False", Reason: "InvalidSpec", Message: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	if n := utf8.RuneCountInString(g.status("a").Relay.Reason); n > maxRelayReason {
+		t.Fatalf("the reason written is %d characters, the definition allows %d", n, maxRelayReason)
+	}
+}
