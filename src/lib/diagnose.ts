@@ -177,6 +177,18 @@ export function diagnoseAgent(a: Agent, extras: AgentExtras, now: number): Diagn
   return { verdict, headline, findings, checks }
 }
 
+/** What a finding says in one line: the thing to do when there is one (it starts with the verb), otherwise what is the case. */
+export function oneLine(f: Finding): string {
+  return firstSentence(f.fix ?? f.detail)
+}
+
+/** The first sentence of a text, cut where a full stop is followed by a space or the end. A text without one is returned whole. */
+export function firstSentence(text: string): string {
+  const t = text.trim()
+  const m = /^.*?[.!?](?=\s|$)/s.exec(t)
+  return m ? m[0] : t
+}
+
 /** The diagnosis as plain text, for pasting into a ticket: no addresses, no secrets, nothing the person could not read on the screen. */
 export function diagnosisText(a: Agent, extras: AgentExtras, dx: Diagnosis, now: number): string {
   const lines = [

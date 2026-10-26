@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, test, vi } from 'vitest'
 import { DiagnoseDrawer } from '@/features/agents/components/DiagnoseDrawer'
-import { diagnoseAgent, diagnosisText, logCommand } from '@/lib/diagnose'
+import { diagnoseAgent, diagnosisText, firstSentence, logCommand } from '@/lib/diagnose'
 import { otlpAddress } from '@/lib/exportHealth'
 import type { AgentDiagnostics, AgentExtras } from '@/lib/consent'
 import type { Agent } from '@/lib/types'
@@ -93,12 +93,41 @@ vi.mock('@/store/server', () => ({
 vi.mock('@/features/fusion/components/useFusion', () => ({ useFusion: () => ({ status: null }) }))
 
 describe('DiagnoseDrawer', () => {
-  test('shows the verdict, the to-do list in order, and everything that was checked', () => {
+  test('says how many things to look at, shows each as a short card, and keeps what was checked folded', () => {
     render(<DiagnoseDrawer agent={agent({ connected: false })} extras={well} now={NOW} onClose={() => {}} />)
     expect(screen.getByTestId('diagnose-verdict')).toHaveAttribute('data-verdict', 'down')
-    expect(screen.getAllByTestId('diagnose-finding')[0]).toHaveAttribute('data-finding', 'stream')
-    expect(screen.getAllByTestId('diagnose-check').length).toBeGreaterThan(5)
+    expect(screen.getByTestId('diagnose-lead')).toHaveTextContent('1 thing to look at')
+    const cards = screen.getAllByTestId('diagnose-finding')
+    expect(cards[0]).toHaveAttribute('data-finding', 'stream')
+    // closed: the first thing to do, in one sentence, and the command to copy; the rest waits for a click
+    expect(cards[0]).toHaveTextContent('Check that its pod is running')
+    expect(cards[0]).not.toHaveTextContent('Its own log says why')
+    expect(screen.queryByTestId('diagnose-command')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Copy command' })).toBeInTheDocument()
+    expect(screen.queryAllByTestId('diagnose-check')).toHaveLength(0)
+    expect(screen.getByTestId('diagnose-checked-toggle')).toHaveTextContent(/Checked: \d+ fine, 1 to look at/)
     expect(screen.queryByTestId('diagnose-grafana')).toBeNull()
+  })
+
+  test('a finding opens to its explanation and its command, and the checks open by group', () => {
+    render(<DiagnoseDrawer agent={agent({ connected: false })} extras={well} now={NOW} onClose={() => {}} />)
+    fireEvent.click(screen.getByTestId('diagnose-finding-toggle'))
+    expect(screen.getByTestId('diagnose-finding')).toHaveTextContent('Its own log says why it cannot connect')
+    expect(screen.getByTestId('diagnose-command')).toHaveTextContent('kubectl -n ikhnos-system logs deploy/ikhnos-agent')
+    fireEvent.click(screen.getByTestId('diagnose-checked-toggle'))
+    expect(screen.getAllByTestId('diagnose-check').length).toBeGreaterThan(5)
+    // the group with something to look at is open, the others closed
+    const groups = screen.getAllByTestId('diagnose-group')
+    expect(groups.find((g) => g.getAttribute('data-group') === 'Connection')).toHaveAttribute('open')
+    expect(groups.find((g) => g.getAttribute('data-group') === 'What it reports')).not.toHaveAttribute('open')
+  })
+
+  test('an agent that is well is one card: nothing to do, and how many checks were fine', () => {
+    render(<DiagnoseDrawer agent={agent()} extras={well} now={NOW} onClose={() => {}} />)
+    expect(screen.getByTestId('diagnose-verdict')).toHaveAttribute('data-verdict', 'healthy')
+    expect(screen.getByTestId('diagnose-lead')).toHaveTextContent('Nothing to do')
+    expect(screen.getByTestId('diagnose-verdict')).toHaveTextContent(/\d+ checks, all fine/)
+    expect(screen.queryAllByTestId('diagnose-finding')).toHaveLength(0)
   })
 
   test('Escape closes it', () => {
@@ -106,6 +135,15 @@ describe('DiagnoseDrawer', () => {
     render(<DiagnoseDrawer agent={agent()} extras={well} now={NOW} onClose={close} />)
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(close).toHaveBeenCalled()
+  })
+})
+
+describe('the one line of a finding', () => {
+  test('is the first sentence, and a text without a full stop is kept whole', () => {
+    expect(firstSentence('Check the pod. Its log says why.')).toBe('Check the pod.')
+    expect(firstSentence('Approve it on this page with the code its install printed.')).toBe('Approve it on this page with the code its install printed.')
+    expect(firstSentence('no stop here')).toBe('no stop here')
+    expect(firstSentence('version 1.4.0 is old. Upgrade.')).toBe('version 1.4.0 is old.')
   })
 })
 

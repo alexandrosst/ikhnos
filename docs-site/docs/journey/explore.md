@@ -36,7 +36,7 @@ A cluster has a **tier**: cloud, edge or far edge. Ikhnos guesses a sensible one
 
 It shows the three settings from step 4 side by side: **ceiling**, **approved** and **effective**. This is where an administrator narrows what an agent shares: lowering the approved level, pausing an optional collector, or leaving more namespaces out. Widening past the ceiling always needs a `helm upgrade` on the cluster itself, and the page shows you the exact command.
 
-Each row has a **Diagnose** button. It explains what is wrong with that agent, worst first, and gives the `kubectl` command for each finding. When something looks off, start there.
+Each row has a **Diagnose** button. It says in a line how many things there are to look at (or that there is nothing to do), shows each as a short card, worst first, with the first thing to do and a button that copies its `kubectl` command, and opens to the full explanation on a click. What was checked is folded below, with a dot for each check. When something looks off, start there.
 
 The **Suggestions** tab is where Ikhnos puts things it noticed and did not decide for you: a likely grouping of services into an application, or traffic that points at a cluster you have not connected yet. Accept, correct or dismiss each one. Nothing is applied automatically.
 
