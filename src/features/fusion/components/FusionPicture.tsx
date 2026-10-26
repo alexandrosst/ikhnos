@@ -109,7 +109,7 @@ export function FusionPicture({ model }: { model: FusionPictureModel }) {
         <Edges edges={model.edges} />
       </div>
       <p className="mt-3 text-xs text-nb-500">
-        Green and moving: the part is up and data is arriving. Grey: not known. Amber: held up. Red: not working. The arrows into the stores follow each store's own state; how much went to which is not measured.
+        Green and moving: the part is up and data is arriving. Grey: not known. Amber: held up. Red: not working. Each arrow into a store is green only if that store itself held something in the last five minutes; how much went to which is not measured.
       </p>
     </div>
   )

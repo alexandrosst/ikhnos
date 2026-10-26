@@ -492,6 +492,86 @@ func TestStatusCarriesTheTimeOfTheLastData(t *testing.T) {
 	}
 }
 
+func TestStatusSaysWhenEachStoreLastHeldData(t *testing.T) {
+	f, k, now := cachedFusion(t)
+	f.StatusTTL = -1
+	prom := newFakeProm(t)
+	prom.value.Store("1790000000")
+	var logLine, traceStart atomic.Value // unix seconds as a string; "" = the store holds nothing, "fail" = a 500
+	logLine.Store("1790000010")
+	traceStart.Store("")
+	var asked atomic.Int32
+	loki := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked.Add(1)
+		switch v := logLine.Load().(string); v {
+		case "fail":
+			http.Error(w, "boom", 500)
+		case "":
+			jsonOut(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "streams", "result": []any{}}})
+		default:
+			secs, _ := strconv.ParseInt(v, 10, 64)
+			jsonOut(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "streams", "result": []any{
+				map[string]any{"stream": map[string]string{"service_name": "api"}, "values": [][]string{{strconv.FormatInt(secs*1e9, 10), "hello"}}}}}})
+		}
+	}))
+	t.Cleanup(loki.Close)
+	tempo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked.Add(1)
+		switch v := traceStart.Load().(string); v {
+		case "fail":
+			http.Error(w, "boom", 500)
+		case "":
+			jsonOut(w, map[string]any{"traces": []any{}})
+		default:
+			secs, _ := strconv.ParseInt(v, 10, 64)
+			jsonOut(w, map[string]any{"traces": []any{map[string]any{"traceID": "0123456789abcdef0123456789abcdef", "startTimeUnixNano": strconv.FormatInt(secs*1e9, 10), "durationMs": 2}}})
+		}
+	}))
+	t.Cleanup(tempo.Close)
+	f.Data = &fusionapi.Client{Prometheus: prom.URL, Loki: loki.URL, Tempo: tempo.URL, Now: func() time.Time { return time.Unix(1790000100, 0).UTC() }}
+	ctx := context.Background()
+
+	// Nothing is up: no store is asked.
+	if st := f.Status(ctx); st.LastData != nil || asked.Load() != 0 {
+		t.Fatalf("asked before the stores were up: %+v (%d)", st.LastData, asked.Load())
+	}
+	k.allReady()
+	st := f.Status(ctx)
+	if st.LastData == nil || st.LastData.Metrics == nil || st.LastData.Logs == nil || st.LastData.Traces != nil {
+		t.Fatalf("metrics and logs have data, traces none: %+v", st.LastData)
+	}
+	if st.LastData.Logs.Unix() != 1790000010 || st.LastData.Metrics.Unix() != 1790000000 || st.LastDataAt == nil || st.LastDataAt.Unix() != 1790000000 {
+		t.Errorf("times: %+v, lastDataAt %v", st.LastData, st.LastDataAt)
+	}
+	// Asked only once per 15 s, however often the status is read.
+	for range 4 {
+		f.Status(ctx)
+	}
+	if asked.Load() != 2 {
+		t.Fatalf("%d asks of Loki and Tempo inside 15 s", asked.Load())
+	}
+	// Then Tempo has a trace, Loki fails, and what Loki said before stands.
+	traceStart.Store("1790000050")
+	logLine.Store("fail")
+	*now = now.Add(16 * time.Second)
+	st = f.Status(ctx)
+	if st.LastData.Traces == nil || st.LastData.Traces.Unix() != 1790000050 || st.LastData.Logs == nil || st.LastData.Logs.Unix() != 1790000010 {
+		t.Fatalf("after a failing Loki: %+v", st.LastData)
+	}
+	// A store that is not up is not told, even from what was seen.
+	k.mu.Lock()
+	k.ready["ikhnos-fusion-loki"] = 0
+	k.mu.Unlock()
+	*now = now.Add(16 * time.Second)
+	if st = f.Status(ctx); st.LastData == nil || st.LastData.Logs != nil {
+		t.Errorf("logs are not up: %+v", st.LastData)
+	}
+	b, _ := json.Marshal(st)
+	if !strings.Contains(string(b), `"lastData"`) {
+		t.Errorf("the times are on the wire: %s", b)
+	}
+}
+
 // ---- the gateway's address ----
 
 func enabledCentral(t *testing.T) (*adminRig, *fusion.FusionControl, *fakeKube, *time.Time) {

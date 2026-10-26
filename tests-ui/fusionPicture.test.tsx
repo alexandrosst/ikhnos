@@ -11,7 +11,8 @@ const NOW = Date.parse('2026-10-01T12:00:00Z')
 const LABEL = { metrics: 'Prometheus', logs: 'Loki', traces: 'Tempo', central: 'Central operator', grafana: 'Grafana' } as const
 const part = (component: keyof typeof LABEL, over: object = {}) => ({ component, label: LABEL[component], desired: 1, ready: 1, ...over })
 const status = (over: Partial<FusionStatus> = {}): FusionStatus => ({
-  available: true, state: 'running', data: true, lastDataAt: new Date(NOW - 12_000).toISOString(), since: new Date(NOW - 3600_000).toISOString(),
+  available: true, state: 'running', data: true, lastDataAt: new Date(NOW - 12_000).toISOString(),
+  lastData: { metrics: new Date(NOW - 12_000).toISOString(), logs: new Date(NOW - 20_000).toISOString(), traces: new Date(NOW - 30_000).toISOString() }, since: new Date(NOW - 3600_000).toISOString(),
   components: [part('central'), part('metrics'), part('logs'), part('traces'), part('grafana')],
   central: { operatorId: 'op-central', endpoint: 'central.example:4317', exposed: true, exists: true },
   ...over,
@@ -58,9 +59,29 @@ describe('fusionPicture', () => {
   })
 
   test('no data for a while is not drawn as moving', () => {
-    const m = model(status({ lastDataAt: new Date(NOW - 20 * 60_000).toISOString() }))
+    const old = new Date(NOW - 20 * 60_000).toISOString()
+    const m = model(status({ lastDataAt: old, lastData: { metrics: old, logs: old, traces: old } }))
     expect(link(m, 'central', 'metrics')).toBe('unknown')
+    expect(link(m, 'regional', 'central')).toBe('unknown')
     expect(link(m, 'metrics', 'grafana')).toBe('flowing')
+  })
+
+  test('each store is drawn as receiving only on its own word: one that is quiet while the others receive is not', () => {
+    const m = model(status({ lastData: { metrics: new Date(NOW - 5_000).toISOString(), traces: new Date(NOW - 2 * 3600_000).toISOString() } }))
+    expect(link(m, 'central', 'metrics')).toBe('flowing')
+    expect(link(m, 'central', 'logs')).toBe('unknown')
+    expect(link(m, 'central', 'traces')).toBe('unknown')
+    expect(link(m, 'regional', 'central')).toBe('flowing')
+    expect(m.stores.find((n) => n.id === 'logs')?.more).toBe('No log line in the last six hours')
+    expect(m.stores.find((n) => n.id === 'traces')?.more).toBe('Last trace 2 h ago')
+    expect(m.stores.find((n) => n.id === 'metrics')?.more).toBe('Last sample just now')
+  })
+
+  test('a server that only knows the metrics time says nothing of the logs and traces', () => {
+    const m = model(status({ lastData: undefined }))
+    expect(link(m, 'central', 'metrics')).toBe('flowing')
+    expect(link(m, 'central', 'logs')).toBe('unknown')
+    expect(m.stores.find((n) => n.id === 'logs')?.more).toBeUndefined()
   })
 
   test('local operators are drawn only where some send straight to it, and nothing sending says so', () => {

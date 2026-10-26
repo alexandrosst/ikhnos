@@ -1,4 +1,5 @@
 import type { FusionComponent, FusionRetention, FusionRetentionStore, FusionStatus } from '@/lib/api'
+import { ago } from '@/lib/observed'
 import { NO_DATA_AFTER_MS, fusionSentence, partHealth, type FusionProblem, type Shown } from '@/features/fusion/lib/fusionStatus'
 import type { LinkState } from '@/lib/linkTone'
 import type { HealthOrSetup } from '@/lib/status'
@@ -43,6 +44,8 @@ type State = HealthOrSetup
 type Hop = SendingHop
 type HopGroup = SendingGroup
 
+const LAST_WORD = { metrics: 'sample', logs: 'log line', traces: 'trace' } as const
+
 const ORDER: LinkState[] = ['broken', 'stalled', 'unknown', 'flowing']
 /** Of two links the one that says less: a flow is only as good as its worst stretch. */
 const worse = (a: LinkState, b: LinkState): LinkState => (ORDER.indexOf(a) <= ORDER.indexOf(b) ? a : b)
@@ -84,8 +87,11 @@ export function fusionPicture({ status, retention, problems, hops, now }: { stat
   const parts = status.components ?? []
   const byName = (n: FusionComponent['component']) => parts.find((c) => c.component === n && c.desired > 0)
   const centralPart = byName('central')
-  const last = status.lastDataAt ? Date.parse(status.lastDataAt) : NaN
-  const fresh = Number.isFinite(last) && now - last <= NO_DATA_AFTER_MS
+  // When each store last held something. A server that does not say (an older one) only knows the metrics store's time.
+  const times: Partial<Record<'metrics' | 'logs' | 'traces', string>> = status.lastData ?? { metrics: status.lastDataAt }
+  const recent = (iso?: string) => !!iso && Number.isFinite(Date.parse(iso)) && now - Date.parse(iso) <= NO_DATA_AFTER_MS
+  // Data is arriving at FUSION when any store received something lately; what a store itself received is its own question.
+  const fresh = recent(times.metrics) || recent(times.logs) || recent(times.traces) || recent(status.lastDataAt)
   const health = (c: FusionComponent) => partHealth(c, kind, problems)
 
   const exposed = status.central?.exposed
@@ -130,8 +136,12 @@ export function fusionPicture({ status, retention, problems, hops, now }: { stat
     if (!c) continue
     const h = health(c)
     const st = retention?.available ? retention.stores.find((s) => s.component === name) : undefined
-    stores.push({ id: name, title: c.label, health: h, note: { metrics: 'metrics', logs: 'logs', traces: 'traces' }[name], more: c.reason && c.ready < c.desired ? c.reason : undefined, store: st })
-    const own = partLink(h, fresh)
+    // A store is drawn as receiving only when it holds something that arrived lately; "nothing yet" and "a while ago" claim no movement.
+    const own = partLink(h, recent(times[name]))
+    const seen = times[name]
+    // What the store last held, in words; an older server does not say for logs and traces, so nothing is said of them.
+    const lastWord = seen ? `Last ${LAST_WORD[name]} ${ago(seen, now)}` : h !== 'healthy' ? undefined : name === 'metrics' ? 'No sample yet' : status.lastData ? `No ${LAST_WORD[name]} in the last six hours` : undefined
+    stores.push({ id: name, title: c.label, health: h, note: { metrics: 'metrics', logs: 'logs', traces: 'traces' }[name], more: c.reason && c.ready < c.desired ? c.reason : lastWord, store: st })
     edges.push({ from: 'central', to: name, link: worse(centralIn, own) })
   }
 

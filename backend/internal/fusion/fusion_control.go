@@ -71,6 +71,9 @@ type FusionControl struct {
 	lastDataMu    sync.Mutex
 	lastDataSeen  time.Time
 	lastDataTried time.Time
+	// lastLogSeen and lastTraceSeen are the same for the logs and the traces store, asked at the same time.
+	lastLogSeen   time.Time
+	lastTraceSeen time.Time
 
 	discoverMu sync.Mutex
 	discoverAt time.Time // when the Service was last looked at for an address (see DiscoverAddress)
@@ -402,6 +405,17 @@ type FusionStatus struct {
 	// LastDataAt is when Prometheus last held a fresh sample, so "running" can be told from "running, nothing received
 	// yet". Omitted when unknown.
 	LastDataAt *time.Time `json:"lastDataAt,omitempty"`
+	// LastData is when each store last held something (the newest sample, log line or trace), so a store that has stopped receiving
+	// can be told from one that is fine while the others receive. A store that is not up, or holds nothing in the last hours, is
+	// left out; the whole field is omitted when none is known.
+	LastData *StoreTimes `json:"lastData,omitempty"`
+}
+
+// StoreTimes is a time for each of the three stores.
+type StoreTimes struct {
+	Metrics *time.Time `json:"metrics,omitempty"`
+	Logs    *time.Time `json:"logs,omitempty"`
+	Traces  *time.Time `json:"traces,omitempty"`
 }
 
 // Managed is what the operators module needs of this state to report the central operator's health.
@@ -419,6 +433,16 @@ func (st FusionStatus) clone() FusionStatus {
 	if st.LastDataAt != nil {
 		t := *st.LastDataAt
 		st.LastDataAt = &t
+	}
+	if st.LastData != nil {
+		d := *st.LastData
+		for _, p := range []**time.Time{&d.Metrics, &d.Logs, &d.Traces} {
+			if *p != nil {
+				t := **p
+				*p = &t
+			}
+		}
+		st.LastData = &d
 	}
 	return st
 }
@@ -596,8 +620,8 @@ func (f *FusionControl) readStatus(ctx context.Context) FusionStatus {
 			Reason: r.reason, hard: r.hard, optional: s.Optional})
 	}
 	st = f.assess(comps)
-	if st.ComponentUp(ComponentMetrics) {
-		st.LastDataAt = f.lastDataAt(ctx)
+	if st.ComponentUp(ComponentMetrics) || st.ComponentUp(ComponentLogs) || st.ComponentUp(ComponentTraces) {
+		st.LastDataAt, st.LastData = f.lastData(ctx, st)
 	}
 	return st
 }
@@ -734,30 +758,84 @@ func waitedFor(d time.Duration) string {
 	return strconv.Itoa(int(d.Minutes())) + " minutes"
 }
 
-// lastDataAt is when Prometheus last held a fresh sample, or nil when that is not known. Prometheus is asked at most once
-// per fusionLastDataEvery; a failed ask leaves what was known (data seen more than the lookback ago no longer answers, but
-// it was still the last data). Anything that goes wrong is simply "unknown": it is a nicety next to the state.
-func (f *FusionControl) lastDataAt(ctx context.Context) *time.Time {
+// lastData is when each store last held something: Prometheus's newest sample (which is also the status's LastDataAt), Loki's newest
+// line and Tempo's newest trace, each asked only while its store is up, the three together, at most once per fusionLastDataEvery. A
+// failed ask, or a store that answers "nothing in the last hours", leaves what was known (data seen longer ago than the window no
+// longer answers, but it was still the last data). Anything that goes wrong is simply "unknown": it is a nicety next to the state.
+func (f *FusionControl) lastData(ctx context.Context, st FusionStatus) (*time.Time, *StoreTimes) {
 	f.lastDataMu.Lock()
 	defer f.lastDataMu.Unlock()
 	if now := f.Clock(); f.lastDataTried.IsZero() || now.Sub(f.lastDataTried) >= fusionLastDataEvery {
 		f.lastDataTried = now
-		qctx, cancel := context.WithTimeout(ctx, fusionKubeTimeout)
+		c := f.DataClient()
+		scope := fusionapi.AllSignals()
+		var wg sync.WaitGroup
+		var mt, lt, tt time.Time
+		var mok, lok, tok bool
+		ask := func(up bool, run func(context.Context) (time.Time, bool, error), t *time.Time, ok *bool) {
+			if !up {
+				return
+			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				qctx, cancel := context.WithTimeout(ctx, fusionKubeTimeout)
+				defer cancel()
+				if v, found, err := run(qctx); err == nil && found {
+					*t, *ok = v, true
+				}
+			}()
+		}
 		// Prometheus's own TSDB status, not a query over series: nothing is scraped here (everything is pushed over OTLP), so
 		// `up` does not exist, and target_info - once the obvious choice - is written only for a resource that has a
 		// service.name or service.instance.id, which the infrastructure metrics (hostmetrics, kubelet, cluster state) do not
 		// have; a store full of data then read as "waiting for the first". See Client.HeadMaxTime.
-		t, ok, err := f.DataClient().HeadMaxTime(qctx, fusionapi.AllSignals())
-		cancel()
-		if err == nil && ok {
-			f.lastDataSeen = t
+		ask(st.ComponentUp(ComponentMetrics), func(x context.Context) (time.Time, bool, error) { return c.HeadMaxTime(x, scope) }, &mt, &mok)
+		ask(st.ComponentUp(ComponentLogs), func(x context.Context) (time.Time, bool, error) {
+			return c.NewestLog(x, scope, fusionapi.NewestWindow)
+		}, &lt, &lok)
+		ask(st.ComponentUp(ComponentTraces), func(x context.Context) (time.Time, bool, error) {
+			return c.NewestTrace(x, scope, fusionapi.NewestWindow)
+		}, &tt, &tok)
+		wg.Wait()
+		if mok {
+			f.lastDataSeen = mt
+		}
+		if lok {
+			f.lastLogSeen = lt
+		}
+		if tok {
+			f.lastTraceSeen = tt
 		}
 	}
-	if f.lastDataSeen.IsZero() {
-		return nil
+	var at *time.Time
+	if !f.lastDataSeen.IsZero() {
+		t := f.lastDataSeen
+		at = &t
 	}
-	t := f.lastDataSeen
-	return &t
+	var per StoreTimes
+	var have bool
+	for _, x := range []struct {
+		up   bool
+		seen time.Time
+		to   **time.Time
+	}{
+		{st.ComponentUp(ComponentMetrics), f.lastDataSeen, &per.Metrics},
+		{st.ComponentUp(ComponentLogs), f.lastLogSeen, &per.Logs},
+		{st.ComponentUp(ComponentTraces), f.lastTraceSeen, &per.Traces},
+	} {
+		if x.up && !x.seen.IsZero() {
+			t := x.seen
+			*x.to, have = &t, true
+		}
+	}
+	if !st.ComponentUp(ComponentMetrics) {
+		at = nil // as before: the metrics store's own time is told only while it is up
+	}
+	if !have {
+		return at, nil
+	}
+	return at, &per
 }
 
 // rememberedLastData is what lastDataAt last found, without asking again.

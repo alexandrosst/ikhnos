@@ -1274,6 +1274,7 @@ export interface FusionFusionStatus {
   since?: string
   components?: FusionComponent[]
   lastDataAt?: string
+  lastData?: StoreTimes
 }
 
 export interface FusionLinkPair {
@@ -1315,6 +1316,7 @@ export interface FusionStatus {
   since?: string
   components?: FusionComponent[]
   lastDataAt?: string
+  lastData?: StoreTimes
   central?: CentralDoc
   data: boolean
   links?: PageLinks
@@ -2812,6 +2814,12 @@ export interface StorageDoc {
   error?: string
   ready?: boolean
   stats?: Stats
+}
+
+export interface StoreTimes {
+  metrics?: string
+  logs?: string
+  traces?: string
 }
 
 export interface SubmitProposalRequest {

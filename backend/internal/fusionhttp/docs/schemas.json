@@ -11,7 +11,9 @@
       "components": {"type": "array", "description": "Each part of FUSION and how many of its pods are ready.", "items": {"type": "object", "properties": {
         "component": {"type": "string"}, "label": {"type": "string"}, "desired": {"type": "integer"}, "ready": {"type": "integer"},
         "reason": {"type": "string", "description": "In plain words, why the part is not ready; absent while it is ready or when the cause cannot be told."}}, "required": ["component", "label", "desired", "ready"]}},
-      "lastDataAt": {"type": "string", "format": "date-time", "description": "When the metrics store last held a fresh sample, so `running` can be told from `running, nothing received yet`. Absent when unknown."}}, "required": ["available", "state"]},
+      "lastDataAt": {"type": "string", "format": "date-time", "description": "When the metrics store last held a fresh sample, so `running` can be told from `running, nothing received yet`. Absent when unknown."},
+      "lastData": {"type": "object", "description": "When each store last held something: its newest sample, log line or trace (looked for in the last six hours). A store that is not up, or holds nothing in that time, is left out; the whole field is absent when none is known.", "properties": {
+        "metrics": {"type": "string", "format": "date-time"}, "logs": {"type": "string", "format": "date-time"}, "traces": {"type": "string", "format": "date-time"}}}}, "required": ["available", "state"]},
     "access": {"type": "object", "description": "What the credential you presented may read.", "properties": {
       "kind": {"type": "string", "enum": ["token", "user"]}, "name": {"type": "string"},
       "signals": {"type": "array", "items": {"type": "string", "enum": ["metrics", "logs", "traces"]}},

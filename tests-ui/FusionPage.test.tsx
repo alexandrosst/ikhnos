@@ -54,7 +54,7 @@ const store = (component: 'metrics' | 'logs' | 'traces', over: object = {}) => (
 })
 const central = { operatorId: 'op-central', endpoint: 'central.svc:4317', exposed: false, exists: true }
 const running = (over: Partial<FusionStatus> = {}): FusionStatus => ({
-  available: true, state: 'running', data: true, components: parts(), central, lastDataAt: new Date(Date.now() - 12_000).toISOString(), since: new Date(Date.now() - 3600_000).toISOString(),
+  available: true, state: 'running', data: true, components: parts(), central, lastDataAt: new Date(Date.now() - 12_000).toISOString(), lastData: { metrics: new Date(Date.now() - 12_000).toISOString(), logs: new Date(Date.now() - 15_000).toISOString(), traces: new Date(Date.now() - 20_000).toISOString() }, since: new Date(Date.now() - 3600_000).toISOString(),
   links: { prometheus: '/fusion/prometheus/', grafana: '/fusion/grafana/' }, ...over,
 })
 const retentionOf = (...stores: object[]): FusionRetention => ({ available: true, running: true, stores } as FusionRetention)
