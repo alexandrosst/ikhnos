@@ -71,7 +71,7 @@ export function DiagnoseDrawer({ agent, extras, now, onClose }: { agent: Agent; 
             <ChevronRight size={ICON_SM} aria-hidden className={`shrink-0 text-nb-500 transition-transform ${showChecks ? 'rotate-90' : ''}`} />
             <span className="text-nb-300">Checked: {count.text}</span>
             <span className="flex flex-wrap items-center gap-1" aria-hidden>
-              {dx.checks.map((c) => <span key={c.id} title={`${c.label}: ${c.value}`}><StatusPip tone={c.tone} /></span>)}
+              {dx.checks.map((c) => <span key={c.id} className="inline-flex" title={`${c.label}: ${c.value}`}><StatusPip tone={c.tone} /></span>)}
             </span>
           </button>
           {showChecks && (
@@ -89,15 +89,14 @@ export function DiagnoseDrawer({ agent, extras, now, onClose }: { agent: Agent; 
                     </summary>
                     <ul className="divide-y divide-nb-850/60 border-t border-nb-850/60">
                       {rows.map((c) => (
-                        <li key={c.id} className="flex items-start gap-3 px-4 py-2 text-sm" data-testid="diagnose-check" data-check={c.id} data-tone={c.tone}>
-                          <span className="mt-1.5"><StatusPip tone={c.tone} /></span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-                              <span className="text-nb-300">{c.label}</span>
-                              <span className="break-words text-right text-nb-400">{c.value}</span>
-                            </div>
-                            {c.note && <p className="mt-0.5 break-words text-xs text-nb-500">{c.note}</p>}
+                        <li key={c.id} className="px-4 py-2.5 text-sm" data-testid="diagnose-check" data-check={c.id} data-tone={c.tone}>
+                          {/* The dot, the name and the value share one line and one centre; a note, when there is one, sits under the name. */}
+                          <div className="flex items-center gap-3">
+                            <StatusPip tone={c.tone} />
+                            <span className="min-w-0 flex-1 text-nb-300">{c.label}</span>
+                            <span className="max-w-[55%] break-words text-right text-nb-400">{c.value}</span>
                           </div>
+                          {c.note && <p className="mt-0.5 break-words pl-[1.125rem] text-xs text-nb-500">{c.note}</p>}
                         </li>
                       ))}
                     </ul>
