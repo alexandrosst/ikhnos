@@ -328,3 +328,18 @@ describe('what the picture claims only while the agent is there to say it', () =
     expect(p.needsAttention).toBe(false)
   })
 })
+
+describe('the arrows out of the collectors, and the arrowheads', () => {
+  test('each lane has an arrow of its own, drawn in the lane\'s health, and every arrow ends in a head', () => {
+    const h: AgentExportHealth = { ...healthy, receivers: [], sources: [], routes: [
+      { exporter: 'otlp', signal: 'metrics', state: 'exporting', sent: 9, failed: 0, lastSentAt: '2026-10-06T12:09:40Z' },
+      { exporter: 'otlp', signal: 'logs', state: 'failing', sent: 0, failed: 5, lastFailedAt: '2026-10-06T12:09:40Z' },
+    ] }
+    show(diag(h, ['resourceUsage', 'systemLogs']), ['resourceUsage', 'systemLogs'], { openOnArrival: true })
+    expect(screen.getByTestId('operator-picture-lane-metrics-edge')).toHaveAttribute('data-link', 'flowing')
+    expect(screen.getByTestId('operator-picture-lane-logs-edge')).toHaveAttribute('data-link', 'broken')
+    // Shaft and head: two paths per arrow.
+    expect(screen.getByTestId('operator-picture-lane-metrics-edge').querySelectorAll('path')).toHaveLength(2)
+    expect(screen.getByTestId('operator-picture-source-resourceUsage-edge').querySelectorAll('path')).toHaveLength(2)
+  })
+})
