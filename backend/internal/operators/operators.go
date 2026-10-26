@@ -769,6 +769,21 @@ func OperatorNeedsServerName(op store.Operator) bool {
 	return op.ID != CentralOperatorID || op.Address != ""
 }
 
+// OperatorNeedsServerNameAt is OperatorNeedsServerName for the address a sender actually dials. The recorded address says how the operator is
+// meant to be reached, but what the sender dials is what its certificate is checked against: an IP address, or any name that is not a Service of
+// the cluster, is on no operator's certificate, whatever the operator's record says (a central operator whose address was not known to the
+// server at that moment, for one), so the stable name is stated then too.
+func OperatorNeedsServerNameAt(op store.Operator, endpoint string) bool {
+	if OperatorNeedsServerName(op) {
+		return true
+	}
+	host := endpoint
+	if h, _, err := net.SplitHostPort(endpoint); err == nil {
+		host = h
+	}
+	return !(strings.HasSuffix(host, ".svc") || strings.Contains(host, ".svc."))
+}
+
 // RevokeOperator revokes an operator nothing depends on; see RevokeOperatorForce.
 func (c *Service) RevokeOperator(ctx context.Context, actor, id, reason string) error {
 	return c.RevokeOperatorForce(ctx, actor, id, reason, false)

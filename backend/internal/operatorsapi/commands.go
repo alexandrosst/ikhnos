@@ -63,7 +63,7 @@ func ExportBlock(prefix string, op store.Operator, endpoint string, withMTLS boo
 		install.Set(prefix+".tls.caFile", ""),
 	}
 	serverName := ""
-	if operators.OperatorNeedsServerName(op) {
+	if operators.OperatorNeedsServerNameAt(op, endpoint) {
 		serverName = operators.OperatorServerName(op)
 	}
 	if withMTLS {
@@ -103,7 +103,7 @@ func DestinationCommand(op store.Operator, endpoint string, certPEM, keyPEM, caP
 // the name the operator's certificate is verified against (nothing for the central operator at its in-cluster name).
 func OperatorReach(op store.Operator, endpoint string) install.OperatorTLS {
 	serverName := ""
-	if operators.OperatorNeedsServerName(op) {
+	if operators.OperatorNeedsServerNameAt(op, endpoint) {
 		serverName = operators.OperatorServerName(op)
 	}
 	return install.OperatorTLS{Endpoint: endpoint, SecretName: ClientTLSSecretName(op), ServerName: serverName}
@@ -181,7 +181,7 @@ func (h *API) InstallCommand(img kernel.ImageConfig, secret string, op store.Ope
 		}
 		set("export.otlp.tls.mtls.enabled", "true")
 		set("export.otlp.tls.mtls.secretName", ClientTLSSecretName(tgt))
-		if operators.OperatorNeedsServerName(tgt) {
+		if operators.OperatorNeedsServerNameAt(tgt, h.DestEndpoint(tgt, op.Destination)) {
 			set("export.otlp.tls.serverName", operators.OperatorServerName(tgt))
 		} else if reissue {
 			set("export.otlp.tls.serverName", "")
