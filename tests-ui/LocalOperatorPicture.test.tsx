@@ -107,8 +107,10 @@ describe('a source that is not being read', () => {
     const node = p.groups.find((g) => g.scope === 'node')!.sources
     expect(node.map((s) => [s.id, s.read?.state])).toEqual([['resourceUsage', 'failing'], ['nodeRuntime', 'failing']])
     expect(node[0].read?.sentence).toMatch(/12 values could not be read \(the last 30 s ago\) and nothing has come in since.*insecureSkipVerify/)
-    // The events have no receiver in the report: nothing is claimed about how they are read.
-    expect(p.groups.find((g) => g.scope === 'cluster')!.sources[0].read).toBeUndefined()
+    // The events' receiver has counted nothing yet: they are waiting, which on a quiet cluster is not a fault.
+    const events = p.groups.find((g) => g.scope === 'cluster')!.sources[0].read
+    expect(events?.state).toBe('waiting')
+    expect(events?.sentence).toMatch(/No event has come in yet/)
     expect(p.health).toBe('attention')
     expect(p.needsAttention).toBe(true)
     expect(p.summary).toMatch(/· 2 to look at$/)
@@ -253,5 +255,45 @@ describe('the line from each source into the collectors', () => {
     // The moving one is the only one that moves.
     expect(screen.getByTestId('operator-picture-source-resourceUsage-edge').querySelector('.flow-dash')).not.toBeNull()
     expect(screen.getByTestId('operator-picture-source-kubernetesEvents-edge').querySelector('.flow-dash')).toBeNull()
+  })
+})
+
+describe('what is said of the sources that are pushed, and of those whose receiver has counted nothing', () => {
+  const withReceivers = (receivers: AgentExportHealth['receivers']): AgentExportHealth => ({ ...healthy, receivers, sources: [] })
+  const readOf = (installed: string[], h: AgentExportHealth | undefined, id: string) => {
+    const p = operatorPicture({ installed, diagnostics: h ? diag(h, installed) : undefined, now: NOW, cluster: 'c' })
+    return p.groups.flatMap((g) => g.sources).find((x) => x.id === id)?.read
+  }
+
+  test('an application\'s data is received once the OTLP receiver has taken any in, and says when the last came', () => {
+    const r = readOf(['traces'], withReceivers([{ signal: 'traces', state: 'receiving', accepted: 1200, refused: 0, lastAcceptedAt: '2026-10-06T12:09:50Z' }]), 'traces')
+    expect(r).toMatchObject({ state: 'receiving', word: 'Receiving', health: 'healthy' })
+    expect(r?.sentence).toBe('1,200 accepted, the last 10 s ago.')
+  })
+
+  test('until an application sends something it is waiting, which is not a fault, and the kinds of data do not borrow from each other', () => {
+    const h = withReceivers([{ signal: 'traces', state: 'receiving', accepted: 5, refused: 0, lastAcceptedAt: '2026-10-06T12:09:50Z' }])
+    expect(readOf(['traces', 'applicationLogs'], h, 'applicationLogs')).toMatchObject({ state: 'waiting', health: 'unknown', sentence: 'No application has sent logs to the collector yet.' })
+    const p = operatorPicture({ installed: ['applicationLogs'], diagnostics: diag(withReceivers([]), ['applicationLogs']), now: NOW, cluster: 'c' })
+    expect(p.needsAttention).toBe(false)
+  })
+
+  test('data the collector turns away is a thing to look at, and a quiet receiver is not', () => {
+    expect(readOf(['traces'], withReceivers([{ signal: 'traces', state: 'refusing', accepted: 1, refused: 7 }]), 'traces')).toMatchObject({ state: 'failing', health: 'attention', word: 'Turned away' })
+    expect(readOf(['traces'], withReceivers([{ signal: 'traces', state: 'silent', accepted: 9, refused: 0 }]), 'traces')).toMatchObject({ state: 'silent', health: 'healthy' })
+  })
+
+  test('nothing is said where the agent says nothing of its collectors, and tools that are scraped are not made into waiting receivers', () => {
+    expect(readOf(['traces'], undefined, 'traces')).toBeUndefined()
+    expect(readOf(['energy'], withReceivers([]), 'energy')).toBeUndefined()
+    expect(readOf(['kubernetesState'], withReceivers([]), 'kubernetesState')).toMatchObject({ state: 'waiting', sentence: 'Nothing has come in yet.' })
+  })
+
+  test('the picture draws a moving line for what is received and a grey dashed one for what is waited for', () => {
+    show(diag(withReceivers([{ signal: 'traces', state: 'receiving', accepted: 4, refused: 0, lastAcceptedAt: '2026-10-06T12:09:50Z' }]), ['traces', 'applicationLogs']), ['traces', 'applicationLogs'], { openOnArrival: true })
+    expect(screen.getByTestId('operator-picture-source-traces-state')).toHaveTextContent('Receiving')
+    expect(screen.getByTestId('operator-picture-source-traces-edge')).toHaveAttribute('data-link', 'flowing')
+    expect(screen.getByTestId('operator-picture-source-applicationLogs-state')).toHaveTextContent('Waiting')
+    expect(screen.getByTestId('operator-picture-source-applicationLogs-edge')).toHaveAttribute('data-link', 'unknown')
   })
 })

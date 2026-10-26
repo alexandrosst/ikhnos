@@ -125,6 +125,41 @@ function scrapeRead(id: string, sources: readonly W.SourceHealthDoc[] | undefine
   return { state, word: READ_WORD[state], health, sentence }
 }
 
+/** The signals the collectors read from a source of the cluster itself, with a receiver of their own (the Prometheus scrapes of tools are not here). */
+const READ_BY_RECEIVER = new Set(['resourceUsage', 'nodeRuntime', 'kubernetesState', 'kubernetesEvents', 'systemLogs'])
+const RECEIVER_ORDER: W.ReceiverState[] = ['refusing', 'receiving', 'silent', 'waiting']
+
+/**
+ * What can be said of a source whose receiver has not reported yet, or that is pushed to the collectors and not read by them, once the agent
+ * does report its collectors. A source read by a receiver of the cluster that has counted nothing yet is waiting (the events of a quiet
+ * cluster are the usual case: the receiver has nothing to count until the first one). An application's data is pushed over OTLP, so its state
+ * is the OTLP receiver's for that kind of data: receiving once anything has come in, waiting until then. Undefined when the agent says nothing
+ * of its collectors, which is not a fault.
+ */
+function impliedRead(s: { id: string; modality: Modality; layer: 'infrastructure' | 'application' }, d: AgentDiagnostics | undefined, now: number): SourceRead | undefined {
+  const h = d?.exportHealth
+  if (!h || exportReach(d) !== 'ok') return undefined
+  if (s.layer !== 'application') {
+    if (!READ_BY_RECEIVER.has(s.id)) return undefined
+    const quiet = s.id === 'kubernetesEvents' ? 'No event has come in yet. That is normal while the cluster is quiet.' : 'Nothing has come in yet.'
+    return { state: 'waiting', word: READ_WORD.waiting, health: 'unknown', sentence: quiet }
+  }
+  const mine = (h.receivers ?? []).filter((r) => r.signal === s.modality)
+  const state = RECEIVER_ORDER.find((x) => mine.some((r) => r.state === x)) ?? 'waiting'
+  const accepted = mine.reduce((n, r) => n + r.accepted, 0)
+  const last = mine.map((r) => r.lastAcceptedAt).filter((t): t is string => !!t).sort().at(-1)
+  switch (state) {
+    case 'receiving':
+      return { state: 'receiving', word: 'Receiving', health: 'healthy', sentence: last ? `${accepted.toLocaleString()} accepted, the last ${agoWords(last, now)}.` : undefined }
+    case 'silent':
+      return { state: 'silent', word: 'Quiet', health: 'healthy', sentence: 'Nothing has been sent for a few minutes. That is normal while the applications are idle.' }
+    case 'refusing':
+      return { state: 'failing', word: 'Turned away', health: 'attention', sentence: `The collector is turning this data away (${mine.reduce((n, r) => n + r.refused, 0).toLocaleString()} refused). It is short of memory, or the pipeline behind its receiver refused it: look at the collector pods' logs.` }
+    default:
+      return { state: 'waiting', word: READ_WORD.waiting, health: 'unknown', sentence: `No application has sent ${s.modality} to the collector yet.` }
+  }
+}
+
 /**
  * The signals among `installed` whose source needs a look, with the sentence for each: `partial` is a tool that answers on some of its nodes
  * and not on others, otherwise the source is not being read at all. What the Pipeline page says about a collector.
@@ -176,7 +211,7 @@ export function operatorPicture(o: { installed: string[]; diagnostics?: AgentDia
   const { installed, diagnostics: d } = o
   const groups: PictureGroup[] = GROUPS.map((g) => ({
     ...g,
-    sources: TELEMETRY_SIGNALS.filter((s) => s.scope === g.scope && installed.includes(s.id)).map((s) => ({ id: s.id, label: s.label, modality: s.modality, what: s.what, read: sourceRead(s.id, d?.exportHealth?.sources, o.now, d?.workloads) })),
+    sources: TELEMETRY_SIGNALS.filter((s) => s.scope === g.scope && installed.includes(s.id)).map((s) => ({ id: s.id, label: s.label, modality: s.modality, what: s.what, read: sourceRead(s.id, d?.exportHealth?.sources, o.now, d?.workloads) ?? impliedRead(s, d, o.now) })),
   })).filter((g) => g.sources.length > 0)
 
   // The lanes and their health are the ones "Is data arriving?" shows, so the two never disagree.
