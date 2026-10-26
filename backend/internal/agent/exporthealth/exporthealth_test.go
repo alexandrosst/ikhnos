@@ -535,3 +535,45 @@ up{instance="10.0.0.4:9102",job="kepler",node="node-a",service_name="kepler"} 1
 		t.Fatalf("cluster-links with series = %+v, want receiving", l)
 	}
 }
+
+func queue(exporter, signal string, items int) string {
+	return fmt.Sprintf("otelcol_exporter_queue_size{exporter=%q,data_type=%q} %d\n", exporter, signal, items)
+}
+
+// A destination that cannot be reached is retried for a long time before a send is counted as failed, so the counters stay still. A queue that
+// holds data at two readings in a row while nothing is sent in between is what shows it.
+func TestAQueueThatDoesNotEmptyIsAnExporterThatIsNotSending(t *testing.T) {
+	f := newFleet()
+	f.dns["c.svc"] = []string{"10.0.0.9"}
+	m := f.monitor("c.svc:8888")
+	f.set("10.0.0.9:8888", counter("otlp", "metric_points", 0, 0)+queue("otlp", "metrics", 12))
+	m.Scrape(context.Background())
+	f.advance(30 * time.Second)
+	f.set("10.0.0.9:8888", counter("otlp", "metric_points", 0, 0)+queue("otlp", "metrics", 40))
+	m.Scrape(context.Background())
+	if got := routeOf(t, m.Report(), "otlp", "metrics"); got.State != ikhnosv1.ExportRouteHealth_FAILING {
+		t.Fatalf("data waiting at two readings with nothing sent: got %+v, want failing", got)
+	}
+
+	// A queue that has something in it once, between two sends, is a collector working: sending resumes and the route is exporting.
+	f.advance(30 * time.Second)
+	f.set("10.0.0.9:8888", counter("otlp", "metric_points", 55, 0)+queue("otlp", "metrics", 3))
+	m.Scrape(context.Background())
+	if got := routeOf(t, m.Report(), "otlp", "metrics"); got.State != ikhnosv1.ExportRouteHealth_EXPORTING {
+		t.Fatalf("a queue that is being drained: got %+v, want exporting", got)
+	}
+}
+
+func TestAQueueThatHoldsDataOnceAndIsNotSentFromIsNotAFailure(t *testing.T) {
+	f := newFleet()
+	f.dns["c.svc"] = []string{"10.0.0.9"}
+	m := f.monitor("c.svc:8888")
+	f.set("10.0.0.9:8888", counter("otlp", "metric_points", 100, 0)+queue("otlp", "metrics", 0))
+	m.Scrape(context.Background())
+	f.advance(30 * time.Second)
+	f.set("10.0.0.9:8888", counter("otlp", "metric_points", 100, 0)+queue("otlp", "metrics", 5))
+	m.Scrape(context.Background())
+	if got := routeOf(t, m.Report(), "otlp", "metrics"); got.State == ikhnosv1.ExportRouteHealth_FAILING {
+		t.Fatalf("one reading of a queue with data in it is not a failure: %+v", got)
+	}
+}

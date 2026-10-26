@@ -38,6 +38,14 @@ describe('arrivalCheck: whether the data that was just set up arrives', () => {
     expect(late.todo).toMatch(/Run the command in vradipus/)
   })
 
+  test('a lane whose data waits in the collector\'s queue says so, and does not claim sends that were never counted as failed', () => {
+    const h: AgentExportHealth = { podsReached: 3, podsFailed: 0, routes: [route('logs', 'failing', { sent: 0, failed: 0, lastFailedAt: iso(30) })] }
+    const a = check(diag({ installed: ['systemLogs'], health: h }), { wanted: ['systemLogs'] })
+    expect(a.rows[0].health).toBe('down')
+    expect(a.rows[0].sentence).toMatch(/waiting to be sent.*keeps trying.*none has got through/)
+    expect(a.rows[0].sentence).not.toMatch(/0 sends failed/)
+  })
+
   test('an agent that does not report export health, or cannot read the counters, is said so with what to look at', () => {
     expect(check(diag()).headline).toMatch(/does not report whether data leaves the cluster/)
     const bad = check(diag({ health: { podsReached: 0, podsFailed: 2, lastError: 'no such host', routes: [] } }))

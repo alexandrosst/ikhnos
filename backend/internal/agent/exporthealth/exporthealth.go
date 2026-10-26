@@ -77,7 +77,10 @@ func ParseTargets(s string) []string {
 
 type route struct{ exporter, signal string }
 
-type counts struct{ sent, failed uint64 }
+// counts are the counters of one route. queued is not a counter but a gauge: how many items wait in the exporter's queue to be sent. An
+// exporter retries for a long time before it counts a send as failed (that is what the chart asks of it), so a destination that cannot be
+// reached shows first as a queue that does not empty, and the retries are the failures the counters do not yet show.
+type counts struct{ sent, failed, queued uint64 }
 
 // routeState is what is known about one route: the latest sum of its counters over the pods read, and when
 // each was last seen to grow.
@@ -272,6 +275,7 @@ func (m *Monitor) Scrape(ctx context.Context) {
 			a := agg[rt]
 			a.sent += c.sent
 			a.failed += c.failed
+			a.queued += c.queued
 			agg[rt] = a
 			st := m.routes[rt]
 			if st == nil {
@@ -287,6 +291,11 @@ func (m *Monitor) Scrape(ctx context.Context) {
 				st.lastSent = now
 			}
 			if grew(p.failed, c.failed) {
+				st.lastFailed = now
+			}
+			// Items still waiting in the queue at two readings in a row with nothing sent in between: the destination is not taking them. The
+			// exporter has not given up on them yet, so no failure is counted, but they are not on their way either.
+			if c.queued > 0 && p.queued > 0 && !grew(p.sent, c.sent) {
 				st.lastFailed = now
 			}
 		}
@@ -422,6 +431,10 @@ func parse(r io.Reader) (map[route]counts, error) {
 			continue
 		}
 		name = strings.TrimSuffix(strings.TrimPrefix(name, "otelcol_exporter_"), "_total")
+		if name == "queue_size" {
+			parseQueue(labels, value, out)
+			continue
+		}
 		var failedCounter bool
 		switch {
 		case strings.HasPrefix(name, "send_failed_"):
@@ -459,6 +472,22 @@ func parse(r io.Reader) (map[route]counts, error) {
 		out[k] = c
 	}
 	return out, sc.Err()
+}
+
+// parseQueue reads one otelcol_exporter_queue_size line: the items waiting in an exporter's sending queue, per kind of data.
+func parseQueue(labels map[string]string, value float64, out map[route]counts) {
+	exp := labels["exporter"]
+	if exp == "" || exp == "debug" || strings.HasPrefix(exp, "debug/") || math.IsNaN(value) || math.IsInf(value, 0) || value < 1 {
+		return // an empty queue is the usual case and says nothing: it does not make a route of its own
+	}
+	signal := labels["data_type"]
+	if signal != "metrics" && signal != "logs" && signal != "traces" {
+		return
+	}
+	k := route{exp, signal}
+	c := out[k]
+	c.queued += uint64(value)
+	out[k] = c
 }
 
 // receiverPrefix marks a route that is a receiver's, not an exporter's: the counters of what the collectors' OTLP receiver took in, kept

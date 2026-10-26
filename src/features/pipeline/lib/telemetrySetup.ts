@@ -83,7 +83,7 @@ export function arrivalCheck(o: { wanted: string[]; diagnostics?: AgentDiagnosti
     const label = MODALITY_LABEL[r.modality]
     const last = ago(r.lastSentAt, now)
     const lastData = last ? `Last data ${last}` : 'No data yet'
-    if (r.state === 'failing') return { modality: r.modality, label, health: 'down', lastData, sentence: `${r.failed.toLocaleString()} sends failed (the last ${ago(r.lastFailedAt, now) ?? 'recently'}) and none got through since.` }
+    if (r.state === 'failing') return { modality: r.modality, label, health: 'down', lastData, sentence: r.failed === 0 ? `Data is waiting to be sent: the collector holds it and keeps trying, and none has got through (seen ${ago(r.lastFailedAt, now) ?? 'recently'}). The destination may be unreachable or refusing it: the cluster collector's log says which.` : `${r.failed.toLocaleString()} sends failed (the last ${ago(r.lastFailedAt, now) ?? 'recently'}) and none got through since.` }
     if (r.state === 'exporting') return { modality: r.modality, label, health: 'healthy', lastData, sentence: 'The destination accepted the data.' }
     // The applications' side of the path: what the collector took in from them, the stage before the exporters. Said only for a type that
     // applications push, and only where it explains why nothing has gone out.
