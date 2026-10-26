@@ -30,7 +30,9 @@ export interface ExportRow {
  * is installed in. gRPC on 4317 and HTTP on 4318; the chart's Service is called ikhnos-telemetry-cluster whatever the release is called.
  */
 export function otlpAddress(namespace: string): { grpc: string; http: string } {
-  const host = `ikhnos-telemetry-cluster.${namespace}.svc`
+  // The namespace came from the agent's report and ends up in an address someone copies, so only a plain name is used.
+  const ns = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(namespace) ? namespace : 'ikhnos-system'
+  const host = `ikhnos-telemetry-cluster.${ns}.svc`
   return { grpc: `${host}:4317`, http: `${host}:4318` }
 }
 

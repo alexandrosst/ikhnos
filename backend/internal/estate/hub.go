@@ -405,12 +405,13 @@ func (h *Hub) Connect(stream ikhnosv1.AgentService_ConnectServer) error {
 		v.NoteDiagnostics(hello.Diagnostics, true, h.C.Now())
 		h.Mu.Unlock()
 	}
-	if ns := kernel.Printable(hello.Namespace, 63); ns != "" {
+	// Both end up in commands a person pastes into a shell, so what is not a plain Kubernetes name is not kept at all.
+	if ns := hello.Namespace; kernel.NsNameRe.MatchString(ns) {
 		h.Mu.Lock()
 		v.Ext.Namespace = ns
 		h.Mu.Unlock()
 	}
-	if rel := kernel.Printable(hello.ReleaseName, 53); rel != "" { // Helm's own release-name length limit
+	if rel := hello.ReleaseName; len(rel) <= 53 && kernel.NsNameRe.MatchString(rel) { // Helm's own release-name length limit
 		h.Mu.Lock()
 		v.Ext.ReleaseName = rel
 		h.Mu.Unlock()

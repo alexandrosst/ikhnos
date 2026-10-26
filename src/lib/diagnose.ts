@@ -1,5 +1,5 @@
 import type { StatusTone } from '@/components/ui/Status'
-import { COLLECTORS, collectorState, effectiveNote, sortProblems, tierName, uptimeWords, type AgentDiagnostics, type AgentExtras } from '@/lib/consent'
+import { COLLECTORS, collectorState, effectiveNote, releaseTarget, sortProblems, tierName, uptimeWords, type AgentDiagnostics, type AgentExtras } from '@/lib/consent'
 import { skewLabel, skewWarning } from '@/lib/clock'
 import { agentLiveness, reportIsStale } from '@/lib/status'
 import type { Agent } from '@/lib/types'
@@ -52,8 +52,11 @@ const inWords = (ms: number): string => {
 }
 
 /** The kubectl line that shows an agent's own log. The release is the one the agent said it was installed as, or the chart's default. */
-export const logCommand = (a: Pick<Agent, 'namespace' | 'releaseName'>): string => `kubectl -n ${a.namespace ?? 'ikhnos-system'} logs deploy/${a.releaseName ?? 'ikhnos-agent'} --tail=200`
-const podsCommand = (a: Pick<Agent, 'namespace'>): string => `kubectl -n ${a.namespace ?? 'ikhnos-system'} get pods -o wide`
+export const logCommand = (a: Pick<Agent, 'namespace' | 'releaseName'>): string => {
+  const { namespace, release } = releaseTarget({ namespace: a.namespace, release: a.releaseName })
+  return `kubectl -n ${namespace} logs deploy/${release} --tail=200`
+}
+const podsCommand = (a: Pick<Agent, 'namespace'>): string => `kubectl -n ${releaseTarget({ namespace: a.namespace }).namespace} get pods -o wide`
 
 export function diagnoseAgent(a: Agent, extras: AgentExtras, now: number): Diagnosis {
   const findings: Finding[] = []

