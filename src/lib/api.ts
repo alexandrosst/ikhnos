@@ -42,6 +42,8 @@ export interface TokenInstallOptions {
   scope: { namespaces: string[]; exclude: string[]; selector: string }
   /** Whether uninstalling the agent also deletes its identity Secret. Helm takes no values at uninstall, so it is chosen at install. */
   purgeIdentity?: boolean
+  /** Whether the controller's install command also gives the controller the permissions telemetry needs (the server's default is yes). */
+  controllerTelemetry?: boolean
 }
 
 export interface CreatedToken {

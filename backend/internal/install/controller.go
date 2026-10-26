@@ -161,6 +161,9 @@ type ControllerInstall struct {
 	MaxTier int
 	// Registry is the image registry (the one place the controller's and the agents' images are), or "" for the chart's own names.
 	Registry string
+	// Telemetry gives the controller the permissions telemetry needs (allowTelemetry in its chart: what the agent's own ClusterRoles grant,
+	// read-only), so that setting up telemetry later is not a second install. Without it the controller refuses a resource that asks for any.
+	Telemetry bool
 }
 
 // Bootstrap is the one command that sets the whole install up: the controller, the Secret that holds the one-time token, and the
@@ -193,6 +196,9 @@ func (c ControllerInstall) BootstrapValues(a AgentResource, token string) ([]Val
 	// relay.telemetry: a cluster set up with the controller can be told by the server to collect more or less telemetry (which signals, how
 	// much of the traces), within what the controller was allowed; it is a switch of the chart for a cluster that wants it off.
 	values := []Value{Set("maxAccessTier", strconv.Itoa(c.MaxTier)), Set("relay.telemetry", "true")}
+	if c.Telemetry {
+		values = append(values, Set("allowTelemetry", "true"))
+	}
 	if r := strings.TrimRight(c.Registry, "/"); r != "" {
 		values = append(values,
 			Set("image.repository", r+"/controller"),

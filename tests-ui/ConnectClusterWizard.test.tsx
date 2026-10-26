@@ -24,7 +24,7 @@ vi.mock('@/lib/api', async (importOriginal) => {
   return { ...actual, api: { ...actual.api, createToken: (...a: unknown[]) => createToken(...a) } }
 })
 
-const NONE = { collectors: { nodeProbe: false, flowObserver: false, measurements: false }, scope: { namespaces: [], exclude: [], selector: '' }, purgeIdentity: false }
+const NONE = { collectors: { nodeProbe: false, flowObserver: false, measurements: false }, scope: { namespaces: [], exclude: [], selector: '' }, purgeIdentity: false, controllerTelemetry: true }
 const CONTROLLER = {
   available: true,
   reason: '',
@@ -32,6 +32,7 @@ const CONTROLLER = {
   maxTier: 2,
   install: 'helm upgrade --install ikhnos-controller oci://r.example/ikhnos-controller \\\n  --namespace ikhnos-system --create-namespace \\\n  --set maxAccessTier=2 \\\n  --set-string bootstrap.token=ikh_x',
   raise: 'helm upgrade ikhnos-controller oci://r.example/ikhnos-controller --namespace ikhnos-system --reset-then-reuse-values --set maxAccessTier=2',
+  allowTelemetry: true,
 }
 const SERVED = 'helm install ikhnos-agent oci://r.example/ikhnos-agent \\\n  --namespace ikhnos-system \\\n  --set enrollment.key=PIN.ikh_x'
 
@@ -83,6 +84,7 @@ describe('ConnectClusterWizard: what is sent for the command', () => {
       collectors: { nodeProbe: true, flowObserver: true, measurements: true },
       scope: { namespaces: ['shop', 'pay'], exclude: ['pay-test'], selector: 'ikhnos.io/scope=yes' },
       purgeIdentity: false,
+      controllerTelemetry: true,
     })
   })
 
@@ -98,7 +100,7 @@ describe('ConnectClusterWizard: what is sent for the command', () => {
     await user.click(screen.getByTestId('wizard-tier-1'))
     await create(user)
     await waitFor(() => expect(createToken).toHaveBeenCalledTimes(1))
-    expect(createToken).toHaveBeenCalledWith(CONN, 'cluster-1', 1, { collectors: { nodeProbe: true, flowObserver: false, measurements: false }, scope: NONE.scope, purgeIdentity: false })
+    expect(createToken).toHaveBeenCalledWith(CONN, 'cluster-1', 1, { collectors: { nodeProbe: true, flowObserver: false, measurements: false }, scope: NONE.scope, purgeIdentity: false, controllerTelemetry: true })
   })
 
   test('the identity is only asked to be deleted at uninstall when that was ticked', async () => {
@@ -110,6 +112,17 @@ describe('ConnectClusterWizard: what is sent for the command', () => {
     await create(user)
     await waitFor(() => expect(createToken).toHaveBeenCalledTimes(1))
     expect(createToken.mock.calls[0][3].purgeIdentity).toBe(true)
+  })
+
+  test('the controller is given the permissions telemetry needs unless a person says no, and the page says which', async () => {
+    const user = userEvent.setup()
+    wizard()
+    await open(user)
+    expect(screen.getByTestId('controller-telemetry-toggle')).toBeChecked()
+    await user.click(screen.getByTestId('controller-telemetry-toggle'))
+    await create(user)
+    await waitFor(() => expect(createToken).toHaveBeenCalledTimes(1))
+    expect(createToken.mock.calls[0][3].controllerTelemetry).toBe(false)
   })
 
   test('a node probe asked for by the page that opened this is on from the start', async () => {
@@ -167,6 +180,7 @@ describe('ConnectClusterWizard: the same install as a resource for the controlle
     expect(screen.queryByTestId('controller-manifest')).not.toBeInTheDocument()
     expect(steps).toHaveTextContent('maxAccessTier=2')
     expect(steps).toHaveTextContent('That is all there is to do')
+    expect(steps).toHaveTextContent('also given the permissions telemetry needs')
     // The command for a ceiling that is too low is the server's, not a placeholder.
     expect(screen.getByTestId('controller-raise').textContent).toBe(CONTROLLER.raise)
     expect(steps).not.toHaveTextContent('<chart>')
@@ -183,7 +197,7 @@ describe('ConnectClusterWizard: the same install as a resource for the controlle
   test('says why there is nothing to run when the server cannot name the controller chart', async () => {
     createToken.mockResolvedValue({
       token: 'ikh_x', install: SERVED, meta: { id: 't1', name: 'cluster-1', tier: 2, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3_600_000).toISOString() },
-      controller: { available: false, reason: 'This server has no image registry configured.', namespace: 'ikhnos-system', maxTier: 2, install: '', raise: '' },
+      controller: { available: false, reason: 'This server has no image registry configured.', namespace: 'ikhnos-system', maxTier: 2, install: '', raise: '', allowTelemetry: false },
     })
     const user = await made()
     await user.click(screen.getByTestId('install-tab-controller'))

@@ -198,6 +198,9 @@ type controllerDoc struct {
 	MaxTier   int    `json:"maxTier"`
 	Namespace string `json:"namespace"`
 	Reason    string `json:"reason"`
+	// AllowTelemetry is whether the command also gives the controller the permissions telemetry needs, so that nothing more is asked of the
+	// person when telemetry is set up.
+	AllowTelemetry bool `json:"allowTelemetry"`
 }
 
 // agentTierDoc answers PUT /agents/{id}/tier. HardenHelm is there when the new tier is below what the install allows: the command that

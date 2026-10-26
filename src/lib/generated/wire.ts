@@ -678,6 +678,7 @@ export interface ControllerDoc {
   maxTier: number
   namespace: string
   reason: string
+  allowTelemetry: boolean
 }
 
 export interface ControllerUpgradeDoc {
@@ -1036,6 +1037,7 @@ export interface EstateCreateTokenRequest {
   collectors: Collectors
   scope: Scope
   purgeIdentity: boolean
+  controllerTelemetry: boolean | null
 }
 
 export interface EstateCreatedTokenDoc {

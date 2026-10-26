@@ -249,3 +249,15 @@ func TestACommandThatInstallsTheControllerStartsWithItsDefinitionWhereItCanBeWri
 		t.Fatalf("where the definition cannot be written the command stands alone: %s", got)
 	}
 }
+
+func TestTheControllerInstallSetsAllowTelemetryOnlyWhenAsked(t *testing.T) {
+	a := AgentResource{Server: "ik.example.com:8443", CAPin: "sha256/AbCd==", Tier: 1}
+	on, err := ControllerInstall{Chart: "oci://r/ikhnos-controller", MaxTier: 1, Telemetry: true}.Bootstrap(a, "ikh_x")
+	if err != nil || !strings.Contains(on, "--set allowTelemetry=true") {
+		t.Fatalf("%v\n%s", err, on)
+	}
+	off, err := ControllerInstall{Chart: "oci://r/ikhnos-controller", MaxTier: 1}.Bootstrap(a, "ikh_x")
+	if err != nil || strings.Contains(off, "allowTelemetry") {
+		t.Fatalf("%v\n%s", err, off)
+	}
+}

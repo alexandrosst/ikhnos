@@ -171,6 +171,8 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
   const [measure, setMeasure] = useState(false)
   const [scopeOn, setScopeOn] = useState(false)
   const [purge, setPurge] = useState(false)
+  // On unless a person turns it off: setting up telemetry later should not be a second install.
+  const [ctlTelemetry, setCtlTelemetry] = useState(true)
   const [inc, setInc] = useState<string[]>([])
   const [exc, setExc] = useState<string[]>([])
   const [sel, setSel] = useState('')
@@ -246,6 +248,7 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
         collectors: { nodeProbe: probe && tier >= 1, flowObserver: flows && tier >= 2, measurements: measure && tier >= 2 },
         scope,
         purgeIdentity: purge,
+        controllerTelemetry: ctlTelemetry,
       })
       setCreated(t)
       await refresh()
@@ -396,6 +399,17 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
                     </div>
                   </fieldset>
                 )}
+                <fieldset className="border-t border-nb-850 pt-3">
+                  <legend className="mb-0.5 text-sm font-medium text-nb-300">If you install through the controller</legend>
+                  <OptionToggle
+                    testId="controller-telemetry-toggle"
+                    checked={ctlTelemetry}
+                    onChange={setCtlTelemetry}
+                    title="Let the controller set up telemetry"
+                    summary="So that turning telemetry on later is not a second install."
+                    why="Telemetry needs the controller to hold some read permissions cluster-wide (pods, nodes, namespaces and the like): exactly what the agent's own roles grant at this access level, read-only. Without them the controller refuses a resource that turns telemetry on and says so in its status. Turn this off if the controller should never be able to."
+                  />
+                </fieldset>
                 <fieldset className="border-t border-nb-850 pt-3">
                   <legend className="mb-0.5 text-sm font-medium text-nb-300">When it is removed</legend>
                   <p className="-mt-2 mb-2 text-xs text-nb-500">Helm cannot be given a choice at uninstall time, so this one has to be made now.</p>

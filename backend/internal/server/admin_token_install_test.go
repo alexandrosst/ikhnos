@@ -212,3 +212,22 @@ func TestAControllerViewIsNotOfferedWithoutAChartToInstallItFrom(t *testing.T) {
 		}
 	}
 }
+
+// The controller's install gives it the permissions telemetry needs unless the person said no, so that setting telemetry up later is not a
+// second install (without them the controller refuses a resource that turns telemetry on).
+func TestTheControllersInstallAlsoAllowsTelemetryUnlessAskedNot(t *testing.T) {
+	a := adminRigWith(t, installcfg.Settings{AgentAddr: "ik.example.com:8443", ImageRegistry: "reg.example/team", ControllerChartVersion: "0.0.0-edge.abc"})
+	_, admin := a.user(t, "ada", accounts.RoleAdmin)
+	c, _, _ := a.controllerOf(t, admin, map[string]any{"name": "c1", "tier": 1})
+	if c["allowTelemetry"] != true || !strings.Contains(c["install"].(string), "--set allowTelemetry=true") {
+		t.Fatalf("by default: %v", c)
+	}
+	c, _, _ = a.controllerOf(t, admin, map[string]any{"name": "c2", "tier": 1, "controllerTelemetry": true})
+	if c["allowTelemetry"] != true {
+		t.Fatalf("asked for: %v", c)
+	}
+	c, _, _ = a.controllerOf(t, admin, map[string]any{"name": "c3", "tier": 1, "controllerTelemetry": false})
+	if c["allowTelemetry"] != false || strings.Contains(c["install"].(string), "allowTelemetry") {
+		t.Fatalf("asked not: %v", c)
+	}
+}

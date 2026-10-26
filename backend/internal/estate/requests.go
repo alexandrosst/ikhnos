@@ -21,6 +21,9 @@ type createTokenRequest struct {
 	// PurgeIdentity asks the install to delete the agent's identity Secret when the release is uninstalled (a post-delete hook in the
 	// chart). Helm uninstall takes no values, so this has to be chosen when the agent is installed; an upgrade keeps it.
 	PurgeIdentity bool `json:"purgeIdentity"`
+	// ControllerTelemetry is whether the controller's install command also gives the controller the permissions telemetry needs, so that
+	// setting telemetry up later is not a second step. Absent means yes; a person who wants the controller without them says false.
+	ControllerTelemetry *bool `json:"controllerTelemetry"`
 }
 
 // approveAgentRequest is the body of POST /agents/{id}/approve.

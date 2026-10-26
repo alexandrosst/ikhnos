@@ -29,6 +29,9 @@ export default function ControllerSteps({ c }: { c: ControllerDoc }) {
         <p className="mt-1.5 text-xs text-nb-500">
           That is all there is to do. It installs the controller in <code className="font-mono">{c.namespace}</code> with permission for access tier {c.maxTier} and no more,
           and asks it for this agent with the one-time token. Deleting the <code className="font-mono">IkhnosAgent</code> resource it creates uninstalls the agent.
+          {c.allowTelemetry
+            ? ' It is also given the permissions telemetry needs, so turning telemetry on later asks for nothing more.'
+            : ' It is not given the permissions telemetry needs: turning telemetry on later will first ask for them.'}
         </p>
       </div>
       {c.raise && (
