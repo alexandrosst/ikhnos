@@ -24,7 +24,7 @@ vi.mock('@/lib/api', async (importOriginal) => {
   return { ...actual, api: { ...actual.api, createToken: (...a: unknown[]) => createToken(...a) } }
 })
 
-const NONE = { collectors: { nodeProbe: false, flowObserver: false, measurements: false }, scope: { namespaces: [], exclude: [], selector: '' }, purgeIdentity: false, controllerTelemetry: true }
+const NONE = { collectors: { nodeProbe: false, flowObserver: false, measurements: false }, scope: { namespaces: [], exclude: [], selector: '' } }
 const CONTROLLER = {
   available: true,
   reason: '',
@@ -83,8 +83,6 @@ describe('ConnectClusterWizard: what is sent for the command', () => {
     expect(createToken).toHaveBeenCalledWith(CONN, 'cluster-1', 2, {
       collectors: { nodeProbe: true, flowObserver: true, measurements: true },
       scope: { namespaces: ['shop', 'pay'], exclude: ['pay-test'], selector: 'ikhnos.io/scope=yes' },
-      purgeIdentity: false,
-      controllerTelemetry: true,
     })
   })
 
@@ -100,29 +98,19 @@ describe('ConnectClusterWizard: what is sent for the command', () => {
     await user.click(screen.getByTestId('wizard-tier-1'))
     await create(user)
     await waitFor(() => expect(createToken).toHaveBeenCalledTimes(1))
-    expect(createToken).toHaveBeenCalledWith(CONN, 'cluster-1', 1, { collectors: { nodeProbe: true, flowObserver: false, measurements: false }, scope: NONE.scope, purgeIdentity: false, controllerTelemetry: true })
+    expect(createToken).toHaveBeenCalledWith(CONN, 'cluster-1', 1, { collectors: { nodeProbe: true, flowObserver: false, measurements: false }, scope: NONE.scope })
   })
 
-  test('the identity is only asked to be deleted at uninstall when that was ticked', async () => {
+  test('the controller permissions for telemetry and the identity at uninstall are not asked about: the server\'s defaults are what everyone gets', async () => {
     const user = userEvent.setup()
     wizard()
     await open(user)
-    expect(screen.getByTestId('purge-identity-toggle')).not.toBeChecked()
-    await user.click(screen.getByTestId('purge-identity-toggle'))
+    expect(screen.queryByTestId('controller-telemetry-toggle')).toBeNull()
+    expect(screen.queryByTestId('purge-identity-toggle')).toBeNull()
     await create(user)
     await waitFor(() => expect(createToken).toHaveBeenCalledTimes(1))
-    expect(createToken.mock.calls[0][3].purgeIdentity).toBe(true)
-  })
-
-  test('the controller is given the permissions telemetry needs unless a person says no, and the page says which', async () => {
-    const user = userEvent.setup()
-    wizard()
-    await open(user)
-    expect(screen.getByTestId('controller-telemetry-toggle')).toBeChecked()
-    await user.click(screen.getByTestId('controller-telemetry-toggle'))
-    await create(user)
-    await waitFor(() => expect(createToken).toHaveBeenCalledTimes(1))
-    expect(createToken.mock.calls[0][3].controllerTelemetry).toBe(false)
+    expect(createToken.mock.calls[0][3]).not.toHaveProperty('purgeIdentity')
+    expect(createToken.mock.calls[0][3]).not.toHaveProperty('controllerTelemetry')
   })
 
   test('a node probe asked for by the page that opened this is on from the start', async () => {

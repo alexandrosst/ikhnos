@@ -170,9 +170,7 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
   const [flows, setFlows] = useState(false)
   const [measure, setMeasure] = useState(false)
   const [scopeOn, setScopeOn] = useState(false)
-  const [purge, setPurge] = useState(false)
   // On unless a person turns it off: setting up telemetry later should not be a second install.
-  const [ctlTelemetry, setCtlTelemetry] = useState(true)
   const [inc, setInc] = useState<string[]>([])
   const [exc, setExc] = useState<string[]>([])
   const [sel, setSel] = useState('')
@@ -184,7 +182,7 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
   // Whether "More options" is expanded. Seeded from whether anything non-default is already selected (so
   // reopening the wizard with leftover choices doesn't hide why), but from then on this is the only thing
   // that decides it - a native click toggles it via onToggle below. Deriving `open` straight from
-  // tier/probe/flows/measure/scopeOn/purge on every render instead would fight the user's own click: picking
+  // tier/probe/flows/measure/scopeOn on every render instead would fight the user's own click: picking
   // Infrastructure then Services, say, flips that expression back to `false` (2 is the default tier, nothing
   // else set) and slams the section shut mid-use.
   const [moreOpen, setMoreOpen] = useState(false)
@@ -199,7 +197,7 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
   // over from before, not on every change to the values it's seeded from (see `moreOpen` above).
   useEffect(() => {
     if (open && nodeProbe) setProbe(true)
-    if (open) setMoreOpen((v) => v || nodeProbe === true || tier !== 2 || probe || flows || measure || scopeOn || purge)
+    if (open) setMoreOpen((v) => v || nodeProbe === true || tier !== 2 || probe || flows || measure || scopeOn)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
@@ -228,7 +226,6 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
     setFlows(false)
     setMeasure(false)
     setScopeOn(false)
-    setPurge(false)
     setInc([])
     setExc([])
     setSel('')
@@ -247,8 +244,6 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
       const t = await api.createToken(c, name.trim(), tier, {
         collectors: { nodeProbe: probe && tier >= 1, flowObserver: flows && tier >= 2, measurements: measure && tier >= 2 },
         scope,
-        purgeIdentity: purge,
-        controllerTelemetry: ctlTelemetry,
       })
       setCreated(t)
       await refresh()
@@ -316,7 +311,7 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
             <details className="group rounded-lg border border-nb-850 bg-nb-925" data-testid="advanced-options" open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)}>
               <summary className="flex cursor-pointer select-none items-center gap-1.5 px-4 py-3 text-sm font-medium text-nb-300 marker:content-none">
                 <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
-                More options <span className="font-normal text-nb-500">(access level, node probe, traffic observer, path measurements, namespace scope, what uninstalling removes)</span>
+                More options <span className="font-normal text-nb-500">(access level, node probe, traffic observer, path measurements, namespace scope)</span>
               </summary>
               <div className="space-y-3 border-t border-nb-850 p-3">
                 <fieldset>
@@ -399,29 +394,6 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
                     </div>
                   </fieldset>
                 )}
-                <fieldset className="border-t border-nb-850 pt-3">
-                  <legend className="mb-0.5 text-sm font-medium text-nb-300">If you install through the controller</legend>
-                  <OptionToggle
-                    testId="controller-telemetry-toggle"
-                    checked={ctlTelemetry}
-                    onChange={setCtlTelemetry}
-                    title="Let the controller set up telemetry"
-                    summary="So that turning telemetry on later is not a second install."
-                    why="Telemetry needs the controller to hold some read permissions cluster-wide (pods, nodes, namespaces and the like): exactly what the agent's own roles grant at this access level, read-only. Without them the controller refuses a resource that turns telemetry on and says so in its status. Turn this off if the controller should never be able to."
-                  />
-                </fieldset>
-                <fieldset className="border-t border-nb-850 pt-3">
-                  <legend className="mb-0.5 text-sm font-medium text-nb-300">When it is removed</legend>
-                  <p className="-mt-2 mb-2 text-xs text-nb-500">Helm cannot be given a choice at uninstall time, so this one has to be made now.</p>
-                  <OptionToggle
-                    testId="purge-identity-toggle"
-                    checked={purge}
-                    onChange={setPurge}
-                    title="Delete the agent's identity when it is uninstalled"
-                    summary="Otherwise the identity Secret stays behind on purpose, and a later install in this namespace picks it up."
-                    why="The identity Secret holds the agent's private key and the certificate this server issued. It is kept by default so that an accidental uninstall does not orphan the agent or force a new enrollment. With this on, uninstalling also runs a short job that deletes that one Secret and nothing else. Revoke the agent here as well: removing it from the cluster does not make this server forget it."
-                  />
-                </fieldset>
               </div>
             </details>
           )}
