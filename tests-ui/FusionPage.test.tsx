@@ -42,6 +42,8 @@ vi.mock('@/lib/api', async (importOriginal) => {
   }
 })
 
+let hops: import('@/features/fusion/lib/fusionPicture').SendingHop[] = []
+
 const GIB = 2 ** 30
 const part = (component: 'metrics' | 'logs' | 'traces' | 'central', over: object = {}) =>
   ({ component, label: { metrics: 'Prometheus', logs: 'Loki', traces: 'Tempo', central: 'Central operator' }[component], desired: 1, ready: 1, ...over })
@@ -58,7 +60,7 @@ const running = (over: Partial<FusionStatus> = {}): FusionStatus => ({
 const retentionOf = (...stores: object[]): FusionRetention => ({ available: true, running: true, stores } as FusionRetention)
 
 function renderAt(path = '/fusion') {
-  return render(<MemoryRouter initialEntries={[path]}><Routes><Route path="/fusion/*" element={<FusionPage />} /></Routes></MemoryRouter>)
+  return render(<MemoryRouter initialEntries={[path]}><Routes><Route path="/fusion/*" element={<FusionPage hops={hops} />} /></Routes></MemoryRouter>)
 }
 
 beforeEach(() => {
@@ -298,5 +300,16 @@ describe('FusionPage - Settings', () => {
     renderAt('/fusion/access')
     expect(await screen.findByText('API tokens are managed elsewhere')).toBeInTheDocument()
     expect(listFusionTokens).not.toHaveBeenCalled()
+  })
+})
+
+describe('the picture on the overview', () => {
+  test('is drawn above the list of parts while FUSION runs', async () => {
+    hops = []
+    renderAt()
+    expect(await screen.findByTestId('fusion-picture')).toBeInTheDocument()
+    expect(screen.getByTestId('fusion-node-central')).toHaveTextContent('Central operator')
+    expect(screen.getByTestId('fusion-node-none')).toHaveTextContent('Nothing sends to it yet')
+    expect(screen.getByTestId('fusion-edge-central-logs')).toHaveAttribute('data-link', 'flowing')
   })
 })

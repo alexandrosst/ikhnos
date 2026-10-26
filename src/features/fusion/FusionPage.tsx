@@ -13,6 +13,7 @@ import { OpenError, OpenPages, useOpenPage } from '@/features/fusion/components/
 import { StatusChip } from '@/features/fusion/components/StatusChip'
 import { useFusion, useNow } from '@/features/fusion/components/useFusion'
 import { Button, EmptyState, ErrorBanner, ICON_SM, PageHeader, SkeletonBlock } from '@/components/ui/primitives'
+import type { SendingHop } from '@/features/fusion/lib/fusionPicture'
 import { fusionHealth, fusionProblems, lastDataText, SHOWN_WORD } from '@/features/fusion/lib/fusionStatus'
 import { useServer } from '@/store/server'
 
@@ -42,7 +43,7 @@ function SectionTabs() {
  * holds), Access (who may read it) and Settings (how long it keeps data, and the switch). The state and the retention are read once here, so
  * the status beside the tabs and the problems on the Overview come from the same answers.
  */
-export default function FusionPage() {
+export default function FusionPage({ hops = [] }: { hops?: SendingHop[] }) {
   const isAdmin = useServer((s) => s.isAdmin)
   const admin = isAdmin()
   const fusion = useFusion(admin)
@@ -102,7 +103,7 @@ export default function FusionPage() {
         !error && <div className="space-y-3" role="status" aria-label="Checking FUSION"><SkeletonBlock className="h-16 w-full" /><SkeletonBlock className="h-40 w-full" /></div>
       ) : (
         <Routes>
-          <Route index element={running(<FusionOverview fusion={fusion} problems={problems} retention={retention.doc} now={now} onOpenDashboard={(uid) => void page.open('grafana', { dashboard: uid })} />)} />
+          <Route index element={running(<FusionOverview fusion={fusion} problems={problems} retention={retention.doc} hops={hops} now={now} onOpenDashboard={(uid) => void page.open('grafana', { dashboard: uid })} />)} />
           <Route path="data" element={running(status.data ? <FusionData /> : null)} />
           <Route
             path="access"

@@ -1,3 +1,4 @@
+import type { LinkState } from '@/lib/linkTone'
 import type { Hop, State } from './operatorsView'
 
 /** How often data is expected from each hop. Discovery agents beat every 30 s; collectors, operators and FUSION batch for seconds, so a
@@ -26,9 +27,7 @@ export function freshness(lastData: string | undefined, now: number, expectedMs:
 }
 
 /** What a connector shows: only data that is arriving moves. Stalled is amber and still, broken is red and still, unknown is grey and dashed. */
-export type LinkState = 'flowing' | 'stalled' | 'broken' | 'unknown'
-/** The colour of a link of each state (the line takes it from the text colour). */
-export const LINK_TONE: Record<LinkState, string> = { flowing: 'text-ok', stalled: 'text-warn', broken: 'text-bad', unknown: 'text-nb-700' }
+export { LINK_TONE, type LinkState } from '@/lib/linkTone'
 
 /** The sender's state decides, and a "healthy" sender whose data has gone late is stalled, not flowing. */
 export function linkState(state: State | undefined, total: number, f: Freshness): LinkState {

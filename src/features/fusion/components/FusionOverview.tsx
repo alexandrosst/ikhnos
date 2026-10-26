@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { CircleCheck, ExternalLink } from 'lucide-react'
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { type useFusion } from '@/features/fusion/components/useFusion'
 import { FusionSection, ROWS } from '@/features/fusion/components/FusionSection'
@@ -9,6 +10,8 @@ import { buttonClass } from '@/components/ui/buttonClass'
 import { Button, CopyButton, ICON_MD, ICON_SM, Waiting } from '@/components/ui/primitives'
 import { type FusionComponent, type FusionRetention } from '@/lib/api'
 import { DASHBOARD_GROUPS, DASHBOARDS } from '@/features/fusion/lib/dashboards'
+import { FusionPicture } from '@/features/fusion/components/FusionPicture'
+import { fusionPicture, type SendingHop } from '@/features/fusion/lib/fusionPicture'
 import { fusionSentence, type FusionProblem, partHealth } from '@/features/fusion/lib/fusionStatus'
 
 const PART_NOTE: Record<FusionComponent['component'], string> = {
@@ -29,10 +32,11 @@ function Action({ problem, onRefresh }: { problem: FusionProblem; onRefresh: () 
 
 /** What needs attention first, then what FUSION is made of. Problems are derived from what the server reports (see fusionProblems); each one
  *  says what is wrong in a sentence and has one thing to do about it. */
-export function FusionOverview({ fusion, problems, retention, now, onOpenDashboard }: { fusion: ReturnType<typeof useFusion>; problems: FusionProblem[]; retention: FusionRetention | null; now: number; /** Opens one of the shipped Grafana dashboards, by uid, in a new tab. */ onOpenDashboard?: (uid: string) => void }) {
+export function FusionOverview({ fusion, problems, retention, hops, now, onOpenDashboard }: { fusion: ReturnType<typeof useFusion>; /** Who sends in, from the Pipeline page's counts. */ hops: SendingHop[]; problems: FusionProblem[]; retention: FusionRetention | null; now: number; /** Opens one of the shipped Grafana dashboards, by uid, in a new tab. */ onOpenDashboard?: (uid: string) => void }) {
   const status = fusion.status!
   const sentence = fusionSentence(status, now)
   const parts = status.components ?? []
+  const picture = useMemo(() => fusionPicture({ status, retention, problems, hops, now }), [status, retention, problems, hops, now])
   const store = (c: FusionComponent) => retention?.available ? retention.stores.find((s) => s.component === c.component) : undefined
   return (
     <>
@@ -65,6 +69,12 @@ export function FusionOverview({ fusion, problems, retention, now, onOpenDashboa
           </ul>
         )}
       </FusionSection>
+
+      {picture && (
+        <FusionSection title="How data goes through FUSION" testId="fusion-flow">
+          <FusionPicture model={picture} />
+        </FusionSection>
+      )}
 
       {parts.length > 0 && (
         <FusionSection title="Stores and central operator" testId="fusion-stores">
