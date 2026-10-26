@@ -2,7 +2,7 @@ import { uptimeWords, type AgentDiagnostics } from '../../../lib/consent'
 import type * as W from '../../../lib/generated/wire'
 import { exportReach } from '../../../lib/exportHealth'
 import { TELEMETRY_SIGNALS, type Modality } from '../../../lib/install'
-import { type Health, worstOf } from '../../../lib/status'
+import { type Health, reportIsStale, worstOf } from '../../../lib/status'
 import { arrivalCheck, type ArrivalRow } from './telemetrySetup'
 import type { LinkState } from './pipelineFlow'
 
@@ -110,7 +110,9 @@ function scrapeRead(id: string, sources: readonly W.SourceHealthDoc[] | undefine
   // A tool the collector scrapes that answers on only some of its nodes has data missing, which is more than a read that fails in part.
   const health: Health = state === 'failing' || (tool && state === 'degraded') ? 'attention' : state === 'waiting' ? 'unknown' : 'healthy'
   let sentence: string | undefined
-  if (tool && (state === 'failing' || state === 'degraded')) {
+  if (tool && state === 'waiting') {
+    sentence = id === 'clusterLinks' ? 'The link service answers and has no link to report yet. It has one once a path is measured.' : 'It answers and has nothing to report yet.'
+  } else if (tool && (state === 'failing' || state === 'degraded')) {
     const targets = worst.targets ?? 0
     const down = worst.down ?? []
     const where = down.length > 0 ? ` Not answering: ${down.join(', ')}${targets - (worst.targetsUp ?? 0) > down.length ? ' and others' : ''}.` : ''
@@ -136,7 +138,7 @@ const RECEIVER_ORDER: W.ReceiverState[] = ['refusing', 'receiving', 'silent', 'w
  * is the OTLP receiver's for that kind of data: receiving once anything has come in, waiting until then. Undefined when the agent says nothing
  * of its collectors, which is not a fault.
  */
-function impliedRead(s: { id: string; modality: Modality; layer: 'infrastructure' | 'application' }, d: AgentDiagnostics | undefined, now: number): SourceRead | undefined {
+function impliedRead(s: { id: string; modality: Modality; layer: 'infrastructure' | 'application' }, d: AgentDiagnostics | undefined, now: number, installed: readonly string[] = []): SourceRead | undefined {
   const h = d?.exportHealth
   if (!h || exportReach(d) !== 'ok') return undefined
   if (s.layer !== 'application') {
@@ -146,17 +148,19 @@ function impliedRead(s: { id: string; modality: Modality; layer: 'infrastructure
   }
   const mine = (h.receivers ?? []).filter((r) => r.signal === s.modality)
   const state = RECEIVER_ORDER.find((x) => mine.some((r) => r.state === x)) ?? 'waiting'
+  // The receiver counts by kind of data, not by who sent it: say so where another source shares it, so "Receiving" is not read as more than it is.
+  const shared = s.id === 'applicationMetrics' && installed.includes('networkLatency') ? ' Network latency sends its metrics to the same receiver, so they are counted here too.' : ''
   const accepted = mine.reduce((n, r) => n + r.accepted, 0)
   const last = mine.map((r) => r.lastAcceptedAt).filter((t): t is string => !!t).sort().at(-1)
   switch (state) {
     case 'receiving':
-      return { state: 'receiving', word: 'Receiving', health: 'healthy', sentence: last ? `${accepted.toLocaleString()} accepted, the last ${agoWords(last, now)}.` : undefined }
+      return { state: 'receiving', word: 'Receiving', health: 'healthy', sentence: `${last ? `${accepted.toLocaleString()} accepted, the last ${agoWords(last, now)}.` : ''}${shared}`.trim() || undefined }
     case 'silent':
-      return { state: 'silent', word: 'Quiet', health: 'healthy', sentence: 'Nothing has been sent for a few minutes. That is normal while the applications are idle.' }
+      return { state: 'silent', word: 'Quiet', health: 'healthy', sentence: `Nothing has been sent for a few minutes. That is normal while the applications are idle.${shared}` }
     case 'refusing':
       return { state: 'failing', word: 'Turned away', health: 'attention', sentence: `The collector is turning this data away (${mine.reduce((n, r) => n + r.refused, 0).toLocaleString()} refused). It is short of memory, or the pipeline behind its receiver refused it: look at the collector pods' logs.` }
     default:
-      return { state: 'waiting', word: READ_WORD.waiting, health: 'unknown', sentence: `No application has sent ${s.modality} to the collector yet.` }
+      return { state: 'waiting', word: READ_WORD.waiting, health: 'unknown', sentence: `No application has sent ${s.modality} to the collector yet.${shared}` }
   }
 }
 
@@ -209,9 +213,12 @@ const GROUPS: { scope: PictureScope; title: string; sub: string }[] = [
 /** The picture of one install, from what it runs and what its collectors report. `connected` and `now` are as in arrivalCheck. Pure. */
 export function operatorPicture(o: { installed: string[]; diagnostics?: AgentDiagnostics; connected?: boolean; now: number; cluster: string; namespace?: string }): OperatorPicture {
   const { installed, diagnostics: d } = o
+  // What an agent last said is not what is happening while it is gone: a disconnected agent, or a report that has stopped coming, says nothing
+  // of any source now, however well it was reading when it last reported.
+  const outdated = !!d && (o.connected === false || reportIsStale((o.now - Date.parse(d.reportedAt)) / 1000))
   const groups: PictureGroup[] = GROUPS.map((g) => ({
     ...g,
-    sources: TELEMETRY_SIGNALS.filter((s) => s.scope === g.scope && installed.includes(s.id)).map((s) => ({ id: s.id, label: s.label, modality: s.modality, what: s.what, read: sourceRead(s.id, d?.exportHealth?.sources, o.now, d?.workloads) ?? impliedRead(s, d, o.now) })),
+    sources: TELEMETRY_SIGNALS.filter((s) => s.scope === g.scope && installed.includes(s.id)).map((s) => ({ id: s.id, label: s.label, modality: s.modality, what: s.what, read: outdated ? undefined : sourceRead(s.id, d?.exportHealth?.sources, o.now, d?.workloads) ?? impliedRead(s, d, o.now, installed) })),
   })).filter((g) => g.sources.length > 0)
 
   // The lanes and their health are the ones "Is data arriving?" shows, so the two never disagree.
@@ -252,13 +259,14 @@ export function operatorPicture(o: { installed: string[]; diagnostics?: AgentDia
 
 /**
  * The line from one source into the collectors, drawn as the pipeline draws the line between two nodes: dashes that move when the collectors
- * are reading it, still and amber when it is quiet or partly read, red when it is not read, grey and dashed when it is not known. A source the
- * agent does not report on a receiver of its own is not known, which is not a fault.
+ * are reading it, still and amber when it is partly read, red when it is not read, grey and dashed when it is not known or quiet (nothing is
+ * coming in, which is nothing to worry about while nothing produces anything). A source the agent does not report on a receiver of its own is
+ * not known, which is not a fault.
  */
 export function sourceLink(read: SourceRead | undefined): LinkState {
   switch (read?.state) {
     case 'receiving': return 'flowing'
-    case 'silent': case 'degraded': return 'stalled'
+    case 'degraded': return 'stalled'
     case 'failing': return 'broken'
     default: return 'unknown'
   }

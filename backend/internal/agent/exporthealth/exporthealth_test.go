@@ -508,3 +508,30 @@ func TestTheToolsTheCollectorScrapesAreToldByWhetherEachTargetAnswered(t *testin
 		t.Fatalf("an unreadable endpoint was reported as tools: %+v", m.Report().Sources)
 	}
 }
+
+// The agent's own link service answers with no series until a link is measured: that is waiting, where Kepler answering with nothing is failing.
+func TestTheLinkServiceThatIsUpWithNothingToReportIsWaitingNotFailing(t *testing.T) {
+	f := newFleet()
+	f.dns["cluster.svc"] = []string{"10.0.0.9"}
+	m := f.monitor("cluster.svc:8889")
+	body := `scrape_samples_scraped{instance="agent:9464",job="cluster-links",service_name="cluster-links"} 0
+up{instance="agent:9464",job="cluster-links",service_name="cluster-links"} 1
+scrape_samples_scraped{instance="10.0.0.4:9102",job="kepler",node="node-a",service_name="kepler"} 0
+up{instance="10.0.0.4:9102",job="kepler",node="node-a",service_name="kepler"} 1
+`
+	f.set("10.0.0.9:8889", body)
+	m.Scrape(context.Background())
+	h := m.Report()
+	if l := toolOf(t, h, "cluster-links"); l == nil || l.State != ikhnosv1.SourceHealth_WAITING || len(l.Down) != 0 {
+		t.Fatalf("cluster-links up with no series = %+v, want waiting", l)
+	}
+	if k := toolOf(t, h, "kepler"); k == nil || k.State != ikhnosv1.SourceHealth_FAILING {
+		t.Fatalf("kepler up with no series = %+v, want failing", k)
+	}
+	// Once a link is measured it is receiving.
+	f.set("10.0.0.9:8889", strings.Replace(body, `service_name="cluster-links"} 0`, `service_name="cluster-links"} 12`, 1))
+	m.Scrape(context.Background())
+	if l := toolOf(t, m.Report(), "cluster-links"); l.State != ikhnosv1.SourceHealth_RECEIVING {
+		t.Fatalf("cluster-links with series = %+v, want receiving", l)
+	}
+}

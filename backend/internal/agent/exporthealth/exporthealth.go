@@ -622,6 +622,10 @@ var ToolJobs = map[string][]string{
 	"cluster-links-probe":   {"clusterLinks"},
 }
 
+// quietWithoutFault are the jobs whose service is up with no series while there is nothing for it to report, which is not a fault: it is waiting.
+// A tool that is up and serves nothing (Kepler, dcgm-exporter) is a fault, since it has something to measure from the moment it runs.
+var quietWithoutFault = map[string]bool{"cluster-links": true, "cluster-links-probe": true}
+
 // maxDown is how many nodes whose target did not answer are named.
 const maxDown = 10
 
@@ -695,11 +699,15 @@ func (m *Monitor) toolSources() []*ikhnosv1.SourceHealth {
 			insts = append(insts, i)
 		}
 		sort.Strings(insts)
+		empty := 0 // targets that answered the scrape but gave no series
 		for _, i := range insts {
 			t := ts[i]
 			if t.answered() {
 				sh.TargetsUp++
 				continue
+			}
+			if t.hasUp && t.up {
+				empty++
 			}
 			name := t.node
 			if name == "" {
@@ -712,6 +720,9 @@ func (m *Monitor) toolSources() []*ikhnosv1.SourceHealth {
 		switch {
 		case sh.TargetsUp == sh.Targets:
 			sh.State = ikhnosv1.SourceHealth_RECEIVING
+		case sh.TargetsUp == 0 && empty == int(sh.Targets) && quietWithoutFault[job]:
+			// The service answers and has nothing to report yet: the agent's link service has no link to show until one is measured.
+			sh.State, sh.Down = ikhnosv1.SourceHealth_WAITING, nil
 		case sh.TargetsUp > 0:
 			sh.State = ikhnosv1.SourceHealth_DEGRADED
 		default:

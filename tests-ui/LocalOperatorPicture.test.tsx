@@ -240,8 +240,8 @@ describe('the pods of a tool, where a controller keeps the release', () => {
 })
 
 describe('the line from each source into the collectors', () => {
-  test('is drawn as the pipeline draws a link: moving when read, still when quiet or partly read, red when not read, dashed grey when not known', () => {
-    for (const [state, link] of [['receiving', 'flowing'], ['silent', 'stalled'], ['degraded', 'stalled'], ['failing', 'broken'], ['waiting', 'unknown']] as const) {
+  test('is drawn as the pipeline draws a link: moving when read, still when partly read, red when not read, dashed grey when quiet or not known', () => {
+    for (const [state, link] of [['receiving', 'flowing'], ['silent', 'unknown'], ['degraded', 'stalled'], ['failing', 'broken'], ['waiting', 'unknown']] as const) {
       const { unmount } = show(diag(kubelet(state), ['resourceUsage']), ['resourceUsage'], { openOnArrival: true })
       expect(screen.getByTestId('operator-picture-source-resourceUsage-edge')).toHaveAttribute('data-link', link)
       unmount()
@@ -295,5 +295,36 @@ describe('what is said of the sources that are pushed, and of those whose receiv
     expect(screen.getByTestId('operator-picture-source-traces-edge')).toHaveAttribute('data-link', 'flowing')
     expect(screen.getByTestId('operator-picture-source-applicationLogs-state')).toHaveTextContent('Waiting')
     expect(screen.getByTestId('operator-picture-source-applicationLogs-edge')).toHaveAttribute('data-link', 'unknown')
+  })
+})
+
+describe('what the picture claims only while the agent is there to say it', () => {
+  const rec: AgentExportHealth = { ...healthy, receivers: [{ signal: 'traces', state: 'receiving', accepted: 4, refused: 0, lastAcceptedAt: '2026-10-06T12:09:50Z' }], sources: [] }
+
+  test('a disconnected agent, or a report that has stopped coming, leaves every source not known rather than reading as it last did', () => {
+    const live = operatorPicture({ installed: ['traces'], diagnostics: diag(rec, ['traces']), connected: true, now: NOW, cluster: 'c' })
+    expect(live.groups[0].sources[0].read?.state).toBe('receiving')
+    const gone = operatorPicture({ installed: ['traces'], diagnostics: diag(rec, ['traces']), connected: false, now: NOW, cluster: 'c' })
+    expect(gone.groups[0].sources[0].read).toBeUndefined()
+    const stale = operatorPicture({ installed: ['traces'], diagnostics: diag(rec, ['traces']), connected: true, now: NOW + 3_600_000, cluster: 'c' })
+    expect(stale.groups[0].sources[0].read).toBeUndefined()
+  })
+
+  test('network latency shares the metrics receiver with the applications, and the picture says so', () => {
+    const m: AgentExportHealth = { ...healthy, receivers: [{ signal: 'metrics', state: 'receiving', accepted: 40, refused: 0, lastAcceptedAt: '2026-10-06T12:09:50Z' }], sources: [] }
+    const p = operatorPicture({ installed: ['applicationMetrics', 'networkLatency'], diagnostics: diag(m, ['applicationMetrics', 'networkLatency']), now: NOW, cluster: 'c' })
+    const r = p.groups.flatMap((g) => g.sources).find((x) => x.id === 'applicationMetrics')?.read
+    expect(r?.sentence).toContain('Network latency sends its metrics to the same receiver')
+    const alone = operatorPicture({ installed: ['applicationMetrics'], diagnostics: diag(m, ['applicationMetrics']), now: NOW, cluster: 'c' })
+    expect(alone.groups.flatMap((g) => g.sources)[0].read?.sentence).not.toContain('Network latency')
+  })
+
+  test('a tool whose service answers with nothing to report yet is waiting, with a sentence that says so', () => {
+    const h: AgentExportHealth = { ...healthy, receivers: [], sources: [{ receiver: 'cluster-links', signals: ['clusterLinks'], state: 'waiting', accepted: 0, failed: 0, targets: 1, targetsUp: 0 }] as unknown as AgentExportHealth['sources'] }
+    const p = operatorPicture({ installed: ['clusterLinks'], diagnostics: diag(h, ['clusterLinks']), now: NOW, cluster: 'c' })
+    const r = p.groups.flatMap((g) => g.sources)[0].read
+    expect(r).toMatchObject({ state: 'waiting', health: 'unknown' })
+    expect(r?.sentence).toContain('no link to report yet')
+    expect(p.needsAttention).toBe(false)
   })
 })
