@@ -49,6 +49,9 @@ type runnerRig struct {
 	answer func() (IperfServer, error)
 	gen    chan struct{}
 	asked  chan struct{}
+	// waiting is whether the runner is in a wait that the next tick will end: a tick that came before the runner got there would end
+	// nothing, and the runner would then sleep through the answer the test has just set.
+	waiting bool
 }
 
 func newRunnerRig(t *testing.T) *runnerRig {
@@ -76,6 +79,7 @@ func newRunnerRig(t *testing.T) *runnerRig {
 	rr.r.After = func(d time.Duration) <-chan time.Time {
 		rr.mu.Lock()
 		g := rr.gen
+		rr.waiting = true
 		rr.mu.Unlock()
 		c := make(chan time.Time, 1)
 		go func() {
@@ -121,12 +125,22 @@ func (rr *runnerRig) asks(t *testing.T) {
 	}
 }
 
-// tick ends every wait the runner is in.
+// tick ends every wait the runner is in. The runner may still be finishing the answer it was given (a slow machine makes that long), so
+// it is waited for to be in a wait first; a runner that never gets there is ticked anyway after a while and the test fails on what it asks.
 func (rr *runnerRig) tick() {
-	rr.mu.Lock()
-	close(rr.gen)
-	rr.gen = make(chan struct{})
-	rr.mu.Unlock()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		rr.mu.Lock()
+		if rr.waiting || time.Now().After(deadline) {
+			close(rr.gen)
+			rr.gen = make(chan struct{})
+			rr.waiting = false
+			rr.mu.Unlock()
+			return
+		}
+		rr.mu.Unlock()
+		time.Sleep(time.Millisecond)
+	}
 }
 
 func (rr *runnerRig) procCount() int {
