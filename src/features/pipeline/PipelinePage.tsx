@@ -51,6 +51,9 @@ const STRIP_MAX = 3
  * are not records of their own (an agent's collectors, turned on per signal by a telemetry request), regional operators are, and the
  * central operator is FUSION's door: all of them share the columns, the four state words and the menu.
  */
+/** The kinds the table has: everything on the path but the discovery agents, which are on the Agents page. */
+const SHOWN_KINDS = KINDS.filter((k) => k !== 'agent')
+
 export default function PipelinePage() {
   const [sp, setSp] = useSearchParams()
   const navigate = useNavigate()
@@ -100,7 +103,9 @@ export default function PipelinePage() {
 
   // What a destination can be named by: the full list for an administrator, the read model for anyone else.
   const known = useMemo(() => (admin ? operators : destinations.map(operatorFromDestination)), [admin, operators, destinations])
-  const rows = useMemo(() => buildComponents({ agents, clusters, rawAgents, intents, operators, known, now }), [agents, clusters, rawAgents, intents, operators, known, now])
+  // Discovery agents are not on this page: they have their own, and each local operator links to its agent. What an agent's trouble means for
+  // the data is already in its local operator's row.
+  const rows = useMemo(() => buildComponents({ agents, clusters, rawAgents, intents, operators, known, now }).filter((r) => r.kind !== 'agent'), [agents, clusters, rawAgents, intents, operators, known, now])
   const detailRow = detailFor ? rows.find((r) => r.id === detailFor && r.kind === 'local') : undefined
   // The parameter is spent at once, so closing the detail, or a reload, does not open it again; it waits for the list if that is not here yet.
   const wantOpen = sp.get('open')
@@ -113,16 +118,16 @@ export default function PipelinePage() {
   }, [wantOpen, rows, setSp])
   const fusionKind = fusionSentence(fusion.status).kind
   const hops = useMemo(
-    () => buildHops(rows, { kind: fusionKind, lastDataAt: fusion.status?.lastDataAt }).filter((h) => admin || (h.key !== 'regional' && h.key !== 'central')),
+    () => buildHops(rows, { kind: fusionKind, lastDataAt: fusion.status?.lastDataAt }).filter((h) => h.key !== 'agent' && (admin || (h.key !== 'regional' && h.key !== 'central'))),
     [rows, fusionKind, fusion.status?.lastDataAt, admin],
   )
   const attention = needAttention(rows)
 
   const asked = sp.get('kind')
-  const filter: Kind | 'all' = KINDS.find((k) => k === asked) ?? 'all'
+  const filter: Kind | 'all' = SHOWN_KINDS.find((k) => k === asked) ?? 'all'
   const setFilter = (k: Kind | 'all') => setSp((p) => { const n = new URLSearchParams(p); if (k === 'all') n.delete('kind'); else n.set('kind', k); n.delete('via'); return n }, { replace: true })
   const showDirect = () => setSp((p) => { const n = new URLSearchParams(p); if (n.get('kind') === 'local' && n.get('via') === 'central') { n.delete('kind'); n.delete('via') } else { n.set('kind', 'local'); n.set('via', 'central') } return n }, { replace: true })
-  const counts = { all: rows.length, ...Object.fromEntries(KINDS.map((k) => [k, rows.filter((r) => r.kind === k).length])) } as Record<Kind | 'all', number>
+  const counts = { all: rows.length, ...Object.fromEntries(SHOWN_KINDS.map((k) => [k, rows.filter((r) => r.kind === k).length])) } as Record<Kind | 'all', number>
   // "Sending direct to central" narrows the local operators to those that skip the regional hop (the arc over the strip sets it).
   const directOnly = filter === 'local' && sp.get('via') === 'central'
   const shown = filter === 'all' ? rows : rows.filter((r) => r.kind === filter && (!directOnly || r.sendsDirect))
@@ -157,12 +162,8 @@ export default function PipelinePage() {
    *  What does not apply to a kind is left out; what applies and cannot be used right now stays, dimmed, with the reason under it. */
   const menuFor = (r: ComponentRow): RowMenuItem[] => {
     const op = r.operator
-    if (!op) {
-      if (r.kind === 'agent') return [{ key: 'agents', label: 'Open in Agents', onSelect: () => navigate('/agents'), testId: `agent-open-${r.name}` }]
-      return [
-        { key: 'collects', label: 'What it collects here', title: 'The picture of what it collects and where it goes, and whether data is arriving', onSelect: () => setDetailFor(r.id), disabled: !r.agentId, testId: `local-collects-${r.name}` },
-        { key: 'configure', label: 'Change what it sends…', onSelect: () => telemetry.start(r.agentId), disabled: !canConsent, title: canConsent ? undefined : 'Changing telemetry needs permission to edit', testId: `local-configure-${r.name}` }]
-    }
+    // A local operator has no menu: its row opens to its picture, and what can be done about it is there.
+    if (!op) return []
     const remove: RowMenuItem = { key: 'delete', label: 'Stop and remove…', danger: true, onSelect: () => setRemoving({ operator: op, mode: 'delete' }), testId: `operator-delete-${op.name}` }
     if (r.ended) return [remove]
     const address: RowMenuItem = { key: 'address', label: 'Reachable at…', onSelect: () => setAddressFor(op), testId: `operator-address-open-${op.name}` }
@@ -197,7 +198,7 @@ export default function PipelinePage() {
     else navigate(kind === 'fusion' ? '/fusion' : '/agents')
   }
 
-  const chips = (['all', ...KINDS] as const).filter((k) => k === 'all' || counts[k])
+  const chips = (['all', ...SHOWN_KINDS] as const).filter((k) => k === 'all' || counts[k])
   const empty = ready && rows.length === 0 && !loadError
 
   // The detail of a local operator opens in the list, right under its row, as wide as the table: the picture needs the room.

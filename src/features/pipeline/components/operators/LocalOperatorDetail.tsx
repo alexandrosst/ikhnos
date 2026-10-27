@@ -1,4 +1,4 @@
-import { Settings2, X } from 'lucide-react'
+import { Cable, Settings2, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import StateChip from '@/features/pipeline/components/operators/StateChip'
@@ -6,6 +6,7 @@ import { HealthWord } from '@/features/pipeline/components/telemetry/ArrivalChec
 import LocalOperatorPicture from '@/features/pipeline/components/telemetry/LocalOperatorPicture'
 import { operatorPicture } from '@/features/pipeline/lib/operatorPicture'
 import type { ComponentRow } from '@/features/pipeline/lib/operatorsView'
+import { buttonClass } from '@/components/ui/buttonClass'
 import { Button, ICON_SM } from '@/components/ui/primitives'
 import type { AgentExtras } from '@/lib/consent'
 import { TELEMETRY_SIGNALS } from '@/lib/install'
@@ -46,7 +47,7 @@ export default function LocalOperatorDetail({ row, extras, connected, namespace,
             <Button size="sm" onClick={onChange} disabled={!canConsent} title={canConsent ? undefined : 'Changing telemetry needs permission to edit'} data-testid="local-operator-change">
               <Settings2 size={ICON_SM} aria-hidden /> Change what it sends…
             </Button>
-            {row.agentId && <Link to={`/agents?open=${encodeURIComponent(row.agentId)}`} className="text-xs text-accent hover:underline" data-testid="local-operator-agent">Its agent</Link>}
+            {row.agentId && <Link to={`/agents?open=${encodeURIComponent(row.agentId)}`} className={buttonClass('secondary', 'sm')} data-testid="local-operator-agent"><Cable size={ICON_SM} aria-hidden /> Its discovery agent</Link>}
           </div>
         </section>
 

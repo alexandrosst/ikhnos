@@ -39,11 +39,11 @@ The **Suggestions** tab is where the server surfaces things it noticed but did n
 
 ## Pipeline
 
-**Telemetry → Pipeline** (`/pipeline`) is one page for the whole path telemetry takes: agents, local operators, regional operators, the central operator and [FUSION](#fusion). (The older `/operators` address redirects here.)
+**Telemetry → Pipeline** (`/pipeline`) is one page for the whole path telemetry takes: local operators, regional operators, the central operator and [FUSION](#fusion). Discovery agents are not on it; they have the **Agents** page, and each local operator links to its agent. (The older `/operators` address redirects here.)
 
 - **What needs attention** comes first and appears only when something is wrong. Each item has a **What to do** button that opens numbered steps, with the commands to run.
-- Five tiles, one per hop, show a count and when that hop last sent data. Selecting a tile filters the table below it.
-- One table lists every component, with its state (**Healthy**, **Needs attention**, **Not working** or **Unknown**), its certificate (**Renewing automatically** unless renewal fails), **Sends to**, **Last data**, and the same row menu on every row.
+- Four tiles, one per hop, show a count and when that hop last sent data. Selecting a tile filters the table below it.
+- One table lists every component, with its state (**Healthy**, **Needs attention**, **Not working** or **Unknown**), its certificate (**Renewing automatically** unless renewal fails), **Sends to** and **Last data**. A regional or central operator has a row menu; a local operator has none, because a click anywhere on its row opens its picture (what it collects and where it goes), with the button to change what it sends and the one that goes to its discovery agent.
 
 **Set up telemetry** and **New operator** are the two primary buttons. How operators are created, reached and renewed is in [Regional operators](../architecture/regional-operators.md) and [Running regional operators](../architecture/regional-operators-lifecycle.md).
 

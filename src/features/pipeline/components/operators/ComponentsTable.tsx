@@ -1,4 +1,5 @@
-import { ShieldCheck } from 'lucide-react'
+import { ChevronDown, ShieldCheck } from 'lucide-react'
+import clsx from 'clsx'
 import { Fragment, type ReactNode } from 'react'
 import { MeterBar } from '@/components/ui/MeterBar'
 import RowMenu, { type RowMenuItem } from '@/features/pipeline/components/operators/RowMenu'
@@ -56,13 +57,18 @@ export default function ComponentsTable({ rows: unsorted, now, menuFor, onWhatTo
         {rows.map((r) => {
           const addr = r.operator && !r.ended && r.kind === 'regional' ? addressCell(r.operator) : undefined
           const { state, reason, todo, setup } = r.verdict
+          const opens = !!onOpen && r.kind === 'local' && !!r.agentId
           return (
             <Fragment key={r.id}>
-            <tr className="group relative hover:bg-nb-930/60 max-md:border-b max-md:border-nb-850/60 max-md:px-1 max-md:py-3" data-testid={r.operator ? `operator-${r.operator.name}` : `component-${r.id}`} data-kind={r.kind} data-state={state}>
+            <tr
+              className={clsx('group relative hover:bg-nb-930/60 max-md:border-b max-md:border-nb-850/60 max-md:px-1 max-md:py-3', opens && 'cursor-pointer', expandedId === r.id && 'bg-nb-930/40')}
+              // A click anywhere on a local operator's row opens it, as an agent's row does; a control inside the row does its own thing.
+              onClick={opens ? (e) => { if (!(e.target as HTMLElement).closest('button, a, [role="menuitem"]')) onOpen!(r) } : undefined}
+              data-testid={r.operator ? `operator-${r.operator.name}` : `component-${r.id}`} data-kind={r.kind} data-state={state}>
               <Td valign="top" className="max-md:block max-md:border-0 max-md:py-0 max-md:pr-12">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  {onOpen && r.kind === 'local' && r.agentId ? (
-                    <button type="button" className="min-w-0 truncate text-left font-medium text-nb-300 hover:text-accent hover:underline" title={`${r.name}: what it collects and where it goes`} aria-expanded={expandedId === r.id} onClick={() => onOpen(r)} data-testid={`local-open-${r.name}`}>{r.name}</button>
+                  {opens ? (
+                    <button type="button" className="min-w-0 truncate text-left font-medium text-nb-300 hover:text-accent hover:underline" title={`${r.name}: what it collects and where it goes`} aria-expanded={expandedId === r.id} onClick={() => onOpen!(r)} data-testid={`local-open-${r.name}`}>{r.name}</button>
                   ) : (
                     <span className="min-w-0 truncate font-medium text-nb-300" title={r.name}>{r.name}</span>
                   )}
@@ -94,7 +100,11 @@ export default function ComponentsTable({ rows: unsorted, now, menuFor, onWhatTo
               <Td valign="top" className="text-xs text-nb-400 max-md:block max-md:border-0 max-md:pb-0 max-md:pt-1"><Label>Sends to</Label><span className="break-words font-mono md:block md:truncate" title={r.sendsTo}>{r.sendsTo}</span></Td>
               <Td valign="top" className="whitespace-nowrap text-xs text-nb-500 max-md:block max-md:border-0 max-md:pb-0 max-md:pt-1"><Label>Last data</Label><span title={r.lastData ? new Date(r.lastData).toLocaleString() : undefined}>{lastDataText(r.lastData, now)}</span></Td>
               <Td valign="top" className="sticky right-0 bg-nb-925 text-right group-hover:bg-nb-930 max-md:absolute max-md:right-1 max-md:top-2 max-md:border-0 max-md:bg-transparent max-md:p-0">
-                <RowMenu ariaLabel={`Actions for ${r.name}`} items={menuFor(r)} testId={r.operator ? `operator-menu-${r.operator.name}` : `component-menu-${r.id}`} />
+                {opens ? (
+                  <ChevronDown size={ICON_SM} aria-hidden className={clsx('ml-auto text-nb-500 transition-transform', expandedId === r.id && 'rotate-180')} data-testid={`local-chevron-${r.name}`} />
+                ) : (
+                  <RowMenu ariaLabel={`Actions for ${r.name}`} items={menuFor(r)} testId={r.operator ? `operator-menu-${r.operator.name}` : `component-menu-${r.id}`} />
+                )}
               </Td>
             </tr>
             {renderExpanded && expandedId === r.id && (
