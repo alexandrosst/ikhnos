@@ -543,14 +543,14 @@ func (c *Capacity) runTest(ctx context.Context, p Peer, t capTest) outcome {
 		if t.kind == "udp-ramp" {
 			rampMax = c.rampTop(share)
 			if rampMax == 0 {
-				c.warnOversized(p, t, est)
+				c.warnShare(p, t, share)
 				return outcome{skip: "budget", drop: true}
 			}
 			est = rampBytes(c.UDP.Start, rampMax, c.UDP.Step)
 		} else {
 			capStream = share * 8 / uint64((c.Duration + c.Omit).Seconds()) / uint64(streams*dirs)
 			if capStream < minCapBits {
-				c.warnOversized(p, t, est)
+				c.warnShare(p, t, share)
 				return outcome{skip: "budget", drop: true}
 			}
 			est = capStream * uint64(streams*dirs) * uint64((c.Duration + c.Omit).Seconds()) / 8
@@ -901,6 +901,11 @@ func (c *Capacity) share(p Peer) uint64 {
 	if limit == 0 {
 		return 0
 	}
+	return limit / c.testsPerWindow(p)
+}
+
+// testsPerWindow is how many tests the byte budget of a window has to pay for: the tests of a cycle times the cycles a window holds.
+func (c *Capacity) testsPerWindow(p Peer) uint64 {
 	every := c.Every
 	if p.ThroughputEvery > 0 {
 		every = p.ThroughputEvery
@@ -909,11 +914,18 @@ func (c *Capacity) share(p Peer) uint64 {
 	if every > 0 && c.BudgetWindow > every {
 		cycles = uint64((c.BudgetWindow + every - 1) / every)
 	}
-	n := uint64(len(c.plan())) * cycles
-	if n == 0 {
-		n = 1
+	return max(uint64(len(c.plan()))*cycles, 1)
+}
+
+// warnShare says once that a test is left out because its share of the byte budget is too small for a reading: the tests are run
+// so often that the budget, divided over them, pays for almost nothing each. It is not that one test is larger than the budget.
+func (c *Capacity) warnShare(p Peer, t capTest, share uint64) {
+	k := "share|" + t.key(p.ID)
+	if !c.warnOnce(k) {
+		return
 	}
-	return limit / n
+	c.Log.Warn("a throughput test is left out: the byte budget is shared by too many tests, so each may carry too little for a reading; run them less often or raise the budget",
+		"peer", p.ID, "test", t.kind, "direction", t.dir, "tests_per_window", c.testsPerWindow(p), "budget", c.budgetLimit(p), "bytes_per_test", share)
 }
 
 // warnBounded says once that a test is sized down to its share of the byte budget.

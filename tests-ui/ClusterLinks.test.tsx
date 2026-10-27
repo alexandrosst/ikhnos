@@ -110,7 +110,11 @@ describe('ClusterLinks', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Throughput tests' }))
     expect(screen.getByTestId('tp-cost')).toHaveTextContent('About 4 sets of tests a day')
     fireEvent.click(screen.getByRole('button', { name: 'Light' }))
-    expect(screen.getByTestId('tp-budget')).toHaveValue('50')
+    expect(screen.getByTestId('tp-cost')).toHaveTextContent('One set of tests a day, stopping for the day at 50 MB')
+    // only the three named amounts are offered: no free numbers to get wrong
+    expect(screen.queryByRole('button', { name: 'Custom' })).toBeNull()
+    expect(screen.queryByTestId('tp-hours')).toBeNull()
+    expect(screen.queryByTestId('tp-budget')).toBeNull()
     fireEvent.click(screen.getByRole('switch', { name: 'Probing' }))
     fireEvent.click(screen.getByTestId('save-pair'))
     await vi.waitFor(() => expect(saved).toEqual([{ a: 'c-eu', b: 'c-us', noProbe: true, throughput: { intervalMinutes: 1440, budgetMB: 50 } }]))
@@ -163,16 +167,25 @@ describe('ClusterLinks', () => {
     await vi.waitFor(() => expect(saved).toEqual([{ a: 'c-eu', b: 'c-us', via: 'public' }]))
   })
 
-  it('holds custom numbers to what the agents accept', () => {
-    seed('admin', [{ a: 'c-eu', b: 'c-us', throughput: { intervalMinutes: 360, budgetMB: 500 } }])
+  it('keeps a pair\'s own numbers (set through the API) until one of the three amounts is picked', async () => {
+    seed('admin', [{ a: 'c-eu', b: 'c-us', throughput: { intervalMinutes: 45, budgetMB: 300 } }])
     render(<ClusterLinks />)
     fireEvent.click(screen.getByRole('button', { name: 'Edit cloud-eu and cloud-us' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Custom' }))
-    fireEvent.change(screen.getByTestId('tp-hours'), { target: { value: '0.01' } })
-    expect(screen.getByTestId('save-pair')).toBeDisabled()
-    fireEvent.change(screen.getByTestId('tp-hours'), { target: { value: '0.5' } })
-    fireEvent.change(screen.getByTestId('tp-budget'), { target: { value: '2048' } })
-    expect(screen.getByTestId('save-pair')).toBeEnabled()
+    expect(screen.getByTestId('tp-own')).toHaveTextContent('every 45 minutes')
+    for (const l of ['Light', 'Standard', 'Heavy']) expect(screen.getByRole('button', { name: l })).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(screen.getByRole('switch', { name: 'Probing' }))
+    fireEvent.click(screen.getByTestId('save-pair'))
+    await vi.waitFor(() => expect(saved).toEqual([{ a: 'c-eu', b: 'c-us', noProbe: true, throughput: { intervalMinutes: 45, budgetMB: 300 } }]))
+  })
+
+  it('replaces a pair\'s own numbers with the amount picked', async () => {
+    seed('admin', [{ a: 'c-eu', b: 'c-us', throughput: { intervalMinutes: 10, budgetMB: 500 } }])
+    render(<ClusterLinks />)
+    fireEvent.click(screen.getByRole('button', { name: 'Edit cloud-eu and cloud-us' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Standard' }))
+    expect(screen.queryByTestId('tp-own')).toBeNull()
+    fireEvent.click(screen.getByTestId('save-pair'))
+    await vi.waitFor(() => expect(saved).toEqual([{ a: 'c-eu', b: 'c-us', throughput: { intervalMinutes: 360, budgetMB: 500 } }]))
   })
 
   it('removes a pair after confirming', async () => {
@@ -261,19 +274,6 @@ describe('ClusterLinks', () => {
     const rows = screen.getAllByTestId('pair-row')
     expect(within(rows[0]).queryByTestId('pair-warning')).toBeNull()
     expect(within(rows[1]).getByTestId('pair-warning')).toHaveTextContent('edge-athens is at access level 1')
-  })
-
-  it('ties each throughput error to its own field', () => {
-    seed('admin', [{ a: 'c-eu', b: 'c-us', throughput: { intervalMinutes: 360, budgetMB: 500 } }])
-    render(<ClusterLinks />)
-    fireEvent.click(screen.getByRole('button', { name: 'Edit cloud-eu and cloud-us' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Custom' }))
-    fireEvent.change(screen.getByTestId('tp-hours'), { target: { value: '0.01' } })
-    const hours = screen.getByTestId('tp-hours')
-    expect(hours).toHaveAttribute('aria-invalid', 'true')
-    expect(document.getElementById(hours.getAttribute('aria-describedby')!)).toHaveTextContent('time between tests')
-    expect(screen.getByTestId('tp-budget')).toHaveAttribute('aria-invalid', 'false')
-    expect(screen.getByTestId('tp-budget')).not.toHaveAttribute('aria-describedby')
   })
 
   it('describes a switch by its explanation', () => {

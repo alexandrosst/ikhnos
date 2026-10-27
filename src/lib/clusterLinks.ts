@@ -5,12 +5,6 @@ import { ago } from './observed'
 import type { Agent } from './types'
 import { PROBE_STALE_AFTER_MS } from './status'
 
-/** What the server and the agents accept for a pair's throughput tests (they clamp anything outside; the form refuses it first). */
-export const INTERVAL_MIN = 10
-export const INTERVAL_MAX = 10080
-export const BUDGET_MIN = 1
-export const BUDGET_MAX = 1048576
-
 export type Throughput = NonNullable<LinkPair['throughput']>
 export type PresetId = 'light' | 'standard' | 'heavy'
 
@@ -75,32 +69,11 @@ export function throughputSummary(t: Throughput): { when: string; budget: string
   }
 }
 
-/** What the form needs fixed, per field; a field is absent when fine. Hours may be fractional. */
-export function throughputFieldProblems(hours: string, budget: string): { hours?: string; budget?: string } {
-  const out: { hours?: string; budget?: string } = {}
-  const h = Number(hours)
-  const minutes = Math.round(h * 60)
-  if (hours.trim() === '' || !Number.isFinite(h) || minutes < INTERVAL_MIN || minutes > INTERVAL_MAX) {
-    out.hours = `The time between tests must be between ${INTERVAL_MIN} minutes and ${INTERVAL_MAX / 1440} days`
-  }
-  const b = Number(budget)
-  if (budget.trim() === '' || !Number.isInteger(b) || b < BUDGET_MIN || b > BUDGET_MAX) {
-    out.budget = `The daily budget must be a whole number of MB between ${BUDGET_MIN} and ${BUDGET_MAX}`
-  }
-  return out
-}
-
-/** What the form needs fixed before it can save; empty when fine. */
-export function throughputProblems(hours: string, budget: string): string[] {
-  const p = throughputFieldProblems(hours, budget)
-  return [p.hours, p.budget].filter((m): m is string => !!m)
-}
-
 /** How many sets of tests a day this schedule means, in words, for the form's cost line. */
 export function costLine(t: Throughput): string {
   const every = t.intervalMinutes ?? PRESETS.standard.intervalMinutes
   const perDay = 1440 / every
-  const runs = perDay >= 1 ? `about ${Math.round(perDay * 10) / 10} sets of tests a day` : `one set of tests every ${everyWords(every).slice(6)}`
+  const runs = perDay === 1 ? 'one set of tests a day' : perDay > 1 ? `about ${Math.round(perDay * 10) / 10} sets of tests a day` : `one set of tests every ${everyWords(every).slice(6)}`
   const cap = t.budgetMB ? `, stopping for the day at ${sizeWords(t.budgetMB)}` : ", within the cluster's own daily budget"
   return `${runs[0].toUpperCase()}${runs.slice(1)}${cap}. Tests wait while the link is busy with real traffic.`
 }

@@ -2,10 +2,10 @@ import clsx from 'clsx'
 import { ArrowLeftRight, Check as CheckIcon, ChevronRight, CircleAlert, CircleDashed, HelpCircle, Pencil, Plus } from 'lucide-react'
 import { useEffect, useId, useMemo, useState } from 'react'
 import { ConfirmModal } from '@/components/forms/ConfirmModal'
-import { Button, ErrorBanner, Field, ICON_MD, ICON_SM, Input, Modal, Pill, Select, SkeletonLines, Table, Td, Th } from '@/components/ui/primitives'
+import { Button, ErrorBanner, Field, ICON_MD, ICON_SM, Modal, Pill, Select, SkeletonLines, Table, Td, Th } from '@/components/ui/primitives'
 import { api, atLeast } from '@/lib/api'
 import {
-  LINK_REQUIREMENT, PRESETS, STEP_MARK, VIA_HINT, VIA_OPTIONS, clockWords, clusterChecks, costLine, firstLines, hasPair, latestView, newPair, pairKey, presetOf, probeRecent, removePair, replacePair, runnerOf, runsFromWords, setupSummary, throughputFieldProblems, throughputFor, throughputSummary, uncoveredChecks, uncoveredNotes,
+  LINK_REQUIREMENT, PRESETS, STEP_MARK, VIA_HINT, VIA_OPTIONS, clockWords, clusterChecks, costLine, firstLines, hasPair, latestView, newPair, pairKey, presetOf, probeRecent, removePair, replacePair, runnerOf, runsFromWords, setupSummary, throughputFor, throughputSummary, uncoveredChecks, uncoveredNotes,
   type Check, type LinkPairLatest, type LinksLatest, type PairSetup, type PresetId, type SetupState, type SetupStep, type Via,
 } from '@/lib/clusterLinks'
 import type { LinkPair } from '@/lib/history'
@@ -388,31 +388,17 @@ function EditPair({ pair, agents, name, onClose }: { pair: LinkPair; agents: Age
   const [probe, setProbe] = useState(!pair.noProbe)
   const [via, setVia] = useState<Via | ''>(pair.via ?? '')
   const [tpOn, setTpOn] = useState(!!pair.throughput)
-  const start = pair.throughput ?? throughputFor('standard')
-  const [preset, setPreset] = useState<PresetId | 'custom'>(presetOf(pair.throughput) ?? 'standard')
-  const [hours, setHours] = useState(String((start.intervalMinutes ?? PRESETS.standard.intervalMinutes) / 60))
-  const [budget, setBudget] = useState(String(start.budgetMB ?? PRESETS.standard.budgetMB))
+  // One of the three named amounts. A pair whose numbers are none of them (set through the API) keeps them until a person picks one of
+  // the three: 'own' stands for those numbers, and is never offered.
+  const current = presetOf(pair.throughput)
+  const [choice, setChoice] = useState<PresetId | 'own'>(current === 'custom' ? 'own' : current ?? 'standard')
   const [confirmRemove, setConfirmRemove] = useState(false)
-  // A pair set through the API may leave parts of throughput unset ("the cluster's own"); the form shows Standard's numbers for those, so
-  // they are only written back once the person has touched the throughput controls.
-  const [tpTouched, setTpTouched] = useState(false)
 
-  const pick = (id: PresetId | 'custom') => {
-    setTpTouched(true)
-    setPreset(id)
-    if (id !== 'custom') {
-      setHours(String(PRESETS[id].intervalMinutes / 60))
-      setBudget(String(PRESETS[id].budgetMB))
-    }
-  }
-  const fieldProblems = tpOn ? throughputFieldProblems(hours, budget) : {}
-  const hasProblems = !!(fieldProblems.hours || fieldProblems.budget)
-  const throughput = tpOn && !hasProblems ? { intervalMinutes: Math.round(Number(hours) * 60), budgetMB: Number(budget) } : undefined
+  const throughput = !tpOn ? undefined : choice === 'own' ? pair.throughput : throughputFor(choice)
   const checks = [...clusterChecks(pair.a, name(pair.a), agents), ...clusterChecks(pair.b, name(pair.b), agents)]
 
   const submit = () => {
-    const kept = tpOn && !tpTouched && pair.throughput ? pair.throughput : throughput
-    const next: LinkPair = { a: pair.a, b: pair.b, ...(probe ? {} : { noProbe: true }), ...(via ? { via } : {}), ...(kept ? { throughput: kept } : {}) }
+    const next: LinkPair = { a: pair.a, b: pair.b, ...(probe ? {} : { noProbe: true }), ...(via ? { via } : {}), ...(throughput ? { throughput } : {}) }
     void run((cur) => replacePair(cur, next))
   }
 
@@ -430,7 +416,7 @@ function EditPair({ pair, agents, name, onClose }: { pair: LinkPair; agents: Age
           <>
             <Button variant="danger" className="mr-auto" disabled={busy} onClick={() => setConfirmRemove(true)}>Remove pair</Button>
             <Button disabled={busy} onClick={onClose}>Cancel</Button>
-            <Button variant="primary" disabled={busy || hasProblems} onClick={submit} data-testid="save-pair">Save</Button>
+            <Button variant="primary" disabled={busy} onClick={submit} data-testid="save-pair">Save</Button>
           </>
         }
       >
@@ -439,42 +425,30 @@ function EditPair({ pair, agents, name, onClose }: { pair: LinkPair; agents: Age
           <hr className="border-nb-850" />
           <Choice label="Probing" text={`Small packets, both ways, sent from ${name(runnerOf(pair))} (its id sorts first) while the other cluster only answers. Gives delay, jitter and loss per direction, the path’s largest packet size and when its route changes. A few kilobytes a minute.`} on={probe} onChange={setProbe} />
           <hr className="border-nb-850" />
-          <Choice label="Throughput tests" text="Fills the link for a few seconds to see how much it can carry, how many packets it drops when pushed, and how far it can go before it does." on={tpOn} onChange={(v) => { setTpTouched(true); setTpOn(v) }} />
+          <Choice label="Throughput tests" text="Fills the link for a few seconds to see how much it can carry, how many packets it drops when pushed, and how far it can go before it does." on={tpOn} onChange={setTpOn} />
 
           {tpOn && (
             <div className="space-y-4" data-testid="throughput-options">
               <div>
                 <div className="mb-1.5 text-sm font-medium text-nb-300">How much</div>
                 <div className="flex gap-2" role="group" aria-label="How much">
-                  {([...(Object.keys(PRESETS) as PresetId[]), 'custom'] as const).map((id) => (
+                  {(Object.keys(PRESETS) as PresetId[]).map((id) => (
                     <button
                       key={id}
-                      aria-pressed={preset === id}
-                      onClick={() => pick(id)}
-                      className={clsx('h-9 flex-1 rounded-lg border text-sm font-medium', preset === id ? 'border-accent bg-accent-soft text-nb-300' : 'border-nb-850 text-nb-400 hover:bg-nb-940')}
+                      aria-pressed={choice === id}
+                      onClick={() => setChoice(id)}
+                      className={clsx('h-9 flex-1 rounded-lg border text-sm font-medium', choice === id ? 'border-accent bg-accent-soft text-nb-300' : 'border-nb-850 text-nb-400 hover:bg-nb-940')}
                     >
-                      {id === 'custom' ? 'Custom' : PRESETS[id].label}
+                      {PRESETS[id].label}
                     </button>
                   ))}
                 </div>
                 <p className="mt-1.5 text-xs text-nb-500">Light is every day with 50 MB, Standard every 6 hours with 500 MB, Heavy every hour with 5 GB.</p>
+                {choice === 'own' && pair.throughput && (
+                  <p className="mt-1.5 text-xs text-nb-400" data-testid="tp-own">This pair has its own schedule ({throughputSummary(pair.throughput).when}, {throughputSummary(pair.throughput).budget}), set through the API. It is kept until you pick one of these.</p>
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Every (hours)">
-                  <Input inputMode="decimal" value={hours} disabled={preset !== 'custom'} onChange={(e) => { setTpTouched(true); setHours(e.target.value) }} aria-invalid={!!fieldProblems.hours} aria-describedby={fieldProblems.hours ? 'tp-hours-err' : undefined} data-testid="tp-hours" />
-                </Field>
-                <Field label="Daily budget (MB)">
-                  <Input inputMode="numeric" value={budget} disabled={preset !== 'custom'} onChange={(e) => { setTpTouched(true); setBudget(e.target.value) }} aria-invalid={!!fieldProblems.budget} aria-describedby={fieldProblems.budget ? 'tp-budget-err' : undefined} data-testid="tp-budget" />
-                </Field>
-              </div>
-              {hasProblems ? (
-                <>
-                  {fieldProblems.hours && <ErrorBanner id="tp-hours-err">{fieldProblems.hours}.</ErrorBanner>}
-                  {fieldProblems.budget && <ErrorBanner id="tp-budget-err">{fieldProblems.budget}.</ErrorBanner>}
-                </>
-              ) : (
-                throughput && <p className="rounded-lg border border-nb-850 bg-nb-900 px-3.5 py-3 text-sm text-nb-400" data-testid="tp-cost">{costLine(throughput)}</p>
-              )}
+              {throughput && <p className="rounded-lg border border-nb-850 bg-nb-900 px-3.5 py-3 text-sm text-nb-400" data-testid="tp-cost">{costLine(throughput)}</p>}
               <p className="text-xs text-nb-500">Tests run from {name(runnerOf(pair))} (its id sorts first); {name(runnerOf(pair) === pair.a ? pair.b : pair.a)} only answers. Nothing to choose.</p>
             </div>
           )}

@@ -494,7 +494,7 @@ func TestATestLargerThanTheWholeBudgetWarnsOnceAndNeverRuns(t *testing.T) {
 	if f.count() != 0 {
 		t.Fatal("ran a test that cannot fit the budget")
 	}
-	if n := strings.Count(logs.String(), "never run"); n != 1 {
+	if n := strings.Count(logs.String(), "left out"); n != 1 {
 		t.Errorf("warned %d times:\n%s", n, logs.String())
 	}
 }
@@ -1297,5 +1297,57 @@ func TestACappedReadingDoesNotMakeTheNextTestRunUncapped(t *testing.T) {
 	}
 	if a := f.argsOf(f.count() - 1); !strings.Contains(a, " -b ") {
 		t.Errorf("the second test ran uncapped: %s", a)
+	}
+}
+
+// The three named amounts of testing of the settings page (Light, Standard, Heavy: src/lib/clusterLinks.ts PRESETS) are the only ones a person
+// is offered, so each must leave room for every test of a cycle under the chart's defaults: a preset whose budget cannot pay for its schedule
+// would run nothing and say nothing.
+func TestEveryPresetOfTheSettingsPageLeavesRoomForEveryTestOfACycle(t *testing.T) {
+	for _, pr := range []struct {
+		name     string
+		minutes  uint32
+		budgetMB uint64
+	}{{"light", 1440, 50}, {"standard", 360, 500}, {"heavy", 60, 5120}} {
+		t.Run(pr.name, func(t *testing.T) {
+			f := &fakeIperf{}
+			var logs bytes.Buffer
+			c, _ := capFor(t, f, func(c *Capacity) {
+				c.Duration, c.Omit = 10*time.Second, 2*time.Second
+				c.UDP = UDPRamp{Enabled: true, Start: 5e6, Max: 200e6, Step: 5 * time.Second, Loss: 0.01}
+				c.Every = 12 * time.Hour
+				c.Log = newTestLog(&logs)
+			})
+			lp := peer("cl-a", "A", "10.0.0.1")
+			lp.Throughput, lp.ThroughputIntervalSeconds, lp.ThroughputBudgetBytes = true, pr.minutes*60, pr.budgetMB<<20
+			c.Meter.Peers.Set("cl-me", []*ikhnosv1.LinkPeer{lp})
+			settle(c)
+			// What the fake carries is not what a capped test carries, so the ledger may make a later test wait; what matters here is
+			// that none is dropped for good because its share is too small to pay for a reading.
+			if f.count() < 4 {
+				t.Errorf("%s: only %d tests ran\n%s", pr.name, f.count(), logs.String())
+			}
+			if strings.Contains(logs.String(), "left out") {
+				t.Errorf("%s: a test was left out:\n%s", pr.name, logs.String())
+			}
+		})
+	}
+}
+
+// A schedule the budget cannot pay for (a set every 10 minutes on 500 MB a day) runs nothing, and the log says why in terms of the schedule.
+func TestATooFrequentScheduleSaysSoInsteadOfBlamingASingleTest(t *testing.T) {
+	f := &fakeIperf{}
+	var logs bytes.Buffer
+	c, _ := capFor(t, f, func(c *Capacity) { c.Log = newTestLog(&logs) })
+	lp := peer("cl-a", "A", "10.0.0.1")
+	lp.Throughput, lp.ThroughputIntervalSeconds, lp.ThroughputBudgetBytes = true, 600, 500<<20
+	c.Meter.Peers.Set("cl-me", []*ikhnosv1.LinkPeer{lp})
+	settle(c)
+	if f.count() != 0 {
+		t.Fatalf("ran %d tests that the budget cannot pay for", f.count())
+	}
+	out := logs.String()
+	if !strings.Contains(out, "shared by too many tests") || !strings.Contains(out, "tests_per_window=") || strings.Contains(out, "larger than the whole") {
+		t.Errorf("the warning does not name the cause:\n%s", out)
 	}
 }
