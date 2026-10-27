@@ -140,8 +140,11 @@ RUN set -eu; \
 
 # The cluster-link role: `ikhnos link-prober` (a Deployment) with owping and iperf3 beside it, and owampd and iperf3 -s, which
 # the chart runs as the responder DaemonSet (command: /usr/local/bin/owampd, /usr/local/bin/iperf3). A glibc base, because they
-# are C; still nonroot, no shell, no package manager. Everything else about the image is the `ikhnos` image: the same binary, the same entrypoint.
-FROM gcr.io/distroless/base-debian12:nonroot AS link
+# are C; still nonroot, no shell, no package manager. The `cc` variant of the base, not `base`: iperf3's server ends every test by cancelling
+# a thread (pthread_cancel), and glibc loads libgcc_s.so.1 for that, which only `cc` carries. On `base` the server printed "libgcc_s.so.1
+# must be installed for pthread_cancel to work" at the end of its first test and aborted, so the client never got its results and the test
+# counted as a timeout. Everything else about the image is the `ikhnos` image: the same binary, the same entrypoint.
+FROM gcr.io/distroless/cc-debian12:nonroot AS link
 COPY --from=build /out/ikhnos /ikhnos
 COPY --from=owamp /out/owping /out/owampd /usr/local/bin/
 COPY --from=iperf3 /out/iperf3 /usr/local/bin/
