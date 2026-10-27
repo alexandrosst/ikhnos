@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  LINK_REQUIREMENT, PRESETS, VIA_OPTIONS, clusterChecks, firstLines, normalizeSetup, setupSummary, uncoveredChecks, uncoveredNotes, costLine, delayWords, everyWords, clockWords, hasPair, latestView, lossWords, newPair, normalizeLinksLatest, normalizeProbe, probeRecent, rateWords, presetOf, removePair, replacePair, runnerOf, runsFromWords, throughputFieldProblems, throughputFor, throughputProblems, throughputSummary, viaWords,
+  LINK_REQUIREMENT, PRESETS, VIA_OPTIONS, clusterChecks, firstLines, normalizeSetup, setupSummary, uncoveredChecks, uncoveredNotes, costLine, delayWords, everyWords, clockWords, hasPair, latestView, lossWords, newPair, normalizeLinksLatest, normalizeProbe, probeRecent, rateWords, presetOf, removePair, replacePair, runnerOf, runsFromWords, throughputFor, throughputSummary, viaWords,
 } from '../src/lib/clusterLinks'
 import type { LinkNote, LinkPairLatest, PairSetup, SetupStep } from '../src/lib/clusterLinks'
 import { PROBE_STALE_AFTER_MS } from '../src/lib/status'
@@ -34,27 +34,10 @@ test('times and sizes are said in words', () => {
   assert.equal(throughputSummary({}).when, "on the cluster's own schedule")
 })
 
-test('the form refuses what the agents would clamp', () => {
-  assert.deepEqual(throughputProblems('6', '500'), [])
-  assert.deepEqual(throughputProblems('0.25', '1'), [])
-  assert.equal(throughputProblems('0.1', '500').length, 1)
-  assert.equal(throughputProblems('169', '500').length, 1)
-  assert.equal(throughputProblems('', '').length, 2)
-  assert.equal(throughputProblems('6', '0').length, 1)
-  assert.equal(throughputProblems('6', '1.5').length, 1)
-  assert.equal(throughputProblems('6', '2000000').length, 1)
-})
-
-test('each problem is reported against its own field', () => {
-  assert.deepEqual(throughputFieldProblems('6', '500'), {})
-  assert.deepEqual(Object.keys(throughputFieldProblems('0.01', '500')), ['hours'])
-  assert.deepEqual(Object.keys(throughputFieldProblems('6', '0')), ['budget'])
-  assert.deepEqual(Object.keys(throughputFieldProblems('', '')).sort(), ['budget', 'hours'])
-})
-
 test('the cost line says how often and where it stops', () => {
   assert.match(costLine(throughputFor('standard')), /^About 4 sets of tests a day, stopping for the day at 500 MB/)
   assert.match(costLine({ intervalMinutes: 4320, budgetMB: 100 }), /^One set of tests every 3 days/)
+  assert.match(costLine(throughputFor('light')), /^One set of tests a day, stopping for the day at 50 MB/)
 })
 
 test('the first cluster id runs the tests', () => {
@@ -308,4 +291,16 @@ test('a word that only an object answers to is not a probe state, a diagnosis or
   assert.equal(normalizeProbe({ state: 'toString' }), undefined)
   assert.equal(normalizeProbe({ state: 'failing', diagnosis: 'constructor' })?.diagnosis, undefined)
   assert.equal(normalizeSetup([{ a: 'x', b: 'y', steps: [{ code: 'agent', state: '__proto__', text: 'fine' }] }])[0].steps[0].state, 'unknown')
+})
+
+test('only the three named amounts are offered, and each is a schedule its budget can pay for', () => {
+  assert.deepEqual(Object.keys(PRESETS), ['light', 'standard', 'heavy'])
+  for (const id of ['light', 'standard', 'heavy'] as const) {
+    const t = throughputFor(id)
+    assert.equal(presetOf(t), id)
+    // The prober divides the day's budget over every test of every set (up to six per set) and needs about 1.5 MB for each.
+    const tests = (1440 / t.intervalMinutes!) * 6
+    assert.ok((t.budgetMB! * 1024 * 1024) / tests >= 1.5e6, `${id}: its budget cannot pay for its schedule`)
+  }
+  assert.equal(presetOf({ intervalMinutes: 10, budgetMB: 500 }), 'custom')
 })
