@@ -55,6 +55,7 @@ func Main(args []string) int {
 	telemetryTracesSampling := fs.String("telemetry-traces-sampling", cli.Env("IKHNOS_TELEMETRY_TRACES_SAMPLING", ""), "effective telemetry.processors.tracesSampling.percentage, only set by the chart when the traces signal is enabled - purely informational, reported in Diagnostics; the chart sets this automatically")
 	telemetryEnergySource := fs.String("telemetry-energy-source", cli.Env("IKHNOS_TELEMETRY_ENERGY_SOURCE", ""), "effective telemetry.energy.metrics.source (bundle-kepler | existing), only set by the chart when the energy signal is enabled - purely informational, reported in Diagnostics; the chart sets this automatically")
 	telemetryHealthTargets := fs.String("telemetry-health-targets", cli.Env("IKHNOS_TELEMETRY_HEALTH_TARGETS", ""), "host:port names of the telemetry collectors' own export counters (the chart's telemetry.health), comma separated; each resolves to every collector pod. The agent reads the counters (never telemetry) to report whether each destination is receiving data; the chart sets this automatically, and empty means do not")
+	telemetryTools := fs.String("telemetry-tools", cli.Env("IKHNOS_TELEMETRY_TOOLS", ""), "the version of each telemetry tool the chart deployed, as name=version entries joined by commas (collector=0.160.0,kepler=release-0.7.12/ebpf), purely informational, reported in Diagnostics; the chart sets this automatically")
 	telemetryAcceleratorsSource := fs.String("telemetry-accelerators-source", cli.Env("IKHNOS_TELEMETRY_ACCELERATORS_SOURCE", ""), "effective telemetry.accelerators.metrics.source (bundle-dcgm | existing), only set by the chart when the accelerators signal is enabled - purely informational, reported in Diagnostics; the chart sets this automatically")
 	linkCapacity := fs.Bool("link-capacity", cli.Env("IKHNOS_LINK_CAPACITY", "") == "true", "report that this install has the iperf3 server and client (telemetry.clusterLinks.probe.capacity.enabled), so the Sites screen can say whether a pair's throughput tests can run - purely informational, reported in the heartbeat; the chart sets this automatically")
 	linkTelemetryExport := fs.Bool("link-telemetry-export", cli.Env("IKHNOS_LINK_TELEMETRY_EXPORT", "") == "true", "report that this install's cluster collector exports the link metrics to a destination, so what this cluster measures leaves it - purely informational, reported in the heartbeat; the chart sets this automatically")
@@ -152,6 +153,7 @@ func Main(args []string) int {
 			v := *telemetryAcceleratorsSource
 			tc.AcceleratorsSource = &v
 		}
+		tc.Tools = agent.ParseTelemetryTools(*telemetryTools)
 		telemetryConfig = tc
 	}
 	var exportHealth *exporthealth.Monitor

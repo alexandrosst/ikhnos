@@ -2890,6 +2890,7 @@ export interface TelemetryConfigDoc {
   tracesSamplingPercent?: number
   energySource?: string
   acceleratorsSource?: string
+  tools?: ToolVersionDoc[]
 }
 
 export interface TelemetryIntentDestinationRequest {
@@ -2978,6 +2979,13 @@ export interface TombstoneDoc {
   lastSeen?: string
   reason: string
   record?: unknown
+}
+
+export interface ToolVersionDoc {
+  name: string
+  version?: string
+  digestPinned?: boolean
+  variant?: string
 }
 
 export interface TopoService {

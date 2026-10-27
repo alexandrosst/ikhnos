@@ -10,6 +10,7 @@ import { buttonClass } from '@/components/ui/buttonClass'
 import { Button, ICON_SM } from '@/components/ui/primitives'
 import type { AgentExtras } from '@/lib/consent'
 import { TELEMETRY_SIGNALS } from '@/lib/install'
+import { toolLabel } from '@/lib/toolVersions'
 
 /**
  * What one local operator does, in the Pipeline page, where the rest of the path is: its state and what to do about it, whether data is
@@ -29,6 +30,7 @@ export default function LocalOperatorDetail({ row, extras, connected, namespace,
 }) {
   const d = extras.diagnostics
   const installed = d?.installedTelemetry ?? []
+  const tools = d?.installedTelemetryConfig?.tools ?? []
   const pic = operatorPicture({ installed, diagnostics: d, connected, now, cluster: row.cluster?.name ?? 'the cluster', namespace })
   const { state, reason } = row.verdict
   const box = useRef<HTMLDivElement>(null)
@@ -75,6 +77,22 @@ export default function LocalOperatorDetail({ row, extras, connected, namespace,
                 return <li key={id} title={s?.what} className="rounded border border-nb-800 bg-nb-930 px-1.5 py-0.5 text-xs text-nb-300">{s?.label ?? id}</li>
               })}
             </ul>
+            {tools.length > 0 && (
+              <div className="mt-3" data-testid="local-operator-tools">
+                <h4 className="mb-1 text-xs font-medium uppercase tracking-wide text-nb-500">Tools, as installed</h4>
+                <ul className="flex flex-wrap gap-1.5">
+                  {tools.map((t) => {
+                    const l = toolLabel(t)
+                    return (
+                      <li key={t.name} className="rounded border border-nb-800 bg-nb-930 px-1.5 py-0.5 text-xs text-nb-300" data-tool={t.name}>
+                        <span className="text-nb-500">{l.name}</span> <span className="font-mono">{l.version}</span>{l.engine && <span className="text-nb-500"> · {l.engine}</span>}
+                      </li>
+                    )
+                  })}
+                </ul>
+                <p className="mt-1 text-xs text-nb-500">The versions its release was installed with; they are not read from the running pods.</p>
+              </div>
+            )}
           </section>
         )}
     </div>

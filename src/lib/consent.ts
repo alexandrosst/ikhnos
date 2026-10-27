@@ -116,11 +116,16 @@ interface AgentTelemetryConfig {
    *  not, and an absent one is then LEFT OUT of the next command rather than stated as a default (see TelemetryInput.keptAsInstalled). */
   /** The tags stamped on everything it emits (`telemetry.resource.attributes`). */
   tags?: { key: string; value: string }[]
+  /** The version of each telemetry tool the release was installed with (the image tags the chart rendered); absent from an older agent. */
+  tools?: AgentToolVersion[]
   /** The debug exporter: '' off, 'basic' counts what passed, 'detailed' logs content. */
   debugVerbosity?: '' | 'basic' | 'detailed'
   /** The scope of each application signal that is on, and what the infrastructure signals follow (`telemetry.scope.infra`). */
   scope?: Partial<Record<'applicationMetrics' | 'applicationLogs' | 'traces' | 'infra', { namespaces: string[]; exclude: string[]; workloads?: { namespace: string; names: string[] }[] }>>
 }
+
+/** One telemetry tool as the chart installed it: not read from the running pods. `version` is the image tag, absent when a digest pins the image. */
+export type AgentToolVersion = W.ToolVersionDoc
 
 /** What an administrator has asked one agent to leave out, and whether the agent has caught up with it. */
 export interface AgentConsent {

@@ -1259,6 +1259,27 @@ batch:
 {{- printf "%s:%s" (include "agent.imageRepo" (dict "root" . "repo" $i.repository)) (toString $i.tag) -}}
 {{- end -}}
 {{- end -}}
+{{/* The version of each telemetry tool this release deploys, as the agent reports it (IKHNOS_TELEMETRY_TOOLS): "name=version" joined by commas,
+     the version being the image tag the chart renders, or "@" when a digest pins the image instead (a digest wins over the tag, so the
+     tag would be a name for something else). Kepler carries its engine after a slash. Only tools this release deploys are named: the
+     collector whenever telemetry is on, Kepler for the bundled energy source, the DCGM exporter for the bundled accelerators source.
+     It is what the chart installed, not what a cluster later runs. */}}
+{{- define "agent.telemetryTools" -}}
+{{- $t := .Values.telemetry -}}
+{{- $l := list -}}
+{{- $l = append $l (printf "collector=%s" (ternary "@" (toString $t.collectorImage.tag) (not (empty $t.collectorImage.digest)))) -}}
+{{- if and $t.energy.metrics.enabled (eq $t.energy.metrics.source "bundle-kepler") -}}
+{{- $engine := include "agent.telemetryKeplerEngine" . -}}
+{{- $k := ternary $t.energy.metrics.powercapImage $t.energy.metrics.keplerImage (eq $engine "powercap") -}}
+{{- $l = append $l (printf "kepler=%s/%s" (ternary "@" (toString $k.tag) (not (empty $k.digest))) $engine) -}}
+{{- end -}}
+{{- if and $t.accelerators.metrics.enabled (eq $t.accelerators.metrics.source "bundle-dcgm") -}}
+{{- $d := $t.accelerators.metrics.dcgmImage -}}
+{{- $l = append $l (printf "dcgm=%s" (ternary "@" (toString $d.tag) (not (empty $d.digest)))) -}}
+{{- end -}}
+{{- join "," $l -}}
+{{- end -}}
+
 {{- define "agent.telemetryCollectorImagePullPolicy" -}}{{- .Values.telemetry.collectorImage.pullPolicy | default "IfNotPresent" -}}{{- end -}}
 
 {{/* Which Kepler the energy signal runs (telemetry.energy.metrics.engine): "ebpf" - release-0.7.x, the default, or

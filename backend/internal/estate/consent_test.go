@@ -946,3 +946,24 @@ func TestDiagnosticsRelayWhatTheReleaseRunsAndBoundIt(t *testing.T) {
 		t.Errorf("Workloads = %#v, want none", w)
 	}
 }
+
+func TestToolVersionsAreRelayedPrintableAndBounded(t *testing.T) {
+	v := NewView()
+	tools := []*ikhnosv1.ToolVersion{{Name: "collector", Version: "0.160.0"}, {Name: "kepler", DigestPinned: true, Variant: "ebpf"}, {Name: "\x1b[31m", Version: "v\x00"}}
+	for i := 0; i < 20; i++ {
+		tools = append(tools, &ikhnosv1.ToolVersion{Name: "t", Version: "1"})
+	}
+	v.NoteDiagnostics(&ikhnosv1.Diagnostics{AgentVersion: "1", InstalledTelemetryConfig: &ikhnosv1.InstalledTelemetryConfig{ExportEndpoint: "x:4317", Tools: tools}}, false, time.Now())
+	got := v.diagDoc().InstalledTelemetryConfig.Tools
+	if len(got) > 8 {
+		t.Fatalf("%d tools held, want at most 8", len(got))
+	}
+	if got[0].Name != "collector" || got[0].Version != "0.160.0" || !got[1].DigestPinned || got[1].Variant != "ebpf" {
+		t.Errorf("tools = %+v", got)
+	}
+	for _, g := range got {
+		if strings.ContainsAny(g.Name+g.Version, "\x1b\x00") {
+			t.Errorf("a control character got through: %+v", g)
+		}
+	}
+}

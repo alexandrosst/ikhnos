@@ -1084,6 +1084,32 @@ describe('PipelinePage - local operators', () => {
     expect(screen.queryByTestId('local-operator-detail')).toBeNull()
   })
 
+  test('the detail says what version of each tool the release was installed with: the engine for Kepler, a digest as pinned, nothing when the agent does not say', async () => {
+    const user = userEvent.setup()
+    const config = { exportEndpoint: 'x:4317', redactionEnabled: true, resourceDetectionEnabled: true, tools: [
+      { name: 'collector', version: '0.160.0' },
+      { name: 'kepler', version: 'release-0.7.12', variant: 'ebpf' },
+      { name: 'dcgm', digestPinned: true },
+    ] }
+    topologyState = { agents: [installedAgent({ installedTelemetryConfig: config })], clusters: [cl()] }
+    renderPage()
+    await user.click(await screen.findByTestId('local-open-edge-agent collector'))
+    const tools = screen.getByTestId('local-operator-tools')
+    const text = (n: string) => tools.querySelector(`[data-tool="${n}"]`)?.textContent
+    expect(text('collector')).toBe('Collector 0.160.0')
+    expect(text('kepler')).toBe('Kepler release-0.7.12 · eBPF')
+    expect(text('dcgm')).toBe('DCGM exporter pinned by digest')
+    expect(tools).toHaveTextContent(/not read from the running pods/)
+  })
+
+  test('an agent that does not report tool versions shows no tools row', async () => {
+    const user = userEvent.setup()
+    topologyState = { agents: [installedAgent()], clusters: [cl()] }
+    renderPage()
+    await user.click(await screen.findByTestId('local-open-edge-agent collector'))
+    expect(screen.queryByTestId('local-operator-tools')).toBeNull()
+  })
+
   test('a link from the agent (/pipeline?open=<agent>) opens that local operator\'s detail, and is spent at once', async () => {
     topologyState = { agents: [installedAgent()], clusters: [cl()] }
     renderPage('/pipeline?open=a1')

@@ -12,6 +12,7 @@ import (
 	"math/rand/v2"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -54,6 +55,43 @@ type TelemetryConfig struct {
 	TracesSamplingPercentage *uint32
 	EnergySource             *string
 	AcceleratorsSource       *string
+	// Tools is the version of each telemetry tool the chart deployed, read from IKHNOS_TELEMETRY_TOOLS (see ParseTelemetryTools).
+	Tools []ToolVersion
+}
+
+// ToolVersion is one telemetry tool as the chart installed it: its name ("collector", "kepler" or "dcgm"), the image tag it rendered
+// (empty when a digest pins the image instead, which DigestPinned says), and for Kepler the engine it runs ("ebpf" or "powercap").
+// It is what the release was installed with; the agent does not look at the running pods.
+type ToolVersion struct {
+	Name         string
+	Version      string
+	DigestPinned bool
+	Variant      string
+}
+
+// MaxTelemetryTools bounds how many tools are read: the chart names three, and a value with more is not the chart's.
+const MaxTelemetryTools = 8
+
+// ParseTelemetryTools reads the chart's IKHNOS_TELEMETRY_TOOLS: "name=version" entries joined by commas, "name=version/variant" for
+// Kepler, and "name=@" when a digest pins the image. An entry that does not have that shape is left out rather than guessed at, so a
+// value written by hand (or by a newer chart) never costs the agent its other diagnostics.
+func ParseTelemetryTools(s string) []ToolVersion {
+	var out []ToolVersion
+	for _, e := range strings.Split(s, ",") {
+		name, rest, ok := strings.Cut(strings.TrimSpace(e), "=")
+		version, variant, _ := strings.Cut(rest, "/")
+		if !ok || name == "" || version == "" || len(out) >= MaxTelemetryTools {
+			continue
+		}
+		t := ToolVersion{Name: name, Variant: variant}
+		if version == "@" {
+			t.DigestPinned = true
+		} else {
+			t.Version = version
+		}
+		out = append(out, t)
+	}
+	return out
 }
 
 type Config struct {

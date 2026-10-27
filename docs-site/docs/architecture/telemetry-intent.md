@@ -153,6 +153,8 @@ Every place telemetry gets configured — at install time, right after, or much 
 
 After the command comes **Check that data arrives**. "Installed now" and the draft are both seeded from the agent's own self-report (`installedTelemetry`) — covered in full in [Reconfiguration](#reconfiguration) below — never from a blank form.
 
+**Tool versions.** The same self-report carries the version of each telemetry tool the release deploys, so the Pipeline page can say which collector, Kepler (and its engine) or DCGM exporter an install runs. The chart renders them as `IKHNOS_TELEMETRY_TOOLS` (`collector=0.160.0,kepler=release-0.7.12/ebpf`, with `@` for a tool whose image a digest pins, since a digest wins over the tag), the agent reports them in `installedTelemetryConfig.tools`, and the server relays them printable and bounded. Only tools the release deploys are named. This is what the chart *installed*, read from its own values; the agent does not inspect the running pods, so the UI words it that way.
+
 None of this is pushed anywhere by the wizard itself. Every path through it ends the same way every other telemetry change in this chart does: a `helm upgrade --reset-then-reuse-values` command, copyable, for the cluster's own owner to run themselves.
 
 ## Interoperability

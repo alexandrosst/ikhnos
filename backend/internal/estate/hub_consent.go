@@ -427,6 +427,14 @@ func (v *View) diagDoc() *agents.DiagnosticsDoc {
 			v := *tc.TracesSamplingPercentage
 			cfg.TracesSamplingPercent = &v
 		}
+		for _, t := range tc.Tools {
+			if len(cfg.Tools) >= agents.MaxDiagTools {
+				break
+			}
+			if name := kernel.Printable(t.Name, 20); name != "" {
+				cfg.Tools = append(cfg.Tools, agents.ToolVersionDoc{Name: name, Version: kernel.Printable(t.Version, 80), DigestPinned: t.DigestPinned, Variant: kernel.Printable(t.Variant, 20)})
+			}
+		}
 		out.InstalledTelemetryConfig = cfg
 	}
 	if h := d.ExportHealth; h != nil {

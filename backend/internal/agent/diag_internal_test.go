@@ -399,3 +399,40 @@ func TestASilentCollectorIsOneProblemWhoseMessageDoesNotTick(t *testing.T) {
 		t.Fatal("a collector staying silent made every check a changed account")
 	}
 }
+
+func TestParseTelemetryToolsReadsTheChartsValueAndSkipsWhatItCannot(t *testing.T) {
+	got := ParseTelemetryTools("collector=0.160.0, kepler=release-0.7.12/ebpf,dcgm=@")
+	want := []ToolVersion{
+		{Name: "collector", Version: "0.160.0"},
+		{Name: "kepler", Version: "release-0.7.12", Variant: "ebpf"},
+		{Name: "dcgm", DigestPinned: true},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("tool %d = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+	// Entries that are not name=version are left out; the rest still count.
+	if got := ParseTelemetryTools("nonsense,=1,x=,collector=1.0"); len(got) != 1 || got[0].Name != "collector" {
+		t.Errorf("got %+v, want only the collector", got)
+	}
+	if got := ParseTelemetryTools(""); len(got) != 0 {
+		t.Errorf("got %+v from an empty value", got)
+	}
+	many := strings.Repeat("a=1,", 20)
+	if got := ParseTelemetryTools(many); len(got) != MaxTelemetryTools {
+		t.Errorf("read %d tools from a long value, want %d", len(got), MaxTelemetryTools)
+	}
+}
+
+func TestDiagnosticsCarryTheToolVersionsOfTheInstall(t *testing.T) {
+	r := newTestRunner()
+	r.cfg.TelemetryConfig = &TelemetryConfig{Destination: "otel.example:4317", Tools: ParseTelemetryTools("collector=0.160.0,kepler=@/powercap")}
+	tools := r.diagnostics().InstalledTelemetryConfig.Tools
+	if len(tools) != 2 || tools[0].Name != "collector" || tools[0].Version != "0.160.0" || !tools[1].DigestPinned || tools[1].Version != "" || tools[1].Variant != "powercap" {
+		t.Fatalf("tools = %v", tools)
+	}
+}

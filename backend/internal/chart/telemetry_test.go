@@ -236,6 +236,7 @@ func TestTelemetryEffectiveConfigEnvVars(t *testing.T) {
 		"IKHNOS_TELEMETRY_TRACES_SAMPLING":     "20",
 		"IKHNOS_TELEMETRY_ENERGY_SOURCE":       "bundle-kepler",
 		"IKHNOS_TELEMETRY_ACCELERATORS_SOURCE": "existing",
+		"IKHNOS_TELEMETRY_TOOLS":               "collector=0.160.0,kepler=release-0.7.12/ebpf",
 	}
 	for name, wantVal := range want {
 		v, ok := env(c, name)

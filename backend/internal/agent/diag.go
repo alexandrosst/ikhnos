@@ -257,6 +257,9 @@ func (r *runner) diagnostics() *ikhnosv1.Diagnostics {
 			EnergySource:             tc.EnergySource,
 			AcceleratorsSource:       tc.AcceleratorsSource,
 		}
+		for _, t := range tc.Tools {
+			d.InstalledTelemetryConfig.Tools = append(d.InstalledTelemetryConfig.Tools, &ikhnosv1.ToolVersion{Name: t.Name, Version: t.Version, DigestPinned: t.DigestPinned, Variant: t.Variant})
+		}
 	}
 	if r.cfg.ExportHealth != nil {
 		d.ExportHealth = r.cfg.ExportHealth.Report()

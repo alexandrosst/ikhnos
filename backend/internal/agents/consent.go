@@ -496,12 +496,24 @@ type TelemetryConfigDoc struct {
 	TracesSamplingPercent    *uint32 `json:"tracesSamplingPercent,omitempty"`
 	EnergySource             string  `json:"energySource,omitempty"`
 	AcceleratorsSource       string  `json:"acceleratorsSource,omitempty"`
+	// Tools is the version of each telemetry tool the release was installed with. Absent from an agent whose chart does not say.
+	Tools []ToolVersionDoc `json:"tools,omitempty"`
+}
+
+// ToolVersionDoc is one telemetry tool as the chart installed it: "collector", "kepler" or "dcgm", the image tag (empty when a digest
+// pins the image), and for Kepler its engine. It is the release's own value, not what the cluster runs now.
+type ToolVersionDoc struct {
+	Name         string `json:"name"`
+	Version      string `json:"version,omitempty"`
+	DigestPinned bool   `json:"digestPinned,omitempty"`
+	Variant      string `json:"variant,omitempty"`
 }
 
 // maxDiag* bound what an agent may make the server hold about its own diagnostics.
 const (
 	maxDiagCollectors       = 8
 	MaxDiagInformers        = 64
+	MaxDiagTools            = 8
 	MaxDiagProblems         = 32
 	maxDiagBytes            = 128 << 10
 	MaxDiagTelemetrySignals = 16 // ten known signal names today; generous headroom, not unbounded
@@ -544,6 +556,9 @@ func (v *View) NoteDiagnostics(d *ikhnosv1.Diagnostics, partial bool, at time.Ti
 	}
 	if len(d.InstalledTelemetrySignals) > MaxDiagTelemetrySignals {
 		d.InstalledTelemetrySignals = d.InstalledTelemetrySignals[:MaxDiagTelemetrySignals]
+	}
+	if tc := d.InstalledTelemetryConfig; tc != nil && len(tc.Tools) > MaxDiagTools {
+		tc.Tools = tc.Tools[:MaxDiagTools]
 	}
 	if h := d.ExportHealth; h != nil && len(h.Routes) > MaxDiagExportRoutes {
 		h.Routes = h.Routes[:MaxDiagExportRoutes]

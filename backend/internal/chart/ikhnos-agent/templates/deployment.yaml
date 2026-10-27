@@ -83,6 +83,9 @@ spec:
             {{- end }}
             - {name: IKHNOS_TELEMETRY_REDACTION, value: {{ include "agent.telemetryEffectiveRedactionEnabled" . | quote }}}
             - {name: IKHNOS_TELEMETRY_RESOURCE_DETECTION, value: {{ include "agent.telemetryEffectiveResourceDetectionEnabled" . | quote }}}
+            # The version of each telemetry tool this release deploys (collector, and Kepler / the DCGM exporter when bundled), from the
+            # image tags the chart renders. Informational, like the rest of this block: the Pipeline page shows it.
+            - {name: IKHNOS_TELEMETRY_TOOLS, value: {{ include "agent.telemetryTools" . | quote }}}
             {{- if .Values.telemetry.traces.traces.enabled }}
             - {name: IKHNOS_TELEMETRY_TRACES_SAMPLING, value: {{ .Values.telemetry.processors.tracesSampling.percentage | quote }}}
             {{- end }}

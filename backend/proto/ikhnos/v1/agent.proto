@@ -1489,6 +1489,22 @@ message InstalledTelemetryConfig {
   // telemetry.accelerators.metrics.source ("bundle-dcgm" | "existing") - optional for the same reason:
   // absent unless the accelerators signal is enabled.
   optional string accelerators_source = 6;
+  // The version of each tool this install runs, as the chart rendered it: the OpenTelemetry collector, and Kepler and the DCGM exporter
+  // when this install deploys them. Only the tools that are deployed are listed. Read from the image tags the chart was installed with
+  // (the pods are made from those same values), never from anything a tool says at runtime; empty on an agent older than this field.
+  repeated ToolVersion tools = 7;
+}
+
+// One tool of a telemetry install and the version its image was installed with.
+message ToolVersion {
+  // "collector", "kepler" or "dcgm" (a name this server does not know is shown as it is).
+  string name = 1;
+  // The image tag ("0.160.0", "release-0.7.12"). Empty when the image is pinned by digest, which overrides the tag, so the tag says nothing.
+  string version = 2;
+  // The image is pinned by digest.
+  bool digest_pinned = 3;
+  // Which engine, where a tool has more than one ("ebpf" or "powercap" for Kepler). Empty otherwise.
+  string variant = 4;
 }
 
 // One optional collector: the node probe receiver ("probes"), the flow pipeline ("flow") or connection timing
