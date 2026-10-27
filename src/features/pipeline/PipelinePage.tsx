@@ -214,7 +214,6 @@ export default function PipelinePage() {
         now={now}
         canConsent={canConsent}
         onChange={() => { const id = r.agentId; setDetailFor(null); telemetry.start(id) }}
-        onClose={() => setDetailFor(null)}
       />
     )
   }

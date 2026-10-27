@@ -1,4 +1,4 @@
-import { Cable, Settings2, X } from 'lucide-react'
+import { Cable, Settings2 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import StateChip from '@/features/pipeline/components/operators/StateChip'
@@ -17,7 +17,7 @@ import { toolLabel } from '@/lib/toolVersions'
  * arriving, the picture of what its collectors take in and where it goes out, and what is installed. Drawn from what the agent reports
  * (the same numbers as the table's row), so it never says anything the row does not.
  */
-export default function LocalOperatorDetail({ row, extras, connected, namespace, now, canConsent, onChange, onClose }: {
+export default function LocalOperatorDetail({ row, extras, connected, namespace, now, canConsent, onChange }: {
   row: ComponentRow
   extras: AgentExtras
   connected?: boolean
@@ -26,7 +26,6 @@ export default function LocalOperatorDetail({ row, extras, connected, namespace,
   canConsent: boolean
   /** Opens the guided change of what it sends. */
   onChange: () => void
-  onClose: () => void
 }) {
   const d = extras.diagnostics
   const installed = d?.installedTelemetry ?? []
@@ -38,10 +37,7 @@ export default function LocalOperatorDetail({ row, extras, connected, namespace,
   useEffect(() => { box.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }) }, [])
   return (
     <div ref={box} className="space-y-5 border-y border-nb-850 bg-nb-950/60 px-5 py-5" data-testid="local-operator-detail" data-state={state}>
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-medium text-nb-200">{row.name} <span className="font-normal text-nb-500">· what it collects, and where it goes</span></h2>
-          <Button size="sm" onClick={onClose} aria-label={`Close the detail of ${row.name}`} data-testid="local-operator-close"><X size={ICON_SM} aria-hidden /> Close</Button>
-        </div>
+        <h2 className="text-sm font-medium text-nb-200">{row.name} <span className="font-normal text-nb-500">· what it collects, and where it goes</span></h2>
         <section className="flex flex-wrap items-start gap-x-3 gap-y-2" data-testid="local-operator-state">
           <StateChip state={state} />
           <p className="min-w-0 flex-1 basis-60 text-sm text-nb-400">{reason ?? (state === 'healthy' ? 'Its collectors are reading what they are asked to and the data is leaving.' : '')}</p>

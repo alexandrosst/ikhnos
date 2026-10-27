@@ -1065,7 +1065,7 @@ describe('PipelinePage - local operators', () => {
     expect(telemetryStart).toHaveBeenCalledWith('a1')
   })
 
-  test('the name of a local operator opens its detail in the list under its row, with what is installed and the way to change it; the name again, or Close, closes it', async () => {
+  test('the name of a local operator opens its detail in the list under its row, with what is installed and the way to change it; the row again closes it, and there is no Close button', async () => {
     const user = userEvent.setup()
     topologyState = { agents: [installedAgent()], clusters: [cl()] }
     renderPage()
@@ -1076,11 +1076,15 @@ describe('PipelinePage - local operators', () => {
     // under its own row, in the table, not in a side panel
     expect(detail.closest('table')).not.toBeNull()
     expect(screen.queryByRole('dialog')).toBeNull()
-    await user.click(within(detail).getByTestId('local-operator-close'))
+    expect(within(detail).queryByRole('button', { name: /close/i })).toBeNull()
+    // the chevron is left of the name, as on the Agents page, and turns down while it is open
+    const row = screen.getByTestId('component-local:a1')
+    expect(row.querySelector('[data-testid="local-chevron-edge-agent collector"]')?.nextElementSibling).toBe(screen.getByTestId('local-open-edge-agent collector'))
+    await user.click(screen.getByTestId('local-open-edge-agent collector'))
     expect(screen.queryByTestId('local-operator-detail')).toBeNull()
-    await user.click(screen.getByTestId('local-open-edge-agent collector'))
+    await user.click(row)
     expect(screen.getByTestId('local-operator-detail')).toBeInTheDocument()
-    await user.click(screen.getByTestId('local-open-edge-agent collector'))
+    await user.click(row)
     expect(screen.queryByTestId('local-operator-detail')).toBeNull()
   })
 
@@ -1096,7 +1100,7 @@ describe('PipelinePage - local operators', () => {
     await user.click(await screen.findByTestId('local-open-edge-agent collector'))
     const tools = screen.getByTestId('local-operator-tools')
     const text = (n: string) => tools.querySelector(`[data-tool="${n}"]`)?.textContent
-    expect(text('collector')).toBe('Collector 0.160.0')
+    expect(text('collector')).toBe('OTel Collector 0.160.0')
     expect(text('kepler')).toBe('Kepler release-0.7.12 · eBPF')
     expect(text('dcgm')).toBe('DCGM exporter pinned by digest')
     expect(tools).toHaveTextContent(/not read from the running pods/)
