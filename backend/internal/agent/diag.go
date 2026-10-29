@@ -40,6 +40,7 @@ const (
 	CodeOverrideIgnored     = "override_ignored"
 	CodeFlowDropped         = "flow_dropped"
 	CodeInternalError       = "internal_error"
+	CodeLinkHubUnreachable  = "link_hub_unreachable"
 	CodeRBACWiderThanTier   = "rbac_wider_than_tier"
 	CodeRBACNamespacedMode  = "rbac_namespaced_mode"
 	// CodeCertRenewalFailing: a telemetry collector's certificate towards a regional operator is close to ending and
@@ -337,6 +338,11 @@ func (r *runner) diagnostics() *ikhnosv1.Diagnostics {
 		if checked && ceiling > r.cfg.Tier {
 			add(CodeRBACWiderThanTier, ikhnosv1.Problem_WARN, fmt.Sprintf("The cluster still grants this agent permission to read at tier %d, wider than the tier %d this install declares (access.tier). %s", ceiling, r.cfg.Tier, rbacWiderAdvice))
 		}
+	}
+
+	// the cluster-link hub, when the series are made there
+	if msg := r.linkHubProblem(now); msg != "" {
+		add(CodeLinkHubUnreachable, ikhnosv1.Problem_WARN, msg)
 	}
 
 	// traffic dropped while disconnected

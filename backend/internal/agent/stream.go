@@ -141,17 +141,22 @@ func resolveOverrides(c *ikhnosv1.Config, installedTier int) overrides {
 	return o
 }
 
-// applyLinks gives the link meter the peer clusters the server named. Links are labelled from observed traffic, which is
+// applyLinks gives the link meter (or the link hub, which makes the series instead) the peer clusters the server named. Links are labelled from observed traffic, which is
 // workload-level information, so they follow the same rules as flows: nothing is measured below access tier 2, or while the
 // server has paused the flow collector.
 func (r *runner) applyLinks(c *ikhnosv1.Config, o overrides) {
-	if r.cfg.Links == nil {
+	if r.cfg.Links == nil && r.cfg.LinkHub == nil {
 		return
 	}
 	var peers []*ikhnosv1.LinkPeer
 	var iperf *ikhnosv1.LinkIperfServer
 	if o.tier >= 2 && !o.paused[collectorFlow] {
 		peers, iperf = c.LinkPeers, c.LinkIperfServer
+	}
+	if r.cfg.LinkHub != nil {
+		// The hub puts them in force and says what it dropped in its own log.
+		r.cfg.LinkHub.Forwarder.SetConfig(r.linkHubSlice(c, peers, iperf))
+		return
 	}
 	for _, why := range r.cfg.Links.Peers.Set(c.ClusterId, peers) {
 		r.cfg.Log.Warn("link peers: "+why, "cluster", c.ClusterId)

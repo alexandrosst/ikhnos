@@ -37,12 +37,13 @@ const (
 // what the server's configuration says about the links. It is a link.RowSink. It never blocks the flow pipeline, never holds more than
 // MaxQueuedRows, and a hub that is down costs the series of that time and nothing else.
 type Forwarder struct {
-	url    string
-	secret []byte
-	hc     *http.Client
-	filter *link.RowFilter
-	log    *slog.Logger
-	now    func() time.Time
+	url     string
+	started time.Time
+	secret  []byte
+	hc      *http.Client
+	filter  *link.RowFilter
+	log     *slog.Logger
+	now     func() time.Time
 
 	wake chan struct{}
 
@@ -67,7 +68,7 @@ func NewForwarder(url string, secret []byte, filter *link.RowFilter, log *slog.L
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Forwarder{url: url, secret: append([]byte(nil), secret...), hc: &http.Client{Timeout: 10 * time.Second}, filter: filter, log: log, now: time.Now, wake: make(chan struct{}, 1)}
+	return &Forwarder{url: url, started: time.Now(), secret: append([]byte(nil), secret...), hc: &http.Client{Timeout: 10 * time.Second}, filter: filter, log: log, now: time.Now, wake: make(chan struct{}, 1)}
 }
 
 func (f *Forwarder) poke() {
@@ -146,7 +147,9 @@ type Stats struct {
 	Queued, Sent, Dropped uint64
 	LastError             string
 	LastOK                time.Time
-	Hub                   Status
+	// Started is when the forwarder was made, so that "never reached" can be told from "not reached yet".
+	Started time.Time
+	Hub     Status
 	// InSync: the hub says it holds the configuration the agent holds.
 	InSync bool
 }
@@ -158,7 +161,7 @@ func (f *Forwarder) Stats() Stats {
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return Stats{Reached: f.reached.Load(), Queued: uint64(len(f.known) + len(f.unknown)), Sent: f.sent, Dropped: f.dropped, LastError: f.lastErr, LastOK: f.lastOK, Hub: f.status, InSync: f.cfg == nil || f.status.ConfigDigest == f.cfgDigest}
+	return Stats{Reached: f.reached.Load(), Queued: uint64(len(f.known) + len(f.unknown)), Sent: f.sent, Dropped: f.dropped, LastError: f.lastErr, LastOK: f.lastOK, Started: f.started, Hub: f.status, InSync: f.cfg == nil || f.status.ConfigDigest == f.cfgDigest}
 }
 
 // ProberSeen is when the hub last saw the prober ask for the peers, as of the hub's last answer; the zero time if it never has, or the

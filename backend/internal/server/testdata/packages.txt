@@ -17,6 +17,7 @@ agent > approval
 agent > certrenew
 agent > flow
 agent > link
+agent > linkhub
 agent > measure
 agent > pki
 agent > probe
@@ -42,6 +43,7 @@ cli/agent > certrenew
 cli/agent > cli
 cli/agent > flow
 cli/agent > link
+cli/agent > linkhub
 cli/agent > measure
 cli/agent > probe
 cli/agentcontroller > chart

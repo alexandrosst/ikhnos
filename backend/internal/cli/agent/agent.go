@@ -23,6 +23,7 @@ import (
 	"ikhnos/internal/cli"
 	"ikhnos/internal/flow"
 	"ikhnos/internal/link"
+	"ikhnos/internal/linkhub"
 	"ikhnos/internal/measure"
 	"ikhnos/internal/probe"
 
@@ -76,6 +77,8 @@ func Main(args []string) int {
 	linkPeersSecretFile := fs.String("link-peers-secret-file", cli.Env("IKHNOS_LINK_PEERS_SECRET_FILE", ""), "file holding the secret shared with the link prober, for its request for the peers to measure (needs --link-serve-peers). It is not the flow secret: the prober must not be able to sign flow reports")
 	linkServeIperf := fs.Bool("link-serve-iperf", cli.Env("IKHNOS_LINK_SERVE_IPERF", "") == "true", "also hold the iperf3 credentials the Ikhnos server issues for the throughput tests (in memory only) and hand them to the link pods: the client credentials to the prober (sealed, with the peer list) and the server credentials to the responder's iperf3 server (POST /v1/link/iperf-server), using --link-iperf-secret-file; the chart sets this when telemetry.clusterLinks.probe.capacity is on and no Secret of your own is named")
 	linkIperfSecretFile := fs.String("link-iperf-secret-file", cli.Env("IKHNOS_LINK_IPERF_SECRET_FILE", ""), "file holding the secret shared with the responder's iperf3 server pods for the server-credentials request (needs --link-serve-iperf). Neither the prober's secret nor the flow secret: the prober must not be able to read the private key")
+	linkHubURL := fs.String("link-hub-url", cli.Env("IKHNOS_LINK_HUB_URL", ""), "URL of the cluster-link hub (ikhnos link-hub), e.g. http://ikhnos-agent-link-hub.ikhnos-system.svc:9106. When set, the link series, the prober's peer list and the responders' credentials are served by the hub and not by this process: the agent sends it the rows it has admitted and the configuration it needs, and listens for none of them (needs --flow-secret-file and --link-hub-secret-file; replaces --link-metrics-listen, --link-peers-secret-file and --link-iperf-secret-file, which are the hub's); the chart's telemetry.clusterLinks.hub sets this")
+	linkHubSecretFile := fs.String("link-hub-secret-file", cli.Env("IKHNOS_LINK_HUB_SECRET_FILE", ""), "file holding the secret shared with the link hub, for the rows and the configuration this agent sends it (held by no other pod)")
 	flowSecretFile := fs.String("flow-secret-file", cli.Env("IKHNOS_FLOW_SECRET_FILE", ""), "file holding the secret shared with the node flow collectors (needs --probe-listen)")
 	rbacMode := fs.String("rbac-mode", cli.Env("IKHNOS_RBAC_MODE", "cluster"), "how tier 2's installed RBAC was granted: cluster (one ClusterRole, default) or namespaced (a Role per namespace in --scope-namespaces instead). Must match the chart's rbac.mode; the chart sets this automatically")
 	scopeNS := fs.String("scope-namespaces", cli.Env("IKHNOS_SCOPE_NAMESPACES", ""), "report only these namespaces, comma separated (empty: all). Combined with --scope-label as a union. Required, and the only way to select namespaces, when --rbac-mode=namespaced")
@@ -177,6 +180,29 @@ func Main(args []string) int {
 	if *tier < 0 || *tier > 2 {
 		return cli.Fatal(log, fmt.Errorf("--tier must be 0, 1 or 2 in this release"))
 	}
+	hubMode := *linkHubURL != ""
+	var linkHubSec []byte
+	if hubMode {
+		switch {
+		case *linkHubSecretFile == "":
+			return cli.Fatal(log, fmt.Errorf("--link-hub-url needs --link-hub-secret-file: the rows and the configuration are signed with a secret that only this agent and the hub hold"))
+		case *flowSecretFile == "":
+			return cli.Fatal(log, fmt.Errorf("--link-hub-url needs --flow-secret-file: the rows sent to the hub are those of the node flow collectors' reports"))
+		case *linkListen != "":
+			return cli.Fatal(log, fmt.Errorf("--link-hub-url cannot be combined with --link-metrics-listen: the hub serves the link metrics, and this agent then listens for nothing of the links"))
+		case *linkPeersSecretFile != "" || *linkIperfSecretFile != "":
+			return cli.Fatal(log, fmt.Errorf("--link-hub-url cannot be combined with --link-peers-secret-file or --link-iperf-secret-file: the prober and the responders ask the hub, which holds those secrets, and the agent must not"))
+		case !strings.HasPrefix(*linkHubURL, "http://") && !strings.HasPrefix(*linkHubURL, "https://"):
+			return cli.Fatal(log, fmt.Errorf("--link-hub-url must be an http(s) URL, got %q", *linkHubURL))
+		}
+		sec, rerr := os.ReadFile(*linkHubSecretFile)
+		linkHubSec = []byte(strings.TrimSpace(string(sec)))
+		if rerr != nil || len(linkHubSec) < 16 {
+			return cli.Fatal(log, fmt.Errorf("--link-hub-secret-file must hold a secret of at least 16 characters: %v", rerr))
+		}
+	} else if *linkHubSecretFile != "" {
+		return cli.Fatal(log, fmt.Errorf("--link-hub-secret-file needs --link-hub-url"))
+	}
 	if *linkListen != "" && *flowSecretFile == "" {
 		return cli.Fatal(log, fmt.Errorf("--link-metrics-listen needs --flow-secret-file: link metrics are labelled from observed traffic"))
 	}
@@ -186,17 +212,17 @@ func Main(args []string) int {
 	if err := link.NewMeter(link.NewPeers()).IgnorePorts(*linkProberPorts); err != nil {
 		return cli.Fatal(log, fmt.Errorf("--link-prober-ports: %w", err))
 	}
-	if *linkServePeers && *linkListen == "" {
+	if *linkServePeers && *linkListen == "" && !hubMode {
 		return cli.Fatal(log, fmt.Errorf("--link-serve-peers needs --link-metrics-listen: the peers are answered on that address"))
 	}
-	if *linkServePeers && *linkPeersSecretFile == "" {
+	if *linkServePeers && *linkPeersSecretFile == "" && !hubMode {
 		return cli.Fatal(log, fmt.Errorf("--link-serve-peers needs --link-peers-secret-file: the prober signs its request with a secret of its own, not the flow secret"))
 	}
 	if !*linkServePeers && *linkPeersSecretFile != "" {
 		return cli.Fatal(log, fmt.Errorf("--link-peers-secret-file needs --link-serve-peers"))
 	}
 	var linkPeersSec []byte
-	if *linkServePeers {
+	if *linkServePeers && !hubMode {
 		sec, rerr := os.ReadFile(*linkPeersSecretFile)
 		linkPeersSec = []byte(strings.TrimSpace(string(sec)))
 		if rerr != nil || len(linkPeersSec) < 16 {
@@ -209,14 +235,14 @@ func Main(args []string) int {
 	if *linkServeIperf && !*linkServePeers {
 		return cli.Fatal(log, fmt.Errorf("--link-serve-iperf needs --link-serve-peers: the prober's credentials come with its peer list"))
 	}
-	if *linkServeIperf && *linkIperfSecretFile == "" {
+	if *linkServeIperf && *linkIperfSecretFile == "" && !hubMode {
 		return cli.Fatal(log, fmt.Errorf("--link-serve-iperf needs --link-iperf-secret-file: the responder signs its request with a secret of its own"))
 	}
 	if !*linkServeIperf && *linkIperfSecretFile != "" {
 		return cli.Fatal(log, fmt.Errorf("--link-iperf-secret-file needs --link-serve-iperf"))
 	}
 	var linkIperfSec []byte
-	if *linkServeIperf {
+	if *linkServeIperf && !hubMode {
 		sec, rerr := os.ReadFile(*linkIperfSecretFile)
 		linkIperfSec = []byte(strings.TrimSpace(string(sec)))
 		if rerr != nil || len(linkIperfSec) < 16 {
@@ -228,6 +254,15 @@ func Main(args []string) int {
 		if flowSec, ferr := os.ReadFile(*flowSecretFile); ferr == nil && bytes.Equal(linkIperfSec, bytes.TrimSpace(flowSec)) {
 			return cli.Fatal(log, fmt.Errorf("--link-iperf-secret-file must not hold the flow secret"))
 		}
+	}
+	if err := cli.SecretsDiffer(
+		cli.SharedSecret{Flag: "--probe-secret-file", File: *probeSecretFile},
+		cli.SharedSecret{Flag: "--flow-secret-file", File: *flowSecretFile},
+		cli.SharedSecret{Flag: "--link-peers-secret-file", File: *linkPeersSecretFile},
+		cli.SharedSecret{Flag: "--link-iperf-secret-file", File: *linkIperfSecretFile},
+		cli.SharedSecret{Flag: "--link-hub-secret-file", File: *linkHubSecretFile},
+	); err != nil {
+		return cli.Fatal(log, err)
 	}
 	if _, _, err := net.SplitHostPort(*server); err != nil {
 		return cli.Fatal(log, fmt.Errorf("--server must be host:port: %w", err))
@@ -262,14 +297,6 @@ func Main(args []string) int {
 		ids = agent.SecretStore{Client: client, Namespace: *ns, Name: *secret}
 	}
 
-	if err := cli.SecretsDiffer(
-		cli.SharedSecret{Flag: "--probe-secret-file", File: *probeSecretFile},
-		cli.SharedSecret{Flag: "--flow-secret-file", File: *flowSecretFile},
-		cli.SharedSecret{Flag: "--link-peers-secret-file", File: *linkPeersSecretFile},
-		cli.SharedSecret{Flag: "--link-iperf-secret-file", File: *linkIperfSecretFile},
-	); err != nil {
-		return cli.Fatal(log, err)
-	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	log.Info("ikhnos agent starting", "version", cli.Version, "server", *server, "tier", *tier)
@@ -293,6 +320,16 @@ func Main(args []string) int {
 			return cli.Fatal(log, fmt.Errorf("--flow-secret-file must hold a secret of at least 16 characters: %v", rerr))
 		}
 		flows = flow.NewPipeline(sec, func() *collect.Index { return nil }, log)
+	}
+	var linkHub *agent.LinkHub
+	if hubMode {
+		filter, ferr := link.NewRowFilter(*linkProberPorts, *linkOwn) // checked with the other flags above
+		if ferr != nil {
+			return cli.Fatal(log, ferr)
+		}
+		fwd := linkhub.NewForwarder(strings.TrimRight(*linkHubURL, "/"), linkHubSec, filter, log)
+		flows.Links = fwd
+		linkHub = &agent.LinkHub{Forwarder: fwd, Install: link.Install{Probe: *linkServePeers, Capacity: *linkCapacity, TelemetryExport: *linkTelemetryExport}, Iperf: *linkServeIperf}
 	}
 	var links *link.Meter
 	if *linkListen != "" {
@@ -338,7 +375,7 @@ func Main(args []string) int {
 	} else if *relayTelemetry {
 		relayStore = agent.ResourceRelayStore(client, *ns, *controllerResource)
 	}
-	err = agent.Run(ctx, agent.Config{MarkRevoked: markRevoked, ControllerResource: *controllerResource, RelayTelemetry: relayStore != nil, Relay: relayStore, Server: *server, CAPin: *pin, Token: token, Tier: *tier, Kube: client, APIHost: apiHost, Identity: ids, Version: cli.Version, Log: log, Probes: probes, Flows: flows, Links: links, FlowWindow: *flowWindow, Measure: *measureOn, ProbeListen: *probeListen, Scope: scope, Health: health, RevokedHold: *revokedHold, ProbeInterval: *probeEvery, FlowInterval: *flowEvery, Namespace: *ns, ReleaseName: *releaseName, TelemetrySignals: telemetrySignalList, TelemetryConfig: telemetryConfig, ExportHealth: exportHealth, RBACSelfCheck: *rbacSelfCheck, RBACNamespaced: rbacNamespaced, RenewSecrets: certrenew.ParseTargets(*ns, *renewSecrets)})
+	err = agent.Run(ctx, agent.Config{MarkRevoked: markRevoked, ControllerResource: *controllerResource, RelayTelemetry: relayStore != nil, Relay: relayStore, Server: *server, CAPin: *pin, Token: token, Tier: *tier, Kube: client, APIHost: apiHost, Identity: ids, Version: cli.Version, Log: log, Probes: probes, Flows: flows, Links: links, LinkHub: linkHub, FlowWindow: *flowWindow, Measure: *measureOn, ProbeListen: *probeListen, Scope: scope, Health: health, RevokedHold: *revokedHold, ProbeInterval: *probeEvery, FlowInterval: *flowEvery, Namespace: *ns, ReleaseName: *releaseName, TelemetrySignals: telemetrySignalList, TelemetryConfig: telemetryConfig, ExportHealth: exportHealth, RBACSelfCheck: *rbacSelfCheck, RBACNamespaced: rbacNamespaced, RenewSecrets: certrenew.ParseTargets(*ns, *renewSecrets)})
 	if errors.Is(err, agent.ErrRevoked) {
 		// Exit with a code of its own (agent.ExitRevoked) so `kubectl get pod` and the restart count say what
 		// happened. Run has already said why, in plain words, and has waited a random 5-10 minutes if this was a

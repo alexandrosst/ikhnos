@@ -167,7 +167,10 @@ type Config struct {
 	Flows *flow.Pipeline
 	// Links, when set, holds the peer clusters the server names in its Config and the per-peer totals the flow pipeline keeps
 	// (the same Meter the pipeline was given). The agent only feeds it the peer list; it never measures on its own.
-	Links       *link.Meter
+	Links *link.Meter
+	// LinkHub, when set, means the cluster-link series are made by the link hub and not by this process: the flow pipeline's rows go to it
+	// (Flows.Links is its forwarder) and the peers the server names are sent to it. Links is then nil, and nothing here listens for the prober.
+	LinkHub     *LinkHub
 	ProbeListen string
 	FlowWindow  time.Duration // how often observed traffic is sent up (default 15 s)
 
@@ -255,6 +258,9 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	if cfg.RBACSelfCheck && cfg.Kube != nil {
 		go a.rbacCheckLoop(ctx)
+	}
+	if cfg.LinkHub != nil && cfg.LinkHub.Forwarder != nil {
+		go a.linkHubLoop(ctx)
 	}
 	if len(cfg.RenewSecrets) > 0 && cfg.Kube != nil {
 		go certrenew.Run(ctx, certrenew.Config{Server: cfg.Server, CAPin: cfg.CAPin, Client: cfg.Kube, Targets: cfg.RenewSecrets, Log: cfg.Log, Every: cfg.RenewEvery, Report: a.noteCertRenewal})
