@@ -6661,9 +6661,9 @@ type ExportHealth struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// When the counters were last read.
 	ScrapedAt *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=scraped_at,json=scrapedAt,proto3" json:"scraped_at,omitempty"`
-	// Collector pods whose counters were read on the last attempt, and how many attempts (name lookups or
-	// requests) failed. Reached 0 with failures means the counters cannot be read at all (a NetworkPolicy, a
-	// collector that is down), not that nothing is being exported.
+	// Collector pods whose counters were read on the last attempt (a pod that serves its counters on two ports is one pod), and how many
+	// failed: a pod none of whose ports could be read, or a name that could not be looked up. Reached 0 with failures means the counters
+	// cannot be read at all (a NetworkPolicy, a collector that is down), not that nothing is being exported.
 	PodsReached uint32 `protobuf:"varint,2,opt,name=pods_reached,json=podsReached,proto3" json:"pods_reached,omitempty"`
 	PodsFailed  uint32 `protobuf:"varint,3,opt,name=pods_failed,json=podsFailed,proto3" json:"pods_failed,omitempty"`
 	// The most recent reason a read failed, cut short; empty when none did.
@@ -6676,9 +6676,14 @@ type ExportHealth struct {
 	Receivers []*ReceiverHealth `protobuf:"bytes,6,rep,name=receivers,proto3" json:"receivers,omitempty"`
 	// One entry per collector receiver that reads a source of the cluster itself (the kubelet, the host, the Kubernetes API, the container
 	// logs), from the same counters. Where a source goes silent or errors is told here, not by the routes above, which are the other end.
-	Sources       []*SourceHealth `protobuf:"bytes,7,rep,name=sources,proto3" json:"sources,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Sources []*SourceHealth `protobuf:"bytes,7,rep,name=sources,proto3" json:"sources,omitempty"`
+	// How many times a collector pod was seen to have restarted since this agent started: its uptime was lower than at the previous reading.
+	// A pod that is replaced (a new address) is not counted, only one that keeps its address and starts again, which is a crash or an OOM kill.
+	// When it last happened is unset if it never has.
+	CollectorRestarts      uint32                 `protobuf:"varint,8,opt,name=collector_restarts,json=collectorRestarts,proto3" json:"collector_restarts,omitempty"`
+	LastCollectorRestartAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=last_collector_restart_at,json=lastCollectorRestartAt,proto3" json:"last_collector_restart_at,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ExportHealth) Reset() {
@@ -6756,6 +6761,20 @@ func (x *ExportHealth) GetReceivers() []*ReceiverHealth {
 func (x *ExportHealth) GetSources() []*SourceHealth {
 	if x != nil {
 		return x.Sources
+	}
+	return nil
+}
+
+func (x *ExportHealth) GetCollectorRestarts() uint32 {
+	if x != nil {
+		return x.CollectorRestarts
+	}
+	return 0
+}
+
+func (x *ExportHealth) GetLastCollectorRestartAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastCollectorRestartAt
 	}
 	return nil
 }
@@ -6985,8 +7004,17 @@ type ExportRouteHealth struct {
 	Sent   uint64 `protobuf:"varint,4,opt,name=sent,proto3" json:"sent,omitempty"`
 	Failed uint64 `protobuf:"varint,5,opt,name=failed,proto3" json:"failed,omitempty"`
 	// When the agent last saw each count grow. Unset: it never has.
-	LastSentAt    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=last_sent_at,json=lastSentAt,proto3" json:"last_sent_at,omitempty"`
-	LastFailedAt  *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=last_failed_at,json=lastFailedAt,proto3" json:"last_failed_at,omitempty"`
+	LastSentAt   *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=last_sent_at,json=lastSentAt,proto3" json:"last_sent_at,omitempty"`
+	LastFailedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=last_failed_at,json=lastFailedAt,proto3" json:"last_failed_at,omitempty"`
+	// The exporter's sending queue, summed over the collector pods at the last reading: the items waiting, and how many it holds at most.
+	// Capacity is unset (0) where the collector did not say. A queue that is full refuses what arrives (dropped, below).
+	Queued        uint64 `protobuf:"varint,8,opt,name=queued,proto3" json:"queued,omitempty"`
+	QueueCapacity uint64 `protobuf:"varint,9,opt,name=queue_capacity,json=queueCapacity,proto3" json:"queue_capacity,omitempty"`
+	// Items the queue refused because it was full, since each pod started (otelcol_exporter_enqueue_failed_*): data that is gone, unlike a
+	// failed send, which is retried. A restarted pod's counter starts again from zero, so this can go down. A growth counts as a failure of
+	// the route for its state. Unset: it never has.
+	Dropped       uint64                 `protobuf:"varint,10,opt,name=dropped,proto3" json:"dropped,omitempty"`
+	LastDroppedAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=last_dropped_at,json=lastDroppedAt,proto3" json:"last_dropped_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -7066,6 +7094,34 @@ func (x *ExportRouteHealth) GetLastSentAt() *timestamppb.Timestamp {
 func (x *ExportRouteHealth) GetLastFailedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.LastFailedAt
+	}
+	return nil
+}
+
+func (x *ExportRouteHealth) GetQueued() uint64 {
+	if x != nil {
+		return x.Queued
+	}
+	return 0
+}
+
+func (x *ExportRouteHealth) GetQueueCapacity() uint64 {
+	if x != nil {
+		return x.QueueCapacity
+	}
+	return 0
+}
+
+func (x *ExportRouteHealth) GetDropped() uint64 {
+	if x != nil {
+		return x.Dropped
+	}
+	return 0
+}
+
+func (x *ExportRouteHealth) GetLastDroppedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastDroppedAt
 	}
 	return nil
 }
@@ -8474,7 +8530,7 @@ const file_ikhnos_v1_agent_proto_rawDesc = "" +
 	"\x05ready\x18\x05 \x01(\rR\x05ready\x12\x1f\n" +
 	"\vrolling_out\x18\x06 \x01(\bR\n" +
 	"rollingOut\x12*\n" +
-	"\x11not_ready_seconds\x18\a \x01(\rR\x0fnotReadySeconds\"\xce\x02\n" +
+	"\x11not_ready_seconds\x18\a \x01(\rR\x0fnotReadySeconds\"\xd4\x03\n" +
 	"\fExportHealth\x129\n" +
 	"\n" +
 	"scraped_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\tscrapedAt\x12!\n" +
@@ -8485,7 +8541,9 @@ const file_ikhnos_v1_agent_proto_rawDesc = "" +
 	"last_error\x18\x04 \x01(\tR\tlastError\x124\n" +
 	"\x06routes\x18\x05 \x03(\v2\x1c.ikhnos.v1.ExportRouteHealthR\x06routes\x127\n" +
 	"\treceivers\x18\x06 \x03(\v2\x19.ikhnos.v1.ReceiverHealthR\treceivers\x121\n" +
-	"\asources\x18\a \x03(\v2\x17.ikhnos.v1.SourceHealthR\asources\"\xde\x02\n" +
+	"\asources\x18\a \x03(\v2\x17.ikhnos.v1.SourceHealthR\asources\x12-\n" +
+	"\x12collector_restarts\x18\b \x01(\rR\x11collectorRestarts\x12U\n" +
+	"\x19last_collector_restart_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\x16lastCollectorRestartAt\"\xde\x02\n" +
 	"\x0eReceiverHealth\x12\x16\n" +
 	"\x06signal\x18\x01 \x01(\tR\x06signal\x125\n" +
 	"\x05state\x18\x02 \x01(\x0e2\x1f.ikhnos.v1.ReceiverHealth.StateR\x05state\x12\x1a\n" +
@@ -8518,7 +8576,7 @@ const file_ikhnos_v1_agent_proto_rawDesc = "" +
 	"\n" +
 	"\x06SILENT\x10\x02\x12\f\n" +
 	"\bDEGRADED\x10\x03\x12\v\n" +
-	"\aFAILING\x10\x04\"\xeb\x02\n" +
+	"\aFAILING\x10\x04\"\x88\x04\n" +
 	"\x11ExportRouteHealth\x12\x1a\n" +
 	"\bexporter\x18\x01 \x01(\tR\bexporter\x12\x16\n" +
 	"\x06signal\x18\x02 \x01(\tR\x06signal\x128\n" +
@@ -8527,7 +8585,12 @@ const file_ikhnos_v1_agent_proto_rawDesc = "" +
 	"\x06failed\x18\x05 \x01(\x04R\x06failed\x12<\n" +
 	"\flast_sent_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"lastSentAt\x12@\n" +
-	"\x0elast_failed_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\flastFailedAt\"<\n" +
+	"\x0elast_failed_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\flastFailedAt\x12\x16\n" +
+	"\x06queued\x18\b \x01(\x04R\x06queued\x12%\n" +
+	"\x0equeue_capacity\x18\t \x01(\x04R\rqueueCapacity\x12\x18\n" +
+	"\adropped\x18\n" +
+	" \x01(\x04R\adropped\x12B\n" +
+	"\x0flast_dropped_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\rlastDroppedAt\"<\n" +
 	"\x05State\x12\v\n" +
 	"\aWAITING\x10\x00\x12\r\n" +
 	"\tEXPORTING\x10\x01\x12\n" +
@@ -8806,36 +8869,38 @@ var file_ikhnos_v1_agent_proto_depIdxs = []int32{
 	66,  // 84: ikhnos.v1.ExportHealth.routes:type_name -> ikhnos.v1.ExportRouteHealth
 	64,  // 85: ikhnos.v1.ExportHealth.receivers:type_name -> ikhnos.v1.ReceiverHealth
 	65,  // 86: ikhnos.v1.ExportHealth.sources:type_name -> ikhnos.v1.SourceHealth
-	4,   // 87: ikhnos.v1.ReceiverHealth.state:type_name -> ikhnos.v1.ReceiverHealth.State
-	85,  // 88: ikhnos.v1.ReceiverHealth.last_accepted_at:type_name -> google.protobuf.Timestamp
-	85,  // 89: ikhnos.v1.ReceiverHealth.last_refused_at:type_name -> google.protobuf.Timestamp
-	5,   // 90: ikhnos.v1.SourceHealth.state:type_name -> ikhnos.v1.SourceHealth.State
-	85,  // 91: ikhnos.v1.SourceHealth.last_accepted_at:type_name -> google.protobuf.Timestamp
-	85,  // 92: ikhnos.v1.SourceHealth.last_failed_at:type_name -> google.protobuf.Timestamp
-	6,   // 93: ikhnos.v1.ExportRouteHealth.state:type_name -> ikhnos.v1.ExportRouteHealth.State
-	85,  // 94: ikhnos.v1.ExportRouteHealth.last_sent_at:type_name -> google.protobuf.Timestamp
-	85,  // 95: ikhnos.v1.ExportRouteHealth.last_failed_at:type_name -> google.protobuf.Timestamp
-	68,  // 96: ikhnos.v1.InstalledTelemetryConfig.tools:type_name -> ikhnos.v1.ToolVersion
-	85,  // 97: ikhnos.v1.CollectorDiag.last_data:type_name -> google.protobuf.Timestamp
-	7,   // 98: ikhnos.v1.Problem.severity:type_name -> ikhnos.v1.Problem.Severity
-	85,  // 99: ikhnos.v1.Problem.since:type_name -> google.protobuf.Timestamp
-	11,  // 100: ikhnos.v1.Enrollment.Enroll:input_type -> ikhnos.v1.EnrollRequest
-	13,  // 101: ikhnos.v1.Enrollment.PollEnrollment:input_type -> ikhnos.v1.PollRequest
-	10,  // 102: ikhnos.v1.Enrollment.Rejoin:input_type -> ikhnos.v1.RejoinRequest
-	8,   // 103: ikhnos.v1.Enrollment.RenewTelemetryCert:input_type -> ikhnos.v1.RenewTelemetryCertRequest
-	17,  // 104: ikhnos.v1.AgentService.Connect:input_type -> ikhnos.v1.AgentMessage
-	15,  // 105: ikhnos.v1.AgentService.Renew:input_type -> ikhnos.v1.RenewRequest
-	12,  // 106: ikhnos.v1.Enrollment.Enroll:output_type -> ikhnos.v1.EnrollResponse
-	14,  // 107: ikhnos.v1.Enrollment.PollEnrollment:output_type -> ikhnos.v1.PollResponse
-	16,  // 108: ikhnos.v1.Enrollment.Rejoin:output_type -> ikhnos.v1.RenewResponse
-	9,   // 109: ikhnos.v1.Enrollment.RenewTelemetryCert:output_type -> ikhnos.v1.RenewTelemetryCertResponse
-	40,  // 110: ikhnos.v1.AgentService.Connect:output_type -> ikhnos.v1.ServerMessage
-	16,  // 111: ikhnos.v1.AgentService.Renew:output_type -> ikhnos.v1.RenewResponse
-	106, // [106:112] is the sub-list for method output_type
-	100, // [100:106] is the sub-list for method input_type
-	100, // [100:100] is the sub-list for extension type_name
-	100, // [100:100] is the sub-list for extension extendee
-	0,   // [0:100] is the sub-list for field type_name
+	85,  // 87: ikhnos.v1.ExportHealth.last_collector_restart_at:type_name -> google.protobuf.Timestamp
+	4,   // 88: ikhnos.v1.ReceiverHealth.state:type_name -> ikhnos.v1.ReceiverHealth.State
+	85,  // 89: ikhnos.v1.ReceiverHealth.last_accepted_at:type_name -> google.protobuf.Timestamp
+	85,  // 90: ikhnos.v1.ReceiverHealth.last_refused_at:type_name -> google.protobuf.Timestamp
+	5,   // 91: ikhnos.v1.SourceHealth.state:type_name -> ikhnos.v1.SourceHealth.State
+	85,  // 92: ikhnos.v1.SourceHealth.last_accepted_at:type_name -> google.protobuf.Timestamp
+	85,  // 93: ikhnos.v1.SourceHealth.last_failed_at:type_name -> google.protobuf.Timestamp
+	6,   // 94: ikhnos.v1.ExportRouteHealth.state:type_name -> ikhnos.v1.ExportRouteHealth.State
+	85,  // 95: ikhnos.v1.ExportRouteHealth.last_sent_at:type_name -> google.protobuf.Timestamp
+	85,  // 96: ikhnos.v1.ExportRouteHealth.last_failed_at:type_name -> google.protobuf.Timestamp
+	85,  // 97: ikhnos.v1.ExportRouteHealth.last_dropped_at:type_name -> google.protobuf.Timestamp
+	68,  // 98: ikhnos.v1.InstalledTelemetryConfig.tools:type_name -> ikhnos.v1.ToolVersion
+	85,  // 99: ikhnos.v1.CollectorDiag.last_data:type_name -> google.protobuf.Timestamp
+	7,   // 100: ikhnos.v1.Problem.severity:type_name -> ikhnos.v1.Problem.Severity
+	85,  // 101: ikhnos.v1.Problem.since:type_name -> google.protobuf.Timestamp
+	11,  // 102: ikhnos.v1.Enrollment.Enroll:input_type -> ikhnos.v1.EnrollRequest
+	13,  // 103: ikhnos.v1.Enrollment.PollEnrollment:input_type -> ikhnos.v1.PollRequest
+	10,  // 104: ikhnos.v1.Enrollment.Rejoin:input_type -> ikhnos.v1.RejoinRequest
+	8,   // 105: ikhnos.v1.Enrollment.RenewTelemetryCert:input_type -> ikhnos.v1.RenewTelemetryCertRequest
+	17,  // 106: ikhnos.v1.AgentService.Connect:input_type -> ikhnos.v1.AgentMessage
+	15,  // 107: ikhnos.v1.AgentService.Renew:input_type -> ikhnos.v1.RenewRequest
+	12,  // 108: ikhnos.v1.Enrollment.Enroll:output_type -> ikhnos.v1.EnrollResponse
+	14,  // 109: ikhnos.v1.Enrollment.PollEnrollment:output_type -> ikhnos.v1.PollResponse
+	16,  // 110: ikhnos.v1.Enrollment.Rejoin:output_type -> ikhnos.v1.RenewResponse
+	9,   // 111: ikhnos.v1.Enrollment.RenewTelemetryCert:output_type -> ikhnos.v1.RenewTelemetryCertResponse
+	40,  // 112: ikhnos.v1.AgentService.Connect:output_type -> ikhnos.v1.ServerMessage
+	16,  // 113: ikhnos.v1.AgentService.Renew:output_type -> ikhnos.v1.RenewResponse
+	108, // [108:114] is the sub-list for method output_type
+	102, // [102:108] is the sub-list for method input_type
+	102, // [102:102] is the sub-list for extension type_name
+	102, // [102:102] is the sub-list for extension extendee
+	0,   // [0:102] is the sub-list for field type_name
 }
 
 func init() { file_ikhnos_v1_agent_proto_init() }

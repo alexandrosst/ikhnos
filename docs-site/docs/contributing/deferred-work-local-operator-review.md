@@ -25,8 +25,8 @@ printed commands that were deliberately not changed. Merge into `deferred-work.m
 
 ## Not changed, could be better
 
-- Heartbeats only prove the operator is alive; the agent's `exporthealth` reads send_failed/sent counters only
-  (`queue_size` is read, and a queue that does not drain counts as failing, but its depth is not reported to the server).
+- Heartbeats only prove the operator is alive; the agent's `exporthealth` reads the send counters and, since 0259, the queue depth, its
+  capacity, the items a full queue refused and the collectors' uptime, and reports them to the server (see Is data arriving: per-route health).
 - gRPC `max_recv_msg_size` is not set on the regional operator receiver.
 - Collector `health_check` cannot show exporter failure (verified); the chart turns `selfMetrics` on for the regional
   operator instead.

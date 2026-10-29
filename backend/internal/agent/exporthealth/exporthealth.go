@@ -37,6 +37,10 @@ const (
 	// DefaultWindow is how long ago something may have gone out and still count as "recently": a few
 	// collection intervals, since the slowest signal here is read every minute.
 	DefaultWindow = 3 * time.Minute
+	// DefaultForget is how long a route that no collector reports any more is kept before it is dropped from the report: an exporter that was
+	// removed or renamed would otherwise stay as a silent row until the agent restarts. It is long, because a collector that restarted serves
+	// no series for a route until something goes through it again, and that must not look like a removed route.
+	DefaultForget = time.Hour
 
 	defaultTimeout = 3 * time.Second
 	// maxBody caps what is read from one collector: its own self-metrics are a few hundred kilobytes at most.
@@ -55,6 +59,8 @@ type Config struct {
 	// Every is the time between readings (default DefaultEvery); Window how recent "recently" is (default
 	// DefaultWindow); Timeout the limit on one request (default 3 s).
 	Every, Window, Timeout time.Duration
+	// Forget is how long a route that no collector reports is kept (default DefaultForget).
+	Forget time.Duration
 	// Lookup and Get replace name resolution and the HTTP read (tests). Now replaces the clock (tests).
 	Lookup func(ctx context.Context, host string) ([]string, error)
 	Get    func(ctx context.Context, url string) ([]byte, error)
@@ -80,13 +86,21 @@ type route struct{ exporter, signal string }
 // counts are the counters of one route. queued is not a counter but a gauge: how many items wait in the exporter's queue to be sent. An
 // exporter retries for a long time before it counts a send as failed (that is what the chart asks of it), so a destination that cannot be
 // reached shows first as a queue that does not empty, and the retries are the failures the counters do not yet show.
-type counts struct{ sent, failed, queued uint64 }
+//
+// capacity is how many items the exporter's queue holds at most, and dropped how many it refused because it was full (the data is gone, unlike a
+// failed send, which is retried).
+type counts struct{ sent, failed, queued, capacity, dropped uint64 }
 
 // routeState is what is known about one route: the latest sum of its counters over the pods read, and when
 // each was last seen to grow.
 type routeState struct {
 	counts
 	lastSent, lastFailed time.Time
+	// lastDropped is when the queue was last seen to refuse something. It is not a failure of the route for its state: a route that is still
+	// sending and loses some is exporting, and the page says so beside the state.
+	lastDropped time.Time
+	// lastSeen is the last reading some collector reported the route in; a route not reported for Config.Forget is dropped.
+	lastSeen time.Time
 	// ready is set once a reading had an earlier one of the same pod to compare with. Before that a counter
 	// above zero says only that something went out at some time, so no state is claimed from it.
 	ready bool
@@ -106,6 +120,10 @@ type Monitor struct {
 	lastErr   string
 	// tools is what the last reading found about each scrape job's targets (job -> instance -> state): gauges, so only the last reading counts.
 	tools map[string]map[string]toolTarget
+	// uptime is each collector pod's uptime (by its address) at the last reading that had one; an uptime lower than the one before is a restart.
+	uptime      map[string]float64
+	restarts    uint32
+	lastRestart time.Time
 }
 
 // New returns a Monitor; call Run to start it.
@@ -119,13 +137,16 @@ func New(cfg Config) *Monitor {
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = defaultTimeout
 	}
+	if cfg.Forget <= 0 {
+		cfg.Forget = DefaultForget
+	}
 	if cfg.Now == nil {
 		cfg.Now = time.Now
 	}
 	if cfg.Log == nil {
 		cfg.Log = slog.Default()
 	}
-	m := &Monitor{cfg: cfg, log: cfg.Log, prev: map[string]map[route]counts{}, routes: map[route]*routeState{}}
+	m := &Monitor{cfg: cfg, log: cfg.Log, prev: map[string]map[route]counts{}, routes: map[route]*routeState{}, uptime: map[string]float64{}}
 	if cfg.Lookup == nil {
 		m.cfg.Lookup = func(ctx context.Context, host string) ([]string, error) {
 			return net.DefaultResolver.LookupHost(ctx, host)
@@ -173,6 +194,8 @@ func (m *Monitor) Scrape(ctx context.Context) {
 		addr   string
 		routes map[route]counts
 		tools  map[string]map[string]toolTarget
+		uptime float64
+		hasUp  bool
 		err    error
 	}
 	var (
@@ -233,12 +256,15 @@ func (m *Monitor) Scrape(ctx context.Context) {
 			body, err := m.cfg.Get(rctx, "http://"+a+"/metrics")
 			var rs map[route]counts
 			var ts map[string]map[string]toolTarget
+			var up float64
+			var hasUp bool
 			if err == nil {
 				rs, err = parse(strings.NewReader(string(body)))
 				ts = parseTools(string(body))
+				up, hasUp = parseUptime(string(body))
 			}
 			rmu.Lock()
-			reads = append(reads, read{addr: a, routes: rs, tools: ts, err: err})
+			reads = append(reads, read{addr: a, routes: rs, tools: ts, uptime: up, hasUp: hasUp, err: err})
 			rmu.Unlock()
 		}(a)
 	}
@@ -251,16 +277,25 @@ func (m *Monitor) Scrape(ctx context.Context) {
 	now := m.cfg.Now()
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	reached := 0
+	// A pod that serves its counters on two ports (the cluster collector's own and its source health) is read twice and is one pod: it is
+	// reached when any of its ports could be read, and failed only when none could. A port that failed beside one that answered is still
+	// the last error, so that the page can say it, but it does not make a pod of the count.
 	agg := map[route]counts{}
 	seenNow := map[string]map[route]counts{}
 	tools := map[string]map[string]toolTarget{}
+	hostOK, hostBad := map[string]bool{}, map[string]bool{}
+	upNow := map[string]float64{}
 	for _, r := range reads {
+		host, _, _ := net.SplitHostPort(r.addr)
 		if r.err != nil {
-			note(fmt.Errorf("read %s: %w", r.addr, r.err))
+			lastErr = clip(fmt.Errorf("read %s: %w", r.addr, r.err).Error(), 200)
+			hostBad[host] = true
 			continue
 		}
-		reached++
+		hostOK[host] = true
+		if r.hasUp {
+			upNow[host] = r.uptime
+		}
 		seenNow[r.addr] = r.routes
 		for job, ts := range r.tools {
 			if tools[job] == nil {
@@ -276,12 +311,15 @@ func (m *Monitor) Scrape(ctx context.Context) {
 			a.sent += c.sent
 			a.failed += c.failed
 			a.queued += c.queued
+			a.capacity += c.capacity
+			a.dropped += c.dropped
 			agg[rt] = a
 			st := m.routes[rt]
 			if st == nil {
 				st = &routeState{}
 				m.routes[rt] = st
 			}
+			st.lastSeen = now
 			if !known {
 				continue // the first reading of a pod is only a baseline to measure growth from
 			}
@@ -293,6 +331,9 @@ func (m *Monitor) Scrape(ctx context.Context) {
 			if grew(p.failed, c.failed) {
 				st.lastFailed = now
 			}
+			if grew(p.dropped, c.dropped) {
+				st.lastDropped = now
+			}
 			// Items still waiting in the queue at two readings in a row with nothing sent in between: the destination is not taking them. The
 			// exporter has not given up on them yet, so no failure is counted, but they are not on their way either.
 			if c.queued > 0 && p.queued > 0 && !grew(p.sent, c.sent) {
@@ -303,6 +344,36 @@ func (m *Monitor) Scrape(ctx context.Context) {
 	for rt, c := range agg {
 		m.routes[rt].counts = c
 	}
+	reached := len(hostOK)
+	for h := range hostBad {
+		if !hostOK[h] {
+			failed++
+		}
+	}
+	// Routes that no collector has reported for a long time are gone (an exporter removed or renamed), not silent. Only judged on a reading
+	// that reached a collector: with none reached, nothing says what the collectors report.
+	if reached > 0 {
+		for rt, st := range m.routes {
+			if now.Sub(st.lastSeen) > m.cfg.Forget {
+				delete(m.routes, rt)
+			}
+		}
+	}
+	// A pod whose uptime went down since the last reading started again at its own address: a crash or a kill, not a new pod.
+	for h, up := range upNow {
+		if before, ok := m.uptime[h]; ok && up+1 < before {
+			m.restarts++
+			m.lastRestart = now
+		}
+	}
+	for h := range m.uptime {
+		if _, ok := upNow[h]; !ok && !resolvedHost(resolved, h) {
+			delete(m.uptime, h) // the pod is gone
+		}
+	}
+	for h, up := range upNow {
+		m.uptime[h] = up
+	}
 	// A pod that could not be read this time keeps its baseline while it still resolves; one that is gone does not.
 	for a, c := range m.prev {
 		if _, ok := seenNow[a]; !ok && resolved[a] {
@@ -312,6 +383,15 @@ func (m *Monitor) Scrape(ctx context.Context) {
 	m.prev = seenNow
 	m.scrapedAt, m.reached, m.failed, m.lastErr = now, reached, failed, lastErr
 	m.tools = tools
+}
+
+func resolvedHost(resolved map[string]bool, host string) bool {
+	for a := range resolved {
+		if h, _, err := net.SplitHostPort(a); err == nil && h == host {
+			return true
+		}
+	}
+	return false
 }
 
 // grew reports whether a counter went up since the last reading. A counter that went down was reset by a
@@ -333,6 +413,10 @@ func (m *Monitor) Report() *ikhnosv1.ExportHealth {
 	now := m.cfg.Now()
 	out := &ikhnosv1.ExportHealth{
 		ScrapedAt: timestamppb.New(m.scrapedAt), PodsReached: uint32(m.reached), PodsFailed: uint32(m.failed), LastError: m.lastErr,
+		CollectorRestarts: m.restarts,
+	}
+	if !m.lastRestart.IsZero() {
+		out.LastCollectorRestartAt = timestamppb.New(m.lastRestart)
 	}
 	keys := make([]route, 0, len(m.routes))
 	for k := range m.routes {
@@ -377,7 +461,10 @@ func (m *Monitor) Report() *ikhnosv1.ExportHealth {
 			out.Receivers = append(out.Receivers, rc)
 			continue
 		}
-		r := &ikhnosv1.ExportRouteHealth{Exporter: k.exporter, Signal: k.signal, State: m.state(st, now), Sent: st.sent, Failed: st.failed}
+		r := &ikhnosv1.ExportRouteHealth{Exporter: k.exporter, Signal: k.signal, State: m.state(st, now), Sent: st.sent, Failed: st.failed, Queued: st.queued, QueueCapacity: st.capacity, Dropped: st.dropped}
+		if !st.lastDropped.IsZero() {
+			r.LastDroppedAt = timestamppb.New(st.lastDropped)
+		}
 		if !st.lastSent.IsZero() {
 			r.LastSentAt = timestamppb.New(st.lastSent)
 		}
@@ -411,6 +498,7 @@ func (m *Monitor) state(st *routeState, now time.Time) ikhnosv1.ExportRouteHealt
 // else, including the "debug" exporter, which writes to the collector's own log and is nobody's destination.
 func parse(r io.Reader) (map[route]counts, error) {
 	out := map[route]counts{}
+	caps := map[route]uint64{}
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 64<<10), 1<<20)
 	for sc.Scan() {
@@ -435,10 +523,16 @@ func parse(r io.Reader) (map[route]counts, error) {
 			parseQueue(labels, value, out)
 			continue
 		}
-		var failedCounter bool
+		if name == "queue_capacity" {
+			parseCapacity(labels, value, caps)
+			continue
+		}
+		var failedCounter, droppedCounter bool
 		switch {
 		case strings.HasPrefix(name, "send_failed_"):
 			failedCounter, name = true, strings.TrimPrefix(name, "send_failed_")
+		case strings.HasPrefix(name, "enqueue_failed_"):
+			droppedCounter, name = true, strings.TrimPrefix(name, "enqueue_failed_")
 		case strings.HasPrefix(name, "sent_"):
 			name = strings.TrimPrefix(name, "sent_")
 		default:
@@ -464,14 +558,52 @@ func parse(r io.Reader) (map[route]counts, error) {
 		}
 		k := route{exp, signal}
 		c := out[k]
-		if failedCounter {
+		switch {
+		case failedCounter:
 			c.failed += uint64(value)
-		} else {
+		case droppedCounter:
+			c.dropped += uint64(value)
+		default:
 			c.sent += uint64(value)
 		}
 		out[k] = c
 	}
+	// A queue's capacity says nothing on its own, so it is kept only for a route that has something else to say.
+	for k, v := range caps {
+		if c, ok := out[k]; ok {
+			c.capacity = v
+			out[k] = c
+		}
+	}
 	return out, sc.Err()
+}
+
+// parseCapacity reads one otelcol_exporter_queue_capacity line: how many items an exporter's sending queue holds at most, per kind of data.
+func parseCapacity(labels map[string]string, value float64, caps map[route]uint64) {
+	exp := labels["exporter"]
+	if exp == "" || exp == "debug" || strings.HasPrefix(exp, "debug/") || math.IsNaN(value) || math.IsInf(value, 0) || value < 1 {
+		return
+	}
+	signal := labels["data_type"]
+	if signal != "metrics" && signal != "logs" && signal != "traces" {
+		return
+	}
+	caps[route{exp, signal}] += uint64(value)
+}
+
+// parseUptime reads otelcol_process_uptime, the seconds since the collector started. It is on the collector's own port only.
+func parseUptime(body string) (float64, bool) {
+	for _, line := range strings.Split(body, "\n") {
+		if !strings.HasPrefix(line, "otelcol_process_uptime") {
+			continue
+		}
+		name, _, value, ok := splitSample(line)
+		if !ok || (name != "otelcol_process_uptime" && name != "otelcol_process_uptime_seconds") || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+			continue
+		}
+		return value, true
+	}
+	return 0, false
 }
 
 // parseQueue reads one otelcol_exporter_queue_size line: the items waiting in an exporter's sending queue, per kind of data.

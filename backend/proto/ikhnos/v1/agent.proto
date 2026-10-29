@@ -1361,9 +1361,9 @@ message WorkloadStatus {
 message ExportHealth {
   // When the counters were last read.
   google.protobuf.Timestamp scraped_at = 1;
-  // Collector pods whose counters were read on the last attempt, and how many attempts (name lookups or
-  // requests) failed. Reached 0 with failures means the counters cannot be read at all (a NetworkPolicy, a
-  // collector that is down), not that nothing is being exported.
+  // Collector pods whose counters were read on the last attempt (a pod that serves its counters on two ports is one pod), and how many
+  // failed: a pod none of whose ports could be read, or a name that could not be looked up. Reached 0 with failures means the counters
+  // cannot be read at all (a NetworkPolicy, a collector that is down), not that nothing is being exported.
   uint32 pods_reached = 2;
   uint32 pods_failed = 3;
   // The most recent reason a read failed, cut short; empty when none did.
@@ -1377,6 +1377,11 @@ message ExportHealth {
   // One entry per collector receiver that reads a source of the cluster itself (the kubelet, the host, the Kubernetes API, the container
   // logs), from the same counters. Where a source goes silent or errors is told here, not by the routes above, which are the other end.
   repeated SourceHealth sources = 7;
+  // How many times a collector pod was seen to have restarted since this agent started: its uptime was lower than at the previous reading.
+  // A pod that is replaced (a new address) is not counted, only one that keeps its address and starts again, which is a crash or an OOM kill.
+  // When it last happened is unset if it never has.
+  uint32 collector_restarts = 8;
+  google.protobuf.Timestamp last_collector_restart_at = 9;
 }
 
 // What the collectors' OTLP receiver took in, from its own counters (otelcol_receiver_accepted_* and refused_*),
@@ -1460,6 +1465,15 @@ message ExportRouteHealth {
   // When the agent last saw each count grow. Unset: it never has.
   google.protobuf.Timestamp last_sent_at = 6;
   google.protobuf.Timestamp last_failed_at = 7;
+  // The exporter's sending queue, summed over the collector pods at the last reading: the items waiting, and how many it holds at most.
+  // Capacity is unset (0) where the collector did not say. A queue that is full refuses what arrives (dropped, below).
+  uint64 queued = 8;
+  uint64 queue_capacity = 9;
+  // Items the queue refused because it was full, since each pod started (otelcol_exporter_enqueue_failed_*): data that is gone, unlike a
+  // failed send, which is retried. A restarted pod's counter starts again from zero, so this can go down. A growth counts as a failure of
+  // the route for its state. Unset: it never has.
+  uint64 dropped = 10;
+  google.protobuf.Timestamp last_dropped_at = 11;
 }
 
 // The effective configuration behind Diagnostics.installed_telemetry_config - the destination, the

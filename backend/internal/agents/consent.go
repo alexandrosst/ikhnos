@@ -349,11 +349,15 @@ type WorkloadDoc struct {
 // exporthealth package); this server only bounds and labels what it is told. PodsReached 0 with PodsFailed
 // above 0 means the counters cannot be read at all, which says nothing about whether data is flowing.
 type ExportHealthDoc struct {
-	ScrapedAt   string                 `json:"scrapedAt,omitempty"`
-	PodsReached int                    `json:"podsReached"`
-	PodsFailed  int                    `json:"podsFailed"`
-	LastError   string                 `json:"lastError,omitempty"`
-	Routes      []ExportRouteHealthDoc `json:"routes"`
+	ScrapedAt   string `json:"scrapedAt,omitempty"`
+	PodsReached int    `json:"podsReached"`
+	PodsFailed  int    `json:"podsFailed"`
+	LastError   string `json:"lastError,omitempty"`
+	// CollectorRestarts is how many times a collector pod was seen to start again at its own address since the agent started (a crash or an
+	// OOM kill), and LastCollectorRestartAt when.
+	CollectorRestarts      int                    `json:"collectorRestarts,omitempty"`
+	LastCollectorRestartAt string                 `json:"lastCollectorRestartAt,omitempty"`
+	Routes                 []ExportRouteHealthDoc `json:"routes"`
 	// Receivers is the stage before Routes: what the collectors' OTLP receiver, the one applications push to,
 	// has taken in, one entry per signal type seen. A signal with no entry has not been seen arriving.
 	Receivers []ReceiverHealthDoc `json:"receivers"`
@@ -472,6 +476,13 @@ type ExportRouteHealthDoc struct {
 	Failed       uint64      `json:"failed"`
 	LastSentAt   string      `json:"lastSentAt,omitempty"`
 	LastFailedAt string      `json:"lastFailedAt,omitempty"`
+	// Queued and QueueCapacity are the items waiting in the exporter's sending queue, and how many it holds at most, at the last reading.
+	// Dropped is how many the queue refused because it was full since each pod started (data that is gone, unlike a failed send, which is
+	// retried), and LastDroppedAt when the agent last saw it grow.
+	Queued        uint64 `json:"queued,omitempty"`
+	QueueCapacity uint64 `json:"queueCapacity,omitempty"`
+	Dropped       uint64 `json:"dropped,omitempty"`
+	LastDroppedAt string `json:"lastDroppedAt,omitempty"`
 }
 
 // ExportHealthStates names the agent's states; one this server does not know is shown as waiting, the one

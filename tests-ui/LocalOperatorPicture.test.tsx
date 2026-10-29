@@ -19,6 +19,24 @@ const failing: AgentExportHealth = { sources: [], podsReached: 4, podsFailed: 0,
 const show = (d: AgentDiagnostics | undefined, installed: string[], extra: Record<string, unknown> = {}) =>
   render(<LocalOperatorPicture installed={installed} diagnostics={d} cluster="vradipus" now={NOW} {...extra} />)
 
+describe('operatorPicture: a collector that started again', () => {
+  const picture = (more: Partial<AgentExportHealth>) => operatorPicture({ installed: ['resourceUsage'], diagnostics: diag({ ...healthy, ...more }, ['resourceUsage']), now: NOW, cluster: 'c' })
+
+  test('a recent restart is said beside the pods read and asks to be looked at', () => {
+    const p = picture({ collectorRestarts: 2, lastCollectorRestartAt: '2026-10-06T12:00:00Z' })
+    expect(p.collectors.text).toBe('4 collector pods read · restarted 2 times since the agent started (the last 10 min ago)')
+    expect(p.collectors.health).toBe('attention')
+  })
+
+  test('an old restart is said and does not ask for attention; none says nothing', () => {
+    const old = picture({ collectorRestarts: 1, lastCollectorRestartAt: '2026-10-06T08:00:00Z' })
+    expect(old.collectors.text).toMatch(/restarted once since the agent started \(the last 4 h ago\)$/)
+    expect(old.collectors.health).toBe('healthy')
+    expect(picture({}).collectors.text).toBe('4 collector pods read')
+    expect(picture({ collectorRestarts: 0 }).collectors.text).toBe('4 collector pods read')
+  })
+})
+
 describe('operatorPicture: the local operator from what the agent reports', () => {
   test('sources are grouped by where they run, only the ones that are on', () => {
     const p = operatorPicture({ installed: ['resourceUsage', 'kubernetesEvents', 'traces'], diagnostics: diag(healthy, ['resourceUsage']), now: NOW, cluster: 'c' })

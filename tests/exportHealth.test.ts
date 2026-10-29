@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { AgentDiagnostics, AgentExportHealth, AgentExportRoute } from '../src/lib/consent'
-import { exportReach, exportRows } from '../src/lib/exportHealth'
+import { droppedRecently, exportReach, exportRows, queueShare } from '../src/lib/exportHealth'
 
 const route = (over: Partial<AgentExportRoute>): AgentExportRoute => ({
   exporter: 'otlp',
@@ -116,4 +116,35 @@ test('exportReach: not reported without the field, unreadable only when nothing 
   assert.equal(exportReach(diag(health([], { podsReached: 1, podsFailed: 1 }))), 'ok')
   // Nothing found and nothing failed: no collectors to read, which is not a failure to read them.
   assert.equal(exportReach(diag(health([], { podsReached: 0, podsFailed: 0 }))), 'ok')
+})
+
+test('exportRows: the queues and what they refused are summed over the routes of a signal type', () => {
+  const rows = exportRows(
+    ['resourceUsage'],
+    health([
+      route({ exporter: 'otlp/a', queued: 30, queueCapacity: 100, dropped: 2, lastDroppedAt: '2026-10-06T12:00:00Z' }),
+      route({ exporter: 'otlp/b', queued: 10, queueCapacity: 100, dropped: 5, lastDroppedAt: '2026-10-06T12:05:00Z' }),
+    ]),
+  )
+  assert.deepEqual(
+    { q: rows[0].queued, c: rows[0].queueCapacity, d: rows[0].dropped, at: rows[0].lastDroppedAt },
+    { q: 40, c: 200, d: 7, at: '2026-10-06T12:05:00Z' },
+  )
+  // An older agent says none of it: zeros, not a missing field.
+  const old = exportRows(['resourceUsage'], health([route({})]))
+  assert.deepEqual({ q: old[0].queued, c: old[0].queueCapacity, d: old[0].dropped }, { q: 0, c: 0, d: 0 })
+})
+
+test('queueShare is how full the queues are, and nothing when the collectors did not say how much they hold', () => {
+  assert.equal(queueShare({ queued: 25, queueCapacity: 100 }), 0.25)
+  assert.equal(queueShare({ queued: 250, queueCapacity: 100 }), 1)
+  assert.equal(queueShare({ queued: 25, queueCapacity: 0 }), undefined)
+})
+
+test('droppedRecently: only a drop in the last quarter of an hour counts as now', () => {
+  const now = Date.parse('2026-10-06T12:10:00Z')
+  assert.equal(droppedRecently({ dropped: 3, lastDroppedAt: '2026-10-06T12:00:00Z' }, now), true)
+  assert.equal(droppedRecently({ dropped: 3, lastDroppedAt: '2026-10-06T11:40:00Z' }, now), false)
+  assert.equal(droppedRecently({ dropped: 3 }, now), false)
+  assert.equal(droppedRecently({ dropped: 0, lastDroppedAt: '2026-10-06T12:09:00Z' }, now), false)
 })

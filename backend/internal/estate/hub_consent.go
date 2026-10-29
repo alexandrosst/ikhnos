@@ -442,12 +442,19 @@ func (v *View) diagDoc() *agents.DiagnosticsDoc {
 		if h.ScrapedAt != nil {
 			doc.ScrapedAt = kernel.RFC(h.ScrapedAt.AsTime())
 		}
+		doc.CollectorRestarts = int(h.CollectorRestarts)
+		if h.LastCollectorRestartAt != nil {
+			doc.LastCollectorRestartAt = kernel.RFC(h.LastCollectorRestartAt.AsTime())
+		}
 		for _, r := range h.Routes {
 			state := agents.ExportHealthStates[r.State]
 			if state == "" {
 				state = agents.ExportWaiting
 			}
-			rd := agents.ExportRouteHealthDoc{Exporter: kernel.Printable(r.Exporter, 80), Signal: kernel.Printable(r.Signal, 20), State: state, Sent: r.Sent, Failed: r.Failed}
+			rd := agents.ExportRouteHealthDoc{Exporter: kernel.Printable(r.Exporter, 80), Signal: kernel.Printable(r.Signal, 20), State: state, Sent: r.Sent, Failed: r.Failed, Queued: r.Queued, QueueCapacity: r.QueueCapacity, Dropped: r.Dropped}
+			if r.LastDroppedAt != nil {
+				rd.LastDroppedAt = kernel.RFC(r.LastDroppedAt.AsTime())
+			}
 			if r.LastSentAt != nil {
 				rd.LastSentAt = kernel.RFC(r.LastSentAt.AsTime())
 			}

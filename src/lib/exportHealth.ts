@@ -19,6 +19,12 @@ export interface ExportRow {
   failed: number
   lastSentAt?: string
   lastFailedAt?: string
+  /** The items waiting in the exporters' queues now, and how many they hold at most (0: not said). */
+  queued: number
+  queueCapacity: number
+  /** Items a full queue refused since the collectors started: data that is gone, unlike a failed send, which is retried. */
+  dropped: number
+  lastDroppedAt?: string
   /** Some signal behind it is one that applications push (OTLP), so what the collector took in is part of the path. */
   pushed: boolean
   /** What the collectors' OTLP receiver took in for this type: the stage before the exporters. Absent: nothing has been seen arriving. */
@@ -53,7 +59,7 @@ export function exportRows(installed: string[], health: AgentExportHealth): Expo
     const signals = on.map((s) => s.label)
     if (signals.length === 0) continue
     const routes = health.routes.filter((r) => r.signal === modality)
-    const row: ExportRow = { modality, signals, state: 'waiting', exporters: [], sent: 0, failed: 0, pushed: on.some((s) => s.layer === 'application') }
+    const row: ExportRow = { modality, signals, state: 'waiting', exporters: [], sent: 0, failed: 0, queued: 0, queueCapacity: 0, dropped: 0, pushed: on.some((s) => s.layer === 'application') }
     for (const r of (health.receivers ?? []).filter((x) => x.signal === modality)) {
       const got = row.received ?? { state: 'waiting' as const, accepted: 0, refused: 0 }
       got.accepted += r.accepted
@@ -67,13 +73,33 @@ export function exportRows(installed: string[], health: AgentExportHealth): Expo
       row.exporters.push(r.exporter)
       row.sent += r.sent
       row.failed += r.failed
+      row.queued += r.queued ?? 0
+      row.queueCapacity += r.queueCapacity ?? 0
+      row.dropped += r.dropped ?? 0
       if (RANK[r.state] > RANK[row.state]) row.state = r.state
       row.lastSentAt = later(row.lastSentAt, r.lastSentAt)
       row.lastFailedAt = later(row.lastFailedAt, r.lastFailedAt)
+      row.lastDroppedAt = later(row.lastDroppedAt, r.lastDroppedAt)
     }
     rows.push(row)
   }
   return rows
+}
+
+/** How full the queues behind a row are, from 0 to 1, or undefined when the collectors did not say how much they hold. */
+export function queueShare(r: Pick<ExportRow, 'queued' | 'queueCapacity'>): number | undefined {
+  return r.queueCapacity > 0 ? Math.min(1, r.queued / r.queueCapacity) : undefined
+}
+
+/** A queue this full is close to refusing what comes in. */
+export const QUEUE_NEARLY_FULL = 0.8
+
+/** How recently a drop still counts as happening now, in seconds: a queue that refused something a day ago is a past event. */
+export const DROP_RECENT_SECONDS = 15 * 60
+
+/** Whether the queue behind a row refused something recently. */
+export function droppedRecently(r: Pick<ExportRow, 'dropped' | 'lastDroppedAt'>, now: number): boolean {
+  return r.dropped > 0 && !!r.lastDroppedAt && (now - Date.parse(r.lastDroppedAt)) / 1000 <= DROP_RECENT_SECONDS
 }
 
 /** Whether the agent could read the collectors' counters at all. */

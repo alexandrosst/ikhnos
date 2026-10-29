@@ -202,6 +202,31 @@ func TestExportHealthRelaysTheAgentsStatesAndBoundsThem(t *testing.T) {
 	}
 }
 
+// The queue, what it refused and the collector restarts are relayed as the agent counted them.
+func TestExportHealthRelaysTheQueueTheDropsAndTheRestarts(t *testing.T) {
+	at := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	v := NewView()
+	h := &ikhnosv1.ExportHealth{
+		ScrapedAt: timestamppb.New(at), PodsReached: 3, CollectorRestarts: 2, LastCollectorRestartAt: timestamppb.New(at.Add(-time.Minute)),
+		Routes: []*ikhnosv1.ExportRouteHealth{
+			{Exporter: "otlp", Signal: "logs", State: ikhnosv1.ExportRouteHealth_EXPORTING, Queued: 90, QueueCapacity: 100, Dropped: 12, LastDroppedAt: timestamppb.New(at)},
+			{Exporter: "otlp", Signal: "metrics", State: ikhnosv1.ExportRouteHealth_EXPORTING},
+		},
+	}
+	v.NoteDiagnostics(&ikhnosv1.Diagnostics{AgentVersion: "1", ExportHealth: h}, false, at)
+	got := v.diagDoc().ExportHealth
+	if got == nil || got.CollectorRestarts != 2 || got.LastCollectorRestartAt != "2026-10-06T11:59:00Z" {
+		t.Fatalf("restarts = %+v", got)
+	}
+	r := got.Routes[0]
+	if r.Queued != 90 || r.QueueCapacity != 100 || r.Dropped != 12 || r.LastDroppedAt != "2026-10-06T12:00:00Z" {
+		t.Errorf("route = %+v, want the queue 90 of 100 and 12 dropped with a time", r)
+	}
+	if q := got.Routes[1]; q.Queued != 0 || q.Dropped != 0 || q.LastDroppedAt != "" {
+		t.Errorf("a route with no queue to report = %+v, want none of it", q)
+	}
+}
+
 func workloads(n int, prefix string) []*ikhnosv1.WorkloadFacts {
 	out := make([]*ikhnosv1.WorkloadFacts, n)
 	for i := range out {

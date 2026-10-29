@@ -1,5 +1,5 @@
 import { uptimeWords, type AgentDiagnostics } from '../../../lib/consent'
-import { exportReach, exportRows, otlpAddress } from '../../../lib/exportHealth'
+import { droppedRecently, exportReach, exportRows, otlpAddress, QUEUE_NEARLY_FULL, queueShare } from '../../../lib/exportHealth'
 import { cleanTags, TELEMETRY_SIGNALS, type Modality, type TelemetryInput } from '../../../lib/install'
 import { type Health, reportIsStale, worstOf } from '../../../lib/status'
 
@@ -79,12 +79,28 @@ export function arrivalCheck(o: { wanted: string[]; diagnostics?: AgentDiagnosti
   // Which rows are in the state they are because of the applications' side, so that the headline names the stage that stopped the data.
   const turnedAway = new Set<Modality>()
   const unsent = new Set<Modality>()
+  // Rows whose data goes out but is lost on the way, or is about to be: the destination takes it slower than the collector sends it.
+  const lossy = new Set<Modality>()
   const rows: ArrivalRow[] = exportRows(wanted, d.exportHealth!).map((r) => {
     const label = MODALITY_LABEL[r.modality]
     const last = ago(r.lastSentAt, now)
     const lastData = last ? `Last data ${last}` : 'No data yet'
-    if (r.state === 'failing') return { modality: r.modality, label, health: 'down', lastData, sentence: r.failed === 0 ? `Data is waiting to be sent: the collector holds it and keeps trying, and none has got through (seen ${ago(r.lastFailedAt, now) ?? 'recently'}). The destination may be unreachable or refusing it: the cluster collector's log says which.` : `${r.failed.toLocaleString()} sends failed (the last ${ago(r.lastFailedAt, now) ?? 'recently'}) and none got through since.` }
-    if (r.state === 'exporting') return { modality: r.modality, label, health: 'healthy', lastData, sentence: 'The destination accepted the data.' }
+    const held = r.queued > 0 ? ` ${r.queued.toLocaleString()} items are queued${r.queueCapacity > 0 ? ` of the ${r.queueCapacity.toLocaleString()} the queue holds` : ''}.` : ''
+    const lost = r.dropped > 0 ? ` ${r.dropped.toLocaleString()} items were dropped because the queue was full${r.lastDroppedAt ? ` (the last ${ago(r.lastDroppedAt, now)})` : ''}.` : ''
+    if (r.state === 'failing') return { modality: r.modality, label, health: 'down', lastData, sentence: (r.failed === 0 ? `Data is waiting to be sent: the collector holds it and keeps trying, and none has got through (seen ${ago(r.lastFailedAt, now) ?? 'recently'}).${held}${lost} The destination may be unreachable or refusing it: the cluster collector's log says which.` : `${r.failed.toLocaleString()} sends failed (the last ${ago(r.lastFailedAt, now) ?? 'recently'}) and none got through since.${held}${lost}`) }
+    if (r.state === 'exporting') {
+      // It goes out, so the state is healthy, but a full queue loses data and a nearly full one is about to: said, not hidden behind the green.
+      const share = queueShare(r)
+      if (droppedRecently(r, now)) {
+        lossy.add(r.modality)
+        return { modality: r.modality, label, health: 'attention', lastData, sentence: `The destination accepts the data, but it takes it slower than the collector sends it:${lost}` }
+      }
+      if (share !== undefined && share >= QUEUE_NEARLY_FULL) {
+        lossy.add(r.modality)
+        return { modality: r.modality, label, health: 'attention', lastData, sentence: `The destination accepts the data, but the collector's queue is ${Math.round(share * 100)} % full (${r.queued.toLocaleString()} of ${r.queueCapacity.toLocaleString()}): it will start dropping data if the destination does not keep up.` }
+      }
+      return { modality: r.modality, label, health: 'healthy', lastData, sentence: r.dropped > 0 ? `The destination accepted the data.${lost} None lately.` : 'The destination accepted the data.' }
+    }
     // The applications' side of the path: what the collector took in from them, the stage before the exporters. Said only for a type that
     // applications push, and only where it explains why nothing has gone out.
     const got = r.pushed ? r.received : undefined
@@ -119,6 +135,9 @@ export function arrivalCheck(o: { wanted: string[]; diagnostics?: AgentDiagnosti
   const downRows = rows.filter((r) => r.health === 'down')
   if (health === 'down' && downRows.every((r) => turnedAway.has(r.modality))) {
     return { health, headline: 'The collector is turning away data from your applications.', todo: `Look at the collector pods' logs in ${cluster}: it is short of memory, or the pipeline behind its receiver refused the data.`, rows, partial, otlp }
+  }
+  if (health === 'attention' && lossy.size > 0 && rows.filter((r) => r.health === 'attention').every((r) => lossy.has(r.modality))) {
+    return { health, headline: 'Data is arriving, but some of it is being dropped or is about to be.', todo: 'The destination takes data slower than the collector sends it. Look at its load, or collect less in the Collect step.', rows, partial, otlp }
   }
   if (health === 'attention' && rows.filter((r) => r.health === 'attention').every((r) => unsent.has(r.modality))) {
     return { health, headline: 'No application has sent anything to the collector.', todo: 'Point the OTLP exporter of the application at the address below, in the same cluster; an address from an older install or another namespace stays silent.', rows, partial, otlp }

@@ -237,6 +237,14 @@ export function operatorPicture(o: { installed: string[]; diagnostics?: AgentDia
         { health: 'attention', text: 'The agent cannot read their counters' }
         : { health: 'unknown', text: d ? 'This agent does not report its collectors' : 'The agent has not reported yet' }
 
+  // A collector that started again at its own address crashed or was killed (memory is the usual cause). Said beside the pods read, and
+  // worth a look while it is recent.
+  if (reach === 'ok' && h && (h.collectorRestarts ?? 0) > 0) {
+    const recent = !!h.lastCollectorRestartAt && (o.now - Date.parse(h.lastCollectorRestartAt)) / 1000 <= 3600
+    const n = h.collectorRestarts ?? 0
+    collectors = { health: recent && collectors.health === 'healthy' ? 'attention' : collectors.health, text: `${collectors.text} · restarted ${n === 1 ? 'once' : `${n} times`} since the agent started${h.lastCollectorRestartAt ? ` (the last ${agoWords(h.lastCollectorRestartAt, o.now)})` : ''}` }
+  }
+
   // The counters of the collector pods that are there say nothing of a pod that is not: where a controller keeps the release, it counts them.
   const missing = (d?.workloads ?? []).filter((w) => (w.component === 'telemetry-host' || w.component === 'telemetry-cluster') && w.ready < w.wanted)
   if (missing.length > 0) {

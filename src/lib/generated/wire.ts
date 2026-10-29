@@ -1117,6 +1117,8 @@ export interface ExportHealthDoc {
   podsReached: number
   podsFailed: number
   lastError?: string
+  collectorRestarts?: number
+  lastCollectorRestartAt?: string
   routes: ExportRouteHealthDoc[]
   receivers: ReceiverHealthDoc[]
   sources: SourceHealthDoc[]
@@ -1130,6 +1132,10 @@ export interface ExportRouteHealthDoc {
   failed: number
   lastSentAt?: string
   lastFailedAt?: string
+  queued?: number
+  queueCapacity?: number
+  dropped?: number
+  lastDroppedAt?: string
 }
 
 export type ExportState = 'waiting' | 'exporting' | 'silent' | 'failing'

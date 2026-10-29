@@ -46,6 +46,37 @@ describe('arrivalCheck: whether the data that was just set up arrives', () => {
     expect(a.rows[0].sentence).not.toMatch(/0 sends failed/)
   })
 
+  test('a lane whose data waits says how much, and what the queue refused', () => {
+    const h: AgentExportHealth = { podsReached: 3, podsFailed: 0, routes: [route('logs', 'failing', { sent: 0, failed: 0, lastFailedAt: iso(30), queued: 90, queueCapacity: 100, dropped: 12, lastDroppedAt: iso(60) })] }
+    const a = check(diag({ installed: ['systemLogs'], health: h }), { wanted: ['systemLogs'] })
+    expect(a.rows[0].health).toBe('down')
+    expect(a.rows[0].sentence).toMatch(/90 items are queued of the 100 the queue holds/)
+    expect(a.rows[0].sentence).toMatch(/12 items were dropped because the queue was full \(the last 60 s ago\)/)
+  })
+
+  test('data that goes out but is dropped, or soon will be, is not green: the destination is too slow for the collector', () => {
+    const lane = (more: object) => check(diag({ installed: ['systemLogs'], health: { podsReached: 3, podsFailed: 0, routes: [route('logs', 'exporting', { lastSentAt: iso(10), ...more })] } }), { wanted: ['systemLogs'] })
+
+    const dropping = lane({ queued: 100, queueCapacity: 100, dropped: 12, lastDroppedAt: iso(120) })
+    expect(dropping.rows[0].health).toBe('attention')
+    expect(dropping.rows[0].sentence).toMatch(/takes it slower than the collector sends it: 12 items were dropped/)
+    expect(dropping.health).toBe('attention')
+    expect(dropping.headline).toMatch(/some of it is being dropped/)
+    expect(dropping.todo).toMatch(/Look at its load, or collect less/)
+
+    const nearly = lane({ queued: 85, queueCapacity: 100 })
+    expect(nearly.rows[0].health).toBe('attention')
+    expect(nearly.rows[0].sentence).toMatch(/queue is 85 % full \(85 of 100\)/)
+
+    // A queue that is mostly empty, with no capacity said, and a drop long ago are not reasons to look.
+    expect(lane({ queued: 10, queueCapacity: 100 }).rows[0].health).toBe('healthy')
+    expect(lane({ queued: 99 }).rows[0].health).toBe('healthy')
+    const past = lane({ queued: 0, queueCapacity: 100, dropped: 3, lastDroppedAt: iso(2 * 3600) })
+    expect(past.rows[0].health).toBe('healthy')
+    expect(past.rows[0].sentence).toMatch(/3 items were dropped.*None lately/)
+    expect(past.headline).toBe('Data is arriving.')
+  })
+
   test('an agent that does not report export health, or cannot read the counters, is said so with what to look at', () => {
     expect(check(diag()).headline).toMatch(/does not report whether data leaves the cluster/)
     const bad = check(diag({ health: { podsReached: 0, podsFailed: 2, lastError: 'no such host', routes: [] } }))

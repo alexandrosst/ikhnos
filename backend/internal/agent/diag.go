@@ -570,9 +570,17 @@ func diagSignature(d *ikhnosv1.Diagnostics) []byte {
 	// Export health: what changes the message is a route changing state, not the counters or times behind it
 	// (the counters move with every reading, and a message on every one would be a message every 30 seconds).
 	if h := c.ExportHealth; h != nil {
-		h.ScrapedAt = nil
+		h.ScrapedAt, h.LastCollectorRestartAt = nil, nil
 		for _, r := range h.Routes {
 			r.Sent, r.Failed, r.LastSentAt, r.LastFailedAt = 0, 0, nil, nil
+			// A queue that moves between readings is not news; one that is empty or not, and one that has started to refuse, is.
+			r.Queued, r.QueueCapacity, r.Dropped, r.LastDroppedAt = boolCount(r.Queued), 0, boolCount(r.Dropped), nil
+		}
+		for _, r := range h.Receivers {
+			r.Accepted, r.Refused, r.LastAcceptedAt, r.LastRefusedAt = 0, 0, nil, nil
+		}
+		for _, x := range h.Sources {
+			x.Accepted, x.Failed, x.LastAcceptedAt, x.LastFailedAt = 0, 0, nil, nil
 		}
 	}
 	// What the release runs: a change in how many pods are ready is a message, the seconds a pod has been missing are not (only whether it has
@@ -586,6 +594,14 @@ func diagSignature(d *ikhnosv1.Diagnostics) []byte {
 	}
 	b, _ := proto.MarshalOptions{Deterministic: true}.Marshal(c)
 	return b
+}
+
+// boolCount is 1 for any count above zero: the signature cares whether there is something, not how much.
+func boolCount(n uint64) uint64 {
+	if n > 0 {
+		return 1
+	}
+	return 0
 }
 
 // diagToSend returns the diagnostics for a heartbeat: the message if it changed since the last one sent (or if refreshEvery
