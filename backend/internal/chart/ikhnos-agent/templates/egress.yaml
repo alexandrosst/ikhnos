@@ -52,6 +52,14 @@ spec:
         - {port: {{ .Values.telemetry.health.sourcesPort | int }}, protocol: TCP}
         {{- end }}
     {{- end }}
+    {{- if include "agent.linkHub" . }}
+    # The link hub (telemetry.clusterLinks.hub), which the agent sends the link rows and configuration to.
+    - to:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: ikhnos-link-hub, app.kubernetes.io/instance: {{ .Release.Name | quote }}}
+      ports:
+        - {port: 9106, protocol: TCP}
+    {{- end }}
     {{- with $np.extraEgress }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

@@ -1013,6 +1013,28 @@ telemetry:
       enabled: false
       source: builtin   # builtin -> this agent's own link meter (see flowObserver)
       interval: 30s     # how often the cluster collector scrapes it
+    # The link hub: a pod of its own that makes the series above and answers the prober and the responders, so that the agent - the one
+    # process that holds this cluster's identity - listens for none of them. The agent keeps deciding what is served (it still receives
+    # the peers from the Ikhnos server and admits the node collectors' reports); it sends the hub the rows it has admitted and the
+    # configuration to serve over two messages signed with `secret` below, and the hub serves them. The hub runs the same image as
+    # `ikhnos link-hub`, holds no credential of the Ikhnos server and no Kubernetes token, makes no outbound connection, and keeps serving
+    # what it was last told while the agent is away. The Service ikhnos-agent-link-metrics keeps its name and so does every address the
+    # collector, the prober and the responders use; only the pods behind it change. Needs metrics.enabled. Off by default for this release.
+    hub:
+      enabled: false
+      # The secret the agent signs what it sends the hub with: held by the agent and the hub alone, so it must differ from flowObserver.secret,
+      # nodeProbe.secret, probe.peersSecret and probe.capacity.auth.requestSecret. Leave empty to generate one on first install and keep it.
+      secret: ""
+      # Only the agent may send to the hub (9106); the cluster collector scrapes (9104); with the prober on, so may the host-network prober
+      # and responders, by source address (flowObserver.nodeCIDRs with flowObserver.networkPolicy, otherwise any). false: no policy.
+      networkPolicy: true
+      goMemLimit: 48MiB
+      resources:
+        requests: {cpu: 10m, memory: 32Mi}
+        limits: {memory: 64Mi}
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations: []
     # Active measurement of each paired link, in both directions, with OWAMP (RFC 4656, perfSONAR's one-way measurement
     # tools): packet loss counted per direction, delay variation, and absolute one-way delay when both clocks are
     # synchronised. Passive metrics above cannot see a link nobody is using; this can. It runs in two small workloads of its own,

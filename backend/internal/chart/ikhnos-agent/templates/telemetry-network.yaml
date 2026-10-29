@@ -87,9 +87,9 @@ spec:
 {{- if and .Values.telemetry.energy.metrics.enabled (eq .Values.telemetry.energy.metrics.source "bundle-kepler") }}
 {{- $scrapes = append $scrapes (dict "to" (list (dict "podSelector" (dict "matchLabels" (dict "app.kubernetes.io/name" (printf "%s-kepler" (include "agent.telemetryName" .)) "app.kubernetes.io/instance" .Release.Name)))) "port" 9103) }}
 {{- end }}
-{{- /* The agent's own link metrics (telemetry.clusterLinks), served on port 9104. */ -}}
+{{- /* The link metrics (telemetry.clusterLinks), served on port 9104 by the agent or, with telemetry.clusterLinks.hub, by the hub. */ -}}
 {{- if .Values.telemetry.clusterLinks.metrics.enabled }}
-{{- $scrapes = append $scrapes (dict "to" (list (dict "podSelector" (dict "matchLabels" (dict "app.kubernetes.io/name" "ikhnos-agent" "app.kubernetes.io/instance" .Release.Name)))) "port" 9104) }}
+{{- $scrapes = append $scrapes (dict "to" (list (dict "podSelector" (dict "matchLabels" (dict "app.kubernetes.io/name" (include "agent.linkServerName" .) "app.kubernetes.io/instance" .Release.Name)))) "port" 9104) }}
 {{- end }}
 {{- /* The link prober's metrics (telemetry.clusterLinks.probe). The prober runs in the host network (see link-prober.yaml), so a
        podSelector cannot name it and policies see the Service's backend, the node, at the port the pod listens on: the rule is by node

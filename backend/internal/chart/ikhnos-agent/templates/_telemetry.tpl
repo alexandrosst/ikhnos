@@ -125,6 +125,9 @@
 {{- if and .Values.telemetry.clusterLinks.metrics.enabled (not .Values.flowObserver.enabled) -}}
 {{- fail "telemetry.clusterLinks.metrics.enabled requires flowObserver.enabled: true - link metrics are labelled from the traffic the flow collectors observe, so there is nothing to measure otherwise" -}}
 {{- end -}}
+{{- if and .Values.telemetry.clusterLinks.hub.enabled (not .Values.telemetry.clusterLinks.metrics.enabled) -}}
+{{- fail "telemetry.clusterLinks.hub.enabled requires telemetry.clusterLinks.metrics.enabled: true - the hub makes the link metrics and answers the prober, so with the link metrics off there is nothing for it to do" -}}
+{{- end -}}
 {{- $probe := .Values.telemetry.clusterLinks.probe -}}
 {{- if and $probe.enabled (not .Values.telemetry.clusterLinks.metrics.enabled) -}}
 {{- fail "telemetry.clusterLinks.probe.enabled requires telemetry.clusterLinks.metrics.enabled: true - the agent tells the prober which clusters to measure, and the cluster collector scrapes both" -}}

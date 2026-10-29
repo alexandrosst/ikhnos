@@ -221,6 +221,20 @@ telemetry:
     insecureSkipVerify: false
     viaAPIServer: false
   clusterLinks:
+    hub:
+      enabled: false
+      goMemLimit: 48MiB
+      networkPolicy: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      resources:
+        limits:
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      secret: ''
+      tolerations: []
     metrics:
       enabled: false
       interval: 30s

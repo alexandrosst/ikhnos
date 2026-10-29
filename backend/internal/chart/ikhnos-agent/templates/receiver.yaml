@@ -53,7 +53,7 @@ spec:
         - {port: 8081, protocol: TCP}
     {{- end }}
     {{- end }}
-    {{- if .Values.telemetry.clusterLinks.metrics.enabled }}
+    {{- if and .Values.telemetry.clusterLinks.metrics.enabled (not (include "agent.linkHub" .)) }}
     # The cluster collector scrapes the agent's link metrics (telemetry.clusterLinks) on port 9104.
     - from:
         - podSelector:
@@ -61,7 +61,8 @@ spec:
       ports:
         - {port: 9104, protocol: TCP}
     {{- end }}
-    {{- if include "agent.linkPeers" . }}
+    {{- if include "agent.linkPeersInAgent" . }}
+    # (With telemetry.clusterLinks.hub the hub serves all of this, and has a policy of its own: link-hub.yaml.)
     # The link prober asks the agent which clusters to measure (signed with its own link-peers secret, not the flow secret) and, with
     # the throughput tests on, the responder's iperf3 pods ask for their server credentials (signed with a secret of their own,
     # answered sealed), both on this port. Both run in the host network - the prober because OWAMP compares addresses, see

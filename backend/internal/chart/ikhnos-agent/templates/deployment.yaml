@@ -29,11 +29,14 @@ spec:
         {{- if .Values.flowObserver.enabled }}
         checksum/flow-secret: {{ include "agent.flowSecretRevision" . }}
         {{- end }}
-        {{- if include "agent.linkIperf" . }}
+        {{- if include "agent.linkIperfInAgent" . }}
         checksum/link-iperf-secret: {{ include "agent.linkIperfSecretRevision" . }}
         {{- end }}
-        {{- if include "agent.linkPeers" . }}
+        {{- if include "agent.linkPeersInAgent" . }}
         checksum/link-peers-secret: {{ include "agent.linkPeersSecretRevision" . }}
+        {{- end }}
+        {{- if include "agent.linkHub" . }}
+        checksum/link-hub-secret: {{ include "agent.linkHubSecretRevision" . }}
         {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
@@ -159,23 +162,35 @@ spec:
             - {name: IKHNOS_PROBE_INTERVAL, value: {{ .Values.nodeProbe.interval | quote }}}
             {{- end }}
             {{- if .Values.telemetry.clusterLinks.metrics.enabled }}
+            {{- if include "agent.linkHub" . }}
+            # The link hub (telemetry.clusterLinks.hub) serves the link series, the prober's peer list and the responders' credentials, so this process
+            # listens for none of them and holds neither of their secrets: it sends the hub the rows it has admitted and the configuration to
+            # serve, signed with the one secret it shares with the hub.
+            - {name: IKHNOS_LINK_HUB_URL, value: {{ include "agent.linkHubURL" . | quote }}}
+            - {name: IKHNOS_LINK_HUB_SECRET_FILE, value: /link-hub/secret}
+            {{- else }}
             - {name: IKHNOS_LINK_METRICS_LISTEN, value: ":9104"}
+            {{- end }}
             # The agent's own addresses: its connections (the targets it tests, its stream to the server) are not the traffic between clusters.
             - name: IKHNOS_LINK_OWN_ADDRESSES
               valueFrom: {fieldRef: {fieldPath: status.podIPs}}
             {{- if .Values.telemetry.clusterLinks.probe.enabled }}
             - {name: IKHNOS_LINK_SERVE_PEERS, value: "true"}
+            {{- if not (include "agent.linkHub" .) }}
             - {name: IKHNOS_LINK_PEERS_SECRET_FILE, value: /link-peers/secret}
+            {{- end }}
             {{- if include "agent.linkIperf" . }}
             # The iperf3 credentials the Ikhnos server issues: held in memory, handed to the prober (client side, with the peer list) and to
-            # the responder's iperf3 pods (server side, signed with the secret below), never written anywhere.
+            # the responder's iperf3 pods (server side, signed with the secret below), never written anywhere. With the hub the agent only
+            # passes them on to it, and the hub holds the secret.
             - {name: IKHNOS_LINK_SERVE_IPERF, value: "true"}
+            {{- if not (include "agent.linkHub" .) }}
             - {name: IKHNOS_LINK_IPERF_SECRET_FILE, value: /link-iperf/secret}
             {{- end }}
-            {{- $lp := .Values.telemetry.clusterLinks.probe }}
+            {{- end }}
             # The prober's own ports (OWAMP control and test packets, iperf3), so the link metrics and the load the throughput tests
             # wait on do not count the prober's traffic as the link's.
-            - {name: IKHNOS_LINK_PROBER_PORTS, value: "{{ int $lp.responder.port }},{{ $lp.responder.testPorts }}{{ if $lp.capacity.enabled }},{{ int $lp.capacity.port }}{{ end }}"}
+            - {name: IKHNOS_LINK_PROBER_PORTS, value: {{ include "agent.linkProberPorts" . | quote }}}
             {{- end }}
             {{- end }}
             {{- if .Values.flowObserver.enabled }}
@@ -200,7 +215,7 @@ spec:
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- if or (include "agent.receiver" .) (include "agent.healthEnabled" .) .Values.telemetry.clusterLinks.metrics.enabled }}
+          {{- if or (include "agent.receiver" .) (include "agent.healthEnabled" .) (and .Values.telemetry.clusterLinks.metrics.enabled (not (include "agent.linkHub" .))) }}
           ports:
             {{- if include "agent.receiver" . }}
             - {name: probe, containerPort: 8081, protocol: TCP}
@@ -208,7 +223,7 @@ spec:
             {{- if include "agent.healthEnabled" . }}
             - {name: health, containerPort: {{ include "agent.healthPort" . }}, protocol: TCP}
             {{- end }}
-            {{- if .Values.telemetry.clusterLinks.metrics.enabled }}
+            {{- if and .Values.telemetry.clusterLinks.metrics.enabled (not (include "agent.linkHub" .)) }}
             - {name: link-metrics, containerPort: 9104, protocol: TCP}
             {{- end }}
           {{- end }}
@@ -228,7 +243,7 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 2
           {{- end }}
-          {{- if or (include "agent.receiver" .) (include "agent.linkPeers" .) }}
+          {{- if or (include "agent.receiver" .) (include "agent.linkSecretsInAgent" .) }}
           volumeMounts:
             {{- if .Values.nodeProbe.enabled }}
             - {name: probe-secret, mountPath: /probe, readOnly: true}
@@ -236,15 +251,18 @@ spec:
             {{- if .Values.flowObserver.enabled }}
             - {name: flow-secret, mountPath: /flows, readOnly: true}
             {{- end }}
-            {{- if include "agent.linkPeers" . }}
+            {{- if include "agent.linkPeersInAgent" . }}
             - {name: link-peers-secret, mountPath: /link-peers, readOnly: true}
             {{- end }}
-            {{- if include "agent.linkIperf" . }}
+            {{- if include "agent.linkIperfInAgent" . }}
             - {name: link-iperf-secret, mountPath: /link-iperf, readOnly: true}
+            {{- end }}
+            {{- if include "agent.linkHub" . }}
+            - {name: link-hub-secret, mountPath: /link-hub, readOnly: true}
             {{- end }}
           {{- end }}
           resources: {{- toYaml .Values.resources | nindent 12 }}
-      {{- if or (include "agent.receiver" .) (include "agent.linkPeers" .) }}
+      {{- if or (include "agent.receiver" .) (include "agent.linkSecretsInAgent" .) }}
       volumes:
         {{- if .Values.nodeProbe.enabled }}
         - name: probe-secret
@@ -254,13 +272,17 @@ spec:
         - name: flow-secret
           secret: {secretName: {{ include "agent.flowSecretName" . }}, defaultMode: 0440}
         {{- end }}
-        {{- if include "agent.linkPeers" . }}
+        {{- if include "agent.linkPeersInAgent" . }}
         - name: link-peers-secret
           secret: {secretName: {{ include "agent.linkPeersSecretName" . }}, defaultMode: 0440}
         {{- end }}
-        {{- if include "agent.linkIperf" . }}
+        {{- if include "agent.linkIperfInAgent" . }}
         - name: link-iperf-secret
           secret: {secretName: {{ include "agent.linkIperfSecretName" . }}, defaultMode: 0440}
+        {{- end }}
+        {{- if include "agent.linkHub" . }}
+        - name: link-hub-secret
+          secret: {secretName: {{ include "agent.linkHubSecretName" . }}, defaultMode: 0440}
         {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}

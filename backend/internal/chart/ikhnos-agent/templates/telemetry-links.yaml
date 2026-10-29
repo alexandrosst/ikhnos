@@ -1,7 +1,8 @@
 {{- if .Values.telemetry.clusterLinks.metrics.enabled }}
-# The agent's link metrics (telemetry.clusterLinks): Prometheus text on port 9104, scraped by the cluster collector.
-# Its own Service (not ikhnos-agent-probe, which exists only with the node probe or flow collector) so that the
-# collector's scrape target does not depend on how those are installed.
+# The link metrics (telemetry.clusterLinks): Prometheus text on port 9104, scraped by the cluster collector, with the prober's and the responders'
+# signed requests beside it. Its own Service (not ikhnos-agent-probe, which exists only with the node probe or flow collector) so that the
+# collector's scrape target does not depend on how those are installed. It selects the agent, or with telemetry.clusterLinks.hub the hub, and keeps
+# its name either way, so switching changes no address anyone is configured with.
 apiVersion: v1
 kind: Service
 metadata:
@@ -10,7 +11,7 @@ metadata:
   labels: {{- include "agent.labels" . | nindent 4 }}
 spec:
   type: ClusterIP
-  selector: {app.kubernetes.io/name: ikhnos-agent, app.kubernetes.io/instance: {{ .Release.Name }}}
+  selector: {app.kubernetes.io/name: {{ include "agent.linkServerName" . }}, app.kubernetes.io/instance: {{ .Release.Name }}}
   ports:
     - {name: link-metrics, port: 9104, targetPort: link-metrics, protocol: TCP}
 {{- end }}

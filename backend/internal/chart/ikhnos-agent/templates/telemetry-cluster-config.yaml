@@ -251,8 +251,8 @@ data:
         config:
           scrape_configs:
             {{- if .Values.telemetry.clusterLinks.metrics.enabled }}
-            # This release's agent, which labels observed traffic by cluster pair (see telemetry.clusterLinks). One Service,
-            # one agent pod: the series are the agent's own totals, so scraping every replica would only repeat them.
+            # This release's agent, or with telemetry.clusterLinks.hub its link hub, which labels observed traffic by cluster pair (see
+            # telemetry.clusterLinks). One Service, one pod: the series are its own totals, so scraping every replica would only repeat them.
             - job_name: cluster-links
               {{- with .Values.telemetry.clusterLinks.metrics.interval }}
               scrape_interval: {{ . | quote }}

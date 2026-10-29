@@ -1,0 +1,174 @@
+{{- if include "agent.linkHub" . }}
+{{- $hub := .Values.telemetry.clusterLinks.hub }}
+{{- $probe := .Values.telemetry.clusterLinks.probe }}
+{{- /* The secrets the hub holds must be four different ones: the agent's flow secret signs what the node collectors report, the hub's signs
+       what the agent sends it, the peers secret is the prober's and the request secret is the responders'. Equal secrets would let a pod that
+       is allowed one of the APIs use another. A generated secret cannot clash; only values given by hand can. */ -}}
+{{- $given := dict "flowObserver.secret" .Values.flowObserver.secret "nodeProbe.secret" .Values.nodeProbe.secret "telemetry.clusterLinks.probe.peersSecret" $probe.peersSecret "telemetry.clusterLinks.probe.capacity.auth.requestSecret" $probe.capacity.auth.requestSecret }}
+{{- if $hub.secret }}
+{{- if lt (len (toString $hub.secret)) 16 }}{{ fail "telemetry.clusterLinks.hub.secret must be at least 16 characters (leave it empty to have one generated)" }}{{ end }}
+{{- range $k, $v := $given }}
+{{- if and $v (eq (toString $v) (toString $hub.secret)) }}{{ fail (printf "telemetry.clusterLinks.hub.secret must differ from %s: the hub secret is held by the agent and the hub alone, and each of the others by pods that must not be able to send the hub rows or configuration." $k) }}{{ end }}
+{{- end }}
+{{- end }}
+# The secret the agent signs the rows and the configuration it sends the link hub with. The hub verifies with it; only the agent and the hub
+# mount it. It is not the flow secret (which the node collectors hold), nor the prober's or the responders' secret.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "agent.linkHubSecretName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "agent.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  secret: {{ include "agent.linkHubSecret" . | quote }}
+---
+# The link hub: the pod that makes the cluster-link series and answers the link prober and the responders, so that the agent, which holds the
+# cluster's identity, does not listen for them. Same image as the agent, run as `ikhnos link-hub`. It has no credential of the Ikhnos server and no
+# Kubernetes token (no ServiceAccount token is mounted), and no outbound connection: the agent tells it what to serve over a signed message and
+# it serves that until told otherwise, also while the agent is gone.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ikhnos-link-hub
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: link-hub
+spec:
+  replicas: 1   # exactly one: the series and the prober's peer list come from one process, whose state the agent keeps current
+  # Recreate for the same reason as the agent's: two hubs would each hold part of the story, and the agent tells only the one it reaches.
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: ikhnos-link-hub, app.kubernetes.io/instance: {{ .Release.Name }}}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ikhnos-link-hub
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: ikhnos
+        {{- include "agent.meshOptOutLabels" . | nindent 8 }}
+        {{- include "agent.podLabels" . | nindent 8 }}
+      annotations:
+        # A change to one of these Secrets rolls the pod (they are read at start).
+        checksum/link-hub-secret: {{ include "agent.linkHubSecretRevision" . }}
+        {{- if include "agent.linkPeers" . }}
+        checksum/link-peers-secret: {{ include "agent.linkPeersSecretRevision" . }}
+        {{- end }}
+        {{- if include "agent.linkIperf" . }}
+        checksum/link-iperf-secret: {{ include "agent.linkIperfSecretRevision" . }}
+        {{- end }}
+        {{- include "agent.meshOptOutAnnotations" . | nindent 8 }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # No Kubernetes token: the hub never talks to the API server, and what it holds (the series, the peers and the credentials the agent
+      # sent) is worth nothing to anyone who could use one.
+      automountServiceAccountToken: false
+      securityContext: {{- include "agent.nonRootPodSecurityContext" (dict "root" . "fsGroup" true) | nindent 8 }}
+      containers:
+        - name: hub
+          image: {{ include "agent.image" . | quote }}
+          imagePullPolicy: {{ include "agent.imagePullPolicy" . }}
+          args: ["link-hub"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          env:
+            - {name: IKHNOS_LINK_METRICS_LISTEN, value: ":9104"}
+            - {name: IKHNOS_LINK_HUB_LISTEN, value: ":9106"}
+            - {name: IKHNOS_LINK_HUB_SECRET_FILE, value: /link-hub/secret}
+            {{- if include "agent.linkPeers" . }}
+            - {name: IKHNOS_LINK_PEERS_SECRET_FILE, value: /link-peers/secret}
+            {{- if include "agent.linkIperf" . }}
+            - {name: IKHNOS_LINK_IPERF_SECRET_FILE, value: /link-iperf/secret}
+            {{- end }}
+            - {name: IKHNOS_LINK_PROBER_PORTS, value: {{ include "agent.linkProberPorts" . | quote }}}
+            {{- end }}
+            - {name: GOMEMLIMIT, value: {{ $hub.goMemLimit | quote }}}
+          ports:
+            - {name: link-metrics, containerPort: 9104, protocol: TCP}
+            - {name: link-hub, containerPort: 9106, protocol: TCP}
+          resources: {{- toYaml $hub.resources | nindent 12 }}
+          volumeMounts:
+            - {name: link-hub-secret, mountPath: /link-hub, readOnly: true}
+            {{- if include "agent.linkPeers" . }}
+            - {name: link-peers-secret, mountPath: /link-peers, readOnly: true}
+            {{- end }}
+            {{- if include "agent.linkIperf" . }}
+            - {name: link-iperf-secret, mountPath: /link-iperf, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: link-hub-secret
+          secret: {secretName: {{ include "agent.linkHubSecretName" . }}, defaultMode: 0440}
+        {{- if include "agent.linkPeers" . }}
+        - name: link-peers-secret
+          secret: {secretName: {{ include "agent.linkPeersSecretName" . }}, defaultMode: 0440}
+        {{- end }}
+        {{- if include "agent.linkIperf" . }}
+        - name: link-iperf-secret
+          secret: {secretName: {{ include "agent.linkIperfSecretName" . }}, defaultMode: 0440}
+        {{- end }}
+      {{- with $hub.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $hub.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+# Where the agent sends the rows and the configuration (port 9106). Only the agent reaches it (see the policy below).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "agent.linkHubServiceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: ikhnos-link-hub, app.kubernetes.io/instance: {{ .Release.Name }}}
+  ports:
+    - {name: link-hub, port: 9106, targetPort: link-hub, protocol: TCP}
+{{- if $hub.networkPolicy }}
+---
+# A policy that selects the hub denies everything it does not list: the agent alone may send it rows and configuration (9106); the cluster
+# collector scrapes the series (9104) and, with the prober on, the prober and the responders ask for the peers and the credentials on that port too.
+# Those two run in the host network, so their traffic carries no pod identity and is allowed by source address, like the flow collectors':
+# flowObserver.nodeCIDRs with flowObserver.networkPolicy, otherwise any source, as it could without this policy (both requests are signed).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ikhnos-link-hub
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: ikhnos-link-hub, app.kubernetes.io/instance: {{ .Release.Name }}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: ikhnos-agent, app.kubernetes.io/instance: {{ .Release.Name }}}
+      ports:
+        - {port: 9106, protocol: TCP}
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: ikhnos-telemetry-cluster, app.kubernetes.io/instance: {{ .Release.Name }}}
+      ports:
+        - {port: 9104, protocol: TCP}
+    {{- if include "agent.linkPeers" . }}
+    - from:
+        {{- range (ternary .Values.flowObserver.nodeCIDRs (list "0.0.0.0/0") .Values.flowObserver.networkPolicy) }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        - {port: 9104, protocol: TCP}
+    {{- end }}
+{{- end }}
+{{- end }}
