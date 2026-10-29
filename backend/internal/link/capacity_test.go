@@ -38,9 +38,47 @@ type fakeIperf struct {
 	sendMax float64
 	// tcpBits is the rate the link carries for TCP when a rate cap is given and is above it (0: more than the fixture).
 	tcpBits float64
+	// link is the rate a TCP test reaches when it is not capped (0: the fixture's, a little above 4 Gbit/s).
+	link float64
 }
 
-func (f *fakeIperf) exec(_ context.Context, env []string, name string, args ...string) ([]byte, []byte, error) {
+// exec answers like iperf3 does: the TCP fixtures are the figures of a test of fixtureSeconds, and a shorter one (-t) carries
+// proportionally fewer bytes at the same rate.
+func (f *fakeIperf) exec(ctx context.Context, env []string, name string, args ...string) ([]byte, []byte, error) {
+	out, errOut, err := f.answer(ctx, env, name, args...)
+	udp := false
+	secs := fixtureSeconds
+	for i, a := range args {
+		if a == "-u" {
+			udp = true
+		}
+		if a == "-t" && i+1 < len(args) {
+			if v, e := strconv.ParseFloat(args[i+1], 64); e == nil && v > 0 {
+				secs = v
+			}
+		}
+	}
+	if err == nil && !udp && f.link > 0 && f.link < fixtureBitsPerSecond {
+		out = boundedDoc(out, f.link/fixtureBitsPerSecond)
+	}
+	if err == nil && !udp && secs != fixtureSeconds {
+		out = bytesOnlyDoc(out, secs/fixtureSeconds)
+	}
+	return out, errOut, err
+}
+
+// fixtureSeconds is how long the test was that the TCP fixtures were taken from.
+const fixtureSeconds = 10.0
+
+// bytesOnlyDoc scales the byte counts of an iperf3 document, as if the test had run for a different time at the same rate.
+func bytesOnlyDoc(doc []byte, scale float64) []byte {
+	return bytesField.ReplaceAllFunc(doc, func(m []byte) []byte {
+		v, _ := strconv.ParseFloat(string(bytesField.FindSubmatch(m)[1]), 64)
+		return []byte(fmt.Sprintf(`"bytes": %d`, int64(v*scale)))
+	})
+}
+
+func (f *fakeIperf) answer(_ context.Context, env []string, name string, args ...string) ([]byte, []byte, error) {
 	f.mu.Lock()
 	f.calls = append(f.calls, append([]string{name}, args...))
 	f.envs = append(f.envs, env)
@@ -851,7 +889,7 @@ func TestAPairCanHaveABudgetOfItsOwnBesideTheClustersAndItsSeriesSayHowMuchIsUse
 	f := &fakeIperf{}
 	c, ck := capFor(t, f, func(c *Capacity) { c.Reverse, c.Parallel = false, 0; c.Budget = 100 << 30 })
 	a := peer("cl-a", "A", "10.0.0.1")
-	a.Throughput, a.ThroughputBudgetBytes = true, 7<<30 // room for one fixture test (about 5.5 GB), not two
+	a.Throughput, a.ThroughputIntervalSeconds, a.ThroughputBudgetBytes = true, 12*3600, 7<<30 // room for one fixture test (about 5.5 GB), not two; with an interval it is a budget beside a schedule, not an automatic allowance
 	b := peer("cl-b", "B", "10.0.1.1")
 	b.Throughput = true // no budget of its own: only the cluster's
 	c.Meter.Peers.Set("cl-me", []*ikhnosv1.LinkPeer{a, b})
@@ -1297,40 +1335,6 @@ func TestACappedReadingDoesNotMakeTheNextTestRunUncapped(t *testing.T) {
 	}
 	if a := f.argsOf(f.count() - 1); !strings.Contains(a, " -b ") {
 		t.Errorf("the second test ran uncapped: %s", a)
-	}
-}
-
-// The three named amounts of testing of the settings page (Light, Standard, Heavy: src/lib/clusterLinks.ts PRESETS) are the only ones a person
-// is offered, so each must leave room for every test of a cycle under the chart's defaults: a preset whose budget cannot pay for its schedule
-// would run nothing and say nothing.
-func TestEveryPresetOfTheSettingsPageLeavesRoomForEveryTestOfACycle(t *testing.T) {
-	for _, pr := range []struct {
-		name     string
-		minutes  uint32
-		budgetMB uint64
-	}{{"light", 1440, 50}, {"standard", 360, 500}, {"heavy", 60, 5120}} {
-		t.Run(pr.name, func(t *testing.T) {
-			f := &fakeIperf{}
-			var logs bytes.Buffer
-			c, _ := capFor(t, f, func(c *Capacity) {
-				c.Duration, c.Omit = 10*time.Second, 2*time.Second
-				c.UDP = UDPRamp{Enabled: true, Start: 5e6, Max: 200e6, Step: 5 * time.Second, Loss: 0.01}
-				c.Every = 12 * time.Hour
-				c.Log = newTestLog(&logs)
-			})
-			lp := peer("cl-a", "A", "10.0.0.1")
-			lp.Throughput, lp.ThroughputIntervalSeconds, lp.ThroughputBudgetBytes = true, pr.minutes*60, pr.budgetMB<<20
-			c.Meter.Peers.Set("cl-me", []*ikhnosv1.LinkPeer{lp})
-			settle(c)
-			// What the fake carries is not what a capped test carries, so the ledger may make a later test wait; what matters here is
-			// that none is dropped for good because its share is too small to pay for a reading.
-			if f.count() < 4 {
-				t.Errorf("%s: only %d tests ran\n%s", pr.name, f.count(), logs.String())
-			}
-			if strings.Contains(logs.String(), "left out") {
-				t.Errorf("%s: a test was left out:\n%s", pr.name, logs.String())
-			}
-		})
 	}
 }
 

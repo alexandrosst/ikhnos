@@ -56,7 +56,7 @@ func checkSeriesPerPeer(t *testing.T, dscp []int, bidir bool, maxSeries int) {
 	f := &fakeIperf{capacity: 100e6}
 	c, _ := capFor(t, f, func(c *Capacity) {
 		c.UDP = UDPRamp{Enabled: true}
-		c.Budget = 100 << 30
+		c.Budget = 1 << 40
 		c.DSCP = dscp
 		c.Bidir = bidir
 	})

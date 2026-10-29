@@ -138,7 +138,32 @@ type capPeer struct {
 	ran bool
 	// failures counts the cycles in a row that failed at their first test, for the back-off.
 	failures int
+
+	// The rest is for a peer whose tests are automatic (Peer.Automatic). size is how each test of the running cycle was sized,
+	// cursor the place in the plan the next cycle starts at (what a cycle's share of the allowance does not pay for waits for
+	// a later one, so every test comes round), cycleBytes what the running cycle has carried.
+	size       map[capTest]testSize
+	cursor     int
+	cycleBytes uint64
 }
+
+// testSize is how an automatic peer's test differs from the plan's: a shorter run (dur, when the allowance is smaller than a
+// whole test), a UDP ramp that stops lower (top), or, when not even the shortest run fits, a capped rate (capped). A test whose
+// size is not known is sized only when it is about to run (learn).
+type testSize struct {
+	dur    time.Duration
+	top    uint64
+	capped bool
+	// learn says what a whole test carries is not known yet: a one-second run finds out just before the test, which is then sized.
+	learn bool
+}
+
+// minAutoDuration is the shortest TCP run an automatic peer is given: shorter than this is mostly slow start.
+const minAutoDuration = 3 * time.Second
+
+// learnBytes is what the one-second run that finds out the size of a test carries on a link of 1 Gbit/s. An allowance below it
+// does not pay for a first run on a link of any size, so the test is capped to the allowance instead.
+const learnBytes = 125_000_000
 
 // Defaults fills what was left unset.
 func (c *Capacity) Defaults() {
@@ -449,18 +474,41 @@ func (c *Capacity) step(ctx context.Context) time.Duration {
 	}
 	var st *capPeer
 	var t capTest
+	var fresh bool
 	if pick != nil {
 		st = c.peers[pick.ID]
-		if len(st.queue) == 0 {
-			st.queue = c.plan()
-			st.ran = false
-		}
-		t = st.queue[0]
+		fresh = len(st.queue) == 0
 	}
 	c.mu.Unlock()
 	if pick == nil {
 		return 5 * time.Second
 	}
+	if fresh {
+		// A cycle is planned outside c.mu: sizing the tests of an automatic peer reads what the last ones carried.
+		var queue []capTest
+		var size map[capTest]testSize
+		cursor := 0
+		if pick.Automatic() {
+			c.mu.Lock()
+			cursor = st.cursor
+			c.mu.Unlock()
+			queue, size, cursor = c.autoCycle(*pick, cursor)
+		} else {
+			queue = c.plan()
+		}
+		c.mu.Lock()
+		st.queue, st.size, st.cursor, st.ran, st.cycleBytes = queue, size, cursor, false, 0
+		if len(queue) == 0 {
+			// Not one test fits the allowance: look again later, when the figures it is worked out from may have changed.
+			st.next = now.Add(time.Hour)
+			c.mu.Unlock()
+			return c.Pause
+		}
+		c.mu.Unlock()
+	}
+	c.mu.Lock()
+	t = st.queue[0]
+	c.mu.Unlock()
 
 	out := c.runTest(ctx, *pick, t)
 	now = c.Now()
@@ -512,6 +560,14 @@ func (c *Capacity) advance(st *capPeer, p Peer, now time.Time) {
 		st.retryAt = now
 		return
 	}
+	if p.Automatic() {
+		// The next cycle follows when the allowance has paid back what this one carried, never sooner than an hour or later
+		// than a day, and never early: a cycle that starts before its bytes are out of the window waits, and counts as held back.
+		every := time.Duration(float64(c.BudgetWindow) * float64(st.cycleBytes) / float64(c.allowanceOf(p)))
+		every = min(max(every, time.Hour), 24*time.Hour)
+		st.next = now.Add(time.Duration(float64(every) * (1 + 0.1*rand.Float64())))
+		return
+	}
 	every := c.Every
 	if p.ThroughputEvery > 0 {
 		every = p.ThroughputEvery
@@ -531,15 +587,46 @@ type outcome struct {
 func (c *Capacity) runTest(ctx context.Context, p Peer, t capTest) outcome {
 	now := c.Now()
 	est := c.estimate(p, t)
-	// Every test is sized to the byte budget, so that a cycle always yields a reading whatever the budget is: a cycle's tests
-	// share it (and a window holds several cycles when they are more often than the window is long). A test keeps its length
-	// (a shorter one would be mostly TCP's slow start) and its rate is capped instead, to what its share pays for over that
-	// length; a UDP ramp stops at the highest rate whose whole ramp fits its share. A test that reaches its cap says "at
-	// least this" (bounded); one that stays clearly under it has found what the link carries. A share that cannot pay for a
-	// rate worth reporting leaves the test out of the cycle.
+	// A peer with only a daily allowance (Peer.Automatic) is tested at full speed: its cycle was sized when it was planned
+	// (autoCycle), so a test here is unthrottled, shorter only when the allowance is smaller than a whole test.
+	//
+	// Any other peer's tests are sized to the byte budget, so that a cycle always yields a reading whatever the budget is: a
+	// cycle's tests share it (and a window holds several cycles when they are more often than the window is long). A test keeps
+	// its length (a shorter one would be mostly TCP's slow start) and its rate is capped instead, to what its share pays for
+	// over that length; a UDP ramp stops at the highest rate whose whole ramp fits its share. A test that reaches its cap says
+	// "at least this" (bounded); one that stays clearly under it has found what the link carries. A share that cannot pay for
+	// a rate worth reporting leaves the test out of the cycle.
 	var capStream, rampMax uint64
+	dur := c.Duration
+	whole := uint64((c.Duration + c.Omit).Seconds())
 	streams, dirs := c.shape(t)
-	if share := c.share(p); share > 0 && est > share {
+	var sz testSize
+	// size applies how an automatic peer's test was sized to the test: est is what it is expected to carry.
+	size := func() {
+		dur, capStream, rampMax = c.Duration, 0, 0
+		est = c.estimate(p, t)
+		switch {
+		case sz.top > 0:
+			rampMax = sz.top
+			est = rampBytes(c.UDP.Start, sz.top, c.UDP.Step)
+		case sz.dur > 0:
+			dur = sz.dur
+			est = est * uint64((dur + c.Omit).Seconds()) / whole
+		case sz.capped:
+			capStream = c.allowanceOf(p) * 8 / whole / uint64(streams*dirs)
+			est = capStream * uint64(streams*dirs) * whole / 8
+		case sz.learn:
+			est = min(est, c.allowanceOf(p))
+		}
+	}
+	if p.Automatic() {
+		c.mu.Lock()
+		if st := c.peers[p.ID]; st != nil {
+			sz = st.size[t]
+		}
+		c.mu.Unlock()
+		size()
+	} else if share := c.share(p); share > 0 && est > share {
 		if t.kind == "udp-ramp" {
 			rampMax = c.rampTop(share)
 			if rampMax == 0 {
@@ -548,18 +635,22 @@ func (c *Capacity) runTest(ctx context.Context, p Peer, t capTest) outcome {
 			}
 			est = rampBytes(c.UDP.Start, rampMax, c.UDP.Step)
 		} else {
-			capStream = share * 8 / uint64((c.Duration + c.Omit).Seconds()) / uint64(streams*dirs)
+			capStream = share * 8 / whole / uint64(streams*dirs)
 			if capStream < minCapBits {
 				c.warnShare(p, t, share)
 				return outcome{skip: "budget", drop: true}
 			}
-			est = capStream * uint64(streams*dirs) * uint64((c.Duration + c.Omit).Seconds()) / 8
+			est = capStream * uint64(streams*dirs) * whole / 8
 		}
 	}
 	if !c.allows(p, now, est) {
 		if limit := c.budgetLimit(p); limit > 0 && est > limit {
 			c.warnOversized(p, t, est)
 			return outcome{skip: "budget", drop: true}
+		}
+		if p.Automatic() {
+			// Wait for exactly as long as the window needs to have room, so the test is held back once, not every half hour.
+			return outcome{skip: "budget", retry: max(c.waitFor(p, now, est), time.Minute)}
 		}
 		return outcome{skip: "budget", retry: 30 * time.Minute} // it fits when the window is empty: wait for it
 	}
@@ -569,10 +660,36 @@ func (c *Capacity) runTest(ctx context.Context, p Peer, t capTest) outcome {
 	if c.busy(p, t, now) {
 		return outcome{skip: "link_busy", retry: 10 * time.Minute}
 	}
+	if sz.learn {
+		// A first run, short enough to cost little on any link, tells what a whole test carries; the test is sized with that.
+		carried, out := c.learn(ctx, p, t)
+		if out != (outcome{}) {
+			return out
+		}
+		if !sleep(ctx, c.Pause) { // the server needs a moment to be ready for the next client
+			return outcome{skip: "server_busy", retry: time.Minute} // stopping; nothing is reported
+		}
+		// Sized to what the allowance has left after the first run.
+		allowance := c.allowanceOf(p)
+		var ok bool
+		if sz, _, ok = c.fitTest(p, t, allowance-min(carried, allowance)); !ok {
+			c.warnAllowance(p, t, c.allowanceOf(p))
+			return outcome{skip: "budget", drop: true}
+		}
+		c.mu.Lock()
+		if st := c.peers[p.ID]; st != nil {
+			st.size[t] = sz // a retry of this test is sized already
+		}
+		c.mu.Unlock()
+		size()
+		if !c.allows(p, c.Now(), est) {
+			return outcome{skip: "budget", retry: max(c.waitFor(p, c.Now(), est), time.Minute)}
+		}
+	}
 	if t.kind == "udp-ramp" {
 		return c.runRamp(ctx, p, t, rampMax)
 	}
-	extra := []string{"-t", secs(c.Duration)}
+	extra := []string{"-t", secs(dur)}
 	if c.Omit > 0 {
 		extra = append(extra, "-O", secs(c.Omit))
 	}
@@ -611,14 +728,47 @@ func (c *Capacity) runTest(ctx context.Context, p Peer, t capTest) outcome {
 		}
 	}
 	// The omitted start was sent too, at about the same rate.
-	total += uint64(float64(total) * c.Omit.Seconds() / c.Duration.Seconds())
+	total += uint64(float64(total) * c.Omit.Seconds() / dur.Seconds())
 	c.charge(p, c.Now(), total)
 	if capStream == 0 { // a test the budget capped says nothing about what an uncapped one would carry
 		c.mu.Lock()
-		c.lastBytes[t.key(p.ID)] = total
+		// What a test of the whole length would carry, also after a shorter one.
+		c.lastBytes[t.key(p.ID)] = total * whole / uint64((dur + c.Omit).Seconds())
 		c.mu.Unlock()
 	}
 	return outcome{}
+}
+
+// learn runs a one-second test of the shape of t and keeps what it carried as the size of a whole one. Its reading is not reported:
+// one second is mostly TCP's slow start. It is counted in the bytes the tests carry and charged to the budget like any test.
+func (c *Capacity) learn(ctx context.Context, p Peer, t capTest) (carried uint64, _ outcome) {
+	streams, _ := c.shape(t)
+	extra := []string{"-t", "1", "-O", "0"}
+	if streams > 1 {
+		extra = append(extra, "-P", strconv.Itoa(streams))
+	}
+	if t.kind == "tcp-bidir" {
+		extra = append(extra, "--bidir")
+	}
+	res, out := c.invoke(ctx, p, t, extra)
+	if out != (outcome{}) {
+		return 0, out
+	}
+	var total uint64
+	for _, f := range res.Flows {
+		total += f.Bytes
+		c.Meter.AddTestBytes(p.ID, f.Direction, f.Bytes)
+	}
+	c.charge(p, c.Now(), total)
+	c.mu.Lock()
+	c.lastBytes[t.key(p.ID)] = max(total, 1) * uint64((c.Duration + c.Omit).Seconds())
+	if t.kind == "tcp" {
+		for _, f := range res.Flows {
+			c.setBits(p.ID, f.Direction, res.Streams, t.dscp, f.Bits, false)
+		}
+	}
+	c.mu.Unlock()
+	return total, outcome{}
 }
 
 func (c *Capacity) setBits(peer string, d Direction, streams, dscp int, bits float64, bounded bool) {
@@ -844,6 +994,10 @@ func (c *Capacity) estimate(p Peer, t capTest) uint64 {
 	if last > 0 {
 		return last
 	}
+	if bits == 0 && t.kind != "tcp" {
+		// A test of streams or both ways that has not run yet: the single-stream tests say what the link reached.
+		bits = c.reached(p.ID, t.dir)
+	}
 	rate := uint64(1e9)
 	if bits > 0 {
 		rate = uint64(bits)
@@ -892,6 +1046,107 @@ func (c *Capacity) rampTop(share uint64) uint64 {
 		top = max(top/2, c.UDP.Start)
 	}
 	return top
+}
+
+// allowanceOf is the most the tests towards a peer may carry in a window: its own daily allowance, or the cluster's budget when
+// that is smaller; 0 for none.
+func (c *Capacity) allowanceOf(p Peer) uint64 {
+	limit := c.ledger.Limit
+	if p.ThroughputBudget > 0 && (limit == 0 || p.ThroughputBudget < limit) {
+		limit = p.ThroughputBudget
+	}
+	return limit
+}
+
+// known says whether what a test carries is known, from a test that ran before: otherwise its size is a guess.
+func (c *Capacity) known(p Peer, t capTest) bool {
+	if t.kind == "udp-ramp" {
+		return true // its rungs are fixed
+	}
+	c.mu.Lock()
+	last := c.lastBytes[t.key(p.ID)]
+	bits := c.lastBits[fmt.Sprintf("%s|%s|%d|%d", p.ID, t.dir, c.streamsOf(t), t.dscp)]
+	c.mu.Unlock()
+	return last > 0 || bits > 0 || c.reached(p.ID, t.dir) > 0
+}
+
+// fitTest sizes one test of an automatic peer to the whole allowance: as it is when that pays for it, a shorter run when it does
+// not, and a capped one when not even the shortest does. A test whose size is not yet known is left to be sized by a first,
+// one-second run (learn). cost is what it is expected to carry; ok is false for a test no allowance this small can pay for.
+func (c *Capacity) fitTest(p Peer, t capTest, allowance uint64) (sz testSize, cost uint64, ok bool) {
+	if t.kind == "udp-ramp" {
+		cost = rampBytes(c.UDP.Start, c.UDP.Max, c.UDP.Step)
+		if cost <= allowance {
+			return sz, cost, true
+		}
+		top := c.rampTop(allowance)
+		if top == 0 {
+			return sz, 0, false
+		}
+		return testSize{top: top}, rampBytes(c.UDP.Start, top, c.UDP.Step), true
+	}
+	full := max(c.estimate(p, t), 1)
+	whole := uint64((c.Duration + c.Omit).Seconds())
+	streams, dirs := c.shape(t)
+	if allowance*8/whole/uint64(streams*dirs) < minCapBits {
+		return sz, 0, false // not enough for even the slowest reading worth having
+	}
+	at := func(d time.Duration) uint64 { return full * uint64((d + c.Omit).Seconds()) / whole }
+	known := c.known(p, t)
+	if !known && allowance >= learnBytes {
+		return testSize{learn: true}, min(full, allowance), true
+	}
+	d := c.Duration
+	switch {
+	case !known:
+		d = 0 // an allowance that cannot pay for a first run either: the test is capped to it
+	case full > allowance:
+		d = time.Duration(int64(allowance*whole/full)-int64(c.Omit.Seconds())) * time.Second
+	}
+	if d >= minAutoDuration {
+		if cost = at(d); cost <= allowance {
+			if d == c.Duration {
+				return sz, cost, true
+			}
+			return testSize{dur: d}, cost, true
+		}
+	}
+	return testSize{capped: true}, allowance, true
+}
+
+// autoCycle plans the next cycle of an automatic peer: the tests of the plan from cursor on, as many as the allowance pays for
+// (the first one always, shortened if need be), each sized by fitTest. The ones that did not fit come first the next time, so
+// when the allowance is smaller than the whole plan every test still comes round, and it is the allowance, not a schedule,
+// that says how often. It returns the place the next cycle starts at.
+func (c *Capacity) autoCycle(p Peer, cursor int) (queue []capTest, size map[capTest]testSize, next int) {
+	allowance := c.allowanceOf(p)
+	plan := c.plan()
+	size = map[capTest]testSize{}
+	var sum uint64
+	taken := 0
+	for ; taken < len(plan); taken++ {
+		t := plan[(cursor+taken)%len(plan)]
+		sz, cost, ok := c.fitTest(p, t, allowance)
+		if !ok {
+			c.warnAllowance(p, t, allowance)
+			continue
+		}
+		if len(queue) > 0 && sum+cost > allowance {
+			break
+		}
+		queue = append(queue, t)
+		size[t] = sz
+		sum += cost
+	}
+	return queue, size, (cursor + taken) % len(plan)
+}
+
+// warnAllowance says once that a test is left out because the daily allowance is too small for any run of it.
+func (c *Capacity) warnAllowance(p Peer, t capTest, allowance uint64) {
+	if c.warnOnce("allowance|" + t.key(p.ID)) {
+		c.Log.Warn("a throughput test is left out: the daily allowance is too small to pay for even the shortest run of it; raise the allowance",
+			"peer", p.ID, "test", t.kind, "direction", t.dir, "allowance", allowance)
+	}
 }
 
 // share is what one test of the plan may carry: the byte budget divided over the tests of a cycle and the cycles a window
@@ -1012,11 +1267,25 @@ func (c *Capacity) allows(p Peer, now time.Time, est uint64) bool {
 	return true
 }
 
+// waitFor is how long until a test expected to carry est bytes fits both the cluster's budget and the peer's own (0: no telling).
+func (c *Capacity) waitFor(p Peer, now time.Time, est uint64) time.Duration {
+	w := c.ledger.Wait(now, est)
+	if pl := c.pairLedger(p); pl != nil {
+		w = max(w, pl.Wait(now, est))
+	}
+	return w
+}
+
 func (c *Capacity) charge(p Peer, now time.Time, n uint64) {
 	c.ledger.Charge(now, n)
 	if pl := c.pairLedger(p); pl != nil {
 		pl.Charge(now, n)
 	}
+	c.mu.Lock()
+	if st := c.peers[p.ID]; st != nil {
+		st.cycleBytes += n
+	}
+	c.mu.Unlock()
 }
 
 // busy says whether the link is carrying real traffic in a direction this test would load.

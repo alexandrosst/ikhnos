@@ -443,7 +443,7 @@ function EditPair({ pair, agents, name, onClose }: { pair: LinkPair; agents: Age
                     </button>
                   ))}
                 </div>
-                <p className="mt-1.5 text-xs text-nb-500">Light is every day with 50 MB, Standard every 6 hours with 500 MB, Heavy every hour with 5 GB.</p>
+                <p className="mt-1.5 text-xs text-nb-500">What the tests may use in a day: Light 1 GB, Standard 5 GB, Heavy 20 GB. They run at full speed, as often as that pays for, so you do not choose a schedule.</p>
                 {choice === 'own' && pair.throughput && (
                   <p className="mt-1.5 text-xs text-nb-400" data-testid="tp-own">This pair has its own schedule ({throughputSummary(pair.throughput).when}, {throughputSummary(pair.throughput).budget}), set through the API. It is kept until you pick one of these.</p>
                 )}

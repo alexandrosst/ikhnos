@@ -52,7 +52,8 @@ type LinkThroughput struct {
 	// IntervalMinutes replaces the cluster's own time between two sets of tests (10 minutes to 7 days; 0 keeps it).
 	IntervalMinutes uint32 `json:"intervalMinutes,omitempty"`
 	// BudgetMB is the most the tests may carry on this link in a day, in addition to the cluster's own budget (up to 1 TiB;
-	// 0 means only the cluster's budget applies).
+	// 0 means only the cluster's budget applies). A budget with no interval is a daily allowance and nothing else: the prober
+	// then tests at full speed and works out how often itself (see link.Peer.Automatic). This is what the settings page sets.
 	BudgetMB uint32 `json:"budgetMB,omitempty"`
 }
 

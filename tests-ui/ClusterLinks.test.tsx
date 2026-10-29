@@ -71,6 +71,17 @@ describe('ClusterLinks', () => {
     expect(within(rows[1]).getByText('real traffic only')).toBeInTheDocument()
   })
 
+  it('shows a daily amount with no schedule as automatic, and the form marks it as the amount chosen', () => {
+    seed('admin', [{ a: 'c-eu', b: 'c-us', throughput: { budgetMB: 5120 } }])
+    render(<ClusterLinks />)
+    const row = screen.getAllByTestId('pair-row')[0]
+    expect(within(row).getByText('automatic')).toBeInTheDocument()
+    expect(within(row).getByText('full speed, up to 5 GB a day')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit cloud-eu and cloud-us' }))
+    expect(screen.getByRole('button', { name: 'Standard' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByTestId('tp-own')).toBeNull()
+  })
+
   it('adds a pair with probing on and throughput off, ids in order', async () => {
     render(<ClusterLinks />)
     expect(screen.getByTestId('no-pairs')).toBeInTheDocument()
@@ -108,16 +119,16 @@ describe('ClusterLinks', () => {
     render(<ClusterLinks />)
     fireEvent.click(screen.getByRole('button', { name: 'Edit cloud-eu and cloud-us' }))
     fireEvent.click(screen.getByRole('switch', { name: 'Throughput tests' }))
-    expect(screen.getByTestId('tp-cost')).toHaveTextContent('About 4 sets of tests a day')
+    expect(screen.getByTestId('tp-cost')).toHaveTextContent('as often as 5 GB a day pays for')
     fireEvent.click(screen.getByRole('button', { name: 'Light' }))
-    expect(screen.getByTestId('tp-cost')).toHaveTextContent('One set of tests a day, stopping for the day at 50 MB')
+    expect(screen.getByTestId('tp-cost')).toHaveTextContent('Tests run at full speed, as often as 1 GB a day pays for')
     // only the three named amounts are offered: no free numbers to get wrong
     expect(screen.queryByRole('button', { name: 'Custom' })).toBeNull()
     expect(screen.queryByTestId('tp-hours')).toBeNull()
     expect(screen.queryByTestId('tp-budget')).toBeNull()
     fireEvent.click(screen.getByRole('switch', { name: 'Probing' }))
     fireEvent.click(screen.getByTestId('save-pair'))
-    await vi.waitFor(() => expect(saved).toEqual([{ a: 'c-eu', b: 'c-us', noProbe: true, throughput: { intervalMinutes: 1440, budgetMB: 50 } }]))
+    await vi.waitFor(() => expect(saved).toEqual([{ a: 'c-eu', b: 'c-us', noProbe: true, throughput: { budgetMB: 1024 } }]))
   })
 
   it('pins a pair to one kind of address from the edit panel, saves it with the other choices and says so in the row', async () => {
@@ -185,7 +196,7 @@ describe('ClusterLinks', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Standard' }))
     expect(screen.queryByTestId('tp-own')).toBeNull()
     fireEvent.click(screen.getByTestId('save-pair'))
-    await vi.waitFor(() => expect(saved).toEqual([{ a: 'c-eu', b: 'c-us', throughput: { intervalMinutes: 360, budgetMB: 500 } }]))
+    await vi.waitFor(() => expect(saved).toEqual([{ a: 'c-eu', b: 'c-us', throughput: { budgetMB: 5120 } }]))
   })
 
   it('removes a pair after confirming', async () => {

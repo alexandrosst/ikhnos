@@ -8,11 +8,14 @@ import { PROBE_STALE_AFTER_MS } from './status'
 export type Throughput = NonNullable<LinkPair['throughput']>
 export type PresetId = 'light' | 'standard' | 'heavy'
 
-/** The three named amounts of testing. "Custom" is whatever is not one of these. */
-export const PRESETS: Record<PresetId, { label: string; intervalMinutes: number; budgetMB: number }> = {
-  light: { label: 'Light', intervalMinutes: 1440, budgetMB: 50 },
-  standard: { label: 'Standard', intervalMinutes: 360, budgetMB: 500 },
-  heavy: { label: 'Heavy', intervalMinutes: 60, budgetMB: 5120 },
+/**
+ * The three named amounts of testing: what the tests may carry on the link in a day. That is all a person chooses. The tests run at full speed, so a result is
+ * what the link can really carry, and as often as the amount pays for: more often on a slower link, and with an amount too small for the whole set, in turns.
+ */
+export const PRESETS: Record<PresetId, { label: string; budgetMB: number }> = {
+  light: { label: 'Light', budgetMB: 1024 },
+  standard: { label: 'Standard', budgetMB: 5120 },
+  heavy: { label: 'Heavy', budgetMB: 20480 },
 }
 
 export const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`)
@@ -34,17 +37,25 @@ export function removePair(links: LinkPair[], x: string, y: string): LinkPair[] 
   return links.filter((l) => pairKey(l.a, l.b) !== pairKey(x, y))
 }
 
-/** Which named amount a pair's throughput setting is, or 'custom'. Undefined: the tests are off. */
+/**
+ * Which named amount a pair's throughput setting is, or 'custom'. Undefined: the tests are off. A pair with an interval of its own (set through the API, or by an
+ * earlier version of this page) is custom: it runs on that schedule, within its budget, until a person picks one of the three.
+ */
 export function presetOf(t: LinkPair['throughput']): PresetId | 'custom' | undefined {
   if (!t) return undefined
-  for (const id of Object.keys(PRESETS) as PresetId[]) {
-    if (t.intervalMinutes === PRESETS[id].intervalMinutes && t.budgetMB === PRESETS[id].budgetMB) return id
+  if (!t.intervalMinutes) {
+    for (const id of Object.keys(PRESETS) as PresetId[]) if (t.budgetMB === PRESETS[id].budgetMB) return id
   }
   return 'custom'
 }
 
+/** A daily amount and no schedule: the tests then run at full speed, as often as the amount pays for. */
+export function isAutomatic(t: Throughput): boolean {
+  return !t.intervalMinutes && !!t.budgetMB
+}
+
 export function throughputFor(id: PresetId): Throughput {
-  return { intervalMinutes: PRESETS[id].intervalMinutes, budgetMB: PRESETS[id].budgetMB }
+  return { budgetMB: PRESETS[id].budgetMB }
 }
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
@@ -63,15 +74,19 @@ export function sizeWords(mb: number): string {
 
 /** The table's second line for the throughput column. */
 export function throughputSummary(t: Throughput): { when: string; budget: string } {
+  if (isAutomatic(t)) return { when: 'automatic', budget: `full speed, up to ${sizeWords(t.budgetMB!)} a day` }
   return {
     when: t.intervalMinutes ? everyWords(t.intervalMinutes) : "on the cluster's own schedule",
     budget: t.budgetMB ? `up to ${sizeWords(t.budgetMB)} a day` : "within the cluster's own daily budget",
   }
 }
 
-/** How many sets of tests a day this schedule means, in words, for the form's cost line. */
+/** What a choice costs, in words, for the form's cost line. */
 export function costLine(t: Throughput): string {
-  const every = t.intervalMinutes ?? PRESETS.standard.intervalMinutes
+  if (isAutomatic(t)) {
+    return `Tests run at full speed, as often as ${sizeWords(t.budgetMB!)} a day pays for (more often on a slower link), so a result is what the link can really carry. Tests wait while the link is busy with real traffic.`
+  }
+  const every = t.intervalMinutes ?? 720 // the cluster's own default
   const perDay = 1440 / every
   const runs = perDay === 1 ? 'one set of tests a day' : perDay > 1 ? `about ${Math.round(perDay * 10) / 10} sets of tests a day` : `one set of tests every ${everyWords(every).slice(6)}`
   const cap = t.budgetMB ? `, stopping for the day at ${sizeWords(t.budgetMB)}` : ", within the cluster's own daily budget"

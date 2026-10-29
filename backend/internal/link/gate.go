@@ -133,6 +133,31 @@ func (l *Ledger) Allows(now time.Time, est uint64) bool {
 	return l.Used(now)+est <= limit
 }
 
+// Wait is how long it is until a test expected to carry est bytes fits what is left of the budget, as the oldest entries leave
+// the window. 0 when it fits now, and also when it would not fit an empty window.
+func (l *Ledger) Wait(now time.Time, est uint64) time.Duration {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.Limit == 0 || est > l.Limit {
+		return 0
+	}
+	l.trim(now)
+	var used uint64
+	for _, e := range l.entries {
+		used += e.n
+	}
+	if used+est <= l.Limit {
+		return 0
+	}
+	for _, e := range l.entries {
+		used -= e.n
+		if used+est <= l.Limit {
+			return e.at.Add(l.Window).Sub(now)
+		}
+	}
+	return 0
+}
+
 // TimeWindow is a daily span (UTC) in which the tests may run; the zero value is always.
 type TimeWindow struct {
 	From, To time.Duration // offsets from midnight UTC; the span may cross midnight

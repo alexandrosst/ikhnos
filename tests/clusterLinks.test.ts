@@ -19,8 +19,10 @@ test('pairs are kept in id order, once', () => {
 test('a throughput setting is recognised as a named amount, or custom, or off', () => {
   assert.equal(presetOf(undefined), undefined)
   assert.equal(presetOf(throughputFor('standard')), 'standard')
-  assert.equal(presetOf({ intervalMinutes: 360, budgetMB: 501 }), 'custom')
+  assert.equal(presetOf({ budgetMB: 5121 }), 'custom')
   assert.equal(presetOf({}), 'custom')
+  // a schedule of its own (set through the API, or by an earlier version of the page) is not one of the three, whatever its budget
+  assert.equal(presetOf({ intervalMinutes: 360, budgetMB: 5120 }), 'custom')
   for (const id of Object.keys(PRESETS) as (keyof typeof PRESETS)[]) assert.equal(presetOf(throughputFor(id)), id)
 })
 
@@ -31,13 +33,15 @@ test('times and sizes are said in words', () => {
   assert.equal(everyWords(360), 'every 6 hours')
   assert.equal(everyWords(90), 'every 90 minutes')
   assert.deepEqual(throughputSummary({ intervalMinutes: 360, budgetMB: 5120 }), { when: 'every 6 hours', budget: 'up to 5 GB a day' })
+  assert.deepEqual(throughputSummary(throughputFor('standard')), { when: 'automatic', budget: 'full speed, up to 5 GB a day' })
   assert.equal(throughputSummary({}).when, "on the cluster's own schedule")
 })
 
-test('the cost line says how often and where it stops', () => {
-  assert.match(costLine(throughputFor('standard')), /^About 4 sets of tests a day, stopping for the day at 500 MB/)
+test('the cost line says what an amount buys, and for a schedule of its own how often and where it stops', () => {
+  assert.match(costLine(throughputFor('standard')), /^Tests run at full speed, as often as 5 GB a day pays for/)
+  assert.match(costLine(throughputFor('light')), /as often as 1 GB a day pays for/)
   assert.match(costLine({ intervalMinutes: 4320, budgetMB: 100 }), /^One set of tests every 3 days/)
-  assert.match(costLine(throughputFor('light')), /^One set of tests a day, stopping for the day at 50 MB/)
+  assert.match(costLine({ intervalMinutes: 360, budgetMB: 500 }), /^About 4 sets of tests a day, stopping for the day at 500 MB/)
 })
 
 test('the first cluster id runs the tests', () => {
@@ -293,14 +297,16 @@ test('a word that only an object answers to is not a probe state, a diagnosis or
   assert.equal(normalizeSetup([{ a: 'x', b: 'y', steps: [{ code: 'agent', state: '__proto__', text: 'fine' }] }])[0].steps[0].state, 'unknown')
 })
 
-test('only the three named amounts are offered, and each is a schedule its budget can pay for', () => {
+test('only the three named amounts are offered, and each is a daily amount with no schedule of its own', () => {
   assert.deepEqual(Object.keys(PRESETS), ['light', 'standard', 'heavy'])
-  for (const id of ['light', 'standard', 'heavy'] as const) {
+  const amounts = (['light', 'standard', 'heavy'] as const).map((id) => {
     const t = throughputFor(id)
     assert.equal(presetOf(t), id)
-    // The prober divides the day's budget over every test of every set (up to six per set) and needs about 1.5 MB for each.
-    const tests = (1440 / t.intervalMinutes!) * 6
-    assert.ok((t.budgetMB! * 1024 * 1024) / tests >= 1.5e6, `${id}: its budget cannot pay for its schedule`)
-  }
-  assert.equal(presetOf({ intervalMinutes: 10, budgetMB: 500 }), 'custom')
+    assert.equal(t.intervalMinutes, undefined, `${id}: the interval is the prober's to work out`)
+    return t.budgetMB!
+  })
+  assert.deepEqual(amounts, [...amounts].sort((x, y) => x - y), 'each is more than the one before')
+  // The prober needs room for one whole test of the fastest link it can be asked about to learn anything; below that it caps.
+  assert.ok(amounts[0] >= 1024)
+  assert.equal(presetOf({ intervalMinutes: 10, budgetMB: 5120 }), 'custom')
 })

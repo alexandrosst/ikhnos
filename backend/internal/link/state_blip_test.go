@@ -15,7 +15,7 @@ func TestABlipInThePeerListKeepsTheScheduleAndTheBudgetLedger(t *testing.T) {
 	c, ck := capFor(t, f, func(c *Capacity) { c.Reverse, c.Parallel = false, 0 })
 	list := func() []*ikhnosv1.LinkPeer {
 		lp := peer("cl-a", "A", "10.0.0.1")
-		lp.Throughput, lp.ThroughputBudgetBytes = true, 7<<30
+		lp.Throughput, lp.ThroughputIntervalSeconds, lp.ThroughputBudgetBytes = true, 12*3600, 7<<30
 		return []*ikhnosv1.LinkPeer{lp}
 	}
 	c.Meter.Peers.Set("cl-me", list())
@@ -60,7 +60,7 @@ func TestAnEmptyPeerListStillWipesTheStateAfterTheGrace(t *testing.T) {
 	f := &fakeIperf{}
 	c, ck := capFor(t, f, func(c *Capacity) { c.Reverse, c.Parallel = false, 0 })
 	lp := peer("cl-a", "A", "10.0.0.1")
-	lp.Throughput, lp.ThroughputBudgetBytes = true, 7<<30
+	lp.Throughput, lp.ThroughputIntervalSeconds, lp.ThroughputBudgetBytes = true, 12*3600, 7<<30
 	c.Meter.Peers.Set("cl-me", []*ikhnosv1.LinkPeer{lp})
 	settle(c)
 

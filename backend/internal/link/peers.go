@@ -45,13 +45,19 @@ type Peer struct {
 	Preferred []netip.Addr
 	// Throughput says this cluster runs the throughput tests towards the peer. ThroughputEvery replaces the cluster's own
 	// interval between sets of tests (zero: keep it) and ThroughputBudget limits what they may carry towards this peer in a
-	// day (zero: only the cluster's budget).
+	// day (zero: only the cluster's budget). A budget with no interval makes the tests automatic (see Automatic).
 	Throughput       bool
 	ThroughputEvery  time.Duration
 	ThroughputBudget uint64
 	// Iperf are the credentials of the throughput tests towards this peer, issued by the server to the cluster that runs the
 	// tests. Nil: none (an older server, a manual Secret, or an agent that does not serve them). Secret: see Secret.
 	Iperf *IperfClient
+}
+
+// Automatic says the throughput tests towards the peer are given only a daily allowance (ThroughputBudget) and no interval:
+// they then run at full speed, as often as the allowance pays for, rather than on a schedule within a budget that caps them.
+func (p Peer) Automatic() bool {
+	return p.Throughput && p.ThroughputBudget > 0 && p.ThroughputEvery == 0
 }
 
 // Probed says this cluster runs the one-way probe and the connect timing towards the peer.
