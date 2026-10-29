@@ -90,10 +90,10 @@ type Signed struct {
 // ErrReplay marks a report whose signature was already accepted.
 var ErrReplay = errors.New("report already received")
 
-// ReadSigned authenticates a request cheaply before it reads a byte of the body: the declared length, the
-// node name, the timestamp and the shape of the signature are all checked first, so an unauthenticated
-// sender cannot make the receiver buffer anything. It then reads at most MaxBody bytes, verifies the HMAC
-// (constant-time) and rejects a replay. On failure it returns the HTTP status to answer with and the
+// ReadSigned checks the cheap things before it reads a byte of the body: the declared length, the node
+// name, the timestamp and the shape of the signature. A request that fails one is refused unread. Any
+// sender can forge those headers, so one that passes is read, up to MaxBody bytes and for as long as the
+// server's read timeout allows, and only then is the HMAC verified (constant-time) and a replay rejected. On failure it returns the HTTP status to answer with and the
 // reason to log (never to send).
 func ReadSigned(w http.ResponseWriter, req *http.Request, s Signed) (node string, body []byte, status int, err error) {
 	if req.ContentLength > s.MaxBody {

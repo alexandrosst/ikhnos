@@ -30,8 +30,10 @@ the commands you'd only need occasionally, not at every install.
   agent does receive full pod specs; it drops environment variables, commands, arguments and volume sources
   on arrival and never stores or sends them.
 
-It is read-only in every tier: it never creates, changes or deletes anything in the cluster except its own
-identity Secret (`ikhnos-agent-identity`), and it cannot read any other Secret or any ConfigMap.
+Every tier is read-only. Outside the tiers the agent can write three narrow things and nothing else: its own
+identity Secret (`ikhnos-agent-identity`); the client-certificate Secrets of the telemetry exporters, only the ones
+named for renewal (`get`, `update`, `patch`, no `list`); and the status of its own `IkhnosAgent` object, when a
+controller keeps it. It cannot read any other Secret or any ConfigMap.
 
 Scoping (`scope.namespaces` / `scope.selector` / `scope.exclude`) narrows what is *reported*, not what the
 agent's RBAC *allows* — the ClusterRole/ClusterRoleBinding for the installed tier is granted regardless, and
@@ -132,7 +134,8 @@ collector started are counted when they next open.
 ## Telemetry (`telemetry.*`)
 
 Independent of the access tier above, on its own ServiceAccount, and never reported to the Ikhnos server
-itself — it goes straight to whatever OTLP endpoint `telemetry.export.otlp.endpoint` names. The host
+itself — it goes straight to whatever OTLP endpoint `telemetry.export.otlp.endpoint` names. The agent tells the server
+which signals are on and a few effective settings (the export address, redaction, sampling), never the data. The host
 collector (for signals that can only be observed per-node) mounts several host paths read-only (kubelet
 stats, container/journal logs).
 

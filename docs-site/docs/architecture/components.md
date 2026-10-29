@@ -14,7 +14,7 @@ Ikhnos is built as a **control plane** and a **data plane**, and each of them is
 
 <Figure name="DistributedPlanes" caption="Rows are the planes and columns are where a part runs. The control plane has nothing of its own in a region: a regional operator is a record the server keeps and a configuration it generates, and it has no channel back unless you turn on a content-free heartbeat." />
 
-**The control plane** is everything that decides and configures: the **server**, the **discovery agent** in each cluster, and, where you use one, the **controller** and the **`IkhnosAgent` resource**. **The data plane** is everything that moves telemetry: the **local operator** in each cluster, the **regional operator**, and **FUSION** at the centre. The two never run through each other. The server is not on the telemetry path and the agent is not on it either. It reads the collectors' counters, which is how a page can say where data stops, and that is all.
+**The control plane** is everything that decides and configures: the **server**, the **discovery agent** in each cluster, and, where you use one, the **controller** and the **`IkhnosAgent` resource**. **The data plane** is everything that moves telemetry: the **local operator** in each cluster, the **regional operator**, and **FUSION** at the centre. The two run side by side. The server is not on the telemetry path. The agent is not on the path of the cluster's own telemetry either: it reads the collectors' counters, which is how a page can say where data stops. It touches the data plane in four places, and [Where the agent touches the data plane today](#where-the-agent-touches-the-data-plane-today) names each of them.
 
 ## The control plane
 
@@ -34,6 +34,17 @@ Ikhnos is built as a **control plane** and a **data plane**, and each of them is
 
 A local operator can also send straight to FUSION, or to an endpoint you run, without a regional operator in between. None of the three talks to the Ikhnos server about what to do; they carry data.
 
+### Where the agent touches the data plane today
+
+The line between the two planes is not clean in four places, and the pages that say "the agent is not on the telemetry path" mean the cluster's own telemetry (metrics, logs and traces from the nodes and the applications). The four places:
+
+- **The passive cluster-link series.** When cluster links are on, the agent builds per-peer traffic series (connections, bytes, retransmits, round trip) from the flow reports and serves them as Prometheus text on port 9104, without authentication. The cluster collector scrapes them, so they leave through its pipeline like any other signal. The agent also serves the peer list to the link prober and the iperf3 credentials to the responder pods, each on signed requests. The measuring itself runs in the prober's own pod.
+- **The collectors' client certificates.** For a cluster whose collectors present client certificates to a regional or central operator, the agent renews them before they expire. It can get, update and patch exactly the Secrets named for that, makes the new key in its own pod, and has the server sign it.
+- **The telemetry request.** When a controller keeps the agent and the relay is on, the agent hands the server's request for which signals to collect, and how much of the traces, to the controller through `status.requested`. It never carries a destination or a credential.
+- **Readiness.** The agent's readiness decides whether the Services for the flow reports and the link series have a pod behind them. An agent that has been without the server for ten minutes or more is unready, so a cluster cut off from the server also stops serving those.
+
+Flow batches are a different case: they are per-edge traffic that the agent sends to the server on its own stream as discovery data, not telemetry. The link series and the readiness coupling are in [Deferred work](../contributing/deferred-work.md), with the plan to move the series out of the agent. The certificates stay where they are by decision: the key never leaves the pod that made it, and the agent already holds the cluster's one way out to the server.
+
 ## What each part is
 
 <Figure name="ComponentAnatomy" caption="The seven parts as pieces of software: how each runs, whom it talks to, and what it holds. The two kinds of part are not alike on purpose. The parts that talk to the outside hold as little as they can, and the part that may install holds no way out." />
@@ -44,7 +55,7 @@ One process, one replica, with one SQLite writer. It serves the web UI and the J
 
 ### The agent
 
-One pod per cluster, with read-only RBAC for the tier you approved. It watches the Kubernetes API, takes reports from the node probe and the flow observer, cuts what it sees down to what is allowed, and sends it on one stream that it opened itself. Whatever the server sends comes back on that stream. It also reads the collectors' counters, which is how the Pipeline page can say that data stopped at the cluster collector rather than somewhere else. It is never on the telemetry path.
+One pod per cluster, with read-only RBAC for the tier you approved. It watches the Kubernetes API, takes reports from the node probe and the flow observer, cuts what it sees down to what is allowed, and sends it on one stream that it opened itself. Whatever the server sends comes back on that stream. It also reads the collectors' counters, which is how the Pipeline page can say that data stopped at the cluster collector rather than somewhere else. It is not on the path of the cluster's own telemetry, with the exceptions named under [Where the agent touches the data plane today](#where-the-agent-touches-the-data-plane-today).
 
 ### The controller and the `IkhnosAgent` resource
 
@@ -73,13 +84,13 @@ There is one asymmetry to know about. A regional operator is something the serve
 
 ## What is in a cluster
 
-One Helm release, `ikhnos-agent`, holds the discovery agent (one pod) and the local operator (the collectors). They are installed, upgraded and removed together, and they are separate programs with separate permissions. The agent does not touch the telemetry; it reads the collectors' counters, which is how the page can say whether data is arriving, and at which stage it stopped if it is not.
+One Helm release, `ikhnos-agent`, holds the discovery agent (one pod) and the local operator (the collectors). They are installed, upgraded and removed together, and they are separate programs with separate permissions. The agent does not carry the collectors' telemetry; it reads their counters, which is how the page can say whether data is arriving, and at which stage it stopped if it is not. It also serves the passive cluster-link series for the cluster collector to scrape, and renews the collectors' client certificates (see [Where the agent touches the data plane today](#where-the-agent-touches-the-data-plane-today)).
 
 Next to it, optionally, sits the controller (its own release, `ikhnos-controller`), and one `IkhnosAgent` resource called `this-cluster`.
 
 | Part | Is | Talks to | Holds |
 | --- | --- | --- | --- |
-| Discovery agent | one pod | the server (an encrypted, mutually authenticated stream), the Kubernetes API (read) | the rights of its access tier; the right to patch one object, if a controller keeps it |
+| Discovery agent | one pod | the server (an encrypted, mutually authenticated stream), the Kubernetes API (read), the collectors' counters | the rights of its access tier (read only); its own identity Secret; the collectors' client-certificate Secrets, when telemetry uses client certificates; the right to patch the status of one object, if a controller keeps it |
 | Controller | one pod | the Kubernetes API only | the right to install the agent chart, up to the ceilings it was given |
 | `IkhnosAgent` | a Kubernetes object | nobody; it is read and written | what the agent should be, and how it is going |
 
@@ -109,8 +120,10 @@ Revoking an agent in the server's pages closes its connection and ends its ident
 
 So revoking in Ikhnos leaves nothing of the agent in the cluster. To connect the cluster again, create a new token and run the same command with it: the controller treats the same ConfigMap with a new token as a new request. The agent says in its first message to the server that a controller keeps it, so the page says so too: it tells you the controller removes the agent and there is nothing to run, and keeps the `helm uninstall` commands for an agent that is still in the cluster after a few minutes. An agent that is not kept by a controller behaves as before: it stops, and the page shows the commands as the way to remove it.
 
-## What does not work this way yet
+## What still goes by a command
 
-Everything above goes from the cluster outward, plus the revoke. Changing a cluster from the server's pages after the install (the access tier, the collectors, the telemetry) is still a command that a person runs: the page prints a `helm upgrade`, or a `kubectl patch` of the resource for an agent a controller keeps. The next step is for the server to hand that change to the agent over its existing stream, for the agent to write it into the resource, and for the controller to do the upgrade. That would add no new credential and no new connection; it would add a message to the agent protocol, and it needs one decision first: **what** is collected (signals, namespaces, sampling) can come from the server, but **where** it goes (the destination and its credentials) stays with the cluster, so that a server that is compromised cannot redirect a cluster's telemetry.
+Everything above goes from the cluster outward, plus the revoke and one thing that goes the other way, the telemetry request. When a controller keeps the agent and the relay is on, which signals are collected and how much of the traces can be asked for from the server's pages: the agent hands the request to the controller through `status.requested` of the `IkhnosAgent`, and the controller applies it and reports back. [Installing and removing what Ikhnos installs](lifecycle.md) has the detail.
+
+The rest of the telemetry setup (the access tier, the scope, tags, redaction, extra processors, and the destination with its credentials) is still a command that a person runs: the page prints a `helm upgrade`, or a `kubectl patch` of the resource for an agent a controller keeps. The destination stays with the cluster on purpose. What is collected can come from the server, but where it goes cannot, so that a server that is compromised cannot redirect a cluster's telemetry.
 
 The controller's own reference, with its permissions and its limits, is on [Installing and removing what Ikhnos installs](lifecycle.md).

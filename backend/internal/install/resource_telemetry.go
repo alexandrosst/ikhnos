@@ -8,9 +8,9 @@ import (
 // The telemetry an IkhnosAgent asks for. It is the Telemetry the Telemetry panel's `helm upgrade` is written from, in the words of a
 // resource: a resource states the whole of what the agent is to be, so the page-only parts of Telemetry (the groups "left as installed",
 // whether the install already had telemetry, whether a route is already there) have no place in it, and a field that is not stated is the
-// chart's default, not what the install has now. Two things the panel can do are not on a resource yet: extra processors, and a regional
-// operator as the destination (its mutual TLS is stated by a fragment only the server can write). ResourceOf refuses both, in words that
-// send the person to the helm command.
+// chart's default, not what the install has now. One thing the panel can do is not on a resource: extra processors. A regional operator as
+// the destination is, but only through ResourceOfOperators, because its mutual TLS is stated by a fragment only the server can write; ResourceOf
+// refuses both, in words that send the person to the helm command.
 //
 // A credential is never in it, as in Telemetry: a destination names the Secret it is read from.
 

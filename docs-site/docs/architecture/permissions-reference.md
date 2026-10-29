@@ -40,7 +40,7 @@ reserved, with no RBAC behind them at all), each strictly additive to the one be
 | 1 — Infrastructure | `nodes`; `storageclasses` (storage.k8s.io); `ingressclasses` (networking.k8s.io). |
 | 2 — Services | `namespaces`, `pods`, `services`, `persistentvolumeclaims`, `persistentvolumes`; `deployments`/`statefulsets`/`daemonsets`/`replicasets` (apps); `ingresses`; `horizontalpodautoscalers`; `poddisruptionbudgets`; and, only if `mesh.readPolicy` is on (default), Istio `peerauthentications` — read-only, no authorization policies, no secrets. |
 
-Every verb at every tier is read-only. There is no `create`/`update`/`patch`/`delete` on any cluster
+Every verb at every tier is read-only. The agent also has three narrow writes that do not belong to any tier, each by name: its own identity Secret, the certificate Secrets the telemetry exporters use (only when they present client certificates, and only the ones named for renewal), and the status of one `IkhnosAgent` object when a controller keeps it. There is no `create`/`update`/`patch`/`delete` on any cluster
 resource anywhere in this table — confirmed by a dedicated test (`TestAccessTierGrantsAreReadOnly`), not
 just by inspection.
 

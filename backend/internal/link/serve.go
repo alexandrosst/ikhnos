@@ -22,7 +22,8 @@ func (m *Meter) Handler() http.Handler {
 }
 
 // Serve listens on addr (for example ":9104") and serves /metrics until the returned function is called. The cluster's
-// telemetry collector scrapes it; nothing else is served.
+// telemetry collector scrapes it. The two signed POST routes for the link prober and the responder pods are mounted beside it (see
+// Handler), and no other route is mounted.
 func Serve(addr string, m *Meter, log *slog.Logger) (stop func(), err error) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {

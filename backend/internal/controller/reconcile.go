@@ -43,10 +43,10 @@ type Status struct {
 	// Revoked is written by the agent, not the controller, when the server revokes it (see install.RevokedAnnotation for the way older
 	// agents said it). The controller keeps it when it writes its own fields.
 	Revoked *Revoked `json:"revoked,omitempty"`
-	// Requested is the telemetry the server asked this cluster for, written by the agent (see package relay). The controller keeps it when it
-	// writes its own fields; reading it is the controller's next step.
+	// Requested is the telemetry the server asked this cluster for, written by the agent (see package relay). The controller reads it
+	// (relay.go) and keeps it when it writes its own fields.
 	Requested *relay.Request `json:"requested,omitempty"`
-	// Relay is what became of the request. The controller will write it; until it does, it keeps whatever is there.
+	// Relay is what became of the request, written by the controller (relay.go); it keeps whatever is there when it has nothing new to say.
 	Relay *relay.Result `json:"relay,omitempty"`
 	// Workloads is what the release runs and how many pods of each are ready, as the controller last looked (see observe). Only of a release that
 	// is installed as the spec asks.
