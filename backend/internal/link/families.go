@@ -55,6 +55,7 @@ var families = []MetricFamily{
 	{"ikhnos_link_throughput_test_bytes_total", "counter"},
 	{"ikhnos_link_throughput_test_failures_total", "counter"},
 	{"ikhnos_link_throughput_tests_skipped_total", "counter"},
+	{"ikhnos_link_throughput_port_bits_per_second", "gauge"},
 	{"ikhnos_link_throughput_last_success_timestamp_seconds", "gauge"},
 	{"ikhnos_link_throughput_pair_budget_used_bytes", "gauge"},
 	{"ikhnos_link_throughput_pair_budget_bytes", "gauge"},

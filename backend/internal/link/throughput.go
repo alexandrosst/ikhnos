@@ -61,6 +61,8 @@ type tpStats struct {
 	failed  map[string]uint64
 	skipped map[string]uint64
 	lastOK  time.Time
+	// port is the negotiated speed of the interface the tests leave through, in bits per second (0: not known).
+	port uint64
 }
 
 func newTPStats() *tpStats {
@@ -101,6 +103,17 @@ func (m *Meter) throughput(peer string) *tpStats {
 
 func (m *Meter) knownPeer(peer string) bool {
 	return m.Peers.Has(peer)
+}
+
+// SetPortSpeed records the speed of the network port the tests towards a peer leave through (0 when it is not known, which
+// removes the series).
+func (m *Meter) SetPortSpeed(peer string, bits uint64) {
+	if m == nil || !m.knownPeer(peer) {
+		return
+	}
+	m.mu.Lock()
+	m.throughput(peer).port = bits
+	m.mu.Unlock()
 }
 
 // ObserveTCP records the latest finished TCP test in f's direction. proto is "tcp", or "tcp_bidir" for a test that loaded both directions at once, whose figures are not comparable with a single direction's. Bytes carried are added to the running total.
@@ -343,6 +356,12 @@ func (m *Meter) writeThroughput(w io.Writer, own string, peerIDs []string) {
 	}
 	reasons("ikhnos_link_throughput_test_failures_total", "Throughput tests that could not be run or finished, by reason.", tpFailReasons, func(s *tpStats) map[string]uint64 { return s.failed })
 	reasons("ikhnos_link_throughput_tests_skipped_total", "Throughput tests held back to be tried later: the link was busy with real traffic, the byte budget was used up, or the peer's server was serving another test.", tpSkipReasons, func(s *tpStats) map[string]uint64 { return s.skipped })
+	head("ikhnos_link_throughput_port_bits_per_second", "gauge", "The speed the network interface this cluster's throughput tests leave through has negotiated (its link speed). Compare it with the throughput: a result close to it means the port is the limit. Absent when the interface reports none (a virtual one, Wi-Fi). It is this cluster's port only; the other end's may be slower.")
+	for _, p := range peerIDs {
+		if s := m.tp[p]; s != nil && s.port > 0 {
+			fmt.Fprintf(w, "ikhnos_link_throughput_port_bits_per_second{%s} %d\n", lbl(p), s.port)
+		}
+	}
 	head("ikhnos_link_throughput_last_success_timestamp_seconds", "gauge", "When a throughput test towards or from the peer last finished. Absent until the first time.")
 	for _, p := range peerIDs {
 		if s := m.tp[p]; s != nil && !s.lastOK.IsZero() {

@@ -102,6 +102,8 @@ type Capacity struct {
 
 	Exec ExecEnvFunc
 	Now  func() time.Time
+	// PortSpeed tells the speed of the port the tests towards an address leave through (nil: read from the system).
+	PortSpeed PortSpeedFunc
 
 	password string
 	ledger   *Ledger
@@ -207,6 +209,9 @@ func (c *Capacity) Defaults() {
 	}
 	if c.Now == nil {
 		c.Now = time.Now
+	}
+	if c.PortSpeed == nil {
+		c.PortSpeed = portSpeed
 	}
 	if c.Log == nil {
 		c.Log = slog.Default()
@@ -484,6 +489,7 @@ func (c *Capacity) step(ctx context.Context) time.Duration {
 		return 5 * time.Second
 	}
 	if fresh {
+		c.notePort(*pick)
 		// A cycle is planned outside c.mu: sizing the tests of an automatic peer reads what the last ones carried.
 		var queue []capTest
 		var size map[capTest]testSize
@@ -551,6 +557,17 @@ func (c *Capacity) step(ctx context.Context) time.Duration {
 		c.Meter.ThroughputFailed(pick.ID, failed)
 	}
 	return c.Pause
+}
+
+// notePort records the speed of the port the peer's tests leave through, once per cycle: a cable or a switch can change.
+func (c *Capacity) notePort(p Peer) {
+	var bits uint64
+	if addrs := c.candidates(p); len(addrs) > 0 {
+		if a, err := netip.ParseAddr(addrs[0]); err == nil {
+			bits = c.PortSpeed(a)
+		}
+	}
+	c.Meter.SetPortSpeed(p.ID, bits)
 }
 
 // advance moves a peer on after one test of its plan was dealt with: the next test follows at once, or, when the plan is

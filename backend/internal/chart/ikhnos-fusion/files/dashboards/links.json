@@ -7,7 +7,7 @@
     "links"
   ],
   "schemaVersion": 39,
-  "version": 3,
+  "version": 4,
   "editable": false,
   "graphTooltip": 1,
   "time": {
@@ -3806,6 +3806,295 @@
         "y": 176,
         "w": 12,
         "h": 8
+      }
+    },
+    {
+      "id": 60,
+      "type": "bargauge",
+      "title": "TCP throughput in the time range: best and typical",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "fusion-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max by (cluster, peer, direction) (max_over_time(ikhnos_link_throughput_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\", protocol=\"tcp\", dscp=\"0\"}[$__range]))) * on (cluster) group_left (cluster_name) topk by (cluster) (1, ikhnos_cluster_info) * on (peer) group_left (peer_name) label_replace(label_replace(topk by (cluster) (1, ikhnos_cluster_info), \"peer\", \"$1\", \"cluster\", \"(.+)\"), \"peer_name\", \"$1\", \"cluster_name\", \"(.+)\") or ignoring (cluster_name, peer_name) label_replace(label_replace((max by (cluster, peer, direction) (max_over_time(ikhnos_link_throughput_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\", protocol=\"tcp\", dscp=\"0\"}[$__range]))), \"cluster_name\", \"$1\", \"cluster\", \"(.+)\"), \"peer_name\", \"$1\", \"peer\", \"(.+)\")",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "fusion-metrics"
+          },
+          "legendFormat": "{{cluster_name}} → {{peer_name}} {{direction}}, best",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "(max by (cluster, peer, direction) (quantile_over_time(0.5, ikhnos_link_throughput_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\", protocol=\"tcp\", dscp=\"0\"}[$__range]))) * on (cluster) group_left (cluster_name) topk by (cluster) (1, ikhnos_cluster_info) * on (peer) group_left (peer_name) label_replace(label_replace(topk by (cluster) (1, ikhnos_cluster_info), \"peer\", \"$1\", \"cluster\", \"(.+)\"), \"peer_name\", \"$1\", \"cluster_name\", \"(.+)\") or ignoring (cluster_name, peer_name) label_replace(label_replace((max by (cluster, peer, direction) (quantile_over_time(0.5, ikhnos_link_throughput_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\", protocol=\"tcp\", dscp=\"0\"}[$__range]))), \"cluster_name\", \"$1\", \"cluster\", \"(.+)\"), \"peer_name\", \"$1\", \"peer\", \"(.+)\")",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "fusion-metrics"
+          },
+          "legendFormat": "{{cluster_name}} → {{peer_name}} {{direction}}, typical (median)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "description": "What the link carried over the time range picked at the top: the best reading of the range is the capacity the tests found; the typical (median) one is what a single run usually gets. One run can come out low (traffic of the link's own, a busy node, a route change), so read the best one as the capacity and the gap to the typical one as how steady it is. A reading at its cap (see Throughput, bounded) is a floor. Widen the time range to see more runs; with a few runs a day, a day is the least that says much.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "min": 0,
+          "noValue": "No throughput reading in this range"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "minVizHeight": 16,
+        "valueMode": "color"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 184,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 61,
+      "type": "timeseries",
+      "title": "TCP throughput against the speed of the port",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "fusion-metrics"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 184,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max by (cluster, peer, direction) (ikhnos_link_throughput_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\", protocol=\"tcp\", dscp=\"0\"})) * on (cluster) group_left (cluster_name) topk by (cluster) (1, ikhnos_cluster_info) * on (peer) group_left (peer_name) label_replace(label_replace(topk by (cluster) (1, ikhnos_cluster_info), \"peer\", \"$1\", \"cluster\", \"(.+)\"), \"peer_name\", \"$1\", \"cluster_name\", \"(.+)\") or ignoring (cluster_name, peer_name) label_replace(label_replace((max by (cluster, peer, direction) (ikhnos_link_throughput_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\", protocol=\"tcp\", dscp=\"0\"})), \"cluster_name\", \"$1\", \"cluster\", \"(.+)\"), \"peer_name\", \"$1\", \"peer\", \"(.+)\")",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "fusion-metrics"
+          },
+          "legendFormat": "{{cluster_name}} → {{peer_name}} {{direction}}, measured"
+        },
+        {
+          "refId": "B",
+          "expr": "(max by (cluster, peer) (ikhnos_link_throughput_port_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\"})) * on (cluster) group_left (cluster_name) topk by (cluster) (1, ikhnos_cluster_info) * on (peer) group_left (peer_name) label_replace(label_replace(topk by (cluster) (1, ikhnos_cluster_info), \"peer\", \"$1\", \"cluster\", \"(.+)\"), \"peer_name\", \"$1\", \"cluster_name\", \"(.+)\") or ignoring (cluster_name, peer_name) label_replace(label_replace((max by (cluster, peer) (ikhnos_link_throughput_port_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\"})), \"cluster_name\", \"$1\", \"cluster\", \"(.+)\"), \"peer_name\", \"$1\", \"peer\", \"(.+)\")",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "fusion-metrics"
+          },
+          "legendFormat": "{{cluster_name}} → {{peer_name}}, port speed"
+        }
+      ],
+      "description": "The TCP throughput next to the speed the network interface the tests leave through has negotiated (dashed). A reading close to the port speed means the port is the limit and the link may carry no more; a reading far below it with several streams no better points at the path (a shaper, the VPN, the other cluster's port) or at the window. It is the port of the cluster that runs the tests only; the other end's may be slower. The dashed line is absent when the interface reports no speed (a virtual one, Wi-Fi). Both lines hold their last value until the next test.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none"
+            },
+            "spanNulls": false
+          },
+          "unit": "bps",
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 62,
+      "type": "timeseries",
+      "title": "Latest TCP reading against the best of the last 7 days",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "fusion-metrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 192,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max by (cluster, peer, direction) (ikhnos_link_throughput_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\", protocol=\"tcp\", dscp=\"0\"}) / max by (cluster, peer, direction) (max_over_time(ikhnos_link_throughput_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\", protocol=\"tcp\", dscp=\"0\"}[7d]))) * on (cluster) group_left (cluster_name) topk by (cluster) (1, ikhnos_cluster_info) * on (peer) group_left (peer_name) label_replace(label_replace(topk by (cluster) (1, ikhnos_cluster_info), \"peer\", \"$1\", \"cluster\", \"(.+)\"), \"peer_name\", \"$1\", \"cluster_name\", \"(.+)\") or ignoring (cluster_name, peer_name) label_replace(label_replace((max by (cluster, peer, direction) (ikhnos_link_throughput_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\", protocol=\"tcp\", dscp=\"0\"}) / max by (cluster, peer, direction) (max_over_time(ikhnos_link_throughput_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\", protocol=\"tcp\", dscp=\"0\"}[7d]))), \"cluster_name\", \"$1\", \"cluster\", \"(.+)\"), \"peer_name\", \"$1\", \"peer\", \"(.+)\")",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "fusion-metrics"
+          },
+          "legendFormat": "{{cluster_name}} → {{peer_name}} {{direction}}"
+        }
+      ],
+      "description": "The latest reading as a share of the best reading of the last 7 days, per direction. 1 means the link carried as much as it ever did lately. Below 0.8 it carried less (amber under 0.5 is red, 0.5 to 0.8 amber): a change on the path, traffic of the link's own at the time, or a node that was busy. One low reading is worth a second look at the next test, a run of them is a link that got slower. It needs a week of readings to mean much.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none"
+            },
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1.1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.5
+              },
+              {
+                "color": "green",
+                "value": 0.8
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 63,
+      "type": "stat",
+      "title": "Directions reading under half of their best",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "fusion-metrics"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 192,
+        "w": 12,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count((max by (cluster, peer, direction) (ikhnos_link_throughput_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\", protocol=\"tcp\", dscp=\"0\"}) / max by (cluster, peer, direction) (max_over_time(ikhnos_link_throughput_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\", protocol=\"tcp\", dscp=\"0\"}[7d]))) < 0.5) or (0 * count(max by (cluster, peer, direction) (ikhnos_link_throughput_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\", protocol=\"tcp\", dscp=\"0\"}) / max by (cluster, peer, direction) (max_over_time(ikhnos_link_throughput_bits_per_second{cluster=~\"$cluster\", peer=~\"$peer\", protocol=\"tcp\", dscp=\"0\"}[7d]))))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "fusion-metrics"
+          },
+          "instant": true,
+          "range": false
+        }
+      ],
+      "description": "How many directions of the pairs shown have a latest reading under half of the best of the last 7 days. Red when any does: a link that got much slower, or a test that ran while it was busy. Zero when none does; empty when there is nothing to compare with yet (it needs readings of the last 7 days).",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0,
+          "noValue": "No readings to compare yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
       }
     }
   ]

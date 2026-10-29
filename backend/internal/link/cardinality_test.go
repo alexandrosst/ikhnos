@@ -1,6 +1,7 @@
 package link
 
 import (
+	"net/netip"
 	"strings"
 	"testing"
 	"time"
@@ -15,7 +16,7 @@ import (
 // follows the data (a rate, an address, a port) or a metric added without a thought fails, and the docs get updated with it.
 const (
 	maxPassiveSeriesPerPeer = 32
-	maxSeriesPerPeer        = 145
+	maxSeriesPerPeer        = 146
 	// maxSeriesPerPeerWidest is the bound with the widest settings: four DSCP classes (each adds the TCP readings at both
 	// stream counts and the UDP ramp, in both directions) and the bidirectional test.
 	maxSeriesPerPeerWidest  = 235
@@ -59,6 +60,7 @@ func checkSeriesPerPeer(t *testing.T, dscp []int, bidir bool, maxSeries int) {
 		c.Budget = 1 << 40
 		c.DSCP = dscp
 		c.Bidir = bidir
+		c.PortSpeed = func(netip.Addr) uint64 { return 1e9 }
 	})
 	a := peer("cl-a", "A", "10.0.0.1", "10.0.0.2", "10.0.0.3")
 	a.Throughput, a.ThroughputBudgetBytes = true, 1<<41 // the widest settings send many gigabytes of fixtures

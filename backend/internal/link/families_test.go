@@ -2,6 +2,7 @@ package link
 
 import (
 	"bytes"
+	"net/netip"
 	"reflect"
 	"sort"
 	"strings"
@@ -17,7 +18,11 @@ import (
 // the list cannot go stale and the fixture cannot quietly stop covering a family.
 func TestMetricFamiliesAreWhatTheMeterExports(t *testing.T) {
 	fk := &fakeIperf{capacity: 100e6}
-	c, _ := capFor(t, fk, func(c *Capacity) { c.UDP = UDPRamp{Enabled: true}; c.Budget = 100 << 30 })
+	c, _ := capFor(t, fk, func(c *Capacity) {
+		c.UDP = UDPRamp{Enabled: true}
+		c.Budget = 100 << 30
+		c.PortSpeed = func(netip.Addr) uint64 { return 100e6 }
+	})
 	a := peer("cl-a", "A", "10.0.0.1", "10.0.0.2", "10.0.0.3")
 	a.Throughput, a.ThroughputBudgetBytes = true, 50<<30
 	c.Meter.Peers.Set("cl-me", []*ikhnosv1.LinkPeer{a})

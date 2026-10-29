@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -242,7 +243,8 @@ func capFor(t *testing.T, f *fakeIperf, mut func(*Capacity), addrs ...string) (*
 	m.EnableProbes()
 	ck := &clock{t: time.Unix(1_700_000_000, 0)}
 	m.now = ck.now
-	c := &Capacity{Meter: m, Exec: f.exec, Now: ck.now, StartAfter: -1, Pause: time.Millisecond, Reverse: true, Parallel: 4, Omit: 2 * time.Second}
+	c := &Capacity{Meter: m, Exec: f.exec, Now: ck.now, StartAfter: -1, Pause: time.Millisecond, Reverse: true, Parallel: 4, Omit: 2 * time.Second,
+		PortSpeed: func(netip.Addr) uint64 { return 0 }} // the host's own port is nothing a test should depend on
 	if mut != nil {
 		mut(c)
 	}
