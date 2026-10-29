@@ -8,6 +8,8 @@ import (
 	"time"
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
+	"ikhnos/internal/agent/collect"
+	"ikhnos/internal/flow"
 	"ikhnos/internal/probe"
 
 	"google.golang.org/grpc/codes"
@@ -220,6 +222,30 @@ func TestOverridesIgnoredAreReportedAndClearedWhenPutRight(t *testing.T) {
 	r.enforce(resolveOverrides(&ikhnosv1.Config{ApprovedAccessTier: 1}, 1))
 	if codesOf(r)[CodeOverrideIgnored] != nil {
 		t.Fatal("the problem stayed after the server pushed something the agent can honour")
+	}
+}
+
+// Observed traffic is workload-level information. Below tier 2 the pipeline answers the collectors and takes nothing in, as when the server pauses
+// it, so that nothing is held for a flush that never comes and the collectors slow down.
+func TestTrafficIsNotTakenInBelowTierTwo(t *testing.T) {
+	r := newTestRunner()
+	r.cfg.Flows = flow.NewPipeline([]byte("flow-secret-0123456789abcdef0123"), func() *collect.Index { return nil }, nil)
+	for _, c := range []struct {
+		name   string
+		cfg    *ikhnosv1.Config
+		tier   int
+		paused bool
+	}{
+		{"tier 1", &ikhnosv1.Config{ApprovedAccessTier: 1}, 2, true},
+		{"tier 2", &ikhnosv1.Config{ApprovedAccessTier: 2}, 2, false},
+		{"tier 2 narrowed by the chart to 1", &ikhnosv1.Config{ApprovedAccessTier: 2}, 1, true},
+		{"tier 2, paused by the server", &ikhnosv1.Config{ApprovedAccessTier: 2, PausedCollectors: []string{collectorFlow}}, 2, true},
+		{"tier 2 again", &ikhnosv1.Config{ApprovedAccessTier: 2}, 2, false},
+	} {
+		r.enforce(resolveOverrides(c.cfg, c.tier))
+		if got := r.cfg.Flows.Aggregator.Paused(); got != c.paused {
+			t.Errorf("%s: paused = %v, want %v", c.name, got, c.paused)
+		}
 	}
 }
 

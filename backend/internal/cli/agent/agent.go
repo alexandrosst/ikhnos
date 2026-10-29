@@ -262,6 +262,14 @@ func Main(args []string) int {
 		ids = agent.SecretStore{Client: client, Namespace: *ns, Name: *secret}
 	}
 
+	if err := secretsDiffer(
+		sharedSecret{"--probe-secret-file", *probeSecretFile},
+		sharedSecret{"--flow-secret-file", *flowSecretFile},
+		sharedSecret{"--link-peers-secret-file", *linkPeersSecretFile},
+		sharedSecret{"--link-iperf-secret-file", *linkIperfSecretFile},
+	); err != nil {
+		return cli.Fatal(log, err)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	log.Info("ikhnos agent starting", "version", cli.Version, "server", *server, "tier", *tier)

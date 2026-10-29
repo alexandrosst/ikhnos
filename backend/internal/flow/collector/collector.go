@@ -11,7 +11,7 @@ import (
 	"time"
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
-	"ikhnos/internal/flow"
+	"ikhnos/internal/flow/wire"
 	"ikhnos/internal/probe"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -89,11 +89,11 @@ func Report(src Source, node string, window time.Duration, flows []*ikhnosv1.Raw
 	// the rest: a quiet, low-connection-count flow can still carry real bytes on an interface, and the
 	// saturation rollup must not miss those just because the flow list itself got trimmed for size.
 	linkSaturation := rollupSaturation(flows, window)
-	if len(flows) > flow.MaxRawFlows {
+	if len(flows) > wire.MaxRawFlows {
 		// Keep the busiest; the rest are counted as lost so the report says so.
-		lost += uint64(len(flows) - flow.MaxRawFlows)
+		lost += uint64(len(flows) - wire.MaxRawFlows)
 		sortByWeight(flows)
-		flows = flows[:flow.MaxRawFlows]
+		flows = flows[:wire.MaxRawFlows]
 	}
 	return &ikhnosv1.FlowReport{
 		Method:          src.Method(),
@@ -168,10 +168,10 @@ func Run(ctx context.Context, src Source, agentURL string, secret []byte, node s
 			logf("could not encode a report", "err", err)
 			continue
 		}
-		paused, err := probe.PostSigned(ctx, hc, agentURL+flow.PathReport, secret, node, body, time.Now())
+		paused, err := probe.PostSignedContext(ctx, hc, agentURL+wire.PathReport, wire.SignContext, secret, node, body, time.Now())
 		if err != nil {
 			logf("could not report to the agent, will retry with the next window", "err", err, "pending", len(pending))
-			if len(pending) > 4*flow.MaxRawFlows {
+			if len(pending) > 4*wire.MaxRawFlows {
 				pendingLost += uint64(len(pending))
 				pending = nil
 			}

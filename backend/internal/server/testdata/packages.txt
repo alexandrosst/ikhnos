@@ -109,7 +109,7 @@ flow > agent/collect
 flow > flow/wire
 flow > link
 flow > probe
-flow/collector > flow
+flow/collector > flow/wire
 flow/collector > probe
 flow/wire > facts
 fusion > accounts

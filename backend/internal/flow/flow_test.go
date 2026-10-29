@@ -17,6 +17,7 @@ import (
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
 	"ikhnos/internal/agent/collect"
+	"ikhnos/internal/flow/wire"
 	"ikhnos/internal/link"
 	"ikhnos/internal/probe"
 
@@ -517,7 +518,7 @@ func TestReceiverVerifiesAndAttributes(t *testing.T) {
 		req, _ := http.NewRequest("POST", srv.URL+PathReport, bytes.NewReader(body))
 		req.Header.Set(probe.HeaderNode, node)
 		req.Header.Set(probe.HeaderTime, ts)
-		req.Header.Set(probe.HeaderSig, probe.Sign(sec, ts, node, body))
+		req.Header.Set(probe.HeaderSig, probe.SignContext(wire.SignContext, sec, ts, node, body))
 		if mutate != nil {
 			mutate(req)
 		}
@@ -748,7 +749,7 @@ func TestReplayedFlowReportIsRejectedAndNotCountedTwice(t *testing.T) {
 		req, _ := http.NewRequest("POST", srv.URL+PathReport, bytes.NewReader(body))
 		req.Header.Set(probe.HeaderNode, "n1")
 		req.Header.Set(probe.HeaderTime, ts)
-		req.Header.Set(probe.HeaderSig, probe.Sign(secret, ts, "n1", body))
+		req.Header.Set(probe.HeaderSig, probe.SignContext(wire.SignContext, secret, ts, "n1", body))
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatal(err)
@@ -784,7 +785,7 @@ func TestFlowReceiverBoundsTheBodyAndHonoursTheWindow(t *testing.T) {
 		req.ContentLength = length
 		req.Header.Set(probe.HeaderNode, "n1")
 		req.Header.Set(probe.HeaderTime, ts)
-		req.Header.Set(probe.HeaderSig, probe.Sign(secret, ts, "n1", body))
+		req.Header.Set(probe.HeaderSig, probe.SignContext(wire.SignContext, secret, ts, "n1", body))
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, req)
 		return w.Code

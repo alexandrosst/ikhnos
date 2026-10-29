@@ -40,7 +40,7 @@ const (
 	MaxClockSkew = 5 * time.Minute
 )
 
-// signContext is what a MAC is bound to unless the receiver says otherwise: the node probe and flow reports.
+// signContext is what a MAC is bound to unless the receiver says otherwise: the node probe's reports. Flow reports have a context of their own (flow/wire).
 const signContext = "ikhnos-probe-v1"
 
 func Sign(secret []byte, ts, node string, body []byte) string {
@@ -79,6 +79,11 @@ func Push(ctx context.Context, hc *http.Client, url string, secret []byte, node 
 // uses it too, with its own secret and its own path. paused reports whether the response carried
 // HeaderPaused - see Push's own doc comment for what that means.
 func PostSigned(ctx context.Context, hc *http.Client, fullURL string, secret []byte, node string, body []byte, now time.Time) (paused bool, err error) {
+	return PostSignedContext(ctx, hc, fullURL, "", secret, node, body, now)
+}
+
+// PostSignedContext is PostSigned for a receiver whose signatures are bound to a context of their own (see SignContext).
+func PostSignedContext(ctx context.Context, hc *http.Client, fullURL, context string, secret []byte, node string, body []byte, now time.Time) (paused bool, err error) {
 	ts := strconv.FormatInt(now.Unix(), 10)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(body))
 	if err != nil {
@@ -87,7 +92,7 @@ func PostSigned(ctx context.Context, hc *http.Client, fullURL string, secret []b
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(HeaderNode, node)
 	req.Header.Set(HeaderTime, ts)
-	req.Header.Set(HeaderSig, Sign(secret, ts, node, body))
+	req.Header.Set(HeaderSig, SignContext(context, secret, ts, node, body))
 	resp, err := hc.Do(req)
 	if err != nil {
 		return false, err

@@ -24,6 +24,7 @@ type Receiver struct {
 	// Window is how far a report's timestamp may be from this clock; zero means MaxClockSkew (5 minutes).
 	Window  time.Duration
 	replay  *ReplayCache
+	limit   *SourceLimit
 	log     *slog.Logger
 	now     func() time.Time
 	changes chan struct{}
@@ -38,8 +39,11 @@ func NewReceiver(secret []byte, log *slog.Logger) *Receiver {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Receiver{secret: secret, replay: NewReplayCache(0), log: log, now: time.Now, changes: make(chan struct{}, 1), nodes: map[string]*ikhnosv1.HostProbe{}, seen: map[string]time.Time{}}
+	return &Receiver{secret: secret, replay: NewReplayCache(0), limit: DefaultSourceLimit(), log: log, now: time.Now, changes: make(chan struct{}, 1), nodes: map[string]*ikhnosv1.HostProbe{}, seen: map[string]time.Time{}}
 }
+
+// SetSourceLimit replaces how fast one source address may send (nil: no limit). The default is DefaultSourceLimit.
+func (r *Receiver) SetSourceLimit(l *SourceLimit) { r.limit = l }
 
 // Changes receives a signal whenever a report differs from the previous one for its node.
 func (r *Receiver) Changes() <-chan struct{} {
@@ -168,7 +172,7 @@ func (r *Receiver) put(node string, h *ikhnosv1.HostProbe) (accepted, paused boo
 func (r *Receiver) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+PathReport, func(w http.ResponseWriter, req *http.Request) {
-		node, body, status, err := ReadSigned(w, req, Signed{Secret: r.secret, MaxBody: MaxBody, Window: r.Window, Replay: r.replay, NodeOK: nodeName.MatchString, Now: r.now()})
+		node, body, status, err := ReadSigned(w, req, Signed{Secret: r.secret, MaxBody: MaxBody, Window: r.Window, Replay: r.replay, NodeOK: nodeName.MatchString, Now: r.now(), Limit: r.limit})
 		if err != nil {
 			if status == http.StatusUnauthorized || status == http.StatusConflict {
 				r.log.Warn("rejected a node probe report", "reason", err.Error(), "from", req.RemoteAddr)

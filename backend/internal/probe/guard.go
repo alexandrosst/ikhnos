@@ -83,19 +83,28 @@ type Signed struct {
 	Replay *ReplayCache
 	NodeOK func(string) bool
 	Now    time.Time
-	// Context is what the signature is bound to (see SignContext); empty means the node probe's and flow collectors' own.
+	// Context is what the signature is bound to (see SignContext); empty means the node probe's own.
 	Context string
+	// Limit, when set, is met before anything else: a source that sends faster than it allows is answered 429 and its request is not read.
+	Limit *SourceLimit
 }
 
 // ErrReplay marks a report whose signature was already accepted.
 var ErrReplay = errors.New("report already received")
 
-// ReadSigned checks the cheap things before it reads a byte of the body: the declared length, the node
+// ErrRate marks a request turned away because its source sent too many.
+var ErrRate = errors.New("too many requests from this source")
+
+// ReadSigned checks the cheap things before it reads a byte of the body: the rate of the source, the declared length, the node
 // name, the timestamp and the shape of the signature. A request that fails one is refused unread. Any
 // sender can forge those headers, so one that passes is read, up to MaxBody bytes and for as long as the
 // server's read timeout allows, and only then is the HMAC verified (constant-time) and a replay rejected. On failure it returns the HTTP status to answer with and the
 // reason to log (never to send).
 func ReadSigned(w http.ResponseWriter, req *http.Request, s Signed) (node string, body []byte, status int, err error) {
+	if ok, wait := s.Limit.Allow(SourceOf(req), s.Now); !ok {
+		w.Header().Set("Retry-After", strconv.Itoa(int(wait/time.Second)+1))
+		return "", nil, http.StatusTooManyRequests, ErrRate
+	}
 	if req.ContentLength > s.MaxBody {
 		return "", nil, http.StatusRequestEntityTooLarge, errors.New("body larger than allowed")
 	}

@@ -17,6 +17,7 @@ import (
 	"ikhnos/internal/agent/collect"
 	"ikhnos/internal/estate"
 	"ikhnos/internal/flow"
+	flowwire "ikhnos/internal/flow/wire"
 	"ikhnos/internal/kernel"
 	"ikhnos/internal/model"
 	"ikhnos/internal/observed"
@@ -395,7 +396,7 @@ func TestObservedTrafficReachesTopology(t *testing.T) {
 		req, _ := http.NewRequest("POST", "http://"+addr+flow.PathReport, bytes.NewReader(body))
 		req.Header.Set(probe.HeaderNode, "n1")
 		req.Header.Set(probe.HeaderTime, ts)
-		req.Header.Set(probe.HeaderSig, probe.Sign(secret, ts, "n1", body))
+		req.Header.Set(probe.HeaderSig, probe.SignContext(flowwire.SignContext, secret, ts, "n1", body))
 		resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
 		if err != nil {
 			return err

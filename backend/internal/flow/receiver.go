@@ -8,20 +8,18 @@ import (
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
 	"ikhnos/internal/agent/collect"
+	"ikhnos/internal/flow/wire"
 	"ikhnos/internal/link"
 	"ikhnos/internal/probe"
 
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
+// The wire constants live in package wire, which the collector links without the rest of this package; they are named here for the agent's side.
 const (
-	PathReport = "/v1/flows"
-	// MaxBody bounds one report; a collector sends every 30 seconds. Nothing beyond it is read.
-	MaxBody = 512 << 10
-	// MaxRawFlows bounds the observations in one report, and is chosen so that a report of this many
-	// flows, with every field at its longest, still fits in MaxBody (a test holds that). The collector
-	// keeps the busiest flows and counts the rest as lost.
-	MaxRawFlows = 1500
+	PathReport  = wire.PathReport
+	MaxBody     = wire.MaxBody
+	MaxRawFlows = wire.MaxRawFlows
 )
 
 var nodeName = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9.-]{0,251}[a-zA-Z0-9])?$`)
@@ -34,6 +32,7 @@ type Pipeline struct {
 	// Window is how far a report's timestamp may be from this clock; zero means probe.MaxClockSkew (5 minutes).
 	Window time.Duration
 	replay *probe.ReplayCache
+	limit  *probe.SourceLimit
 	log    *slog.Logger
 	now    func() time.Time
 
@@ -48,14 +47,14 @@ func NewPipeline(secret []byte, source func() *collect.Index, log *slog.Logger) 
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Pipeline{secret: secret, replay: probe.NewReplayCache(0), log: log, now: time.Now, Resolver: NewResolver(source), Aggregator: NewAggregator()}
+	return &Pipeline{secret: secret, replay: probe.NewReplayCache(0), limit: probe.DefaultSourceLimit(), log: log, now: time.Now, Resolver: NewResolver(source), Aggregator: NewAggregator()}
 }
 
 // Handler serves POST /v1/flows.
 func (p *Pipeline) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+PathReport, func(w http.ResponseWriter, req *http.Request) {
-		_, body, status, err := probe.ReadSigned(w, req, probe.Signed{Secret: p.secret, MaxBody: MaxBody, Window: p.Window, Replay: p.replay, NodeOK: nodeName.MatchString, Now: p.now()})
+		_, body, status, err := probe.ReadSigned(w, req, probe.Signed{Secret: p.secret, MaxBody: MaxBody, Window: p.Window, Replay: p.replay, NodeOK: nodeName.MatchString, Now: p.now(), Context: wire.SignContext, Limit: p.limit})
 		if err != nil {
 			if status == http.StatusUnauthorized || status == http.StatusConflict {
 				p.log.Warn("rejected a flow report", "reason", err.Error(), "from", req.RemoteAddr)
@@ -79,6 +78,9 @@ func (p *Pipeline) Handler() http.Handler {
 	})
 	return mux
 }
+
+// SetSourceLimit replaces how fast one source address may send (nil: no limit). The default is probe.DefaultSourceLimit.
+func (p *Pipeline) SetSourceLimit(l *probe.SourceLimit) { p.limit = l }
 
 // SetPaused stops (or resumes) taking reports in. While paused a report is read, verified and thrown away, nothing
 // is held and nothing is sent: this is what "the server asked the agent to stop observing traffic" does.

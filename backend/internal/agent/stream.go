@@ -169,7 +169,9 @@ func (r *runner) enforce(o overrides) {
 		r.cfg.Probes.SetPaused(o.paused[collectorProbes])
 	}
 	if r.cfg.Flows != nil {
-		r.cfg.Flows.SetPaused(o.paused[collectorFlow])
+		// Observed traffic is workload-level information: below tier 2 it is not taken in at all (answered and thrown away, as when the server
+		// pauses it, so the collectors slow down), rather than held up to the caps for a flush that never comes.
+		r.cfg.Flows.SetPaused(o.paused[collectorFlow] || o.tier < 2)
 	}
 	r.mu.Lock()
 	c := r.collector
@@ -555,9 +557,8 @@ func (r *runner) stream(ctx context.Context, id *Identity) error {
 	}
 	applyConfig(cfg, ov)
 	// Observed traffic is workload-level information, so it is only collected and sent when the
-	// effective access covers workloads (tier 2). Below that nothing is sent: the receiver still takes the reports and the aggregator holds
-	// them up to its caps, but Flush is never called. The server may pause it: the pipeline then discards what arrives and Flush has
-	// nothing to send.
+	// effective access covers workloads (tier 2). Below that the pipeline is paused (see enforce): it answers the collectors and discards what arrives,
+	// and nothing is held or sent. The server may pause it the same way.
 	var flowTick <-chan time.Time
 	if r.cfg.Flows != nil && tier >= 2 {
 		t := time.NewTicker(r.cfg.FlowWindow)
