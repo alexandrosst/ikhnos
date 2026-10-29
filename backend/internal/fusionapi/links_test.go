@@ -47,6 +47,12 @@ func TestLinkReadingsReadEachFigureWithItsOwnQuery(t *testing.T) {
 			out = vec(row("0.012", "cluster", "a", "peer", "b"), row("NaN", "cluster", "b", "peer", "a"))
 		case strings.Contains(q, "path_mtu"):
 			out = vec(row("1420", "cluster", "a", "peer", "b"))
+		case strings.Contains(q, "max_over_time(ikhnos_link_throughput_bits"):
+			out = vec(row("9.5e+08", "cluster", "a", "peer", "b", "direction", "forward"))
+		case strings.Contains(q, "throughput_bounded"):
+			out = vec(row("1", "cluster", "a", "peer", "b", "direction", "forward"))
+		case strings.Contains(q, "throughput_port_bits"):
+			out = vec(row("1e+09", "cluster", "a", "peer", "b"))
 		case strings.Contains(q, "throughput_bits"):
 			out = vec(row("9.2e+08", "cluster", "a", "peer", "b", "direction", "forward"))
 		case strings.Contains(q, "probe_last_success"):
@@ -69,6 +75,9 @@ func TestLinkReadingsReadEachFigureWithItsOwnQuery(t *testing.T) {
 	if len(got.Jitter) != 1 || len(got.MTU) != 1 || got.MTU[0].Value != 1420 || len(got.Throughput) != 1 || len(got.Probed) != 1 {
 		t.Errorf("%+v", got)
 	}
+	if len(got.ThroughputBest) != 1 || got.ThroughputBest[0].Value != 9.5e8 || len(got.ThroughputFloor) != 1 || got.ThroughputFloor[0].Value != 1 || len(got.PortSpeed) != 1 || got.PortSpeed[0].Value != 1e9 || got.PortSpeed[0].Direction != "" {
+		t.Errorf("best = %+v, floor = %+v, port = %+v", got.ThroughputBest, got.ThroughputFloor, got.PortSpeed)
+	}
 	if len(got.Tested) != 1 || got.Tested[0].Value != 1791100000 {
 		t.Errorf("tested = %+v", got.Tested)
 	}
@@ -90,7 +99,7 @@ func TestLinkReadingsReadEachFigureWithItsOwnQuery(t *testing.T) {
 		}
 	}
 	f.mu.Unlock()
-	if seen != 10 {
+	if seen != 13 {
 		t.Errorf("%d queries", seen)
 	}
 }

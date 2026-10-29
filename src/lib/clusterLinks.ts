@@ -357,8 +357,22 @@ export function latestView(l: LinkPairLatest | undefined, now = Date.now()): Lat
   if (num(l.rttSeconds)) v.details.push(`round trip ${delayWords(l.rttSeconds)}`)
   if (num(l.jitterSeconds)) v.details.push(`jitter ${delayWords(l.jitterSeconds)}`)
   if (num(l.mtuBytes)) v.details.push(`MTU ${l.mtuBytes}`)
-  const tp = [num(l.throughputAToB) ? `${rateWords(l.throughputAToB)} →` : '', num(l.throughputBToA) ? `${rateWords(l.throughputBToA)} ←` : ''].filter(Boolean)
-  if (tp.length > 0) v.details.push(tp.join(' · '))
+  // The capacity is the best reading of the last week, because one run can come out low; a server that does not send it gets the latest.
+  // "At least" where the tests were held to their cap, so the figure is a floor.
+  const word = l.throughputFloor ? 'at least' : 'up to'
+  const dirs = [
+    { arrow: '→', latest: l.throughputAToB, best: l.throughputBestAToB },
+    { arrow: '←', latest: l.throughputBToA, best: l.throughputBestBToA },
+  ]
+  const tp = dirs.map((d) => (num(d.best) ? `${word} ${rateWords(d.best)} ${d.arrow}` : num(d.latest) ? `${rateWords(d.latest)} ${d.arrow}` : '')).filter(Boolean)
+  if (tp.length > 0) v.details.push(tp.join(' · ') + (num(l.portBitsPerSecond) ? ` · interface speed ${rateWords(l.portBitsPerSecond)}` : ''))
+  if (l.throughputFloor && tp.length > 0) v.hints.push('The tests are limited by the daily amount chosen; pick a larger one to measure the real limit.')
+  // A latest run far below the best says the link carried much less the last time (the link's own traffic, a busy node, a path change).
+  if (!l.throughputFloor) {
+    for (const d of dirs) {
+      if (num(d.best) && num(d.latest) && d.latest < d.best / 2) v.problems.push({ text: `${d.arrow} the latest test got ${rateWords(d.latest)}, under half of the best of the week`, tone: 'warn' })
+    }
+  }
   // A direction that is down has no figures; saying so keeps it from looking like one that was never asked. "Never succeeded" is a
   // failure, not an old result.
   const byDiagnosis = new Map<ProbeDiagnosis, string[]>()

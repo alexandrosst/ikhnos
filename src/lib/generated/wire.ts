@@ -1287,6 +1287,10 @@ export interface FusionLinkPair {
   mtuBytes?: number
   throughputAToB?: number
   throughputBToA?: number
+  throughputBestAToB?: number
+  throughputBestBToA?: number
+  throughputFloor?: boolean
+  portBitsPerSecond?: number
   probedAt?: string
   testedAt?: string
   probeAToB?: LinkProbeLatest
@@ -1562,6 +1566,10 @@ export interface LinkPairLatest {
   mtuBytes?: number
   throughputAToB?: number
   throughputBToA?: number
+  throughputBestAToB?: number
+  throughputBestBToA?: number
+  throughputFloor?: boolean
+  portBitsPerSecond?: number
   probedAt?: string
   testedAt?: string
   probeAToB?: LinkProbeLatest

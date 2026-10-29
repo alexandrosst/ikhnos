@@ -46,6 +46,13 @@ type LinkPairLatest struct {
 	// ThroughputAToB and ThroughputBToA are the TCP rates of the latest throughput tests, in bits per second.
 	ThroughputAToB *float64 `json:"throughputAToB,omitempty"`
 	ThroughputBToA *float64 `json:"throughputBToA,omitempty"`
+	// ThroughputBestAToB and ThroughputBestBToA are the best TCP rates any test reached in the last week: the capacity, as one run
+	// can come out low. ThroughputFloor says the latest tests were all held to their rate cap, so those are "at least" figures.
+	// PortBitsPerSecond is the speed the network interface the tests leave through has negotiated (absent where it reports none).
+	ThroughputBestAToB *float64 `json:"throughputBestAToB,omitempty"`
+	ThroughputBestBToA *float64 `json:"throughputBestBToA,omitempty"`
+	ThroughputFloor    bool     `json:"throughputFloor,omitempty"`
+	PortBitsPerSecond  *float64 `json:"portBitsPerSecond,omitempty"`
 	// ProbedAt is when a probe run last finished in either cluster; TestedAt when a throughput test last did.
 	ProbedAt *time.Time `json:"probedAt,omitempty"`
 	TestedAt *time.Time `json:"testedAt,omitempty"`
@@ -331,6 +338,7 @@ func knownFailureReason(r string) ProbeFailure {
 func readPairs(links []kernel.LinkSetting, rd fusionapi.LinkReadings, now time.Time) []pairReading {
 	loss, jitter, rtt, tput, probed, tested, up := linkIdx(rd.Loss, false), linkIdx(rd.Jitter, false), linkIdx(rd.RTT, false), linkIdx(rd.Throughput, false), linkIdx(rd.Probed, false), linkIdx(rd.Tested, false), linkIdx(rd.Up, false)
 	mtu := linkIdx(rd.MTU, true)
+	best, floor, port := linkIdx(rd.ThroughputBest, false), linkIdx(rd.ThroughputFloor, true), linkIdx(rd.PortSpeed, true)
 	probeWhy, connectWhy := linkReasons(rd.ProbeFailure), linkReasons(rd.ConnectFailure)
 	out := make([]pairReading, 0, len(links))
 	for _, l := range links {
@@ -353,6 +361,14 @@ func readPairs(links []kernel.LinkSetting, rd fusionapi.LinkReadings, now time.T
 		p.LossBToA = first(loss, [3]string{a, b, "reverse"}, [3]string{b, a, "forward"})
 		p.ThroughputAToB = first(tput, [3]string{a, b, "forward"}, [3]string{b, a, "reverse"})
 		p.ThroughputBToA = first(tput, [3]string{a, b, "reverse"}, [3]string{b, a, "forward"})
+		p.ThroughputBestAToB = first(best, [3]string{a, b, "forward"}, [3]string{b, a, "reverse"})
+		p.ThroughputBestBToA = first(best, [3]string{a, b, "reverse"}, [3]string{b, a, "forward"})
+		for _, k := range [][3]string{{a, b, "forward"}, {a, b, "reverse"}, {b, a, "forward"}, {b, a, "reverse"}} {
+			if floor[k] == 1 {
+				p.ThroughputFloor = true
+			}
+		}
+		p.PortBitsPerSecond = first(port, [3]string{a, b, ""}, [3]string{b, a, ""})
 		p.RTTSeconds = first(rtt, [3]string{a, b, ""}, [3]string{b, a, ""})
 		var jitterFrom string
 		for _, k := range [][3]string{{a, b, "forward"}, {a, b, "reverse"}, {b, a, "forward"}, {b, a, "reverse"}} {

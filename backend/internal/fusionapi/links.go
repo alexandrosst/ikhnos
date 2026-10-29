@@ -35,6 +35,11 @@ type LinkReadings struct {
 	// Throughput is the best TCP throughput of the latest tests (any stream count, unmarked packets), in bits per second, per
 	// direction.
 	Throughput []LinkReading
+	// ThroughputBest is the best TCP throughput any test reached in the last linkBestWindow (any stream count, unmarked packets),
+	// per direction: one run can come out low, so this is the figure for the link's capacity. ThroughputFloor is 1 where the
+	// latest tests of a direction all came up to their rate cap, so what the link carries is at least the figure. PortSpeed is the
+	// speed in bits per second of the interface the tests leave through, per pair (absent where it reports none).
+	ThroughputBest, ThroughputFloor, PortSpeed []LinkReading
 	// Probed is when a probe run last finished (unix seconds), per direction; Tested when a throughput test last did.
 	Probed, Tested []LinkReading
 	// Up is 1 where the latest probe run of a direction completed and 0 where it failed; a direction that was never tried has no
@@ -68,6 +73,7 @@ const (
 	linkProbeLookback = "10m"
 	linkMTULookback   = "1h"
 	linkTestLookback  = "8d"
+	linkBestWindow    = "7d"
 	linkRTTWindow     = "5m"
 	// A probe that last finished a day ago is still told apart from one that never did.
 	linkProbedLookback = "1d"
@@ -93,6 +99,9 @@ func (c *Client) LinkReadings(ctx context.Context, s Scope) (LinkReadings, error
 		{`sum by (cluster, peer) (rate(ikhnos_link_tcp_connect_seconds_sum[` + linkRTTWindow + `])) / sum by (cluster, peer) (rate(ikhnos_link_tcp_connect_seconds_count[` + linkRTTWindow + `]))`, &out.RTT},
 		{`min by (cluster, peer) (last_over_time(ikhnos_link_path_mtu_bytes[` + linkMTULookback + `]))`, &out.MTU},
 		{`max by (cluster, peer, direction) (last_over_time(ikhnos_link_throughput_bits_per_second{protocol="tcp",dscp="0"}[` + linkTestLookback + `]))`, &out.Throughput},
+		{`max by (cluster, peer, direction) (max_over_time(ikhnos_link_throughput_bits_per_second{protocol="tcp",dscp="0"}[` + linkBestWindow + `]))`, &out.ThroughputBest},
+		{`min by (cluster, peer, direction) (last_over_time(ikhnos_link_throughput_bounded{protocol="tcp",dscp="0"}[` + linkTestLookback + `]))`, &out.ThroughputFloor},
+		{`max by (cluster, peer) (last_over_time(ikhnos_link_throughput_port_bits_per_second[` + linkTestLookback + `]))`, &out.PortSpeed},
 		{`max by (cluster, peer, direction) (last_over_time(ikhnos_link_probe_last_success_timestamp_seconds[` + linkProbedLookback + `]))`, &out.Probed},
 		{`max by (cluster, peer) (last_over_time(ikhnos_link_throughput_last_success_timestamp_seconds[` + linkTestLookback + `]))`, &out.Tested},
 		{`max by (cluster, peer, direction) (ikhnos_link_probe_up)`, &out.Up},

@@ -28,6 +28,10 @@ func TestPairsGetTheirFiguresFromWhicheverClusterMeasuredThem(t *testing.T) {
 		Throughput: []fusionapi.LinkReading{lr("cl-a", "cl-b", "forward", 9.2e8), lr("cl-a", "cl-b", "reverse", 8.7e8)},
 		Probed:     []fusionapi.LinkReading{lr("cl-a", "cl-b", "forward", 1791200000), lr("cl-b", "cl-a", "reverse", 1791200100)},
 		Tested:     []fusionapi.LinkReading{lr("cl-a", "cl-b", "", 1791100000)},
+		// the best of the week, whether the latest tests were all held to their cap, and the port the tests leave through
+		ThroughputBest:  []fusionapi.LinkReading{lr("cl-a", "cl-b", "forward", 9.5e8), lr("cl-a", "cl-b", "reverse", 9.1e8)},
+		ThroughputFloor: []fusionapi.LinkReading{lr("cl-a", "cl-b", "forward", 0)},
+		PortSpeed:       []fusionapi.LinkReading{lr("cl-a", "cl-b", "", 1e9)},
 		// c only reports from its side, where "forward" is c to a
 	}
 	rd.Loss = append(rd.Loss, lr("cl-c", "cl-a", "forward", 0.1), lr("cl-c", "cl-a", "reverse", 0.2))
@@ -45,6 +49,9 @@ func TestPairsGetTheirFiguresFromWhicheverClusterMeasuredThem(t *testing.T) {
 	if f(ab.LossAToB) != 0.02 || f(ab.LossBToA) != 0 || f(ab.RTTSeconds) != 0.012 || f(ab.JitterSeconds) != 0.006 || f(ab.ThroughputAToB) != 9.2e8 || f(ab.ThroughputBToA) != 8.7e8 {
 		t.Errorf("a-b = %+v", ab)
 	}
+	if f(ab.ThroughputBestAToB) != 9.5e8 || f(ab.ThroughputBestBToA) != 9.1e8 || f(ab.PortBitsPerSecond) != 1e9 || ab.ThroughputFloor {
+		t.Errorf("best, port or floor of a-b: %+v", ab)
+	}
 	if ab.MTUBytes == nil || *ab.MTUBytes != 1420 {
 		t.Errorf("the smaller MTU of the two clusters is the pair's: %v", ab.MTUBytes)
 	}
@@ -54,6 +61,9 @@ func TestPairsGetTheirFiguresFromWhicheverClusterMeasuredThem(t *testing.T) {
 	ac := got[1]
 	if f(ac.LossAToB) != 0.2 || f(ac.LossBToA) != 0.1 { // a to c is c's reverse; c to a is c's forward
 		t.Errorf("a-c measured from c's side: %+v / %+v", f(ac.LossAToB), f(ac.LossBToA))
+	}
+	if got[1].ThroughputBestAToB != nil || got[1].PortBitsPerSecond != nil || got[1].ThroughputFloor {
+		t.Errorf("a pair with no tests has no capacity: %+v", got[1])
 	}
 	de := got[2]
 	if de.LossAToB != nil || de.RTTSeconds != nil || de.MTUBytes != nil || de.ProbedAt != nil || de.TestedAt != nil || de.A != "cl-d" {
@@ -295,5 +305,18 @@ func TestAFailedReadServesTheLastGoodOneMarkedStaleAndThenGivesUp(t *testing.T) 
 	var fresh readingsCache
 	if _, _, err := fresh.get(context.Background(), clock, readOf(fusionapi.LinkReadings{}, down, &reads)); !errors.Is(err, down) {
 		t.Fatalf("no good read: %v", err)
+	}
+}
+
+// A pair is a floor when the latest tests of any of its directions were all held to their cap: the figure then says "at least".
+func TestAPairWhoseLatestTestsAreHeldToTheirCapIsAFloor(t *testing.T) {
+	links := []kernel.LinkSetting{{A: "cl-a", B: "cl-b"}}
+	rd := fusionapi.LinkReadings{
+		ThroughputBest:  []fusionapi.LinkReading{lr("cl-a", "cl-b", "forward", 2.4e7)},
+		ThroughputFloor: []fusionapi.LinkReading{lr("cl-a", "cl-b", "forward", 1), lr("cl-a", "cl-b", "reverse", 0)},
+	}
+	got := latestPairs(links, rd, time.Unix(1791200200, 0))
+	if len(got) != 1 || !got[0].ThroughputFloor {
+		t.Errorf("%+v", got)
 	}
 }

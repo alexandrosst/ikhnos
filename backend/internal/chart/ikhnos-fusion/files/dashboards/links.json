@@ -7,7 +7,7 @@
     "links"
   ],
   "schemaVersion": 39,
-  "version": 4,
+  "version": 5,
   "editable": false,
   "graphTooltip": 1,
   "time": {
@@ -3871,7 +3871,7 @@
     {
       "id": 61,
       "type": "timeseries",
-      "title": "TCP throughput against the speed of the port",
+      "title": "TCP throughput against the interface speed",
       "datasource": {
         "type": "prometheus",
         "uid": "fusion-metrics"
@@ -3899,10 +3899,10 @@
             "type": "prometheus",
             "uid": "fusion-metrics"
           },
-          "legendFormat": "{{cluster_name}} → {{peer_name}}, port speed"
+          "legendFormat": "{{cluster_name}} → {{peer_name}}, interface speed"
         }
       ],
-      "description": "The TCP throughput next to the speed the network interface the tests leave through has negotiated (dashed). A reading close to the port speed means the port is the limit and the link may carry no more; a reading far below it with several streams no better points at the path (a shaper, the VPN, the other cluster's port) or at the window. It is the port of the cluster that runs the tests only; the other end's may be slower. The dashed line is absent when the interface reports no speed (a virtual one, Wi-Fi). Both lines hold their last value until the next test.",
+      "description": "The TCP throughput next to the speed the network interface the tests leave through has negotiated (dashed). A reading close to the interface speed means the interface is the limit and the link may carry no more; a reading far below it with several streams no better points at the path (a shaper, the VPN, the other cluster's interface) or at the window. It is the interface of the cluster that runs the tests only; the other end's may be slower. The dashed line is absent when the interface reports no speed (a virtual one, Wi-Fi). Both lines hold their last value until the next test.",
       "fieldConfig": {
         "defaults": {
           "custom": {

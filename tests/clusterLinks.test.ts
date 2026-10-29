@@ -101,6 +101,37 @@ test('the latest result of a pair is worded in the order the pair is shown', () 
   assert.deepEqual(v.when, { text: 'probed 3 min ago · tested 5 h ago', stale: false })
 })
 
+test('the throughput line gives the best of the week and the port speed, and warns when the latest run is far below it', () => {
+  const pair = { a: 'x', b: 'y', throughputAToB: 8.6e7, throughputBToA: 8.5e7, throughputBestAToB: 8.8e7, throughputBestBToA: 8.6e7, portBitsPerSecond: 1e8 }
+  const v = latestView(pair)
+  assert.ok(v)
+  assert.deepEqual(v.details, ['up to 88 Mbit/s → · up to 86 Mbit/s ← · interface speed 100 Mbit/s'])
+  assert.deepEqual(v.problems, [])
+  assert.deepEqual(v.hints, [])
+  // No port speed: the line stops after the directions.
+  assert.deepEqual(latestView({ ...pair, portBitsPerSecond: undefined })?.details, ['up to 88 Mbit/s → · up to 86 Mbit/s ←'])
+  // One direction far below its best.
+  const low = latestView({ ...pair, throughputAToB: 3.1e7 })
+  assert.deepEqual(low?.problems, [{ text: '→ the latest test got 31 Mbit/s, under half of the best of the week', tone: 'warn' }])
+  // Exactly half is not under half.
+  assert.deepEqual(latestView({ ...pair, throughputAToB: 4.4e7 })?.problems, [])
+})
+
+test('a throughput that was held to a cap is a floor and says how to measure the real limit', () => {
+  const v = latestView({ a: 'x', b: 'y', throughputAToB: 2.4e7, throughputBToA: 2.5e7, throughputBestAToB: 2.4e7, throughputBestBToA: 2.5e7, throughputFloor: true, portBitsPerSecond: 1e9 })
+  assert.ok(v)
+  assert.deepEqual(v.details, ['at least 24 Mbit/s → · at least 25 Mbit/s ← · interface speed 1.0 Gbit/s'])
+  assert.equal(v.hints.length, 1)
+  assert.match(v.hints[0], /daily amount/)
+  // A floor is not compared with the latest run.
+  assert.deepEqual(latestView({ a: 'x', b: 'y', throughputAToB: 1e6, throughputBestAToB: 2.4e7, throughputFloor: true })?.problems, [])
+})
+
+test('without a best of the week the latest reading is shown as before', () => {
+  const v = latestView({ a: 'x', b: 'y', throughputAToB: 4.8e7, portBitsPerSecond: 1e8 })
+  assert.deepEqual(v?.details, ['48 Mbit/s → · interface speed 100 Mbit/s'])
+})
+
 test('the tone follows the worse direction, and an old probe is marked old', () => {
   const now = Date.parse('2026-10-14T12:00:00Z')
   assert.equal(latestView({ a: 'x', b: 'y', lossAToB: 0.06, lossBToA: 0 }, now)?.loss?.tone, 'bad')

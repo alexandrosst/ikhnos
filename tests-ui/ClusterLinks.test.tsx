@@ -330,6 +330,17 @@ describe('ClusterLinks', () => {
       expect(first.querySelector('.text-warn')).toBeNull()
     })
 
+    it('shows the best throughput of the week with the interface speed, and the latest run when it is far below', async () => {
+      seed('viewer', [{ a: 'c-eu', b: 'c-us' }])
+      vi.spyOn(api, 'linksLatest').mockResolvedValue(answer({ pairs: [
+        { a: 'c-eu', b: 'c-us', lossAToB: 0, lossBToA: 0, throughputAToB: 3.1e7, throughputBToA: 8.5e7, throughputBestAToB: 8.8e7, throughputBestBToA: 8.6e7, portBitsPerSecond: 1e8, probedAt: NOW },
+      ] }))
+      render(<ClusterLinks />)
+      const latest = await within(await screen.findByTestId('pair-row')).findByTestId('latest')
+      expect(latest).toHaveTextContent('up to 88 Mbit/s → · up to 86 Mbit/s ← · interface speed 100 Mbit/s')
+      expect(latest).toHaveTextContent('the latest test got 31 Mbit/s, under half of the best of the week')
+    })
+
     it('says so when a pair has no figures yet, and for a pair without probing', async () => {
       seed('viewer', [{ a: 'c-eu', b: 'c-us' }, { a: 'c-eu', b: 'c-gr', noProbe: true }])
       render(<ClusterLinks />)
