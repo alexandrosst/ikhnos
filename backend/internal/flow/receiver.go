@@ -40,7 +40,7 @@ type Pipeline struct {
 	Aggregator *Aggregator
 	// Links, when set, also labels each report's rows by the peer cluster they went to or came from (see package link).
 	// It only sees reports that were not thrown away because the aggregator is paused.
-	Links *link.Meter
+	Links link.RowSink
 }
 
 func NewPipeline(secret []byte, source func() *collect.Index, log *slog.Logger) *Pipeline {

@@ -262,11 +262,11 @@ func Main(args []string) int {
 		ids = agent.SecretStore{Client: client, Namespace: *ns, Name: *secret}
 	}
 
-	if err := secretsDiffer(
-		sharedSecret{"--probe-secret-file", *probeSecretFile},
-		sharedSecret{"--flow-secret-file", *flowSecretFile},
-		sharedSecret{"--link-peers-secret-file", *linkPeersSecretFile},
-		sharedSecret{"--link-iperf-secret-file", *linkIperfSecretFile},
+	if err := cli.SecretsDiffer(
+		cli.SharedSecret{Flag: "--probe-secret-file", File: *probeSecretFile},
+		cli.SharedSecret{Flag: "--flow-secret-file", File: *flowSecretFile},
+		cli.SharedSecret{Flag: "--link-peers-secret-file", File: *linkPeersSecretFile},
+		cli.SharedSecret{Flag: "--link-iperf-secret-file", File: *linkIperfSecretFile},
 	); err != nil {
 		return cli.Fatal(log, err)
 	}

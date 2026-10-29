@@ -1,4 +1,4 @@
-package agent
+package cli
 
 import (
 	"os"
@@ -23,7 +23,7 @@ func TestTheSharedSecretsMustAllDiffer(t *testing.T) {
 	peers := secretFile(t, "peers", "peers-secret-0123456789")
 	iperf := secretFile(t, "iperf", "iperf-secret-0123456789")
 	all := func(p, f, pe, i string) error {
-		return secretsDiffer(sharedSecret{"--probe-secret-file", p}, sharedSecret{"--flow-secret-file", f}, sharedSecret{"--link-peers-secret-file", pe}, sharedSecret{"--link-iperf-secret-file", i})
+		return SecretsDiffer(SharedSecret{Flag: "--probe-secret-file", File: p}, SharedSecret{Flag: "--flow-secret-file", File: f}, SharedSecret{Flag: "--link-peers-secret-file", File: pe}, SharedSecret{Flag: "--link-iperf-secret-file", File: i})
 	}
 	if err := all(probe, flow, peers, iperf); err != nil {
 		t.Fatalf("four different secrets: %v", err)

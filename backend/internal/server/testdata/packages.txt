@@ -54,6 +54,9 @@ cli/flow > cli
 cli/flow > flow/collector
 cli/flow > flow/conntrack
 cli/flow > flow/ebpf
+cli/linkhub > cli
+cli/linkhub > link
+cli/linkhub > linkhub
 cli/linkiperf > cli
 cli/linkiperf > link
 cli/linkprober > cli
@@ -147,6 +150,8 @@ kernel > pki
 kernel > sealing
 kernel > store
 link > probe
+linkhub > link
+linkhub > probe
 linksapi > connectivity
 linksapi > fusionapi
 linksapi > fusionhttp

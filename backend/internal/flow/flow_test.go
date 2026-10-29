@@ -706,10 +706,11 @@ func TestLinkMeterSkipsExcludedNamespacesAndMalformedRows(t *testing.T) {
 	peers.Set("me", []*ikhnosv1.LinkPeer{{ClusterId: "cl-a", Name: "A", Addresses: []string{"203.0.113.9"}}})
 	p.Links = link.NewMeter(peers)
 	count := func(rows ...*ikhnosv1.RawFlow) string {
-		p.Links = link.NewMeter(peers)
+		meter := link.NewMeter(peers)
+		p.Links = meter
 		p.Ingest(&ikhnosv1.FlowReport{Method: "ebpf", Node: "n1", BytesKnown: true, Flows: rows})
 		var b bytes.Buffer
-		p.Links.Write(&b)
+		meter.Write(&b)
 		for _, l := range strings.Split(b.String(), "\n") {
 			if strings.HasPrefix(l, "ikhnos_link_connections_total{") {
 				return l[strings.LastIndex(l, " ")+1:]

@@ -5,6 +5,7 @@
 //	ikhnos probe   the optional node probe (DaemonSet)
 //	ikhnos flow    the optional node flow collector (DaemonSet, needs root and BPF)
 //	ikhnos link-prober   the optional cluster-link prober (Deployment; OWAMP is in the link image)
+//	ikhnos link-hub   the optional cluster-link hub: the passive link series, and the answers to the prober and the responders (Deployment)
 //	ikhnos link-iperf-server   the iperf3 server of the throughput tests when Ikhnos issues the credentials (runs in the responder pod)
 //	ikhnos cert-renew   the regional operator's sidecar that keeps its TLS Secrets from expiring
 //	ikhnos purge-identity   deletes the agent's identity Secret (the agent chart's post-delete hook, when asked for)
@@ -24,6 +25,7 @@ import (
 	agentcli "ikhnos/internal/cli/agent"
 	renewcli "ikhnos/internal/cli/certrenew"
 	flowcli "ikhnos/internal/cli/flow"
+	linkhubcli "ikhnos/internal/cli/linkhub"
 	linkiperfcli "ikhnos/internal/cli/linkiperf"
 	linkprobercli "ikhnos/internal/cli/linkprober"
 	probecli "ikhnos/internal/cli/probe"
@@ -52,6 +54,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return flowcli.Main(args[1:])
 	case "link-prober":
 		return linkprobercli.Main(args[1:])
+	case "link-hub":
+		return linkhubcli.Main(args[1:])
 	case "link-iperf-server":
 		return linkiperfcli.Main(args[1:])
 	case "cert-renew":

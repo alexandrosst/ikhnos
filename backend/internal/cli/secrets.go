@@ -1,31 +1,30 @@
-package agent
+package cli
 
 import (
 	"bytes"
 	"fmt"
 	"os"
-	"strings"
 )
 
-// sharedSecret is one secret the agent shares with a kind of pod: the flag it is given by, and the file it is read from.
-type sharedSecret struct {
-	flag string
-	file string
+// SharedSecret is one secret the agent shares with a kind of pod: the flag it is given by, and the file it is read from.
+type SharedSecret struct {
+	Flag string
+	File string
 }
 
-// secretsDiffer fails when two of the shared secrets are the same. Each kind of pod holds one secret, so a pod that is compromised can sign
+// SecretsDiffer fails when two of the shared secrets are the same. Each kind of pod holds one secret, so a pod that is compromised can sign
 // only what it is meant to: the node probe's reports, the flow collectors' reports, the prober's request for its peers, the responders' request
 // for the iperf3 credentials. Their signatures are also bound to a context of their own, but that is the second line: it only helps while the
 // secrets differ, and a chart or a hand-made Secret that gave two of them the same value would undo the whole separation without a sign. A file
 // that is not set or cannot be read is not compared; those are reported where the secret is read.
-func secretsDiffer(secrets ...sharedSecret) error {
-	var read []sharedSecret
+func SecretsDiffer(secrets ...SharedSecret) error {
+	var read []SharedSecret
 	var values [][]byte
 	for _, s := range secrets {
-		if s.file == "" {
+		if s.File == "" {
 			continue
 		}
-		b, err := os.ReadFile(s.file)
+		b, err := os.ReadFile(s.File)
 		if err != nil {
 			continue
 		}
@@ -35,7 +34,11 @@ func secretsDiffer(secrets ...sharedSecret) error {
 	for i := range read {
 		for j := i + 1; j < len(read); j++ {
 			if bytes.Equal(values[i], values[j]) {
-				return fmt.Errorf("%s and %s hold the same secret: each kind of pod must have one of its own, or one of them could sign what only the other is meant to (%s)", read[i].flag, read[j].flag, strings.TrimSpace(why[[2]string{read[i].flag, read[j].flag}]))
+				reason := why[[2]string{read[i].Flag, read[j].Flag}]
+				if reason == "" {
+					reason = "one could then sign what only the other is meant to"
+				}
+				return fmt.Errorf("%s and %s hold the same secret: each kind of pod must have one of its own (%s)", read[i].Flag, read[j].Flag, reason)
 			}
 		}
 	}
@@ -50,4 +53,8 @@ var why = map[[2]string]string{
 	{"--flow-secret-file", "--link-peers-secret-file"}:       "the link prober could then forge traffic reports",
 	{"--flow-secret-file", "--link-iperf-secret-file"}:       "a responder pod could then forge traffic reports",
 	{"--link-peers-secret-file", "--link-iperf-secret-file"}: "the prober could then read the iperf3 private key",
+	{"--link-hub-secret-file", "--link-peers-secret-file"}:   "the prober could then feed the hub rows and a peer list",
+	{"--link-hub-secret-file", "--link-iperf-secret-file"}:   "a responder pod could then read or replace the iperf3 credentials",
+	{"--link-hub-secret-file", "--flow-secret-file"}:         "a node flow collector could then feed the hub rows and a peer list",
+	{"--link-hub-secret-file", "--probe-secret-file"}:        "a node probe could then feed the hub rows and a peer list",
 }
