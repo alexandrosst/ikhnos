@@ -49,6 +49,16 @@ export default function LocalOperatorDetail({ row, extras, connected, namespace,
           </div>
         </section>
 
+        {(row.differences?.length ?? 0) > 0 && (
+          <section aria-labelledby="lod-asked" data-testid="local-operator-differences">
+            <h3 id="lod-asked" className="mb-1 text-sm font-medium text-nb-300">Asked for, and not what is installed</h3>
+            <ul className="list-disc space-y-0.5 pl-5 text-sm text-nb-400">
+              {row.differences!.map((x) => <li key={x.text}>{x.text}</li>)}
+            </ul>
+            <p className="mt-1 text-xs text-nb-500">Compared with what the agent reports its release was installed with, not with the running collectors. Either the command that applies the change has not been run, or the install was changed afterwards.</p>
+          </section>
+        )}
+
         {installed.length > 0 && (
           <section aria-labelledby="lod-arrive" data-testid="local-operator-arrival">
             <h3 id="lod-arrive" className="mb-1 text-sm font-medium text-nb-300">Is data arriving?</h3>

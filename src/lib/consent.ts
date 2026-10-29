@@ -460,7 +460,7 @@ export function seedTelemetryFromInstalled(installed: string[], config?: AgentTe
 }
 
 const SCOPE_LABEL: Record<(typeof APP_SCOPE_KEYS)[number], string> = { applicationMetrics: 'application metrics', applicationLogs: 'application logs', traces: 'traces' }
-const scopeWords1 = (s: { namespaces: string[]; exclude: string[] }) => `${s.namespaces.length ? s.namespaces.join(', ') : 'all namespaces'}${s.exclude.length ? `, without ${s.exclude.join(', ')}` : ''}`
+export const scopeWords1 = (s: { namespaces: string[]; exclude: string[] }) => `${s.namespaces.length ? s.namespaces.join(', ') : 'all namespaces'}${s.exclude.length ? `, without ${s.exclude.join(', ')}` : ''}`
 
 /**
  * What running the command will change, one short line each, for the summary shown before it is copied. It compares the draft with

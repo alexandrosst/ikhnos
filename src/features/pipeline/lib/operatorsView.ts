@@ -1,5 +1,6 @@
 import { extrasOf, releaseTarget, type AgentDiagnostics } from '../../../lib/consent'
 import { exportReach, exportRows } from '../../../lib/exportHealth'
+import { compareIntent, differenceSentence, type IntentDifference } from './intentComparison'
 import { failingSources } from './operatorPicture'
 import { CENTRAL_OPERATOR_ID, type FusionKind } from '../../fusion/lib/fusionStatus'
 import { ago } from '../../../lib/observed'
@@ -63,6 +64,8 @@ export interface ComponentRow {
   sendsDirect?: boolean
   /** Local operators only: it also (or only) sends to something other than the central operator - a regional operator or an endpoint. */
   sendsOnward?: boolean
+  /** Local operators only: what the install does differently from what was asked of it (see intentComparison.ts). */
+  differences?: IntentDifference[]
 }
 
 const MIN = 60_000
@@ -137,9 +140,9 @@ export interface LocalRow {
   pending: boolean
   /** Reported running, and not what was asked for: the install was changed (or not yet re-run) since. */
   drifted: boolean
+  /** What differs between the two, in words (see intentComparison.ts); empty when `drifted` is false. */
+  differences: IntentDifference[]
 }
-
-const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x))
 
 /** Local operators are agents, not records of their own: every approved agent with telemetry running, plus every one that has been
  *  asked to run some and has not said so yet - which is how a command that was just run shows up before its first report. */
@@ -157,6 +160,7 @@ export function joinLocal(opts: {
     // The newest active intent for this agent: older ones were replaced.
     const intent = opts.intents.filter((i) => i.agentId === a.id && i.status === 'active').sort((x, y) => Date.parse(y.createdAt) - Date.parse(x.createdAt))[0]
     if (installed.length === 0 && !intent) continue
+    const differences = compareIntent(intent, installed, extras.diagnostics?.installedTelemetryConfig)
     rows.push({
       agent: a,
       cluster: opts.clusters.find((c) => c.id === a.clusterId),
@@ -165,7 +169,8 @@ export function joinLocal(opts: {
       diagnostics: extras.diagnostics,
       intent,
       pending: installed.length === 0,
-      drifted: installed.length > 0 && !!intent && !sameSet(intent.signals.map((s) => s.id), installed),
+      drifted: differences.length > 0,
+      differences,
     })
   }
   return rows
@@ -238,7 +243,9 @@ export function localVerdict(r: LocalRow, agent: Agent | undefined, destination:
   const lastData = newest((r.diagnostics?.exportHealth?.routes ?? []).map((x) => x.lastSentAt))
   if (r.drifted) {
     const todo: Todo = { steps: [{ title: 'Run the install command again', text: 'The wizard shows it, ready to copy.' }], action: configure }
-    return { lastData, verdict: { state: 'attention', reason: 'What it runs is not what was asked: the install changed, or the new command has not been run.', todo } }
+    const what = r.differences.length > 0 ? ` ${differenceSentence(r.differences)}` : ''
+    const reason = `What it runs is not what was asked.${what} Either the new command has not been run yet, or the install was changed after it.`
+    return { lastData, verdict: { state: 'attention', reason, todo } }
   }
   const rows = r.diagnostics?.exportHealth && exportReach(r.diagnostics) === 'ok' ? exportRows(r.installed, r.diagnostics.exportHealth) : undefined
   if (!rows) return { lastData, verdict: { state: 'unknown', reason: 'It does not report its export counters, so it is not known whether data is flowing.' } }
@@ -348,7 +355,7 @@ export function buildComponents({ agents, clusters, rawAgents, intents, operator
     const cert: CertCell = intentTargets(l.r.intent).length > 0 ? { kind: 'auto' } : { kind: 'none' }
     const targets = intentTargets(l.r.intent)
     const direct = targets.includes(CENTRAL_OPERATOR_ID)
-    rows.push({ id: `local:${l.r.agent.id}`, kind: 'local', name: `${l.r.agent.name} collector`, cluster: cluster(l.r.agent.clusterId), agentId: l.r.agent.id, verdict: l.verdict, cert, sendsTo: l.sendsTo, lastData: l.lastData, sendsDirect: direct, sendsOnward: !direct || targets.some((t) => t !== CENTRAL_OPERATOR_ID) })
+    rows.push({ id: `local:${l.r.agent.id}`, kind: 'local', name: `${l.r.agent.name} collector`, cluster: cluster(l.r.agent.clusterId), agentId: l.r.agent.id, verdict: l.verdict, cert, sendsTo: l.sendsTo, lastData: l.lastData, sendsDirect: direct, sendsOnward: !direct || targets.some((t) => t !== CENTRAL_OPERATOR_ID), differences: l.r.differences })
   }
   for (const op of operators) {
     const central = op.id === CENTRAL_OPERATOR_ID

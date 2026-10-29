@@ -98,7 +98,7 @@ test('agentVerdict: connected is Healthy, a late heartbeat Needs attention, disc
   assert.equal(agentVerdict(ag({ connected: undefined }), NOW).state, 'unknown')
 })
 
-const row = (over: Partial<LocalRow> = {}): LocalRow => ({ agent: { id: 'a1', name: 'atlas' }, installed: ['resourceUsage'], pending: false, drifted: false, diagnostics: undefined, ...over })
+const row = (over: Partial<LocalRow> = {}): LocalRow => ({ agent: { id: 'a1', name: 'atlas' }, installed: ['resourceUsage'], pending: false, drifted: false, differences: [], diagnostics: undefined, ...over })
 const withRoutes = (routes: { state: string; lastSentAt?: string }[]) =>
   ({ reportedAt: ago(MIN), installedTelemetry: ['resourceUsage'], exportHealth: { podsReached: 1, podsFailed: 0, routes: routes.map((r) => ({ exporter: 'otlp', signal: 'metrics', sent: 1, failed: 0, ...r })) } }) as never
 

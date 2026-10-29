@@ -999,6 +999,21 @@ describe('PipelinePage - local operators', () => {
     expect(within(offline).queryByRole('button', { name: /What to do/ })).not.toBeInTheDocument()
   })
 
+  test('a collector whose install is not what was asked needs attention and says what differs, in the row and in its detail', async () => {
+    const user = userEvent.setup()
+    listTelemetryIntents.mockResolvedValue([intent({ signals: [{ id: 'resourceUsage', source: 'builtin' }, { id: 'systemLogs', source: 'builtin' }, { id: 'traces', source: 'builtin' }], destination: { kind: 'external', endpoint: 'new.example.com:4317' } })])
+    topologyState = { agents: [installedAgent({ reportedAt: minutesAgo(1), installedTelemetryConfig: { exportEndpoint: 'old.example.com:4317', redactionEnabled: true, resourceDetectionEnabled: true }, exportHealth: { podsReached: 1, podsFailed: 0, routes: [{ exporter: 'otlp', signal: 'metrics', state: 'exporting', sent: 5, failed: 0, lastSentAt: minutesAgo(0) }] } })], clusters: [cl()] }
+    renderPage()
+    const row = await screen.findByTestId('component-local:a1')
+    expect(row).toHaveAttribute('data-state', 'attention')
+    const reason = within(row).getByTestId('component-reason-local:a1')
+    expect(reason).toHaveTextContent('Asked for Traces, which is not installed.')
+    expect(reason).toHaveTextContent('Sends everything to old.example.com:4317; asked for new.example.com:4317.')
+    await user.click(row)
+    const diffs = screen.getByTestId('local-operator-differences')
+    expect(within(diffs).getAllByRole('listitem').map((x) => x.textContent)).toEqual(['Asked for Traces, which is not installed', 'Sends everything to old.example.com:4317; asked for new.example.com:4317'])
+  })
+
   test('a collector whose route is failing is Not working, and its What to do leads to the detail with the picture of its collectors', async () => {
     const user = userEvent.setup()
     listTelemetryIntents.mockResolvedValue([intent({ destination: { kind: 'external', endpoint: 'otel.example.com:4317' } })])
