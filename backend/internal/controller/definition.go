@@ -16,7 +16,7 @@ const (
 	// can run against an older one: the API server then drops, without a word, the fields of the resource it does not know (a destination
 	// over mutual TLS, a status the controller writes). A test holds the number to the file and to a hash of its schema.
 	SchemaRevisionAnnotation = "ikhnos.io/schema-revision"
-	SchemaRevision           = 1
+	SchemaRevision           = 2
 
 	// ConditionDefinitionCurrent is true when the definition in this cluster is at least as new as the controller. It is not part of Ready:
 	// an old definition does not stop the release from being installed as the spec asks, it stops the spec from saying everything.

@@ -79,6 +79,10 @@ type ClusterLinks struct {
 	Throughput bool `json:"throughput"`
 	// AuthSecret is a Secret of the person's own holding iperf3's credentials. Empty: Ikhnos issues them.
 	AuthSecret string `json:"authSecret"`
+	// Hub runs the link hub: one small pod that holds the link metrics and answers the probers and the collector, so that
+	// the discovery agent (the one door to the server) is left with the control plane only. It is stated only when it is on:
+	// the panel does not yet write it, and a draft that says nothing leaves a hub that a helm install turned on where it is.
+	Hub bool `json:"hub,omitempty"`
 }
 
 // Workload names the workloads of one namespace that are kept.
@@ -291,6 +295,8 @@ var signalFlags = []string{
 	// The prober needs the metrics switch above: left on while that goes off, the chart would refuse to render.
 	"telemetry.clusterLinks.probe.enabled",
 	"telemetry.clusterLinks.probe.capacity.enabled",
+	// The hub needs the metrics switch above too: the chart refuses it without.
+	"telemetry.clusterLinks.hub.enabled",
 	"telemetry.applicationMetrics.metrics.enabled",
 	"telemetry.systemLogs.logs.enabled",
 	"telemetry.kubernetesEvents.logs.enabled",

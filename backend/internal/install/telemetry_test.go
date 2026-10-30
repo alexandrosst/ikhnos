@@ -80,6 +80,13 @@ func TestTelemetryProblems(t *testing.T) {
 			t.Signals.ClusterLinks = true
 			t.ClusterLinks = ClusterLinks{Probe: true, AuthSecret: "Bad_Name"}
 		}), ""},
+		{"the link hub without the cluster-links signal", mut(func(t *Telemetry) {
+			t.ClusterLinks = ClusterLinks{Hub: true}
+		}), "Cluster links: the link hub"},
+		{"the link hub with it", mut(func(t *Telemetry) {
+			t.Signals.ClusterLinks = true
+			t.ClusterLinks = ClusterLinks{Hub: true}
+		}), ""},
 		{"network latency without the measurements", func() Telemetry {
 			t := valid()
 			t.Signals.NetworkLatency = true
@@ -366,5 +373,37 @@ func TestRoutesAreStatedInFullOrEmpty(t *testing.T) {
 func TestTagsWithNoNameAreEachReportedOnce(t *testing.T) {
 	if got := TagProblems([]Tag{{"", "v"}, {"", "w"}}); len(got) != 2 || got[0] != "Every tag needs a name" || got[1] != got[0] {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestTheLinkHubIsStatedOnlyWhenItIsOnOrTheLinksAreGone(t *testing.T) {
+	const on, off = "--set telemetry.clusterLinks.hub.enabled=true", "--set telemetry.clusterLinks.hub.enabled=false"
+	links := func(l ClusterLinks) string {
+		d := valid()
+		d.Signals.ClusterLinks = true
+		d.ClusterLinks = l
+		v, err := d.Values()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return Flags(v)
+	}
+	if got := links(ClusterLinks{Probe: true, Hub: true}); !strings.Contains(got, on) || strings.Contains(got, off) {
+		t.Errorf("a hub that was asked for is not stated on:\n%s", got)
+	}
+	// Not asked for: nothing is said, so a hub the release has (a helm install turned it on; the panel cannot yet write it) stays.
+	if got := links(ClusterLinks{Probe: true}); strings.Contains(got, "clusterLinks.hub") {
+		t.Errorf("a draft that does not mention the hub states it:\n%s", got)
+	}
+	// The links gone: the chart refuses a hub without them, so it is stated off with them, as the prober is.
+	d := valid()
+	d.ClusterLinks = ClusterLinks{Hub: true}
+	v, err := d.Values()
+	if err == nil {
+		t.Fatalf("a hub without the signal was accepted: %v", Flags(v))
+	}
+	v, err = valid().Values()
+	if err != nil || !strings.Contains(Flags(v), off) {
+		t.Errorf("without the links the hub is not stated off (%v):\n%s", err, Flags(v))
 	}
 }

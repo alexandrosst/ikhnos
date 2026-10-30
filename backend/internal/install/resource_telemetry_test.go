@@ -27,7 +27,7 @@ func drafts() map[string]Telemetry {
 	everything.Signals = all
 	everything.Energy = Source{Kind: "existing", Endpoint: "kepler.monitoring:9102"}
 	everything.Accelerators = Accelerators{Source: Source{Kind: "existing", Endpoint: "dcgm.gpu:9400"}, ApplyScope: true}
-	everything.ClusterLinks = ClusterLinks{Probe: true, Throughput: true, AuthSecret: "iperf-auth"}
+	everything.ClusterLinks = ClusterLinks{Probe: true, Throughput: true, AuthSecret: "iperf-auth", Hub: true}
 	everything.Destination = Destination{Endpoint: "otel.example.com:4318", Protocol: "http", Insecure: true, AuthHeader: "X-Api-Key", AuthSecret: "otel-token", AuthKey: "key"}
 	everything.Processing = Processing{ResourceDetection: true, Redaction: true, TracesSamplingPercent: pct(25.5), Debug: "basic", Tags: []Tag{{Key: "env", Value: "prod"}, {Key: "team", Value: "edge"}}}
 	everything.Owner = Owner{OrgID: "org-1", ClusterID: "c-1"}

@@ -11,7 +11,7 @@ metadata:
     # Which version of this definition it is. The controller reads it to tell that the definition in a cluster is older than itself (Helm never
     # upgrades a CRD, so an upgraded controller can sit on an old one). A test holds it to the controller's own number and to a hash of the
     # schema, so a change of the schema without a new number fails.
-    ikhnos.io/schema-revision: "1"
+    ikhnos.io/schema-revision: "2"
 spec:
   group: ikhnos.io
   scope: Namespaced
@@ -188,6 +188,9 @@ spec:
                         authSecret:
                           type: string
                           description: A Secret of your own with iperf3's credentials. Empty, Ikhnos issues them.
+                        hub:
+                          type: boolean
+                          description: Runs the link hub, a small pod that holds the link metrics, so the discovery agent keeps to the control plane. Needs the clusterLinks signal.
                     scopes:
                       type: object
                       properties:

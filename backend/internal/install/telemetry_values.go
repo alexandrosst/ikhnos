@@ -107,10 +107,15 @@ func (t Telemetry) Values() ([]Value, error) {
 			if own := strings.TrimSpace(l.AuthSecret); l.Probe && l.Throughput && own != "" {
 				add(SetString("telemetry.clusterLinks.probe.capacity.auth.existingSecret", own))
 			}
+			// Stated only when on: saying nothing leaves the hub as the release has it, which is what a panel that cannot yet
+			// write it has to do.
+			if l.Hub {
+				add(Set("telemetry.clusterLinks.hub.enabled", "true"))
+			}
 		}
 	} else {
 		// Stated off with the signal, whatever the draft says: the prober cannot stay on without it.
-		add(Set("telemetry.clusterLinks.probe.enabled", "false"), Set("telemetry.clusterLinks.probe.capacity.enabled", "false"))
+		add(Set("telemetry.clusterLinks.probe.enabled", "false"), Set("telemetry.clusterLinks.probe.capacity.enabled", "false"), Set("telemetry.clusterLinks.hub.enabled", "false"))
 	}
 	// Each application signal's scope is stated while the signal is on, even when both lists are empty: an empty list means "no
 	// override, fall back to the install's scope", and stating it is what lets clearing an override actually take effect; leaving it

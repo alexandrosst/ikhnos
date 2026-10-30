@@ -49,6 +49,7 @@ type ResourceClusterLinks struct {
 	Probe      bool   `json:"probe,omitempty"`
 	Throughput bool   `json:"throughput,omitempty"`
 	AuthSecret string `json:"authSecret,omitempty"`
+	Hub        bool   `json:"hub,omitempty"`
 }
 
 // ResourceWorkload names the workloads of one namespace that are kept.
@@ -148,7 +149,7 @@ func (r ResourceTelemetry) Telemetry(measurements bool) Telemetry {
 		t.Accelerators.Endpoint, t.Accelerators.ApplyScope = a.Endpoint, a.ApplyScope
 	}
 	if l := r.ClusterLinks; l != nil {
-		t.ClusterLinks = ClusterLinks{Probe: l.Probe, Throughput: l.Throughput, AuthSecret: l.AuthSecret}
+		t.ClusterLinks = ClusterLinks{Probe: l.Probe, Throughput: l.Throughput, AuthSecret: l.AuthSecret, Hub: l.Hub}
 	}
 	if s := r.Scopes; s != nil {
 		t.Scopes = Scopes{ApplicationMetrics: scopeOf(s.ApplicationMetrics), ApplicationLogs: scopeOf(s.ApplicationLogs), Traces: scopeOf(s.Traces), Infrastructure: s.Infrastructure}
@@ -342,8 +343,8 @@ func ResourceOfOperators(t Telemetry, operators map[string]OperatorTLS) (*Resour
 	if t.Signals.Accelerators || t.Accelerators.ApplyScope {
 		r.Accelerators = &ResourceAccelerators{Kind: t.Accelerators.Kind, Endpoint: strings.TrimSpace(t.Accelerators.Endpoint), ApplyScope: t.Accelerators.ApplyScope}
 	}
-	if l := t.ClusterLinks; t.Signals.ClusterLinks && (l.Probe || l.Throughput) {
-		r.ClusterLinks = &ResourceClusterLinks{Probe: l.Probe, Throughput: l.Throughput, AuthSecret: strings.TrimSpace(l.AuthSecret)}
+	if l := t.ClusterLinks; t.Signals.ClusterLinks && (l.Probe || l.Throughput || l.Hub) {
+		r.ClusterLinks = &ResourceClusterLinks{Probe: l.Probe, Throughput: l.Throughput, AuthSecret: strings.TrimSpace(l.AuthSecret), Hub: l.Hub}
 	}
 	sc := &ResourceScopes{Infrastructure: t.Scopes.Infrastructure}
 	for _, s := range []struct {

@@ -94,7 +94,7 @@ func everyTelemetry(c choice) *install.ResourceTelemetry {
 	return &install.ResourceTelemetry{
 		Signals: install.ResourceSignals{ResourceUsage: true, Energy: true, KubernetesState: true, NodeRuntime: true, NetworkLatency: c.measure, ClusterLinks: c.tier >= 2,
 			ApplicationMetrics: true, SystemLogs: true, KubernetesEvents: true, ApplicationLogs: true, Traces: true, Accelerators: true},
-		ClusterLinks: &install.ResourceClusterLinks{Probe: true, Throughput: true},
+		ClusterLinks: &install.ResourceClusterLinks{Probe: true, Throughput: true, Hub: c.tier >= 2},
 		// Reached over mutual TLS, which makes the agent chart add the Role that lets the agent renew the certificate in the Secret.
 		Destination: &install.ResourceDestination{Endpoint: "central.example.com:4317", MTLS: &install.ResourceMTLS{SecretName: "op-central-export-mtls", ServerName: "op-central.ikhnos-system.svc"}},
 	}

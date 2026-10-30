@@ -16,7 +16,7 @@ import (
 
 // schemaHash is what the revision is held to. When this test fails the schema changed: raise SchemaRevision, the annotation of the file
 // (crds/ikhnosagents.yaml) and this hash together, so that a cluster that kept an older definition is told so.
-const schemaHash = "1ff39f532002dd12c10905e95a0e15da5884c4a80e60e7423e01fd38f7b2260f"
+const schemaHash = "ee5ce31836ebb06ea1778c8e66bbb1a1236b428905cc2fa0574fe4912e3299bd"
 
 func TestTheRevisionOfTheDefinitionIsTheControllersAndChangesWithItsSchema(t *testing.T) {
 	_, _, _, crd := loadCRD(t)
