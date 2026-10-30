@@ -116,21 +116,10 @@ func Main(args []string) int {
 // once a minute is as fresh as the answer can be. load, if not nil, is told the link traffic each answer carries. iperf also asks
 // for the credentials of the throughput tests (they come back sealed, and only for the peers this cluster tests).
 func follow(ctx context.Context, log *slog.Logger, hc *http.Client, url string, secret []byte, peers *link.Peers, meter *link.Meter, load *link.Load, iperf bool) {
-	asked, waiting := false, false
+	var seen followed
 	for {
 		d, err := link.FetchPeersWith(ctx, hc, url, secret, time.Now(), iperf)
-		switch {
-		case err != nil:
-			log.Warn("could not fetch the link peers from the agent", "err", err)
-		case d.ClusterID == "":
-			// The agent has not had its Config yet (it was just restarted): its empty list is "unknown", not "no peers". Applying
-			// it would make the prober forget the schedule, the budget already spent and the counters of every peer.
-			if !waiting {
-				log.Info("the agent has not received its configuration yet; keeping the peers as they are")
-				waiting = true
-			}
-		default:
-			waiting = false
+		seen.note(log, d, err, func() {
 			for _, why := range peers.SetFromDoc(d) {
 				log.Warn("link peer list", "note", why)
 			}
@@ -138,11 +127,7 @@ func follow(ctx context.Context, log *slog.Logger, hc *http.Client, url string, 
 			if load != nil {
 				load.Observe(d, time.Now())
 			}
-			if !asked {
-				log.Info("link peers", "cluster", d.ClusterID, "peers", len(d.Peers))
-				asked = true
-			}
-		}
+		})
 		t := time.NewTimer(time.Minute)
 		select {
 		case <-ctx.Done():
@@ -150,6 +135,43 @@ func follow(ctx context.Context, log *slog.Logger, hc *http.Client, url string, 
 			return
 		case <-t.C:
 		}
+	}
+}
+
+// followed remembers what the last answers said, so the log carries what changed and not every minute's repetition: the first
+// list, a different cluster or number of peers, and the first answer after the agent (or the link hub in front of it) could
+// not be reached. Without that, a prober that lost its agent for an hour and came back looks, in its log, like one that never did.
+type followed struct {
+	asked, waiting, failing bool
+	cluster                 string
+	peers                   int
+}
+
+// note logs what the answer (d, or err) changes and, when it is a usable list, calls apply.
+func (f *followed) note(log *slog.Logger, d link.PeersDoc, err error, apply func()) {
+	switch {
+	case err != nil:
+		log.Warn("could not fetch the link peers from the agent", "err", err)
+		f.failing = true
+	case d.ClusterID == "":
+		// The agent has not had its Config yet (it was just restarted): its empty list is "unknown", not "no peers". Applying
+		// it would make the prober forget the schedule, the budget already spent and the counters of every peer.
+		f.failing = false
+		if !f.waiting {
+			log.Info("the agent has not received its configuration yet; keeping the peers as they are")
+			f.waiting = true
+		}
+	default:
+		apply()
+		changed := !f.asked || f.waiting || d.ClusterID != f.cluster || len(d.Peers) != f.peers
+		switch {
+		case f.failing:
+			log.Info("the agent answers the link peers again", "cluster", d.ClusterID, "peers", len(d.Peers), "changed", changed)
+		case changed:
+			log.Info("link peers", "cluster", d.ClusterID, "peers", len(d.Peers))
+		}
+		f.asked, f.waiting, f.failing = true, false, false
+		f.cluster, f.peers = d.ClusterID, len(d.Peers)
 	}
 }
 

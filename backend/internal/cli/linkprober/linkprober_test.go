@@ -3,6 +3,7 @@ package linkprober
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -226,5 +227,62 @@ func TestConnectTimingIsOnByDefaultAndOffAtZero(t *testing.T) {
 	_ = fs2.Parse([]string{"--tcp-interval", "0"})
 	if c, err := f2.connect(m, 8861); err != nil || c != nil {
 		t.Fatalf("an interval of 0 turns connect timing off: %+v %v", c, err)
+	}
+}
+
+// The log of a prober that follows its agent says what changed: the first list, a different number of peers, and the answer
+// that comes after the agent could not be reached - not one line per minute, and not nothing after the first.
+func TestTheProberLogsWhatChangesInThePeerList(t *testing.T) {
+	var buf bytes.Buffer
+	log := slog.New(slog.NewTextHandler(&buf, nil))
+	var f followed
+	applied := 0
+	apply := func() { applied++ }
+	doc := func(cluster string, n int) link.PeersDoc {
+		d := link.PeersDoc{ClusterID: cluster}
+		for i := 0; i < n; i++ {
+			d.Peers = append(d.Peers, link.PeerDoc{ID: "cl-" + string(rune('a'+i))})
+		}
+		return d
+	}
+	count := func(s string) int { return strings.Count(buf.String(), s) }
+
+	f.note(log, doc("cl-me", 0), nil, apply)
+	f.note(log, doc("cl-me", 0), nil, apply)
+	if count("msg=\"link peers\"") != 1 {
+		t.Errorf("an unchanged list is logged once, not every minute:\n%s", buf.String())
+	}
+	f.note(log, doc("cl-me", 2), nil, apply)
+	if count("msg=\"link peers\"") != 2 || !strings.Contains(buf.String(), "peers=2") {
+		t.Errorf("a different number of peers is not logged:\n%s", buf.String())
+	}
+
+	f.note(log, link.PeersDoc{}, errors.New("connection refused"), apply)
+	f.note(log, link.PeersDoc{}, errors.New("connection refused"), apply)
+	if count("could not fetch") != 2 {
+		t.Errorf("every failed ask is still reported:\n%s", buf.String())
+	}
+	f.note(log, doc("cl-me", 2), nil, apply)
+	if count("answers the link peers again") != 1 || !strings.Contains(buf.String(), "changed=false") {
+		t.Errorf("the answer after a failure is not reported as such:\n%s", buf.String())
+	}
+	if count("msg=\"link peers\"") != 2 {
+		t.Errorf("a recovery with the same list is logged once, not twice:\n%s", buf.String())
+	}
+	f.note(log, doc("cl-me", 2), nil, apply)
+	if count("answers the link peers again") != 1 {
+		t.Errorf("the recovery is reported again on the next answer:\n%s", buf.String())
+	}
+	if applied != 5 {
+		t.Errorf("a usable answer must be applied, an unusable one not: applied %d times, want 5", applied)
+	}
+
+	f.note(log, link.PeersDoc{}, nil, apply) // an agent restarted without its config
+	if applied != 5 {
+		t.Errorf("an unconfigured agent's answer was applied")
+	}
+	f.note(log, doc("cl-me", 2), nil, apply)
+	if count("msg=\"link peers\"") != 3 {
+		t.Errorf("the list after the agent got its config back is not logged:\n%s", buf.String())
 	}
 }
