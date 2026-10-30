@@ -95,7 +95,7 @@ func TestTheAgentCanWriteExactlyThreeThingsEachByName(t *testing.T) {
 		"--set", "telemetry.clusterLinks.metrics.enabled=true", "--set", "telemetry.clusterLinks.probe.enabled=true",
 		"--set", "telemetry.clusterLinks.probe.capacity.enabled=true", "--set", "telemetry.clusterLinks.hub.enabled=true")
 	want := []string{
-		"namespace: /secrets [ikhnos-agent-identity] patch,update",
+		"namespace: /secrets [ikhnos-agent-identity] update",
 		"namespace: /secrets [op-client-tls] update",
 		"namespace: ikhnos.io/ikhnosagents/status [my-agent] patch",
 	}
@@ -120,7 +120,7 @@ func TestTheAgentCanWriteExactlyThreeThingsEachByName(t *testing.T) {
 // Without the optional pieces the agent has the identity Secret and nothing else: no renewal Role, no mark on a controller's resource.
 func TestTheAgentWritesOnlyItsIdentityWhenNothingOptionalIsOn(t *testing.T) {
 	got := agentWrites(t, append(append([]string{}, baseSet...), "--set", "access.tier=2")...)
-	if len(got) != 1 || got[0] != "namespace: /secrets [ikhnos-agent-identity] patch,update" {
+	if len(got) != 1 || got[0] != "namespace: /secrets [ikhnos-agent-identity] update" {
 		t.Errorf("writes = %v", got)
 	}
 }

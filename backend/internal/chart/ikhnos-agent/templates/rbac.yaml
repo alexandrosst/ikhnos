@@ -12,7 +12,7 @@ metadata:
   labels: {{- include "agent.labels" . | nindent 4 }}
 ---
 # The agent keeps its identity (key + certificate) in exactly one Secret. The Secret is created
-# empty by this chart, so the Role can be limited to get/update/patch on that single name:
+# empty by this chart, so the Role can be limited to get/update on that single name:
 # the agent cannot read any other Secret and cannot create new ones.
 apiVersion: v1
 kind: Secret
@@ -34,7 +34,7 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     resourceNames: [{{ include "agent.identitySecret" . | quote }}]
-    verbs: ["get", "update", "patch"]
+    verbs: ["get", "update"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

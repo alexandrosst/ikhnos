@@ -141,7 +141,7 @@ func (f FileStore) Save(_ context.Context, id *Identity) error {
 func (f FileStore) Clear(context.Context) error { return os.RemoveAll(f.Dir) }
 
 // SecretStore keeps the identity in one Kubernetes Secret in the agent's own namespace.
-// The Helm chart creates the (empty) Secret and grants get/update/patch on that name only,
+// The Helm chart creates the (empty) Secret and grants get/update on that name only,
 // so the agent has no way to read or create any other Secret.
 type SecretStore struct {
 	Client    kubernetes.Interface

@@ -21,8 +21,8 @@ role. Nothing below is ever combined into a single ClusterRole — each piece is
 resource it needs, in the namespace it needs it in.
 
 **Its own identity.** A `Role` + `RoleBinding`, in the agent's own namespace, naming exactly one Secret by
-`resourceNames` — `get`, `update`, `patch`. The agent cannot read any other Secret in the cluster and
-cannot create a new one; this is also the *only* write verb anywhere in the entire agent RBAC surface.
+`resourceNames` — `get`, `update`. The agent cannot read any other Secret in the cluster and
+cannot create a new one; this is the first of its three narrow writes (see below).
 
 **Resolving the real API address** (on by default — `access.resolveApiEndpoint`). A second, separate
 `Role` + `RoleBinding`, in the fixed `default` namespace (every cluster has one), naming exactly the
@@ -50,11 +50,11 @@ Each is a Role in the agent's own namespace, limited to named objects. Nothing e
 
 | What | Role | Verbs | When it exists | What is written |
 | --- | --- | --- | --- | --- |
-| The agent's identity Secret, `ikhnos-agent-identity` | `ikhnos-agent-identity` | `get`, `update`, `patch` | always | Its own key and certificate, which the agent keeps there so that it survives a restart. The Secret is created empty by the chart; the agent cannot create another or read any other. |
+| The agent's identity Secret, `ikhnos-agent-identity` | `ikhnos-agent-identity` | `get`, `update` | always | Its own key and certificate, which the agent keeps there so that it survives a restart. The Secret is created empty by the chart; the agent cannot create another or read any other. |
 | The telemetry exporters' client-certificate Secrets | `ikhnos-agent-cert-renew` | `get`, `update` | only when an exporter presents a client certificate (`telemetry.export...tls.mtls.secretName`), and only for the Secrets so named | A renewed certificate. Before one runs out the agent makes a **new** key in its own pod, proves it holds the old one by signing the request with it, has the server sign the new certificate, and writes `tls.crt`, `tls.key` and `ca.crt` back in one update, so a collector never reads a new certificate beside the old key. The key never leaves the pod. A Secret that does not exist, or is still empty, is left alone. The collectors re-read the files on their own: no restart. |
 | The status of one `IkhnosAgent` | `ikhnos-agent-mark-revoked` | `patch` on `ikhnosagents/status` (and `get`, with `controller.relayTelemetry`) | only when a controller keeps the agent (`controller.resource`) | `status.revoked` when the server revokes the agent, and the answer to a telemetry request. The status subresource cannot change the object's `spec`: not the server it trusts, the image, the access tier or where telemetry goes. |
 
-The renewal is the only one of the three that is in the data plane's interest and not the agent's own; it stays in the agent because the agent already holds the cluster's one way out to the server and the key is made where it is used (see [Where the agent touches the data plane today](./components.md#where-the-agent-touches-the-data-plane-today)). The identity Role still grants `patch`, which the agent does not use either (it reads and updates the Secret); that is a known excess, listed in [Deferred work](../contributing/deferred-work.md).
+The renewal is the only one of the three that is in the data plane's interest and not the agent's own; it stays in the agent because the agent already holds the cluster's one way out to the server and the key is made where it is used (see [Where the agent touches the data plane today](./components.md#where-the-agent-touches-the-data-plane-today)).
 
 **`rbac.mode=namespaced`.** If you install this way instead of the cluster-wide default, tier 2's grant
 stops being a `ClusterRole` and becomes a `Role` + `RoleBinding` per namespace you listed in

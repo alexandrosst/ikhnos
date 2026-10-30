@@ -1028,7 +1028,7 @@ export interface AccessTierGrant {
  *  not repeated per rung below. Sourced from the same rbac.yaml: the always-present identity Role, and
  *  the optional (default on) endpoint-resolution Role. */
 export const ACCESS_TIER_BASELINE_GRANT =
-  'Every tier also includes two fixed, tier-independent rules: get/update/patch on its own identity certificate Secret (one, created empty by the chart — it can read or write no other Secret, and create none), and, unless access.resolveApiEndpoint=false, get on the "kubernetes" Endpoints object in the default namespace (resolves the control plane\'s real address instead of the internal ClusterIP every in-cluster client is handed).'
+  'Every tier also includes two fixed, tier-independent rules: get/update on its own identity certificate Secret (one, created empty by the chart — it can read or write no other Secret, and create none), and, unless access.resolveApiEndpoint=false, get on the "kubernetes" Endpoints object in the default namespace (resolves the control plane\'s real address instead of the internal ClusterIP every in-cluster client is handed).'
 
 export const ACCESS_TIER_GRANTS: Record<AccessTier, AccessTierGrant> = {
   0: {

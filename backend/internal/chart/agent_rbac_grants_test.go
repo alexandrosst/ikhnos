@@ -163,7 +163,7 @@ func TestAccessTierGrantsAreReadOnly(t *testing.T) {
 }
 
 // TestAccessTierBaselineGrantMatchesRBAC mirrors ACCESS_TIER_BASELINE_GRANT: the two fixed rules every
-// install carries regardless of access.tier - the agent's own identity Secret (get/update/patch, by
+// install carries regardless of access.tier - the agent's own identity Secret (get/update, by
 // resourceName, nothing else), and, unless access.resolveApiEndpoint=false, get on the "kubernetes"
 // Endpoints object in the default namespace.
 func TestAccessTierBaselineGrantMatchesRBAC(t *testing.T) {
@@ -172,8 +172,8 @@ func TestAccessTierBaselineGrantMatchesRBAC(t *testing.T) {
 	if !ok {
 		t.Fatal("no ikhnos-agent-identity Role rendered")
 	}
-	if !hasExactRule(identity.Rules, "", "secrets", []string{"ikhnos-agent-identity"}, "get", "update", "patch") {
-		t.Errorf("identity Role does not grant exactly get/update/patch on secrets/ikhnos-agent-identity: %+v", identity.Rules)
+	if !hasExactRule(identity.Rules, "", "secrets", []string{"ikhnos-agent-identity"}, "get", "update") {
+		t.Errorf("identity Role does not grant exactly get/update on secrets/ikhnos-agent-identity: %+v", identity.Rules)
 	}
 
 	// access.resolveApiEndpoint defaults to true (see values.yaml): the endpoint Role is rendered unless
