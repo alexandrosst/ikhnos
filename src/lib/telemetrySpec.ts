@@ -24,7 +24,7 @@ export function telemetrySpec(t: TelemetryInput, measurementsOn?: boolean) {
     },
     energy: { kind: t.energySource, endpoint: t.energyExistingEndpoint },
     accelerators: { kind: t.acceleratorsSource, endpoint: t.acceleratorsExistingEndpoint, applyScope: t.acceleratorsApplyScope },
-    clusterLinks: { probe: t.clusterLinksProbe, throughput: t.clusterLinksThroughput, authSecret: t.clusterLinksAuthSecret },
+    clusterLinks: { probe: t.clusterLinksProbe, throughput: t.clusterLinksThroughput, authSecret: t.clusterLinksAuthSecret, hub: t.clusterLinks && t.clusterLinksHub },
     scopes: { applicationMetrics: scope(t.applicationMetricsScope), applicationLogs: scope(t.applicationLogsScope), traces: scope(t.tracesScope), infrastructure: t.scopeInfrastructure },
     destination: destination(t),
     routes: {

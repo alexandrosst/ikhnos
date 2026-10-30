@@ -167,6 +167,8 @@ export interface TelemetryInput {
   clusterLinksThroughput: boolean
   /** Optional with the throughput tests: a Secret of your own holding iperf3's credentials, the same in every cluster of the mesh. Empty (the default): Ikhnos issues the credentials and the chart asks for no Secret; the server never runs unauthenticated either way. */
   clusterLinksAuthSecret: string
+  /** Only meaningful when `clusterLinks` is on: keep the link metrics, the peer list and the responders' credentials in a small pod of its own, so the discovery agent keeps to the control plane. */
+  clusterLinksHub: boolean
   applicationMetrics: boolean
   /** Per-signal scope override for applicationMetrics - see `ScopeOverrideInput`. */
   applicationMetricsScope: ScopeOverrideInput
@@ -273,7 +275,7 @@ export interface TelemetryInput {
 
 /** The settings that are kept or stated together: the destination's connection details, the scope (each application signal's own, and
  *  what the infrastructure signals and the scope tag follow), the tags, the debug exporter and the three processor knobs. */
-export type KeptGroup = 'destination' | 'scopeShared' | 'scope:applicationMetrics' | 'scope:applicationLogs' | 'scope:traces' | 'tags' | 'debug' | 'processors' | 'extraProcessors' | 'energySource' | 'acceleratorsSource' | 'clusterLinksOptions'
+export type KeptGroup = 'destination' | 'scopeShared' | 'scope:applicationMetrics' | 'scope:applicationLogs' | 'scope:traces' | 'tags' | 'debug' | 'processors' | 'extraProcessors' | 'energySource' | 'acceleratorsSource' | 'clusterLinksOptions' | 'clusterLinksHub'
 
 function groupValue(t: TelemetryInput, g: KeptGroup): string {
   switch (g) {
@@ -301,6 +303,8 @@ function groupValue(t: TelemetryInput, g: KeptGroup): string {
       return JSON.stringify([t.acceleratorsSource, t.acceleratorsExistingEndpoint.trim()])
     case 'clusterLinksOptions':
       return JSON.stringify([t.clusterLinksProbe, t.clusterLinksThroughput, t.clusterLinksAuthSecret.trim()])
+    case 'clusterLinksHub':
+      return JSON.stringify(t.clusterLinksHub)
   }
 }
 
@@ -318,6 +322,7 @@ const KEPT_WORDS: Record<KeptGroup, string> = {
   energySource: 'which Kepler energy reads from',
   acceleratorsSource: 'which DCGM the GPU metrics read from',
   clusterLinksOptions: 'whether cluster links probe and run throughput tests',
+  clusterLinksHub: 'whether the cluster-link metrics are kept by a pod of their own (the link hub)',
 }
 
 /** Every group that can be kept as installed. */
@@ -378,6 +383,7 @@ export const emptyTelemetry: TelemetryInput = {
   clusterLinksProbe: true,
   clusterLinksThroughput: false,
   clusterLinksAuthSecret: '',
+  clusterLinksHub: false,
   applicationMetrics: false,
   applicationMetricsScope: emptyScopeOverride,
   systemLogs: false,

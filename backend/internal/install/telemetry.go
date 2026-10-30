@@ -80,8 +80,8 @@ type ClusterLinks struct {
 	// AuthSecret is a Secret of the person's own holding iperf3's credentials. Empty: Ikhnos issues them.
 	AuthSecret string `json:"authSecret"`
 	// Hub runs the link hub: one small pod that holds the link metrics and answers the probers and the collector, so that
-	// the discovery agent (the one door to the server) is left with the control plane only. It is stated only when it is on:
-	// the panel does not yet write it, and a draft that says nothing leaves a hub that a helm install turned on where it is.
+	// the discovery agent (the one door to the server) is left with the control plane only. A group of its own (see
+	// KeptClusterLinksHub): an install's hub is left as it is until this is edited, whatever the probe options say.
 	Hub bool `json:"hub,omitempty"`
 }
 
@@ -201,6 +201,7 @@ const (
 	KeptEnergySource        = "energySource"
 	KeptAcceleratorsSource  = "acceleratorsSource"
 	KeptClusterLinksOptions = "clusterLinksOptions"
+	KeptClusterLinksHub     = "clusterLinksHub"
 )
 
 // Telemetry is what an agent install is asked to collect, where it sends it, and how it processes it.

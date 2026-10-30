@@ -376,12 +376,13 @@ func TestTagsWithNoNameAreEachReportedOnce(t *testing.T) {
 	}
 }
 
-func TestTheLinkHubIsStatedOnlyWhenItIsOnOrTheLinksAreGone(t *testing.T) {
+func TestTheLinkHubIsStatedUnlessItIsKeptAsInstalled(t *testing.T) {
 	const on, off = "--set telemetry.clusterLinks.hub.enabled=true", "--set telemetry.clusterLinks.hub.enabled=false"
-	links := func(l ClusterLinks) string {
+	links := func(l ClusterLinks, kept ...string) string {
 		d := valid()
 		d.Signals.ClusterLinks = true
 		d.ClusterLinks = l
+		d.Kept = kept
 		v, err := d.Values()
 		if err != nil {
 			t.Fatal(err)
@@ -391,18 +392,27 @@ func TestTheLinkHubIsStatedOnlyWhenItIsOnOrTheLinksAreGone(t *testing.T) {
 	if got := links(ClusterLinks{Probe: true, Hub: true}); !strings.Contains(got, on) || strings.Contains(got, off) {
 		t.Errorf("a hub that was asked for is not stated on:\n%s", got)
 	}
-	// Not asked for: nothing is said, so a hub the release has (a helm install turned it on; the panel cannot yet write it) stays.
-	if got := links(ClusterLinks{Probe: true}); strings.Contains(got, "clusterLinks.hub") {
-		t.Errorf("a draft that does not mention the hub states it:\n%s", got)
+	// Unticked is stated too: it is what turns a hub off.
+	if got := links(ClusterLinks{Probe: true}); !strings.Contains(got, off) {
+		t.Errorf("a hub that was not asked for is not stated off:\n%s", got)
 	}
-	// The links gone: the chart refuses a hub without them, so it is stated off with them, as the prober is.
+	// Kept as installed: nothing about the hub is said, whatever the draft holds, and the probe options are still stated.
+	got := links(ClusterLinks{Probe: true, Hub: true}, KeptClusterLinksHub)
+	if strings.Contains(got, "clusterLinks.hub") || !strings.Contains(got, "telemetry.clusterLinks.probe.enabled=true") {
+		t.Errorf("a hub kept as installed is stated, or its being kept silenced the probe options:\n%s", got)
+	}
+	// And the other way: the probe options kept, the hub edited.
+	got = links(ClusterLinks{Probe: true, Hub: true}, KeptClusterLinksOptions)
+	if !strings.Contains(got, on) || strings.Contains(got, "clusterLinks.probe.enabled") {
+		t.Errorf("the hub is not stated when only the probe options are kept:\n%s", got)
+	}
+	// A hub without the signal is refused; with the links gone the hub is stated off, as the prober is.
 	d := valid()
 	d.ClusterLinks = ClusterLinks{Hub: true}
-	v, err := d.Values()
-	if err == nil {
+	if v, err := d.Values(); err == nil {
 		t.Fatalf("a hub without the signal was accepted: %v", Flags(v))
 	}
-	v, err = valid().Values()
+	v, err := valid().Values()
 	if err != nil || !strings.Contains(Flags(v), off) {
 		t.Errorf("without the links the hub is not stated off (%v):\n%s", err, Flags(v))
 	}

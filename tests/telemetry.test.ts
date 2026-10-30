@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { activeLanes, cleanTags, isKept, keepAsInstalled, combinedScope, destinationReady, emptyExportTarget, startLanes, withLane, laneView, emptyScopeOverride, emptyTelemetry, scopeOverlap, scopeTag, tagProblems, TAG_LIMIT, telemetryActive, telemetryProblems, workloadProblems, type ScopeOverrideInput, type TelemetryInput } from '../src/lib/install'
+import { activeLanes, cleanTags, isKept, keepAsInstalled, combinedScope, destinationReady, emptyExportTarget, startLanes, withLane, laneView, emptyScopeOverride, emptyTelemetry, scopeOverlap, scopeTag, tagProblems, TAG_LIMIT, keptSummary, telemetryActive, telemetryProblems, workloadProblems, type ScopeOverrideInput, type TelemetryInput } from '../src/lib/install'
 import { newProcessorEntry, processorBody, processorProblems } from '../src/lib/processorCatalog'
 import { PICKABLE_SIGNALS, applyIntentPreset, describeTelemetryChanges, parseRoutedDestination, seedTelemetryFromInstalled, telemetrySecrets, TELEMETRY_CREDENTIAL_VAR, TELEMETRY_INTENT_PRESETS, TELEMETRY_SIGNALS } from '../src/lib/consent'
 import { EXPORT_PRESETS, unsupportedDestinationNote } from '../src/lib/exportPresets'
+import { telemetrySpec } from '../src/lib/telemetrySpec'
 
 test('telemetryActive is false until a signal is turned on', () => {
   assert.equal(telemetryActive(emptyTelemetry), false)
@@ -500,4 +501,24 @@ test('cluster links: an install that already has them keeps its probe and throug
   const seeded = seedTelemetryFromInstalled(['clusterLinks'], { exportEndpoint: 'gw:4317', redactionEnabled: true, resourceDetectionEnabled: false })
   assert.equal(seeded.clusterLinks, true)
   assert.ok(isKept(seeded, 'clusterLinksOptions'))
+})
+
+test('cluster links: the link hub is kept as installed on its own, so editing the probe does not say what the hub is', () => {
+  const seeded = seedTelemetryFromInstalled(['clusterLinks'], { exportEndpoint: 'gw:4317', redactionEnabled: true, resourceDetectionEnabled: false })
+  assert.ok(isKept(seeded, 'clusterLinksHub'))
+  assert.ok(isKept(seeded, 'clusterLinksOptions'))
+  const probe = { ...seeded, clusterLinksProbe: !seeded.clusterLinksProbe }
+  assert.ok(!isKept(probe, 'clusterLinksOptions'))
+  assert.ok(isKept(probe, 'clusterLinksHub'), 'the hub was said without being edited')
+  const hub = { ...seeded, clusterLinksHub: true }
+  assert.ok(!isKept(hub, 'clusterLinksHub'))
+  assert.ok(isKept(hub, 'clusterLinksOptions'), 'the probe options were said without being edited')
+  assert.ok(keptSummary(seeded).some((w) => w.includes('link hub')), 'the page does not say it leaves the hub as it is')
+})
+
+test('cluster links: the spec names the hub only while the links are on', () => {
+  const on = { ...emptyTelemetry, clusterLinks: true, clusterLinksHub: true }
+  assert.equal(telemetrySpec(on).clusterLinks.hub, true)
+  assert.equal(telemetrySpec({ ...on, clusterLinks: false }).clusterLinks.hub, false)
+  assert.equal(telemetrySpec(emptyTelemetry).clusterLinks.hub, false)
 })

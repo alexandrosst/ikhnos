@@ -107,11 +107,10 @@ func (t Telemetry) Values() ([]Value, error) {
 			if own := strings.TrimSpace(l.AuthSecret); l.Probe && l.Throughput && own != "" {
 				add(SetString("telemetry.clusterLinks.probe.capacity.auth.existingSecret", own))
 			}
-			// Stated only when on: saying nothing leaves the hub as the release has it, which is what a panel that cannot yet
-			// write it has to do.
-			if l.Hub {
-				add(Set("telemetry.clusterLinks.hub.enabled", "true"))
-			}
+		}
+		// Its own group: the probe options can be edited without saying what the hub is, and the hub without the probe's.
+		if !t.kept(KeptClusterLinksHub) {
+			add(flag("telemetry.clusterLinks.hub.enabled", t.ClusterLinks.Hub))
 		}
 	} else {
 		// Stated off with the signal, whatever the draft says: the prober cannot stay on without it.

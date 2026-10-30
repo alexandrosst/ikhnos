@@ -93,6 +93,13 @@ export function ClusterLinksFields({ value, onChange, testIdPrefix }: { value: T
           </div>
         </details>
       )}
+      <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+        <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" checked={value.clusterLinksHub} onChange={(e) => set('clusterLinksHub', e.target.checked)} data-testid={`${testIdPrefix}-links-hub`} />
+        <span>
+          <span className="text-nb-300">Link hub</span>
+          <span className="block text-xs text-nb-500">Keeps the link metrics, the peer list and the responders’ credentials in a small pod of its own, so the agent that holds this cluster’s identity listens for none of them. It has no Kubernetes token and no credential of the server; the agent still receives everything and sends it the rows. Adds one pod, and the link series start at zero when it restarts. Turning it on or off replaces the agent’s pod.</span>
+        </span>
+      </label>
     </div>
   )
 }
