@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -247,6 +248,7 @@ func (r *Reconciler) apply(ctx context.Context, obj *unstructured.Unstructured) 
 		again := r.watch(ctx, obj, &st)
 		return again, r.setStatus(ctx, obj, st, r.cond(obj, "True", "Installed", "the release is installed as the spec asks"))
 	}
+	r.noteOutOfBand(obj, cur, values, want, chartVersion)
 	// An attempt that has failed before, for this very resource and these very values, is tried again with its failure still on the resource:
 	// writing "Installing" over it for the length of each attempt leaves the reason there for a moment and gone the rest of the time.
 	if !failedBefore(obj, want) {
@@ -275,6 +277,81 @@ func (r *Reconciler) apply(ctx context.Context, obj *unstructured.Unstructured) 
 	st.Relay = plan.answer()
 	again := r.watch(ctx, obj, &st)
 	return again, r.setStatus(ctx, obj, st, r.cond(obj, "True", "Installed", "the release is installed as the spec asks"))
+}
+
+// noteOutOfBand says in the log when the release is not what this controller last installed for this very resource: someone changed it
+// from outside (helm upgrade or rollback by hand, a failed manual upgrade), and the controller is about to put it back. Nothing here changes
+// what is done; it only makes the repair readable afterwards. A release that is simply behind (the spec was edited, the chart or this build's
+// defaults moved on) is the controller's own work and is not said. Only the names of the values that differ are logged, never the values:
+// they hold the enrolment token.
+func (r *Reconciler) noteOutOfBand(obj *unstructured.Unstructured, cur *Release, want map[string]any, wantHash, chartVersion string) {
+	if cur == nil {
+		return
+	}
+	st := statusOf(obj)
+	if st.Phase != PhaseReady || st.Release == nil || st.ValuesHash != wantHash || st.ObservedGeneration != obj.GetGeneration() {
+		return // not installed yet, failed before (said then), or the resource or the defaults changed since: the controller's own change
+	}
+	if Hash(cur.Values) == wantHash && cur.Deployed {
+		return // the same values, completed: at most a newer chart, which is the controller's to roll out
+	}
+	changed, more := differingValues(cur.Values, want, 12)
+	r.log().Warn("the agent release was changed outside the controller; putting it back to what the resource asks",
+		"name", obj.GetName(), "release", ReleaseName,
+		"revision", cur.Revision, "installed_revision", st.Release.Revision,
+		"deployed", cur.Deployed, "chart", cur.ChartVersion, "controller_chart", chartVersion,
+		"differing_values", changed, "more_differing_values", more)
+}
+
+// differingValues are the paths (a.b.c) at which two sets of values differ, sorted, at most max of them, and how many more there were. Maps
+// are compared key by key; a list or a scalar as one value. Numbers are compared as JSON gives them, so an int and the float a stored
+// release returns are the same.
+func differingValues(have, want map[string]any, max int) ([]string, int) {
+	var paths []string
+	var walk func(prefix string, a, b any)
+	walk = func(prefix string, a, b any) {
+		am, aok := a.(map[string]any)
+		bm, bok := b.(map[string]any)
+		if aok && bok {
+			keys := map[string]bool{}
+			for k := range am {
+				keys[k] = true
+			}
+			for k := range bm {
+				keys[k] = true
+			}
+			for k := range keys {
+				p := k
+				if prefix != "" {
+					p = prefix + "." + k
+				}
+				av, ain := am[k]
+				bv, bin := bm[k]
+				switch {
+				case ain && bin:
+					walk(p, av, bv)
+				default:
+					paths = append(paths, p)
+				}
+			}
+			return
+		}
+		if !sameJSON(a, b) {
+			paths = append(paths, prefix)
+		}
+	}
+	walk("", have, want)
+	sort.Strings(paths)
+	if len(paths) > max {
+		return paths[:max], len(paths) - max
+	}
+	return paths, 0
+}
+
+func sameJSON(a, b any) bool {
+	x, _ := json.Marshal(a)
+	y, _ := json.Marshal(b)
+	return string(x) == string(y)
 }
 
 // watch adds to the status of an installed release what it runs and whether every pod is there, and says when to look again.

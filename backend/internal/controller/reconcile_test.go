@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
@@ -492,6 +493,99 @@ func TestARepairIsSaidToBeAChangeWhileItRuns(t *testing.T) {
 	g.must("a")
 	if during != PhaseInstalling || g.status("a").Phase != PhaseReady {
 		t.Fatalf("while it ran: %q, after: %q", during, g.status("a").Phase)
+	}
+}
+
+// logged runs f with the reconciler's log going to a buffer and returns what was written.
+func (g *rig) logged(f func()) string {
+	var b strings.Builder
+	g.r.Log = slog.New(slog.NewTextHandler(&b, nil))
+	defer func() { g.r.Log = nil }()
+	f()
+	return b.String()
+}
+
+func TestAReleaseChangedFromOutsideIsSaidInTheLogBeforeItIsPutBack(t *testing.T) {
+	g := newRig(t)
+	g.secret("enroll", "token", "ikh_secret_token_value")
+	g.agent("a", goodSpec())
+	g.must("a")
+
+	// Someone upgraded the release by hand: another revision, other values.
+	g.inst.mu.Lock()
+	g.inst.rel.Revision = 5
+	g.inst.rel.Values["access"] = map[string]any{"tier": float64(0)}
+	g.inst.rel.Values["telemetry"] = map[string]any{"clusterLinks": map[string]any{"hub": map[string]any{"enabled": true}}}
+	g.inst.mu.Unlock()
+	out := g.logged(func() { g.must("a") })
+	for _, want := range []string{"changed outside the controller", "installed_revision=1", "revision=5", "differing_values"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the log lacks %q:\n%s", want, out)
+		}
+	}
+	if !strings.Contains(out, "differing_values=\"[access telemetry") && !strings.Contains(out, "differing_values=[access telemetry") {
+		t.Errorf("the log does not name the values that differ:\n%s", out)
+	}
+	// It is put back all the same, and the values themselves never reach the log (they hold the enrolment token).
+	if g.inst.applies() != 2 {
+		t.Errorf("%d applies: the release was not put back", g.inst.applies())
+	}
+	if strings.Contains(out, "ikh_secret_token_value") {
+		t.Errorf("a value reached the log:\n%s", out)
+	}
+	// Once it is back nothing more is said.
+	if out := g.logged(func() { g.must("a") }); strings.Contains(out, "outside the controller") {
+		t.Errorf("said again for a release that is as it should be:\n%s", out)
+	}
+}
+
+func TestAReleaseThatIsBehindBecauseOfTheControllersOwnChangesIsNotSaidToBeChangedFromOutside(t *testing.T) {
+	g := newRig(t)
+	g.secret("enroll", "token", "ikh_abc")
+	g.agent("a", goodSpec())
+	g.must("a")
+
+	// The resource was edited, the chart moved on, this build's defaults changed: all the controller's own work.
+	spec := goodSpec()
+	spec["accessTier"] = int64(1)
+	g.setSpec("a", spec)
+	if out := g.logged(func() { g.must("a") }); strings.Contains(out, "outside the controller") {
+		t.Errorf("an edited resource was reported as an outside change:\n%s", out)
+	}
+	g.inst.chart = "0.2.0"
+	if out := g.logged(func() { g.must("a") }); strings.Contains(out, "outside the controller") {
+		t.Errorf("a newer chart was reported as an outside change:\n%s", out)
+	}
+	g.r.Defaults = map[string]any{"image": map[string]any{"tag": "edge"}}
+	if out := g.logged(func() { g.must("a") }); strings.Contains(out, "outside the controller") {
+		t.Errorf("changed defaults were reported as an outside change:\n%s", out)
+	}
+}
+
+func TestAReleaseThatDidNotCompleteIsSaidToBeChangedFromOutsideWithTheSameValues(t *testing.T) {
+	g := newRig(t)
+	g.secret("enroll", "token", "ikh_abc")
+	g.agent("a", goodSpec())
+	g.must("a")
+	g.inst.mu.Lock()
+	g.inst.rel.Deployed = false
+	g.inst.mu.Unlock()
+	out := g.logged(func() { g.must("a") })
+	if !strings.Contains(out, "outside the controller") || !strings.Contains(out, "deployed=false") {
+		t.Errorf("a release left half done by a manual upgrade was not said:\n%s", out)
+	}
+}
+
+func TestDifferingValuesNamesPathsOnlyAndCapsThem(t *testing.T) {
+	have := map[string]any{"a": map[string]any{"b": float64(1), "c": "x"}, "only": true, "same": []any{"p", float64(2)}}
+	want := map[string]any{"a": map[string]any{"b": int64(1), "c": "y", "d": 1}, "same": []any{"p", int64(2)}, "new": "secret"}
+	got, more := differingValues(have, want, 10)
+	if strings.Join(got, ",") != "a.c,a.d,new,only" || more != 0 {
+		t.Errorf("got %v, %d more", got, more)
+	}
+	got, more = differingValues(have, want, 2)
+	if len(got) != 2 || more != 2 {
+		t.Errorf("capped: %v, %d more", got, more)
 	}
 }
 
