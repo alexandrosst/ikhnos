@@ -66,14 +66,14 @@ func TestRegionalOperatorRenewerGetsOnlyWhatItNeeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}
-	// Exactly the two Secrets the operator presents or serves, get/update/patch only: no list, no create, no wildcard.
+	// Exactly the two Secrets the operator presents or serves, get/update only: no list, no create, no wildcard.
 	roles := renderedRoles(t, out)
 	role, ok := roles["op-regional-operator-cert-renew"]
 	if !ok || len(roles) != 1 || len(role.Rules) != 1 {
 		t.Fatalf("want one Role with one rule, got %v", roles)
 	}
 	rule := role.Rules[0]
-	if !sameSet(rule.ResourceNames, []string{"op-receiver-tls", "op-client-tls"}) || !sameSet(rule.Verbs, []string{"get", "update", "patch"}) ||
+	if !sameSet(rule.ResourceNames, []string{"op-receiver-tls", "op-client-tls"}) || !sameSet(rule.Verbs, []string{"get", "update"}) ||
 		!sameSet(rule.Resources, []string{"secrets"}) || !sameSet(rule.APIGroups, []string{""}) {
 		t.Errorf("rule = %+v", rule)
 	}
@@ -199,7 +199,7 @@ func TestAgentRenewsItsClientCertificatesAndNothingElse(t *testing.T) {
 		t.Fatalf("no cert-renew Role with one rule in the render")
 	}
 	r := role.Rules[0]
-	if !sameSet(r.ResourceNames, []string{"op-client-tls", "logs-client-tls"}) || !sameSet(r.Verbs, []string{"get", "update", "patch"}) {
+	if !sameSet(r.ResourceNames, []string{"op-client-tls", "logs-client-tls"}) || !sameSet(r.Verbs, []string{"get", "update"}) {
 		t.Errorf("rule = %+v", r)
 	}
 	if !strings.Contains(out, `IKHNOS_RENEW_SECRETS, value: "op-client-tls,logs-client-tls"`) && !strings.Contains(out, `IKHNOS_RENEW_SECRETS, value: "logs-client-tls,op-client-tls"`) {

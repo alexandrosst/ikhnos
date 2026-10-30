@@ -230,7 +230,7 @@ stats, container/journal logs).
   non-loopback address through it): the node's address must be in `NO_PROXY`.
 - **Renewed certificates.** A client certificate (`telemetry.export...tls.mtls`) lasts 30 days and the agent renews it
   itself with 20 days or less left, asking the server for a new one and proving it holds the old key; the chart gives the
-  agent a `Role` (`<release>-cert-renew`) with get, update and patch on exactly the Secrets named in
+  agent a `Role` (`<release>-cert-renew`) with get and update on exactly the Secrets named in
   `telemetry.export...tls.mtls.secretName`, and the agent leaves a missing one alone. The exporter re-reads the certificate
   from its Secret when a new connection is made and at least `reload_interval` (5m) has passed since the last read: a
   connection that stays open keeps using the certificate it started with (so a renewal can take effect later than that, up

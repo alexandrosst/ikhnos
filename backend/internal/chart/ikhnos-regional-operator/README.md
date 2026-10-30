@@ -78,7 +78,7 @@ certificate, the client certificate of an mTLS destination and any Secrets in `r
 days left asks the Ikhnos server for a new one. It makes a new key in the pod and proves it holds the old certificate, so
 the key never leaves the pod and no token is involved; the server decides again at every renewal, and a deleted or
 revoked operator is not renewed. The sidecar runs the same image as the discovery agent (`renew.image.tag`, default the
-chart's appVersion). It alone gets the service account's token, and a `Role` lets it get, update and patch exactly the
+chart's appVersion). It alone gets the service account's token, and a `Role` lets it get and update exactly the
 Secrets it renews. With `networkPolicy.egress` on, let the pod reach the Ikhnos server and the Kubernetes API server
 (`networkPolicy.egress.extraEgress`). An operator installed before renewal existed has `renew.enabled=false`; run its
 install command again once to turn it on.

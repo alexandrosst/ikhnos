@@ -96,7 +96,7 @@ func TestTheAgentCanWriteExactlyThreeThingsEachByName(t *testing.T) {
 		"--set", "telemetry.clusterLinks.probe.capacity.enabled=true", "--set", "telemetry.clusterLinks.hub.enabled=true")
 	want := []string{
 		"namespace: /secrets [ikhnos-agent-identity] patch,update",
-		"namespace: /secrets [op-client-tls] patch,update",
+		"namespace: /secrets [op-client-tls] update",
 		"namespace: ikhnos.io/ikhnosagents/status [my-agent] patch",
 	}
 	for name, args := range map[string][]string{
