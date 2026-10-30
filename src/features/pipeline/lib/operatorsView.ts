@@ -1,6 +1,6 @@
 import { extrasOf, releaseTarget, type AgentDiagnostics } from '../../../lib/consent'
 import { exportReach, exportRows } from '../../../lib/exportHealth'
-import { compareIntent, differenceSentence, type IntentDifference } from './intentComparison'
+import { compareIntent, differenceSentence, type IntentDifference, type OperatorReach } from './intentComparison'
 import { failingSources } from './operatorPicture'
 import { CENTRAL_OPERATOR_ID, type FusionKind } from '../../fusion/lib/fusionStatus'
 import { ago } from '../../../lib/observed'
@@ -151,6 +151,8 @@ export function joinLocal(opts: {
   clusters: { id: string; name: string }[]
   rawAgents: readonly unknown[] | undefined
   intents: TelemetryIntent[]
+  /** The operators a destination can name, with the addresses they are reached at (see `compareIntent`). */
+  operators?: readonly OperatorReach[]
 }): LocalRow[] {
   const rows: LocalRow[] = []
   for (const a of opts.agents) {
@@ -160,7 +162,7 @@ export function joinLocal(opts: {
     // The newest active intent for this agent: older ones were replaced.
     const intent = opts.intents.filter((i) => i.agentId === a.id && i.status === 'active').sort((x, y) => Date.parse(y.createdAt) - Date.parse(x.createdAt))[0]
     if (installed.length === 0 && !intent) continue
-    const differences = compareIntent(intent, installed, extras.diagnostics?.installedTelemetryConfig)
+    const differences = compareIntent(intent, installed, extras.diagnostics?.installedTelemetryConfig, opts.operators)
     rows.push({
       agent: a,
       cluster: opts.clusters.find((c) => c.id === a.clusterId),
@@ -335,14 +337,14 @@ export interface BuildInput {
   /** Administrators only: the organisation's operators, the central one included. */
   operators: RegionalOperator[]
   /** What a destination can be named by (for everyone else, the read model of the destination picker). */
-  known: Pick<RegionalOperator, 'id' | 'name'>[]
+  known: (Pick<RegionalOperator, 'id' | 'name'> & Partial<Pick<RegionalOperator, 'address' | 'endpoint'>>)[]
   now: number
 }
 
 /** Every component of the path in one list, worst first: discovery agents, local operators, regional operators and the central one. */
 export function buildComponents({ agents, clusters, rawAgents, intents, operators, known, now }: BuildInput): ComponentRow[] {
   const cluster = (id?: string) => clusters.find((c) => c.id === id)
-  const locals = joinLocal({ agents, clusters, rawAgents, intents }).map((r) => {
+  const locals = joinLocal({ agents, clusters, rawAgents, intents, operators: known }).map((r) => {
     const dest = intentDestination(r.intent)
     const sendsTo = !dest ? 'Not recorded' : dest.operatorId ? destinationLabel(r.intent!.destination, known) : dest.label
     return { r, sendsTo, ...localVerdict(r, agents.find((a) => a.id === r.agent.id), sendsTo, now) }

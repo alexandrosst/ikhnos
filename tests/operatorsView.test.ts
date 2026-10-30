@@ -57,6 +57,16 @@ test('joinLocal: drifted only when something is running and differs from the new
   assert.equal(rows(['traces'], [intent({ status: 'revoked' as never })])[0].drifted, false)
 })
 
+test('joinLocal: a local operator sending to the central operator at the address recorded for it is not drifted', () => {
+  // As reported: installed from another cluster at the address FUSION is exposed at, asked for by the operator's id alone.
+  const central = intent({ destination: { kind: 'operator', endpoint: '', targetOperatorId: 'op-central' } as never })
+  const r = { id: 'a1', diagnostics: { reportedAt: '2026-10-06T11:59:00Z', installedTelemetry: ['resourceUsage'], installedTelemetryConfig: { exportEndpoint: '147.102.13.108:4317', redactionEnabled: true, resourceDetectionEnabled: true } } }
+  const rows = (operators: { id: string; address?: string }[]) => joinLocal({ agents: [agent('a1')], clusters: [], rawAgents: [r], intents: [central], operators })
+  assert.equal(rows([{ id: 'op-central', address: '147.102.13.108:4317' }])[0].drifted, false)
+  // Not knowing the address, it cannot be told from a different one.
+  assert.equal(rows([])[0].drifted, true)
+})
+
 test('intentDestination: the operator it names, one line for split routes, otherwise the endpoint', () => {
   assert.equal(intentDestination(undefined), undefined)
   assert.deepEqual(intentDestination(intent({ destination: { kind: 'operator', endpoint: 'x:4317', targetOperatorId: 'op-eu' } as never })), { operatorId: 'op-eu', label: 'op-eu' })

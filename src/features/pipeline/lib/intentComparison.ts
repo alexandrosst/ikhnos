@@ -1,7 +1,7 @@
 import { parseRoutedDestination, scopeWords1, seedTelemetryFromInstalled, type AgentDiagnostics } from '../../../lib/consent'
 import { ROUTE_MODALITIES, TELEMETRY_SIGNALS, type Modality } from '../../../lib/install'
 import { operatorReceiverEndpoint } from '../../../lib/operatorReceiver'
-import type { OperatorDestination, TelemetryIntent } from '../../../lib/types'
+import type { OperatorDestination, RegionalOperator, TelemetryIntent } from '../../../lib/types'
 import { intentScope } from './operatorIntent'
 
 /*
@@ -33,13 +33,27 @@ const list = (ids: string[]) => ids.map(signalLabel).join(', ')
 /** An address as it is compared: without a scheme or trailing slash, in lower case. */
 const bare = (e: string) => e.trim().replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').replace(/\/+$/, '').toLowerCase()
 
-/** Every address a destination can be installed as: the endpoint recorded, an operator's receiver, and the address a sender was told to dial. */
-function accepted(d: OperatorDestination): string[] {
-  const all = [d.endpoint, d.address, d.kind === 'operator' && d.targetOperatorId ? operatorReceiverEndpoint({ id: d.targetOperatorId }) : undefined]
+/** What the page knows of where other clusters reach each operator: the address recorded for it (for the central operator, where FUSION is
+ *  exposed) and the endpoint the server says to dial. The install command dials the first of these when the sender chose no address of its own. */
+export type OperatorReach = Pick<RegionalOperator, 'id' | 'address' | 'endpoint'>
+
+const advertised = (d: OperatorDestination, operators: readonly OperatorReach[]): string[] => {
+  if (d.kind !== 'operator' || !d.targetOperatorId) return []
+  const op = operators.find((o) => o.id === d.targetOperatorId)
+  return [op?.address, op?.endpoint].filter((x): x is string => !!x)
+}
+
+/** Every address a destination can be installed as. The server's command dials the address the sender chose, or else the operator's
+ *  advertised one, or else its name inside its own cluster; any of them is the destination asked for. The in-cluster name stays accepted
+ *  after an address was recorded: it reaches the same operator from inside its own cluster. */
+function accepted(d: OperatorDestination, operators: readonly OperatorReach[]): string[] {
+  const all = [d.endpoint, d.address, ...advertised(d, operators), d.kind === 'operator' && d.targetOperatorId ? operatorReceiverEndpoint({ id: d.targetOperatorId }) : undefined]
   return all.filter((x): x is string => !!x).map(bare)
 }
 
-const destinationWords = (d: OperatorDestination) => (d.kind === 'operator' && d.targetOperatorId ? `${d.targetOperatorId} (${d.address || d.endpoint})` : d.endpoint)
+/** The destination as the sentence names it: an operator by id and the address the command would dial, in the server's order. */
+const destinationWords = (d: OperatorDestination, operators: readonly OperatorReach[]) =>
+  d.kind === 'operator' && d.targetOperatorId ? `${d.targetOperatorId} (${d.address || advertised(d, operators)[0] || d.endpoint || operatorReceiverEndpoint({ id: d.targetOperatorId })})` : d.endpoint
 
 const MODALITY_WORDS: Record<Modality, string> = { metrics: 'metrics', logs: 'logs', traces: 'traces' }
 const andList = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`)
@@ -68,7 +82,7 @@ function sourceDifferences(intent: TelemetryIntent, installed: string[], config:
 }
 
 /** Where each signal type goes, installed and asked, for the signal types that are running. */
-function destinationDifferences(intent: TelemetryIntent, installed: string[], config: Config): IntentDifference[] {
+function destinationDifferences(intent: TelemetryIntent, installed: string[], config: Config, operators: readonly OperatorReach[]): IntentDifference[] {
   const installedRaw = config.exportEndpoint.trim()
   if (!installedRaw) return []
   const routed = parseRoutedDestination(installedRaw)
@@ -81,9 +95,9 @@ function destinationDifferences(intent: TelemetryIntent, installed: string[], co
     if (!running.has(m)) continue
     const from = have(m)
     const d = want(m)
-    if (!from || accepted(d).includes(bare(from))) continue
-    const key = `${from}\u0000${destinationWords(d)}`
-    const g = groups.get(key) ?? { from, to: destinationWords(d), kinds: [] }
+    if (!from || accepted(d, operators).includes(bare(from))) continue
+    const key = `${from}\u0000${destinationWords(d, operators)}`
+    const g = groups.get(key) ?? { from, to: destinationWords(d, operators), kinds: [] }
     g.kinds.push(m)
     groups.set(key, g)
   }
@@ -108,13 +122,15 @@ function scopeDifferences(intent: TelemetryIntent, installed: string[], config: 
 /**
  * Everything that differs between the active intent and what is installed. Empty when there is no intent, nothing is installed yet (that is
  * "asked, not yet running", said elsewhere), or the two agree. The scope is compared only while the signals agree: with a signal more or
- * less, the scope of the others would differ for that reason alone and the first line already says so.
+ * less, the scope of the others would differ for that reason alone and the first line already says so. `operators` are what the page knows of
+ * the operators' addresses, so a destination reached at an address recorded for it (the central operator, from another cluster) is not mistaken
+ * for one reached somewhere else.
  */
-export function compareIntent(intent: TelemetryIntent | undefined, installed: string[], config: Config | undefined): IntentDifference[] {
+export function compareIntent(intent: TelemetryIntent | undefined, installed: string[], config: Config | undefined, operators: readonly OperatorReach[] = []): IntentDifference[] {
   if (!intent || installed.length === 0) return []
   const signals = signalDifferences(intent, installed)
   if (!config) return signals
-  return [...signals, ...sourceDifferences(intent, installed, config), ...destinationDifferences(intent, installed, config), ...(signals.length === 0 ? scopeDifferences(intent, installed, config) : [])]
+  return [...signals, ...sourceDifferences(intent, installed, config), ...destinationDifferences(intent, installed, config, operators), ...(signals.length === 0 ? scopeDifferences(intent, installed, config) : [])]
 }
 
 /** The differences as one sentence for a row's reason. */

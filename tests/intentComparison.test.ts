@@ -43,6 +43,27 @@ test('compareIntent: the destination, with the operator receiver or the dialled 
   assert.equal(compareIntent(op, both, config({ exportEndpoint: '10.0.0.9:4317' }))[0].text, 'Sends everything to 10.0.0.9:4317; asked for op-eu (10.0.0.5:4317)')
 })
 
+test('compareIntent: an operator reached at the address recorded for it is the operator asked for, whichever cluster the install dials from', () => {
+  // The case that was reported: the central operator, installed from another cluster at the address FUSION is exposed at. The intent names the
+  // operator and no address of the sender's own, so the command dials the operator's advertised address, not its name in its own cluster.
+  const central = intent({ destination: { kind: 'operator', endpoint: '', targetOperatorId: 'op-central' } as never })
+  const known = [{ id: 'op-central', address: '147.102.13.108:4317', endpoint: '147.102.13.108:4317' }]
+  assert.deepEqual(compareIntent(central, both, config({ exportEndpoint: '147.102.13.108:4317' }), known), [])
+  // Its name in its own cluster stays accepted, and so does the address with a scheme.
+  assert.deepEqual(compareIntent(central, both, config({ exportEndpoint: 'op-central.ikhnos-system.svc:4317' }), known), [])
+  assert.deepEqual(compareIntent(central, both, config({ exportEndpoint: 'https://147.102.13.108:4317' }), known), [])
+  // Another address is still a difference, and the sentence names the address the command would dial, not the in-cluster name.
+  const d = compareIntent(central, both, config({ exportEndpoint: '10.9.9.9:4317' }), known)
+  assert.equal(d[0].text, 'Sends everything to 10.9.9.9:4317; asked for op-central (147.102.13.108:4317)')
+  // Without what the page knows of the operator the in-cluster name is all there is to say, as before.
+  assert.equal(compareIntent(central, both, config({ exportEndpoint: '10.9.9.9:4317' }))[0].text, 'Sends everything to 10.9.9.9:4317; asked for op-central (op-central.ikhnos-system.svc:4317)')
+  // A sender's own address wins over the operator's: that is what the command dials.
+  const own = intent({ destination: { kind: 'operator', endpoint: '', targetOperatorId: 'op-central', address: '10.0.0.5:4317' } as never })
+  assert.equal(compareIntent(own, both, config({ exportEndpoint: '10.9.9.9:4317' }), known)[0].text, 'Sends everything to 10.9.9.9:4317; asked for op-central (10.0.0.5:4317)')
+  // Another operator's address is not this operator's.
+  assert.equal(compareIntent(central, both, config({ exportEndpoint: '10.1.1.1:4317' }), [{ id: 'op-eu', address: '10.1.1.1:4317' }, ...known]).length, 1)
+})
+
 test('compareIntent: a destination per signal type is compared signal type by signal type, for the types that run', () => {
   const split = intent({
     signals: [{ id: 'resourceUsage', source: 'builtin' }, { id: 'systemLogs', source: 'builtin' }, { id: 'traces', source: 'builtin' }] as never,
