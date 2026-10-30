@@ -34,6 +34,8 @@ go test -race ./...
 
 `npm run test:e2e` runs the browser tests against a built `dist/`. CI runs all of the above on every pull request; a pull request should be green before review.
 
+`scripts/ci-local.sh` runs what CI runs with the tools CI uses. A plain `go test ./...` on a machine with another Helm than the one CI installs (`.github/workflows/ci.yml` names it), or without the pinned OpenTelemetry collector, gives a different answer from CI: a chart test that fails only on an older Helm, and the tests that run the real collector skipping without a word. The script reads those versions from the workflow and the chart, fetches them into `~/.cache/ikhnos-ci`, checks the collector against the workflow's checksum, and then builds, vets and tests (`backend`), or lints, builds and runs the unit and component tests (`frontend`). `RACE=1` adds the race detector, `PKGS=./internal/chart` narrows the Go packages, `E2E=1` adds the browser tests, and `IKHNOS_TEST_NEO4J` (a Neo4j like the one CI starts) makes the graph tests run. It says what it could not provide instead of letting a skip pass for a run.
+
 ## Pull requests
 
 - Keep one concern per pull request, and say *why* in the description, not only what.
