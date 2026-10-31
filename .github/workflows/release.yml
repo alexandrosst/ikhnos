@@ -186,7 +186,12 @@ jobs:
             name: ikhnos-controller
     steps:
       - uses: actions/checkout@v4
+      # The same Helm as ci.yml, named, not "the latest": a newer Helm (4, and 3.19 onwards) pushes a chart's manifest to ghcr.io by digest
+      # and then asks for it by digest to tag it, and ghcr answers "not found" ("failed to perform "Tag" on destination"), so the
+      # push fails with the chart blobs in place and no tag. A test (internal/chart) holds the two workflows to one version.
       - uses: azure/setup-helm@v4
+        with:
+          version: v3.18.6
 
       - uses: docker/login-action@v3
         with:
@@ -258,7 +263,18 @@ jobs:
         id: push
         run: |
           set -euo pipefail
-          out=$(helm push "${{ steps.pkg.outputs.pkg }}" "oci://ghcr.io/${{ needs.version.outputs.owner }}" 2>&1 | tee /dev/stderr)
+          # ghcr.io sometimes answers "not found" for a manifest it has just accepted, so a push that fails is tried again, a few times,
+          # before the job fails. Pushing the same chart again only moves the tag: the version is the same and nothing is published twice.
+          attempt=1
+          until out=$(helm push "${{ steps.pkg.outputs.pkg }}" "oci://ghcr.io/${{ needs.version.outputs.owner }}" 2>&1 | tee /dev/stderr); do
+            if [[ $attempt -ge 4 ]]; then
+              echo "helm push failed $attempt times - check the log above" >&2
+              exit 1
+            fi
+            echo "::warning::helm push failed (attempt $attempt of 4); trying again in $((attempt * 15))s"
+            sleep $((attempt * 15))
+            attempt=$((attempt + 1))
+          done
           digest=$(echo "$out" | sed -n 's/^Digest:[[:space:]]*\(sha256:[0-9a-f]\{64\}\).*$/\1/p' | head -n1)
           if [[ -z "$digest" ]]; then
             echo "helm push did not print a Digest: line this workflow could parse - check the log above" >&2

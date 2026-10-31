@@ -16,6 +16,8 @@ Builds, vets and race-tests the Go backend; lints, type-checks, builds and unit-
 
 Builds and publishes the `ikhnos` and `server` images (multi-arch for the agent image; amd64 for the server) and the four Helm charts (`ikhnos-agent`, `ikhnos-regional-operator`, `ikhnos-fusion`, `ikhnos-server`) to this repository's own `ghcr.io/<owner>` namespace, signs everything keylessly with cosign, and bakes that GHCR namespace into the agent and server charts' own defaults — which is what lets every install command on this site skip `--set image.repository=...` entirely.
 
+The workflows install the same Helm, named in both (`azure/setup-helm` with `version:`; a test holds them to one). It is not "the latest" on purpose: a Helm 4, and a 3.19 or later, pushes a chart's manifest to `ghcr.io` and then asks for it by digest to tag it, and `ghcr.io` can answer "not found" (`failed to perform "Tag" on destination`), which fails the push with the blobs in place and no tag. The push step also tries again, up to four times, for the same answer when it comes by chance. To move to a newer Helm, change both workflows together and run one release from a branch to see the push succeed.
+
 - A push straight to `main` publishes the **`edge`** tag and a chart version like `0.0.0-edge.g<sha>` — always whatever `main` currently is, never meant to be depended on for anything you'd call a release.
 
   :::info[`edge` is a moving tag]
