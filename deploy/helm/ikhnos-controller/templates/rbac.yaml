@@ -77,7 +77,7 @@ roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ $sa }}}
 subjects: [{kind: ServiceAccount, name: {{ $sa }}, namespace: {{ .Release.Namespace }}}]
 ---
 # 2. In the "default" namespace: the agent chart puts one small Role there (it lets the agent read the address of the API server from
-#    the "kubernetes" Endpoints), so the controller may create that Role and its binding, and holds what it grants.
+#    the "kubernetes" EndpointSlice), so the controller may create that Role and its binding, and holds what it grants.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -92,8 +92,8 @@ rules:
     resources: [roles, rolebindings]
     resourceNames: [ikhnos-agent-api-endpoint]
     verbs: [get, list, watch, update, patch, delete]
-  - apiGroups: [""]
-    resources: [endpoints]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
     resourceNames: [kubernetes]
     verbs: [get]
 ---

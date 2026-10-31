@@ -26,9 +26,9 @@ cannot create a new one; this is the first of its three narrow writes (see below
 
 **Resolving the real API address** (on by default — `access.resolveApiEndpoint`). A second, separate
 `Role` + `RoleBinding`, in the fixed `default` namespace (every cluster has one), naming exactly the
-`kubernetes` Endpoints object — `get` only. This exists purely so the agent can learn the control plane's
+`kubernetes` EndpointSlice — `get` only. This exists purely so the agent can learn the control plane's
 actual address instead of the pod-local ClusterIP; turning it off just means the agent uses the ClusterIP
-instead, nothing else changes.
+instead, nothing else changes. Before this release the Role named the `kubernetes` Endpoints object, which Kubernetes deprecates from 1.33 (the API server answers every read with a warning, which the agent logged). An agent whose Role an older chart granted can still read only that object, and falls back to it when it cannot read the slice, so an upgrade of the image before the chart loses nothing.
 
 **Discovery, by access tier.** One `ClusterRole` per implemented tier (`t0`, `t1`, `t2` — tiers 3 and 4 are
 reserved, with no RBAC behind them at all), each strictly additive to the one below it, bound via

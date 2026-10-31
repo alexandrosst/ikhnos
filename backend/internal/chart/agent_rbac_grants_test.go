@@ -165,7 +165,7 @@ func TestAccessTierGrantsAreReadOnly(t *testing.T) {
 // TestAccessTierBaselineGrantMatchesRBAC mirrors ACCESS_TIER_BASELINE_GRANT: the two fixed rules every
 // install carries regardless of access.tier - the agent's own identity Secret (get/update, by
 // resourceName, nothing else), and, unless access.resolveApiEndpoint=false, get on the "kubernetes"
-// Endpoints object in the default namespace.
+// EndpointSlice in the default namespace.
 func TestAccessTierBaselineGrantMatchesRBAC(t *testing.T) {
 	r := render(t, "--set", "access.tier=0")
 	identity, ok := r.roles["ikhnos-agent-identity"]
@@ -182,8 +182,8 @@ func TestAccessTierBaselineGrantMatchesRBAC(t *testing.T) {
 	if !ok {
 		t.Fatal("no ikhnos-agent-api-endpoint Role rendered under the default access.resolveApiEndpoint=true")
 	}
-	if !hasExactRule(ep.Rules, "", "endpoints", []string{"kubernetes"}, "get") {
-		t.Errorf("api-endpoint Role does not grant exactly get on endpoints/kubernetes: %+v", ep.Rules)
+	if !hasExactRule(ep.Rules, "discovery.k8s.io", "endpointslices", []string{"kubernetes"}, "get") {
+		t.Errorf("api-endpoint Role does not grant exactly get on endpointslices/kubernetes: %+v", ep.Rules)
 	}
 
 	rOff := render(t, "--set", "access.tier=0", "--set", "access.resolveApiEndpoint=false")

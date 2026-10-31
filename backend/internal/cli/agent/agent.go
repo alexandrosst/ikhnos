@@ -396,16 +396,52 @@ func envDuration(k string) time.Duration {
 
 // resolveApiEndpoint tries to name the API server's real address instead of the virtual ClusterIP every
 // in-cluster client (this agent included) is handed by default via KUBERNETES_SERVICE_HOST/PORT: it reads
-// the Endpoints object for "kubernetes" in "default", which every Kubernetes cluster carries under that
+// the EndpointSlice named "kubernetes" in "default", which every Kubernetes cluster carries under that
 // exact, reserved name - not a guess, a fixed part of the API - and which lists the control plane's actual
 // backend address(es). Read-only, one named resource, in a fixed namespace unrelated to rbac.mode's
-// namespace scoping; reveals nothing an operator could not already see with `kubectl get endpoints
+// namespace scoping; reveals nothing an operator could not already see with `kubectl get endpointslice
 // kubernetes`. Returns "" on any failure (RBAC not granted - access.resolveApiEndpoint=false in the chart,
-// or an older install that predates this - a non-standard cluster with no such Service, or simply no
-// subset ready yet): the caller keeps whatever address it already had, exactly as before this existed.
+// a non-standard cluster with no such Service, or simply no endpoint ready yet): the caller keeps whatever
+// address it already had, exactly as before this existed.
+//
+// The Endpoints object of the same name says the same and is what this read before; it is deprecated from
+// Kubernetes 1.33 (the API server answers with a warning, which the client logs on every read). It is the fallback
+// only when the slice cannot be read: a cluster older than 1.21 has no EndpointSlice, and an agent whose Role
+// was granted by an older chart can read only that.
 func resolveApiEndpoint(client kubernetes.Interface) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	slice, err := client.DiscoveryV1().EndpointSlices("default").Get(ctx, "kubernetes", metav1.GetOptions{})
+	if err != nil {
+		return resolveFromEndpoints(ctx, client)
+	}
+	for _, e := range slice.Endpoints {
+		if len(e.Addresses) == 0 || (e.Conditions.Ready != nil && !*e.Conditions.Ready) {
+			continue
+		}
+		var port int32
+		for _, p := range slice.Ports {
+			if p.Port == nil {
+				continue
+			}
+			if port == 0 {
+				port = *p.Port
+			}
+			if (p.Name != nil && *p.Name == "https") || *p.Port == 443 { // the API server's port, if named or guessable; else the first one listed
+				port = *p.Port
+				break
+			}
+		}
+		if port == 0 {
+			continue
+		}
+		return net.JoinHostPort(e.Addresses[0], strconv.Itoa(int(port)))
+	}
+	return ""
+}
+
+// resolveFromEndpoints is the same read from the Endpoints object (see resolveApiEndpoint).
+func resolveFromEndpoints(ctx context.Context, client kubernetes.Interface) string {
 	ep, err := client.CoreV1().Endpoints("default").Get(ctx, "kubernetes", metav1.GetOptions{})
 	if err != nil {
 		return ""
@@ -416,7 +452,7 @@ func resolveApiEndpoint(client kubernetes.Interface) string {
 		}
 		port := s.Ports[0].Port
 		for _, p := range s.Ports {
-			if p.Name == "https" || p.Port == 443 { // the API server's port, if named or guessable; else the first one listed
+			if p.Name == "https" || p.Port == 443 {
 				port = p.Port
 				break
 			}

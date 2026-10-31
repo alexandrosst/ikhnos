@@ -74,7 +74,7 @@ subjects: [{kind: ServiceAccount, name: {{ include "agent.name" $ }}, namespace:
 {{- if .Values.access.resolveApiEndpoint }}
 ---
 # Resolves a more useful "API endpoint" than the raw ClusterIP every in-cluster client, including this
-# agent, is handed by default (KUBERNETES_SERVICE_HOST/PORT): the Endpoints object for the "kubernetes"
+# agent, is handed by default (KUBERNETES_SERVICE_HOST/PORT): the EndpointSlice for the "kubernetes"
 # Service in "default" (a fixed, reserved name every cluster carries) names its actual backend address(es)
 # - the control plane's real host, not a virtual service IP. One named resource, read-only, in one fixed
 # namespace that has nothing to do with rbac.mode's namespace scoping (see resolveApiEndpoint above).
@@ -85,8 +85,8 @@ metadata:
   namespace: default
   labels: {{- include "agent.labels" . | nindent 4 }}
 rules:
-  - apiGroups: [""]
-    resources: ["endpoints"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
     resourceNames: ["kubernetes"]
     verbs: ["get"]
 ---

@@ -13,10 +13,10 @@ server:
 # Every tier is read-only. The agent never gets access to Secrets or ConfigMaps.
 access:
   tier: 2
-  # Reads the "kubernetes" Service's Endpoints in "default" (a fixed, reserved name every cluster carries)
+  # Reads the "kubernetes" Service's EndpointSlice in "default" (a fixed, reserved name every cluster carries)
   # to report the API server's real backend address instead of the virtual ClusterIP every in-cluster client
   # is handed by default. One named resource, read-only, in one fixed namespace unrelated to rbac.mode -
-  # reveals nothing an operator could not already see with `kubectl get endpoints kubernetes`. On by
+  # reveals nothing an operator could not already see with `kubectl get endpointslice kubernetes`. On by
   # default; off falls back to the ClusterIP address, same as before this existed.
   resolveApiEndpoint: true
 
