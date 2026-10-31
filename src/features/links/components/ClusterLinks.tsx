@@ -251,7 +251,7 @@ function SetupDisclosure({ setup, name }: { setup: PairSetup; name: (id: string)
 
 /** The latest figures of one pair, or why there are none. */
 function Latest({ pair, found, latest, failed, name }: { pair: LinkPair; found?: LinkPairLatest; latest: LinksLatest | null; failed: boolean; name: (id: string) => string }) {
-  const view = latestView(found)
+  const view = latestView(found, undefined, { a: name(pair.a), b: name(pair.b) })
   if (!view) {
     const text = !latest && !failed ? 'Reading…' : pair.noProbe ? 'No probing: see the traffic in FUSION' : latest?.available ? 'No data yet' : '—'
     return <span className="text-sm text-nb-500" data-testid="latest-empty">{text}</span>

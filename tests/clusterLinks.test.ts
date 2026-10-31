@@ -246,13 +246,23 @@ test('a direction whose probe is failing says so with the reason, and the pair s
   const l: LinkPairLatest = { a: 'x', b: 'y', lossAToB: 1, probeAToB: { state: 'ok', at: minAgo(1) }, probeBToA: { state: 'failing', reason: 'other', at: minAgo(120) } }
   const v = latestView(l, T0)
   assert.ok(v)
-  assert.deepEqual(v.problems, [{ text: '← probe failing (other)', tone: 'warn' }])
+  assert.deepEqual(v.problems, [{ text: '← probe failing (other), last worked 2 h ago', tone: 'warn' }])
   assert.equal(v.loss?.text, 'loss 100 % →')
   // the failing direction's old last success is what makes the pair old: one healthy direction no longer hides it
   assert.deepEqual(v.when, { text: 'probed 2 h ago', stale: true })
   // with nothing else to show, a failing direction alone is still a result
-  assert.deepEqual(latestView({ a: 'x', b: 'y', probeAToB: { state: 'failing', reason: 'timeout', at: minAgo(5) } }, T0)?.problems, [{ text: '→ probe failing (timed out)', tone: 'warn' }])
+  assert.deepEqual(latestView({ a: 'x', b: 'y', probeAToB: { state: 'failing', reason: 'timeout', at: minAgo(5) } }, T0)?.problems, [{ text: '→ probe failing (timed out), last worked 5 min ago', tone: 'warn' }])
   assert.deepEqual(latestView({ a: 'x', b: 'y', probeBToA: { state: 'failing' } }, T0)?.problems, [{ text: '← probe failing', tone: 'warn' }])
+})
+
+test('a failing direction is named by the clusters when the page has their names, and says when it last worked', () => {
+  const names = { a: 'hexa', b: 'testbed' }
+  const v = latestView({ a: 'x', b: 'y', probeAToB: { state: 'ok', at: minAgo(1) }, probeBToA: { state: 'failing', reason: 'timeout', at: minAgo(3) } }, T0, names)
+  assert.deepEqual(v?.problems.map((p) => p.text), ['testbed → hexa: probe failing (timed out), last worked 3 min ago'])
+  const w = latestView({ a: 'x', b: 'y', probeAToB: { state: 'never', reason: 'timeout' } }, T0, names)
+  assert.deepEqual(w?.problems.map((p) => p.text), ['hexa → testbed: no probe has succeeded yet (timed out)'])
+  // the words for a diagnosis still never name an address
+  assert.ok(!JSON.stringify(w).match(/\d+\.\d+\.\d+\.\d+/))
 })
 
 test('a probe that never succeeded is a failure, not an old result', () => {

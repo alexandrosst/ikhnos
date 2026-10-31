@@ -346,7 +346,7 @@ export function probeRecent(l: LinkPairLatest | undefined, now = Date.now()): bo
 }
 
 /** The words for a pair's latest figures, or null when there is nothing to show. Arrows read in the order the pair is displayed. */
-export function latestView(l: LinkPairLatest | undefined, now = Date.now()): LatestView | null {
+export function latestView(l: LinkPairLatest | undefined, now = Date.now(), names?: { a: string; b: string }): LatestView | null {
   if (!l) return null
   const v: LatestView = { details: [], problems: [], hints: [] }
   const loss = [num(l.lossAToB) ? { r: l.lossAToB, arrow: '→' } : null, num(l.lossBToA) ? { r: l.lossBToA, arrow: '←' } : null].filter((x) => x !== null)
@@ -380,7 +380,11 @@ export function latestView(l: LinkPairLatest | undefined, now = Date.now()): Lat
     if (!probe) continue
     if (probe.state !== 'ok') {
       const why = probe.reason ? ` (${REASON_WORDS[probe.reason] ?? 'other'})` : ''
-      v.problems.push({ text: probe.state === 'never' ? `${arrow} no probe has succeeded yet${why}` : `${arrow} probe failing${why}`, tone: 'warn' })
+      // Who probes whom, in names when the page has them (the arrow alone has to be looked up), and when this direction last worked: a
+      // pair that failed a minute ago and one that has not worked for a day read differently.
+      const dir = names ? (arrow === '→' ? `${names.a} → ${names.b}` : `${names.b} → ${names.a}`) + ':' : arrow
+      const last = probe.state === 'failing' && probe.at ? `, last worked ${ago(probe.at, now)}` : ''
+      v.problems.push({ text: probe.state === 'never' ? `${dir} no probe has succeeded yet${why}` : `${dir} probe failing${why}${last}`, tone: 'warn' })
     }
     if (probe.diagnosis) byDiagnosis.set(probe.diagnosis, [...(byDiagnosis.get(probe.diagnosis) ?? []), arrow])
   }

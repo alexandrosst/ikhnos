@@ -404,12 +404,12 @@ describe('ClusterLinks', () => {
       const rows = await screen.findAllByTestId('pair-row')
       const first = await within(rows[0]).findByTestId('latest')
       expect(first).toHaveTextContent('loss 100 % →')
-      expect(within(first).getByTestId('latest-problem')).toHaveTextContent('← probe failing (other)')
+      expect(within(first).getByTestId('latest-problem')).toHaveTextContent('cloud-us → cloud-eu: probe failing (other), last worked 3 h ago')
       expect(first).toHaveTextContent('One of: the UDP test ports are filtered')
       expect(first).toHaveTextContent('(old)') // the failing direction's last success is three hours old
       // a pair that never had a probe succeed is shown as failing, not as "No data yet"
       const second = await within(rows[1]).findByTestId('latest')
-      expect(within(second).getAllByTestId('latest-problem').map((e) => e.textContent)).toEqual(['Problem: → no probe has succeeded yet (refused)', 'Problem: ← no probe has succeeded yet (refused)'])
+      expect(within(second).getAllByTestId('latest-problem').map((e) => e.textContent)).toEqual(['Problem: cloud-eu → edge-athens: no probe has succeeded yet (refused)', 'Problem: edge-athens → cloud-eu: no probe has succeeded yet (refused)'])
       expect(within(rows[1]).queryByTestId('latest-empty')).toBeNull()
       expect(second).toHaveTextContent('nothing answers on the responder port')
       // the first pair had a probe succeed lately, the second never: only the second is unconfirmed

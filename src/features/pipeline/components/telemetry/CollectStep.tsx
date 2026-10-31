@@ -6,7 +6,7 @@ import { CopyCommand } from '@/components/ui/CopyCommand'
 import { LINK_REQUIREMENT } from '@/lib/clusterLinks'
 import { otlpAddress } from '@/lib/exportHealth'
 import { applyIntentPreset, PICKABLE_SIGNALS, TELEMETRY_INTENT_PRESETS, TELEMETRY_SIGNALS } from '@/lib/consent'
-import type { TelemetryInput } from '@/lib/install'
+import { isKept, type TelemetryInput } from '@/lib/install'
 import { LAYER_CARDS, LAYER_META, type Layer } from '@/features/pipeline/lib/telemetryLayers'
 
 export type SignalId = 'resourceUsage' | 'energy' | 'kubernetesState' | 'nodeRuntime' | 'networkLatency' | 'clusterLinks' | 'applicationMetrics' | 'systemLogs' | 'kubernetesEvents' | 'applicationLogs' | 'traces' | 'accelerators'
@@ -59,16 +59,40 @@ export function EnergyFields({ value, onChange, testIdPrefix }: { value: Telemet
 }
 
 /**
+ * The agents report which signals are on but not the cluster-link options, so a draft opened on an installed agent cannot know them. The boxes
+ * then show their defaults, and an empty box would read as "off": while the draft still leaves a group as installed they are drawn undetermined
+ * and say so. Changing any box of the group makes it the draft's own (and states all of it).
+ */
+function KeptNote({ testId, children }: { testId: string; children: string }) {
+  return (
+    <p className="rounded-md border border-nb-850 bg-nb-930 px-2.5 py-1.5 text-xs text-nb-500" data-testid={testId}>
+      {children}
+    </p>
+  )
+}
+
+const undetermined = (on: boolean) => (el: HTMLInputElement | null) => {
+  if (el) el.indeterminate = on
+}
+
+/**
  * Cluster links' own choices, shown once `clusterLinks` is on. They decide what this cluster is able to do; which pairs of clusters actually
  * run what is chosen afterwards, per pair, on the Sites page (nothing is measured until an administrator pairs this cluster).
  */
 export function ClusterLinksFields({ value, onChange, testIdPrefix }: { value: TelemetryInput; onChange: (v: TelemetryInput) => void; testIdPrefix: string }) {
   const set = <K extends keyof TelemetryInput>(key: K, v: TelemetryInput[K]) => onChange({ ...value, [key]: v })
+  const optionsKept = isKept(value, 'clusterLinksOptions')
+  const hubKept = isKept(value, 'clusterLinksHub')
   return (
     <div className="space-y-3 border-t border-nb-850 pt-3">
       <p className="text-xs text-nb-500" data-testid={`${testIdPrefix}-links-requirement`}>{LINK_REQUIREMENT}</p>
+      {optionsKept && (
+        <KeptNote testId={`${testIdPrefix}-links-kept`}>
+          As installed, not reported: the agents do not say whether probing and throughput tests are on, so the command leaves them as they are. Changing either box states both.
+        </KeptNote>
+      )}
       <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-        <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" checked={value.clusterLinksProbe} onChange={(e) => set('clusterLinksProbe', e.target.checked)} data-testid={`${testIdPrefix}-links-probe`} />
+        <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" ref={undetermined(optionsKept)} checked={value.clusterLinksProbe} onChange={(e) => set('clusterLinksProbe', e.target.checked)} data-testid={`${testIdPrefix}-links-probe`} />
         <span>
           <span className="text-nb-300">Probing</span>
           <span className="block text-xs text-nb-500">Small packets in both directions: delay, jitter and loss per direction, the path’s largest packet size and route changes. Runs a pod of its own and a responder on every node. The clusters of a pair must reach each other’s nodes on TCP 8861 and UDP 18900–18919 with no address translation (NAT) in between, on the same ports in every cluster. Without it only the real traffic is watched.</span>
@@ -76,7 +100,7 @@ export function ClusterLinksFields({ value, onChange, testIdPrefix }: { value: T
       </label>
       {value.clusterLinksProbe && (
         <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-          <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" checked={value.clusterLinksThroughput} onChange={(e) => set('clusterLinksThroughput', e.target.checked)} data-testid={`${testIdPrefix}-links-throughput`} />
+          <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" ref={undetermined(optionsKept)} checked={value.clusterLinksThroughput} onChange={(e) => set('clusterLinksThroughput', e.target.checked)} data-testid={`${testIdPrefix}-links-throughput`} />
           <span>
             <span className="text-nb-300">Throughput tests</span>
             <span className="block text-xs text-nb-500">Lets this cluster run and answer iperf3 tests, which fill the link for a few seconds. They run only on the pairs you turn them on for, within a daily budget, and wait while the link is busy.</span>
@@ -93,8 +117,13 @@ export function ClusterLinksFields({ value, onChange, testIdPrefix }: { value: T
           </div>
         </details>
       )}
+      {hubKept && (
+        <KeptNote testId={`${testIdPrefix}-links-hub-kept`}>
+          As installed, not reported: the agents do not say whether the link hub runs, so the command leaves it as it is. Tick or untick the box to set it.
+        </KeptNote>
+      )}
       <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-        <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" checked={value.clusterLinksHub} onChange={(e) => set('clusterLinksHub', e.target.checked)} data-testid={`${testIdPrefix}-links-hub`} />
+        <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" ref={undetermined(hubKept)} checked={value.clusterLinksHub} onChange={(e) => set('clusterLinksHub', e.target.checked)} data-testid={`${testIdPrefix}-links-hub`} />
         <span>
           <span className="text-nb-300">Link hub</span>
           <span className="block text-xs text-nb-500">Keeps the link metrics, the peer list and the responders’ credentials in a small pod of its own, so the agent that holds this cluster’s identity listens for none of them. It has no Kubernetes token and no credential of the server; the agent still receives everything and sends it the rows. Adds one pod, and the link series start at zero when it restarts. Turning it on or off replaces the agent’s pod.</span>
