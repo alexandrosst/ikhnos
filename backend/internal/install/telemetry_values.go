@@ -14,6 +14,10 @@ import (
 // Without a signal on there is nothing to export: for an install that has telemetry the values that switch it all off, for one that
 // has none nothing. For settings with a problem there are no values, and the error says what is wrong.
 func (t Telemetry) Values() ([]Value, error) {
+	// Before the answer for "nothing on": a hub named beside no signal is a setting that would be ignored without a word.
+	if t.ClusterLinks.Hub && !t.Signals.ClusterLinks {
+		return nil, &ProblemsError{Problems: t.Problems()}
+	}
 	if !t.Active() {
 		if t.HadTelemetry {
 			return off(), nil

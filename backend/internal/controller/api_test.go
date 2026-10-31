@@ -97,6 +97,10 @@ func TestWhatCannotBeInstalledFromIsSaidInTheResourcesOwnWords(t *testing.T) {
 		{"observer under tier 1", func(s *Spec) { one := 1; s.AccessTier = &one; s.Collectors.FlowObserver = true }, "needs access tier 2"},
 		{"observer fine at 2", func(s *Spec) { s.AccessTier = &two; s.Collectors.FlowObserver = true }, ""},
 		{"bad namespace", func(s *Spec) { s.Scope.Namespaces = []string{"Not A Namespace"} }, "namespace"},
+		{"a hub with no signal on", func(s *Spec) {
+			s.AccessTier = &two
+			s.Telemetry = &install.ResourceTelemetry{ClusterLinks: &install.ResourceClusterLinks{Hub: true}}
+		}, "link hub"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			s := goodTyped()

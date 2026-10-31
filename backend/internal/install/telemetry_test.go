@@ -412,6 +412,14 @@ func TestTheLinkHubIsStatedUnlessItIsKeptAsInstalled(t *testing.T) {
 	if v, err := d.Values(); err == nil {
 		t.Fatalf("a hub without the signal was accepted: %v", Flags(v))
 	}
+	// With no signal on at all it is the same: not "telemetry off", a setting that would be ignored without a word.
+	none := Telemetry{ClusterLinks: ClusterLinks{Hub: true}}
+	if p := none.Problems(); len(p) != 1 || !strings.Contains(p[0], "link hub") {
+		t.Errorf("a hub with no signal on is not refused: %v", p)
+	}
+	if _, err := none.Values(); err == nil {
+		t.Error("a hub with no signal on has values")
+	}
 	v, err := valid().Values()
 	if err != nil || !strings.Contains(Flags(v), off) {
 		t.Errorf("without the links the hub is not stated off (%v):\n%s", err, Flags(v))

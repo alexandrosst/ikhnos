@@ -146,6 +146,11 @@ func (t Telemetry) scopeProblems(on bool, s ScopeOverride) []string {
 // make the command broken or unsafe: a missing endpoint, typed text that does not belong in a command, a value the chart would refuse.
 // Advice about a particular backend (that Jaeger only takes traces) belongs to whoever knows the backend, not here.
 func (t Telemetry) Problems() []string {
+	// Said before the check that nothing is on: a hub named beside no signal at all is not "telemetry off", it is a setting that would be
+	// ignored without a word.
+	if t.ClusterLinks.Hub && !t.Signals.ClusterLinks {
+		return []string{"Cluster links: the link hub holds the link metrics, so it needs the cluster-links signal on"}
+	}
 	if !t.Active() {
 		return nil
 	}
@@ -175,9 +180,6 @@ func (t Telemetry) Problems() []string {
 		if secret := strings.TrimSpace(l.AuthSecret); secret != "" && !secretName.MatchString(secret) {
 			out = append(out, "Cluster links: the credential Secret name uses lowercase letters, digits, - and . only")
 		}
-	}
-	if t.ClusterLinks.Hub && !s.ClusterLinks {
-		out = append(out, "Cluster links: the link hub holds the link metrics, so it needs the cluster-links signal on")
 	}
 	if s.NetworkLatency && t.MeasurementsOn != nil && !*t.MeasurementsOn {
 		out = append(out, "Network latency re-emits the path measurements extra, so turn that on too, or it will report nothing")
