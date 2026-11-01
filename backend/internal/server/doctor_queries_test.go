@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"google.golang.org/protobuf/encoding/protowire"
@@ -232,8 +233,19 @@ func doctorQueries(t *testing.T) {
 		if want := []string{"sv-hint", "sv-inline", "sv-ref"}; !slices.Equal(apps[0].ServiceIDs, want) || !slices.Equal(api, want) {
 			t.Fatalf("graph %v, API %v, want %v", apps[0].ServiceIDs, api, want)
 		}
+		// The status asks this store too (its newest sample and the gateway's counters, at the same time as the push), so only what was
+		// pushed is kept, and under a lock.
 		var body []byte
-		prom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { body, _ = io.ReadAll(r.Body) }))
+		var bodyMu sync.Mutex
+		prom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				return
+			}
+			b, _ := io.ReadAll(r.Body)
+			bodyMu.Lock()
+			body = b
+			bodyMu.Unlock()
+		}))
 		defer prom.Close()
 		push := newDataRig(t)
 		push.a.Fusion.Data = &fusionapi.Client{Prometheus: prom.URL}
@@ -246,7 +258,9 @@ func doctorQueries(t *testing.T) {
 		if n, cut, err := push.a.PushApplicationInfo(context.Background()); err != nil || n != 3 || cut {
 			t.Fatalf("pushed %d series, cut %v, err %v", n, cut, err)
 		}
+		bodyMu.Lock()
 		pushed = decodeAppInfo(t, body)
+		bodyMu.Unlock()
 		var ids []string
 		for _, s := range pushed {
 			ids = append(ids, s["service_id"])
