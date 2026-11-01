@@ -23,7 +23,7 @@ Things that were found, designed or discussed and left for later on purpose. Eac
 ## FUSION
 
 - **Grafana shares an origin with the Ikhnos UI** and renders data that comes from monitored clusters. Serve the pages from a separate origin (the ticket flow already supports a cross-origin hop), or at least default Grafana off.
-- **Grafana's datasource proxy** is allowed with write methods; confirm Loki's push and delete endpoints are not reachable through it, or deny `/api/datasources/proxy/` for non-GET.
+- **Grafana's datasource proxy** forwards the method and path as they are, so a page of Grafana could push logs to Loki, delete its streams or delete Prometheus series through it (the server allows a page the methods Grafana saves with). Fixed: through `/api/datasources/proxy/` (by id or by uid, in any case) only GET and HEAD pass, plus the POST of the long queries of Prometheus and Loki; the doors that write, delete or reconfigure (push, delete, the ruler, remote write, the OTLP receiver, the admin API, `/-/` and the profiler) are refused by any method. Grafana's own queries use `/api/ds/query`, which only reads, and are unaffected. Not checked against a running Grafana: the proxy's rule is held by a table test, not by a request to Loki. Tempo has no write door on the port Grafana is given.
 - **FUSION access tokens outlive their creator's admin role** (up to 365 days); revoke a user's tokens when they lose the role, or check the creator at use.
 - **No per-caller fairness** on the shared data client (8 in-flight calls): one token can starve the rest.
 - Upstream and Kubernetes error text is returned to API clients; return a generic message and log the detail.

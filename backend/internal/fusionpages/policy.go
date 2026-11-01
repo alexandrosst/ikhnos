@@ -33,6 +33,16 @@ var (
 	// (writing data in would bypass the gateway's mutual TLS and a token's scope), remote read, the admin API (delete
 	// series, snapshots), the lifecycle endpoints (/-/reload, /-/quit) and the Go profiler.
 	promDenied = []string{"/api/v1/otlp", "/api/v1/write", "/api/v1/read", "/api/v1/admin", "/-/", "/debug/"}
+	// dsDenied are paths of the stores behind Grafana's data-source proxy that are never reachable through it, by any method: the same
+	// doors as promDenied for Prometheus, and Loki's push and delete and its ruler. Tempo has no write door on its query port.
+	dsDenied = []string{"api/v1/admin", "api/v1/write", "api/v1/read", "api/v1/otlp", "-/", "debug/", "loki/api/v1/push", "loki/api/v1/delete", "loki/api/v1/rules", "loki/api/prom/push", "loki/api/prom/rules", "loki/api/v1/format_query", "ruler/", "api/prom/"}
+	// dsPostable are the reads of Prometheus and Loki that take a POST because a long expression does not fit in a URL. Everything else a page
+	// sends through the data-source proxy is a GET: a POST, PUT, PATCH or DELETE there is a write to the store.
+	dsPostable = map[string]bool{
+		"api/v1/query": true, "api/v1/query_range": true, "api/v1/series": true, "api/v1/labels": true, "api/v1/query_exemplars": true,
+		"loki/api/v1/query": true, "loki/api/v1/query_range": true, "loki/api/v1/series": true, "loki/api/v1/labels": true,
+		"loki/api/v1/index/stats": true, "loki/api/v1/index/volume": true, "loki/api/v1/index/volume_range": true,
+	}
 	// grafanaDenied is Grafana Live, a WebSocket push channel that is switched off in the chart (GF_LIVE_MAX_CONNECTIONS).
 	grafanaDenied = []string{"/api/live/"}
 )
@@ -71,11 +81,50 @@ func Policy(component, method, path string) (status int, allow string) {
 			return http.StatusForbidden, ""
 		}
 	}
+	if store, ok := dataSourceRest(rel); ok {
+		return dataSourcePolicy(method, store)
+	}
 	switch method {
 	case http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
 		return 0, ""
 	}
 	return http.StatusMethodNotAllowed, "GET, HEAD, POST, PUT, PATCH, DELETE"
+}
+
+// dataSourceRest is what a Grafana path asks of the store behind a data source, when it goes through the data-source proxy
+// (/api/datasources/proxy/<id>/... or /api/datasources/proxy/uid/<uid>/...): the path after the data source, without its first slash. Grafana
+// forwards the method and the path as they are, so the proxy is a way to speak to Loki, Tempo and Prometheus directly; a page of Grafana
+// that queries uses /api/ds/query instead, which can only read. The comparison is on lower case, as a router that ignored case would
+// otherwise be a way round.
+func dataSourceRest(rel string) (string, bool) {
+	const prefix = "/api/datasources/proxy/"
+	l := strings.ToLower(rel)
+	if !strings.HasPrefix(l, prefix) {
+		return "", false
+	}
+	rest := strings.TrimPrefix(l, prefix)
+	rest = strings.TrimPrefix(rest, "uid/")
+	parts := strings.SplitN(rest, "/", 2)
+	if len(parts) < 2 {
+		return "", true
+	}
+	return parts[1], true
+}
+
+// dataSourcePolicy: reads with GET, the long queries of Prometheus and Loki with POST, and never the doors that write or delete.
+func dataSourcePolicy(method, store string) (int, string) {
+	for _, d := range dsDenied {
+		if strings.HasPrefix(store, d) {
+			return http.StatusForbidden, ""
+		}
+	}
+	switch {
+	case method == http.MethodGet || method == http.MethodHead:
+		return 0, ""
+	case method == http.MethodPost && dsPostable[store]:
+		return 0, ""
+	}
+	return http.StatusMethodNotAllowed, "GET, HEAD, POST"
 }
 
 // WantsUpgrade is a request to switch protocols (a WebSocket). Neither page needs one here - Grafana Live is off, and
