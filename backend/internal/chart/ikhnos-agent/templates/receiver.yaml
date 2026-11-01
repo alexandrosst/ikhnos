@@ -53,29 +53,7 @@ spec:
         - {port: 8081, protocol: TCP}
     {{- end }}
     {{- end }}
-    {{- if and .Values.telemetry.clusterLinks.metrics.enabled (not (include "agent.linkHub" .)) }}
-    # The cluster collector scrapes the agent's link metrics (telemetry.clusterLinks) on port 9104.
-    - from:
-        - podSelector:
-            matchLabels: {app.kubernetes.io/name: ikhnos-telemetry-cluster, app.kubernetes.io/instance: {{ .Release.Name }}}
-      ports:
-        - {port: 9104, protocol: TCP}
-    {{- end }}
-    {{- if include "agent.linkPeersInAgent" . }}
-    # (The hub serves all of this, and has a policy of its own: link-hub.yaml.)
-    # The link prober asks the agent which clusters to measure (signed with its own link-peers secret, not the flow secret) and, with
-    # the throughput tests on, the responder's iperf3 pods ask for their server credentials (signed with a secret of their own,
-    # answered sealed), both on this port. Both run in the host network - the prober because OWAMP compares addresses, see
-    # link-prober.yaml - so their traffic carries no pod identity for a podSelector to match and, like the flow collectors', it is
-    # allowed by source address: flowObserver.nodeCIDRs with flowObserver.networkPolicy, otherwise any source, as it could without this policy.
-    # (Across nodes, some CNIs show the agent the node's tunnel address instead of its own: list that one too.)
-    - from:
-        {{- range (ternary .Values.flowObserver.nodeCIDRs (list "0.0.0.0/0") .Values.flowObserver.networkPolicy) }}
-        - ipBlock: {cidr: {{ . | quote }}}
-        {{- end }}
-      ports:
-        - {port: 9104, protocol: TCP}
-    {{- end }}
+    # (The link series are the link hub's, and it has a policy of its own: link-hub.yaml.)
     {{- if .Values.flowObserver.enabled }}
     # The flow collectors run in the host network, so their traffic arrives from node-side addresses, which a
     # pod selector cannot name. With flowObserver.networkPolicy=true it is restricted to flowObserver.nodeCIDRs (which must

@@ -32,29 +32,28 @@ func writeSecret(t *testing.T, name, v string) string {
 	return p
 }
 
-// With a link hub the agent listens for nothing of the links and holds none of the secrets the prober and the responders sign with: those are the
-// hub's. Each way of asking for both is refused at start-up, before anything connects, in words that say which.
+// Cluster links are served by the link hub: the agent listens for nothing of the links and holds none of the secrets the prober and the responders
+// sign with, those are the hub's. A flag that is wrong for that is refused at start-up, before anything connects, in words that say which.
 func TestTheLinkHubFlagsAreHeldToWhatTheyMean(t *testing.T) {
 	flow := writeSecret(t, "flow", "flow-secret-0123456789abcdef")
 	hub := writeSecret(t, "hub", "hub-secret-0123456789abcdef")
-	peers := writeSecret(t, "peers", "peers-secret-0123456789abcdef")
-	iperf := writeSecret(t, "iperf", "iperf-secret-0123456789abcdef")
 	probe := writeSecret(t, "probe", "probe-secret-0123456789abcdef")
 	const url = "http://hub.example:9106"
 	for name, c := range map[string]struct {
 		args []string
 		want string
 	}{
-		"no secret for the hub":               {[]string{"--link-hub-url", url, "--flow-secret-file", flow}, "--link-hub-url needs --link-hub-secret-file"},
-		"no flow secret":                      {[]string{"--link-hub-url", url, "--link-hub-secret-file", hub}, "--link-hub-url needs --flow-secret-file"},
-		"the agent also serving":              {[]string{"--link-hub-url", url, "--link-hub-secret-file", hub, "--flow-secret-file", flow, "--link-metrics-listen", ":9104"}, "cannot be combined with --link-metrics-listen"},
-		"the prober's secret in the agent":    {[]string{"--link-hub-url", url, "--link-hub-secret-file", hub, "--flow-secret-file", flow, "--link-peers-secret-file", peers}, "the agent must not"},
-		"the responder's secret in the agent": {[]string{"--link-hub-url", url, "--link-hub-secret-file", hub, "--flow-secret-file", flow, "--link-iperf-secret-file", iperf}, "the agent must not"},
-		"not a URL":                           {[]string{"--link-hub-url", "hub.example:9106", "--link-hub-secret-file", hub, "--flow-secret-file", flow}, "must be an http(s) URL"},
-		"a secret with no hub":                {[]string{"--link-hub-secret-file", hub}, "--link-hub-secret-file needs --link-hub-url"},
-		"the hub's secret is the flow's":      {[]string{"--link-hub-url", url, "--link-hub-secret-file", flow, "--flow-secret-file", flow}, "--flow-secret-file and --link-hub-secret-file hold the same secret"},
-		"the hub's secret is the probe's":     {[]string{"--link-hub-url", url, "--link-hub-secret-file", probe, "--flow-secret-file", flow, "--probe-listen", ":8081", "--probe-secret-file", probe}, "--probe-secret-file and --link-hub-secret-file hold the same secret"},
-		"a short secret":                      {[]string{"--link-hub-url", url, "--link-hub-secret-file", writeSecret(t, "short", "tiny"), "--flow-secret-file", flow, "--probe-listen", ":8081"}, "--link-hub-secret-file must hold a secret of at least 16 characters"},
+		"no secret for the hub":           {[]string{"--link-hub-url", url, "--flow-secret-file", flow}, "--link-hub-url needs --link-hub-secret-file"},
+		"no flow secret":                  {[]string{"--link-hub-url", url, "--link-hub-secret-file", hub}, "--link-hub-url needs --flow-secret-file"},
+		"not a URL":                       {[]string{"--link-hub-url", "hub.example:9106", "--link-hub-secret-file", hub, "--flow-secret-file", flow}, "must be an http(s) URL"},
+		"a secret with no hub":            {[]string{"--link-hub-secret-file", hub}, "--link-hub-secret-file needs --link-hub-url"},
+		"serving peers with no hub":       {[]string{"--link-serve-peers"}, "--link-serve-peers needs --link-hub-url"},
+		"serving credentials with no hub": {[]string{"--link-serve-iperf"}, "--link-serve-iperf needs --link-hub-url"},
+		"credentials without the prober":  {[]string{"--link-hub-url", url, "--link-hub-secret-file", hub, "--flow-secret-file", flow, "--link-serve-iperf"}, "--link-serve-iperf needs --link-serve-peers"},
+		"prober ports that are not ports": {[]string{"--link-hub-url", url, "--link-hub-secret-file", hub, "--flow-secret-file", flow, "--link-prober-ports", "8861,eight"}, "--link-prober-ports"},
+		"the hub's secret is the flow's":  {[]string{"--link-hub-url", url, "--link-hub-secret-file", flow, "--flow-secret-file", flow}, "--flow-secret-file and --link-hub-secret-file hold the same secret"},
+		"the hub's secret is the probe's": {[]string{"--link-hub-url", url, "--link-hub-secret-file", probe, "--flow-secret-file", flow, "--probe-listen", ":8081", "--probe-secret-file", probe}, "--probe-secret-file and --link-hub-secret-file hold the same secret"},
+		"a short secret":                  {[]string{"--link-hub-url", url, "--link-hub-secret-file", writeSecret(t, "short", "tiny"), "--flow-secret-file", flow, "--probe-listen", ":8081"}, "--link-hub-secret-file must hold a secret of at least 16 characters"},
 	} {
 		code, out := agentRun(t, c.args...)
 		if code == 0 || !strings.Contains(out, c.want) {
@@ -63,8 +62,7 @@ func TestTheLinkHubFlagsAreHeldToWhatTheyMean(t *testing.T) {
 	}
 }
 
-// The hub mode takes over the link flags that said where the series are served from: asking for the prober to be served is no longer a request
-// for a listener and a secret, only a statement of what the install contains.
+// Asking for the prober to be served is no request for a listener and a secret, only a statement of what the install contains.
 func TestServingPeersNeedsNoListenerWhenTheHubDoesIt(t *testing.T) {
 	flow := writeSecret(t, "flow", "flow-secret-0123456789abcdef")
 	hub := writeSecret(t, "hub", "hub-secret-0123456789abcdef")
@@ -72,6 +70,18 @@ func TestServingPeersNeedsNoListenerWhenTheHubDoesIt(t *testing.T) {
 	for _, not := range []string{"--link-serve-peers needs", "--link-serve-iperf needs", "--link-hub-url needs", "cannot be combined"} {
 		if strings.Contains(out, not) {
 			t.Errorf("code %d: %q was asked of an agent that has a hub:\n%s", code, not, out)
+		}
+	}
+}
+
+// The agent no longer has a listener, nor secrets, of its own for the links: the flags that said so do not exist, and an install that still
+// passes one is refused by the flag parser instead of quietly serving nothing.
+func TestTheAgentsOwnLinkServingFlagsAreGone(t *testing.T) {
+	flow := writeSecret(t, "flow", "flow-secret-0123456789abcdef")
+	for _, f := range []string{"--link-metrics-listen", "--link-peers-secret-file", "--link-iperf-secret-file"} {
+		code, out := agentRun(t, "--flow-secret-file", flow, f, "x")
+		if code == 0 || !strings.Contains(out, "flag provided but not defined") {
+			t.Errorf("%s: code %d, output:\n%s", f, code, out)
 		}
 	}
 }

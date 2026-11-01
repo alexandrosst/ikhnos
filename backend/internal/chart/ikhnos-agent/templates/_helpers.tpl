@@ -117,21 +117,16 @@ IfNotPresent
 {{/* True when the Ikhnos server issues the iperf3 credentials of the throughput tests and delivers them through the agent: the tests are
      on, no Secret of your own is named (that wins), and auth.automatic has not been switched off. */}}
 {{- define "agent.linkIperf" -}}{{- $c := .Values.telemetry.clusterLinks.probe.capacity -}}{{- if and .Values.telemetry.clusterLinks.metrics.enabled .Values.telemetry.clusterLinks.probe.enabled $c.enabled $c.auth.automatic (not $c.auth.existingSecret) -}}true{{- end -}}{{- end -}}
-{{/* True when the prober is on (and so the peer list is answered, by the agent or, with the hub, by the hub). */}}
+{{/* True when the prober is on (and so the peer list is answered, by the hub). */}}
 {{- define "agent.linkPeers" -}}{{- if and .Values.telemetry.clusterLinks.metrics.enabled .Values.telemetry.clusterLinks.probe.enabled -}}true{{- end -}}{{- end -}}
 
 {{/* True when the link series, the prober's peer list and the responders' credentials are served by the link hub (a pod of its own) and
      not by the agent: always, whenever the link metrics are on. The agent then listens for none of them and holds neither the peers nor
      the iperf secret: it sends the hub the rows it has admitted and the configuration to serve, signed with the hub secret. */}}
 {{- define "agent.linkHub" -}}{{- if .Values.telemetry.clusterLinks.metrics.enabled -}}true{{- end -}}{{- end -}}
-{{/* The same for the agent's own process: it serves the link pieces (and mounts their secrets) only without the hub. */}}
-{{- define "agent.linkPeersInAgent" -}}{{- if and (include "agent.linkPeers" .) (not (include "agent.linkHub" .)) -}}true{{- end -}}{{- end -}}
-{{- define "agent.linkIperfInAgent" -}}{{- if and (include "agent.linkIperf" .) (not (include "agent.linkHub" .)) -}}true{{- end -}}{{- end -}}
-{{/* True when the agent mounts any secret of the link pieces: the hub's, or (without the hub) the peers and iperf ones. */}}
-{{- define "agent.linkSecretsInAgent" -}}{{- if or (include "agent.linkHub" .) (include "agent.linkPeersInAgent" .) -}}true{{- end -}}{{- end -}}
-{{/* The name the pods that serve the link metrics, the peer list and the credentials carry: the agent's, or the hub's. The Service
-     ikhnos-agent-link-metrics selects them, so the collector, the prober and the responders keep the same address either way. */}}
-{{- define "agent.linkServerName" -}}{{- if include "agent.linkHub" . -}}ikhnos-link-hub{{- else -}}ikhnos-agent{{- end -}}{{- end -}}
+{{/* The name the pods that serve the link metrics, the peer list and the credentials carry: the hub's. The Service
+     ikhnos-agent-link-metrics selects them. */}}
+{{- define "agent.linkServerName" -}}ikhnos-link-hub{{- end -}}
 {{- define "agent.linkHubSecretName" -}}ikhnos-agent-link-hub{{- end -}}
 {{- define "agent.linkHubServiceName" -}}ikhnos-agent-link-hub{{- end -}}
 {{- define "agent.linkHubURL" -}}http://{{ include "agent.linkHubServiceName" . }}.{{ .Release.Namespace }}.svc:9106{{- end -}}

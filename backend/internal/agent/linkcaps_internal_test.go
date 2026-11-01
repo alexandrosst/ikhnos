@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"ikhnos/internal/link"
+	"ikhnos/internal/linkhub"
 )
 
 func TestTheAgentReportsWhatItsInstallCanDoForLinks(t *testing.T) {
@@ -13,9 +14,8 @@ func TestTheAgentReportsWhatItsInstallCanDoForLinks(t *testing.T) {
 		t.Fatalf("Cluster links off: %+v", off)
 	}
 
-	m := link.NewMeter(link.NewPeers())
-	m.SetInstall(link.Install{Probe: true, Capacity: true, TelemetryExport: true})
-	r := &runner{cfg: Config{Links: m}}
+	f := linkhub.NewForwarder("http://127.0.0.1:1", hubTestSecret, nil, nil)
+	r := &runner{cfg: Config{LinkHub: &LinkHub{Forwarder: f, Install: link.Install{Probe: true, Capacity: true, TelemetryExport: true}}}}
 	on := r.linkCapabilities()
 	if !on.LinkMetrics || !on.ProbeEnabled || !on.CapacityEnabled || !on.TelemetryExport {
 		t.Fatalf("everything on: %+v", on)
@@ -25,8 +25,7 @@ func TestTheAgentReportsWhatItsInstallCanDoForLinks(t *testing.T) {
 	}
 
 	// metrics only: probing, iperf3 and export are reported off
-	m2 := link.NewMeter(link.NewPeers())
-	only := (&runner{cfg: Config{Links: m2}}).linkCapabilities()
+	only := (&runner{cfg: Config{LinkHub: &LinkHub{Forwarder: f}}}).linkCapabilities()
 	if !only.LinkMetrics || only.ProbeEnabled || only.CapacityEnabled || only.TelemetryExport {
 		t.Fatalf("metrics only: %+v", only)
 	}

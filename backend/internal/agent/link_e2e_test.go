@@ -3,6 +3,7 @@ package agent_test
 import (
 	"bytes"
 	"context"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	"ikhnos/internal/flow"
 	"ikhnos/internal/kernel"
 	"ikhnos/internal/link"
+	"ikhnos/internal/linkhub"
 	"ikhnos/internal/server"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -47,7 +49,7 @@ func (d *dx) addPeer(uid, nodeIP string) string {
 	}
 	cfg := d.cfg
 	cfg.Kube, cfg.Identity, cfg.Token = kube, ids, token
-	cfg.Probes, cfg.Flows, cfg.Links = nil, nil, nil
+	cfg.Probes, cfg.Flows, cfg.LinkHub = nil, nil, nil
 	ctx, cancel := context.WithCancel(context.Background())
 	over := make(chan struct{})
 	go func() { _ = agent.Run(ctx, cfg); close(over) }()
@@ -93,6 +95,34 @@ func (d *dx) addPeer(uid, nodeIP string) string {
 	return cluster
 }
 
+// e2eHub is a link hub run in this process, with the agent's forwarder to it: the meter that makes the series and answers the pods, and the
+// pipeline the agent under test is given so that its flow rows and the peers the server names reach the meter by the same way as in an install.
+type e2eHub struct {
+	meter *link.Meter
+	pipe  *flow.Pipeline
+}
+
+// newE2EHub starts the hub. Secrets given turn on what the prober and the responder may ask the hub for (nil: nothing).
+func newE2EHub(t *testing.T, install link.Install, iperf bool, peersSecret, iperfSecret []byte) (*e2eHub, func(c *agent.Config, _ *server.Core, _ *estate.Hub)) {
+	t.Helper()
+	meter := link.NewMeter(link.NewPeers())
+	if peersSecret != nil {
+		meter.ServePeers(peersSecret)
+	}
+	if iperfSecret != nil {
+		meter.ServeIperf(iperfSecret)
+	}
+	hubSecret := []byte("hub-secret-secret-secret-1234567")
+	srv := httptest.NewServer(linkhub.New(hubSecret, meter, nil).Handler())
+	t.Cleanup(srv.Close)
+	fwd := linkhub.NewForwarder(srv.URL, hubSecret, nil, nil)
+	h := &e2eHub{meter: meter, pipe: flow.NewPipeline([]byte("secret-secret-secret-secret-1234"), func() *collect.Index { return nil }, nil)}
+	h.pipe.Links = fwd
+	return h, func(c *agent.Config, _ *server.Core, _ *estate.Hub) {
+		c.Flows, c.LinkHub = h.pipe, &agent.LinkHub{Forwarder: fwd, Install: install, Iperf: iperf}
+	}
+}
+
 func metricsOf(m *link.Meter) string {
 	var b bytes.Buffer
 	m.Write(&b)
@@ -100,14 +130,9 @@ func metricsOf(m *link.Meter) string {
 }
 
 func TestTheServerNamesLinkPeersAndTheAgentLabelsTrafficWithThem(t *testing.T) {
-	secret := []byte("secret-secret-secret-secret-1234")
-	meter := link.NewMeter(link.NewPeers())
-	var pipe *flow.Pipeline
-	d := newDx(t, dxOpts{tune: func(c *agent.Config, _ *server.Core, _ *estate.Hub) {
-		pipe = flow.NewPipeline(secret, func() *collect.Index { return nil }, nil)
-		pipe.Links = meter
-		c.Flows, c.Links = pipe, meter
-	}})
+	h, tune := newE2EHub(t, link.Install{}, false, nil, nil)
+	meter, pipe := h.meter, h.pipe
+	d := newDx(t, dxOpts{tune: tune})
 	waitFor(t, "first picture", 20*time.Second, func() bool { return services(d, "shop") == 1 })
 	mine := d.agentDoc().ClusterID
 	peer := d.addPeer("eeeeeeeeeeee", "10.9.9.9")
@@ -132,17 +157,23 @@ func TestTheServerNamesLinkPeersAndTheAgentLabelsTrafficWithThem(t *testing.T) {
 		{Client: true, LocalIp: "10.0.0.5", PeerIp: "10.9.9.9", Port: 443, Protocol: "tcp", Connections: 3, BytesOut: 5000, BytesIn: 200, SegsOut: 40, Retransmits: 2, RttUs: 25000},
 		{Client: true, LocalIp: "10.0.0.5", PeerIp: "8.8.8.8", Port: 443, Protocol: "tcp", Connections: 9, BytesOut: 1},
 	}})
-	out := metricsOf(meter)
-	for _, want := range []string{
+	// The rows travel to the hub in the background, and the series are made there.
+	wants := []string{
 		`ikhnos_link_connections_total{cluster="` + mine + `",peer="` + peer + `"} 3`,
 		`ikhnos_link_retransmits_total{cluster="` + mine + `",peer="` + peer + `"} 2`,
 		`ikhnos_link_sent_bytes_total{cluster="` + mine + `",peer="` + peer + `"} 5000`,
 		`ikhnos_link_rtt_seconds_count{cluster="` + mine + `",peer="` + peer + `"} 1`,
-	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("missing %q in:\n%s", want, out)
-		}
 	}
+	waitFor(t, "the rows to reach the hub", 30*time.Second, func() bool {
+		out := metricsOf(meter)
+		for _, want := range wants {
+			if !strings.Contains(out, want) {
+				return false
+			}
+		}
+		return true
+	})
+	out := metricsOf(meter)
 	if strings.Contains(out, "8.8.8.8") {
 		t.Error("an address leaked into the metrics")
 	}
@@ -170,13 +201,8 @@ func TestTheServerNamesLinkPeersAndTheAgentLabelsTrafficWithThem(t *testing.T) {
 // What the install can do reaches the server in the heartbeat, and the checklist of a pair is built from it: this install has
 // Cluster links, probing and telemetry export on, the other agent (a plain one) has Cluster links off, and both are said so.
 func TestTheServerLearnsWhatTheInstallCanDoAndChecksThePair(t *testing.T) {
-	meter := link.NewMeter(link.NewPeers())
-	meter.SetInstall(link.Install{Probe: true, TelemetryExport: true})
-	d := newDx(t, dxOpts{tune: func(c *agent.Config, _ *server.Core, _ *estate.Hub) {
-		pipe := flow.NewPipeline([]byte("secret-secret-secret-secret-1234"), func() *collect.Index { return nil }, nil)
-		pipe.Links = meter
-		c.Flows, c.Links = pipe, meter
-	}})
+	_, tune := newE2EHub(t, link.Install{Probe: true, TelemetryExport: true}, false, nil, nil)
+	d := newDx(t, dxOpts{tune: tune})
 	waitFor(t, "first picture", 20*time.Second, func() bool { return services(d, "shop") == 1 })
 	mine := d.agentDoc().ClusterID
 	peer := d.addPeer("eeeeeeeeeeee", "10.9.9.9") // an agent whose install has no Cluster links

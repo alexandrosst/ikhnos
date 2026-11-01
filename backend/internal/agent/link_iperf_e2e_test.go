@@ -9,14 +9,9 @@ import (
 	"time"
 
 	"ikhnos/internal/accounts"
-	"ikhnos/internal/agent"
-	"ikhnos/internal/agent/collect"
 	"ikhnos/internal/agents"
-	"ikhnos/internal/estate"
-	"ikhnos/internal/flow"
 	"ikhnos/internal/kernel"
 	"ikhnos/internal/link"
-	"ikhnos/internal/server"
 )
 
 // peerUIDSorting finds a 12-digit uid suffix whose cluster (as addPeer enrolls it) sorts after (or before) mine.
@@ -40,15 +35,9 @@ func TestTheServerIssuesIperfCredentialsAndTheAgentHandsThemToThePodsOfItsRole(t
 		t.Run(name, func(t *testing.T) {
 			peersSecret := []byte("peers-secret-secret-secret-12345")
 			iperfSecret := []byte("iperf-secret-secret-secret-12345")
-			meter := link.NewMeter(link.NewPeers())
-			meter.ServePeers(peersSecret)
-			meter.ServeIperf(iperfSecret)
-			var pipe *flow.Pipeline
-			d := newDx(t, dxOpts{tune: func(c *agent.Config, _ *server.Core, _ *estate.Hub) {
-				pipe = flow.NewPipeline([]byte("secret-secret-secret-secret-1234"), func() *collect.Index { return nil }, nil)
-				pipe.Links = meter
-				c.Flows, c.Links = pipe, meter
-			}})
+			h, tune := newE2EHub(t, link.Install{Probe: true, Capacity: true}, true, peersSecret, iperfSecret)
+			meter := h.meter
+			d := newDx(t, dxOpts{tune: tune})
 			waitFor(t, "first picture", 20*time.Second, func() bool { return services(d, "shop") == 1 })
 			mine := d.agentDoc().ClusterID
 			peer := d.addPeer(peerUIDSorting(t, mine, runner), "10.9.9.9")

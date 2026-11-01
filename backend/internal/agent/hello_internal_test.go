@@ -8,7 +8,7 @@ import (
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
 	"ikhnos/internal/agentcaps"
-	"ikhnos/internal/link"
+	"ikhnos/internal/linkhub"
 )
 
 func TestTheHelloStatesTheProtocolVersionAndEveryCapabilityTheRegistryHolds(t *testing.T) {
@@ -64,7 +64,7 @@ var capabilityProbes = map[string]func(t *testing.T){
 		}
 	},
 	agentcaps.LinkCapabilities: func(t *testing.T) {
-		r := &runner{cfg: Config{Links: link.NewMeter(link.NewPeers())}}
+		r := &runner{cfg: Config{LinkHub: &LinkHub{Forwarder: linkhub.NewForwarder("http://127.0.0.1:1", hubTestSecret, nil, nil)}}}
 		if c := r.linkCapabilities(); c == nil || !c.LinkMetrics {
 			t.Fatalf("no link capabilities: %+v", c)
 		}

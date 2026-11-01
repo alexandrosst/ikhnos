@@ -52,7 +52,7 @@ spec:
         - {port: {{ .Values.telemetry.health.sourcesPort | int }}, protocol: TCP}
         {{- end }}
     {{- end }}
-    {{- if include "agent.linkHub" . }}
+    {{- if .Values.telemetry.clusterLinks.metrics.enabled }}
     # The link hub, which the agent sends the link rows and configuration to.
     - to:
         - podSelector:

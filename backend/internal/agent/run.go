@@ -22,7 +22,6 @@ import (
 	"ikhnos/internal/agent/exporthealth"
 	"ikhnos/internal/certrenew"
 	"ikhnos/internal/flow"
-	"ikhnos/internal/link"
 	"ikhnos/internal/measure"
 	"ikhnos/internal/pki"
 	"ikhnos/internal/probe"
@@ -165,11 +164,8 @@ type Config struct {
 	// Flows, when set, receives the node flow collectors' reports and attributes them to workloads.
 	// Both are served on ProbeListen (empty: do not listen).
 	Flows *flow.Pipeline
-	// Links, when set, holds the peer clusters the server names in its Config and the per-peer totals the flow pipeline keeps
-	// (the same Meter the pipeline was given). The agent only feeds it the peer list; it never measures on its own.
-	Links *link.Meter
-	// LinkHub, when set, means the cluster-link series are made by the link hub and not by this process: the flow pipeline's rows go to it
-	// (Flows.Links is its forwarder) and the peers the server names are sent to it. Links is then nil, and nothing here listens for the prober.
+	// LinkHub, when set, means Cluster links are on: the series are made by the link hub and not by this process. The flow pipeline's rows go
+	// to it (Flows.Links is its forwarder) and the peers the server names are sent to it; nothing here listens for the prober.
 	LinkHub     *LinkHub
 	ProbeListen string
 	FlowWindow  time.Duration // how often observed traffic is sent up (default 15 s)
