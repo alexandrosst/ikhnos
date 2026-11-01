@@ -766,3 +766,90 @@ func TestTheFusionScreenRecordsTheGatewaysAddress(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 }
+
+// ---- the gateway's traffic ----
+
+// The gateway pushes its own counters to the metrics store, and the status reads them over a few minutes: what it took in, what it
+// turned away, what it delivered to each store and what it could not. Nothing is scraped for it.
+func TestStatusSaysWhatTheGatewayDidWithTheDataLately(t *testing.T) {
+	f, k, now := cachedFusion(t)
+	f.StatusTTL = -1
+	var counters atomic.Value // the answer to the counters' query: a list of [name, value]; nil = the store holds none
+	counters.Store([][2]string{
+		{"otelcol_receiver_accepted_metric_points_total", "6000"}, {"otelcol_exporter_sent_metric_points_total", "6000"},
+		{"otelcol_receiver_accepted_log_records_total", "300"}, {"otelcol_exporter_sent_log_records_total", "150"}, {"otelcol_exporter_send_failed_log_records_total", "150"},
+		{"otelcol_receiver_refused_spans_total", "30"}, {"otelcol_exporter_send_failed_spans_total", "60"},
+	})
+	var queries atomic.Int32
+	prom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/status/tsdb":
+			jsonOut(w, map[string]any{"status": "success", "data": map[string]any{"headStats": map[string]any{"numSeries": 89, "minTime": int64(1), "maxTime": int64(1790000000000)}}})
+		case "/api/v1/query":
+			queries.Add(1)
+			q := r.URL.Query().Get("query")
+			if strings.Contains(q, "queue_size") {
+				jsonOut(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "vector", "result": []any{
+					map[string]any{"metric": map[string]string{"exporter": "otlphttp/logs"}, "value": []any{1790000000, "0.25"}},
+					map[string]any{"metric": map[string]string{"exporter": "otlp/traces"}, "value": []any{1790000000, "7"}},
+				}}})
+				return
+			}
+			var res []any
+			if got, _ := counters.Load().([][2]string); got != nil {
+				for _, c := range got {
+					res = append(res, map[string]any{"metric": map[string]string{"__name__": c[0]}, "value": []any{1790000000, c[1]}})
+				}
+			}
+			jsonOut(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "vector", "result": res}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(prom.Close)
+	f.Data = &fusionapi.Client{Prometheus: prom.URL, Now: func() time.Time { return time.Unix(1790000100, 0).UTC() }}
+	ctx := context.Background()
+
+	if st := f.Status(ctx); st.Traffic != nil || queries.Load() != 0 {
+		t.Fatalf("asked before the stores were up: %+v (%d)", st.Traffic, queries.Load())
+	}
+	k.allReady()
+	st := f.Status(ctx)
+	tr := st.Traffic
+	if tr == nil || tr.WindowSeconds != 300 {
+		t.Fatalf("traffic %+v", tr)
+	}
+	// 6000 samples in 300 s is 20 a second; a store that was delivered half of what was taken in has the other half failed.
+	if tr.Metrics.Accepted != 20 || tr.Metrics.Sent != 20 || tr.Metrics.Failed != 0 {
+		t.Errorf("metrics %+v", tr.Metrics)
+	}
+	if tr.Logs.Accepted != 1 || tr.Logs.Sent != 0.5 || tr.Logs.Failed != 0.5 || tr.Logs.Queue == nil || *tr.Logs.Queue != 0.25 {
+		t.Errorf("logs %+v", tr.Logs)
+	}
+	if tr.Traces.Accepted != 0 || tr.Traces.Refused != 0.1 || tr.Traces.Sent != 0 || tr.Traces.Failed != 0.2 || tr.Traces.Queue == nil || *tr.Traces.Queue != 1 {
+		t.Errorf("traces %+v (a queue figure above 1 is a full queue, not more)", tr.Traces)
+	}
+	b, _ := json.Marshal(st)
+	if !strings.Contains(string(b), `"traffic"`) || !strings.Contains(string(b), `"windowSeconds":300`) {
+		t.Errorf("the figures are on the wire: %s", b)
+	}
+	// A copy that is handed out shares nothing with the one that is kept.
+	*tr.Logs.Queue = 0.99
+	if again := f.Status(ctx); again.Traffic == nil || *again.Traffic.Logs.Queue != 0.25 {
+		t.Errorf("the kept figure was changed through a copy: %+v", again.Traffic)
+	}
+	// Asked at most once per 15 s, however often the status is read.
+	n := queries.Load()
+	for range 4 {
+		f.Status(ctx)
+	}
+	if queries.Load() != n {
+		t.Errorf("%d more queries inside 15 s", queries.Load()-n)
+	}
+	// The store holds none of the gateway's counters (it is off, or too new): nothing is known, and nothing is said.
+	counters.Store([][2]string(nil))
+	*now = now.Add(16 * time.Second)
+	if st = f.Status(ctx); st.Traffic != nil {
+		t.Errorf("figures from nothing: %+v", st.Traffic)
+	}
+}

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { StatusChip } from '@/features/fusion/components/StatusChip'
 import { DiskMeter, FillsIn } from '@/features/fusion/components/StoreBars'
 import { type FusionPictureModel, type PictureEdge, type PictureNode } from '@/features/fusion/lib/fusionPicture'
+import { TRAFFIC_TONE } from '@/features/fusion/lib/fusionTraffic'
 import { LINK_TONE } from '@/lib/linkTone'
 
 const HEAD = 5 // half the width of an arrowhead, and its length
@@ -67,6 +68,12 @@ function Box({ n, big }: { n: PictureNode; big?: boolean }) {
         <StatusChip status={n.health} />
       </div>
       <p className="mt-0.5 text-xs text-nb-500">{n.note}</p>
+      {n.traffic && (
+        <p className={clsx('mt-1 text-xs', TRAFFIC_TONE[n.traffic.state])} data-testid={`fusion-traffic-${n.id}`} data-traffic={n.traffic.state}>
+          <span className="font-medium">{n.traffic.word}</span>
+          {n.traffic.text && <span className="text-nb-400"> · {n.traffic.text}</span>}
+        </p>
+      )}
       {n.more && <p className="mt-1 break-words text-xs text-nb-400">{n.more}</p>}
       {n.store && <><DiskMeter s={n.store} idPrefix="fusion-flow" /><div className="mt-1"><FillsIn s={n.store} idPrefix="fusion-flow" /></div></>}
     </div>
@@ -109,7 +116,7 @@ export function FusionPicture({ model }: { model: FusionPictureModel }) {
         <Edges edges={model.edges} />
       </div>
       <p className="mt-3 text-xs text-nb-500">
-        Green and moving: the part is up and data is arriving. Grey: not known. Amber: held up. Red: not working. Each arrow into a store is green only if that store itself held something in the last five minutes; how much went to which is not measured.
+        Green and moving: the part is up and data is arriving. Grey: not known, or quiet. Amber: held up. Red: not working. The figures are what the central operator counted over the last five minutes (it reports them itself), kind by kind: an arrow into a store moves only while data is being delivered to that store. Where it does not report them yet, an arrow is green when the store held something in the last five minutes.
       </p>
     </div>
   )

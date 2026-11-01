@@ -74,6 +74,9 @@ type FusionControl struct {
 	// lastLogSeen and lastTraceSeen are the same for the logs and the traces store, asked at the same time.
 	lastLogSeen   time.Time
 	lastTraceSeen time.Time
+	// traffic is what the gateway's counters said when they were last read (nil: they said nothing, or the read failed: a figure
+	// that is not current is not kept the way the times above are).
+	traffic *fusionapi.GatewayTraffic
 
 	discoverMu sync.Mutex
 	discoverAt time.Time // when the Service was last looked at for an address (see DiscoverAddress)
@@ -409,6 +412,26 @@ type FusionStatus struct {
 	// can be told from one that is fine while the others receive. A store that is not up, or holds nothing in the last hours, is
 	// left out; the whole field is omitted when none is known.
 	LastData *StoreTimes `json:"lastData,omitempty"`
+	// Traffic is what the central gateway did with the data in the last few minutes, per kind and per second, as its own counters say:
+	// what it took in, what it turned away, what it delivered to each store and what it could not. It tells a store that receives from
+	// one that is quiet, and how much. Omitted when the metrics store is not up or holds none of the gateway's counters (then nothing
+	// is known, which is not the same as nothing moving).
+	Traffic *fusionapi.GatewayTraffic `json:"traffic,omitempty"`
+}
+
+// copyTraffic is a copy that shares nothing with what it was made from (the queue figures are pointers).
+func copyTraffic(t *fusionapi.GatewayTraffic) *fusionapi.GatewayTraffic {
+	if t == nil {
+		return nil
+	}
+	c := *t
+	for _, q := range []**float64{&c.Metrics.Queue, &c.Logs.Queue, &c.Traces.Queue} {
+		if *q != nil {
+			v := **q
+			*q = &v
+		}
+	}
+	return &c
 }
 
 // StoreTimes is a time for each of the three stores.
@@ -444,6 +467,7 @@ func (st FusionStatus) clone() FusionStatus {
 		}
 		st.LastData = &d
 	}
+	st.Traffic = copyTraffic(st.Traffic)
 	return st
 }
 
@@ -621,7 +645,7 @@ func (f *FusionControl) readStatus(ctx context.Context) FusionStatus {
 	}
 	st = f.assess(comps)
 	if st.ComponentUp(ComponentMetrics) || st.ComponentUp(ComponentLogs) || st.ComponentUp(ComponentTraces) {
-		st.LastDataAt, st.LastData = f.lastData(ctx, st)
+		st.LastDataAt, st.LastData, st.Traffic = f.lastData(ctx, st)
 	}
 	return st
 }
@@ -762,7 +786,7 @@ func waitedFor(d time.Duration) string {
 // line and Tempo's newest trace, each asked only while its store is up, the three together, at most once per fusionLastDataEvery. A
 // failed ask, or a store that answers "nothing in the last hours", leaves what was known (data seen longer ago than the window no
 // longer answers, but it was still the last data). Anything that goes wrong is simply "unknown": it is a nicety next to the state.
-func (f *FusionControl) lastData(ctx context.Context, st FusionStatus) (*time.Time, *StoreTimes) {
+func (f *FusionControl) lastData(ctx context.Context, st FusionStatus) (*time.Time, *StoreTimes, *fusionapi.GatewayTraffic) {
 	f.lastDataMu.Lock()
 	defer f.lastDataMu.Unlock()
 	if now := f.Clock(); f.lastDataTried.IsZero() || now.Sub(f.lastDataTried) >= fusionLastDataEvery {
@@ -797,6 +821,19 @@ func (f *FusionControl) lastData(ctx context.Context, st FusionStatus) (*time.Ti
 		ask(st.ComponentUp(ComponentTraces), func(x context.Context) (time.Time, bool, error) {
 			return c.NewestTrace(x, scope, fusionapi.NewestWindow)
 		}, &tt, &tok)
+		if st.ComponentUp(ComponentMetrics) {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				qctx, cancel := context.WithTimeout(ctx, fusionKubeTimeout)
+				defer cancel()
+				tr, err := c.GatewayTraffic(qctx, scope)
+				if err != nil {
+					tr = nil
+				}
+				f.traffic = tr // one goroutine writes it, and lastDataMu is held until Wait returns
+			}()
+		}
 		wg.Wait()
 		if mok {
 			f.lastDataSeen = mt
@@ -832,10 +869,14 @@ func (f *FusionControl) lastData(ctx context.Context, st FusionStatus) (*time.Ti
 	if !st.ComponentUp(ComponentMetrics) {
 		at = nil // as before: the metrics store's own time is told only while it is up
 	}
-	if !have {
-		return at, nil
+	var traffic *fusionapi.GatewayTraffic
+	if st.ComponentUp(ComponentMetrics) && f.traffic != nil {
+		traffic = copyTraffic(f.traffic)
 	}
-	return at, &per
+	if !have {
+		return at, nil, traffic
+	}
+	return at, &per, traffic
 }
 
 // rememberedLastData is what lastDataAt last found, without asking again.

@@ -112,7 +112,65 @@ describe('fusionPicture', () => {
   })
 })
 
+const sig = (over: object = {}) => ({ accepted: 0, sent: 0, ...over })
+const traffic = (over: Partial<Record<'metrics' | 'logs' | 'traces', object>> = {}) => ({ windowSeconds: 300, metrics: sig({ accepted: 20, sent: 20 }), logs: sig({ accepted: 0.5, sent: 0.5 }), traces: sig(), ...over })
+
+describe('fusionPicture: the gateway\'s own counters', () => {
+  test('each store says whether it is receiving, and how much, and only a store that is delivered to has a moving arrow', () => {
+    // The newest log line and trace are recent, as before: it is the counters that now decide.
+    const m = model(status({ traffic: traffic() } as Partial<FusionStatus>))
+    expect(m.stores.find((n) => n.id === 'metrics')?.traffic).toMatchObject({ state: 'receiving', word: 'Receiving', text: '20 samples/s' })
+    expect(m.stores.find((n) => n.id === 'logs')?.traffic).toMatchObject({ state: 'receiving', text: '30 log lines/min' })
+    expect(m.stores.find((n) => n.id === 'traces')?.traffic).toMatchObject({ state: 'quiet', word: 'Quiet' })
+    expect(link(m, 'central', 'metrics')).toBe('flowing')
+    expect(link(m, 'central', 'logs')).toBe('flowing')
+    expect(link(m, 'central', 'traces')).toBe('unknown')
+    expect(link(m, 'regional', 'central')).toBe('flowing')
+    expect(m.central.traffic).toMatchObject({ state: 'receiving', word: 'Taking in' })
+  })
+
+  test('a store that is failed to be delivered to is not receiving, and one that is partly delivered to is held up', () => {
+    const m = model(status({ traffic: traffic({ metrics: sig({ accepted: 20, sent: 0, failed: 20 }), logs: sig({ accepted: 1, sent: 0.5, failed: 0.5, queue: 0.9 }) }) } as Partial<FusionStatus>))
+    expect(m.stores.find((n) => n.id === 'metrics')?.traffic).toMatchObject({ state: 'failing', word: 'Not receiving' })
+    expect(link(m, 'central', 'metrics')).toBe('broken')
+    const logs = m.stores.find((n) => n.id === 'logs')?.traffic
+    expect(logs).toMatchObject({ state: 'held', word: 'Held up' })
+    expect(logs?.text).toMatch(/failed.*queue 90% full/)
+    expect(link(m, 'central', 'logs')).toBe('stalled')
+  })
+
+  test('a gateway that turns data away says so, and one that took in nothing is quiet, not moving', () => {
+    const turned = model(status({ traffic: traffic({ traces: sig({ refused: 2 }) }) } as Partial<FusionStatus>))
+    expect(turned.central.traffic).toMatchObject({ state: 'held', word: 'Turning data away' })
+    const idle = model(status({ traffic: traffic({ metrics: sig(), logs: sig(), traces: sig() }) } as Partial<FusionStatus>))
+    expect(idle.central.traffic).toMatchObject({ state: 'quiet', word: 'Quiet' })
+    // Quiet is not claimed to be moving, however recent the newest sample.
+    expect(idle.edges.filter((e) => e.from === 'central').map((e) => e.link)).toEqual(['unknown', 'unknown', 'unknown'])
+    expect(link(idle, 'regional', 'central')).toBe('unknown')
+  })
+
+  test('without the counters (an older server, a gateway that has not reported) the picture is what it was', () => {
+    const m = model(status())
+    expect(m.central.traffic).toBeUndefined()
+    expect(m.stores.every((n) => n.traffic === undefined)).toBe(true)
+    expect(m.edges.map((e) => e.link)).toEqual(Array(m.edges.length).fill('flowing'))
+  })
+
+  test('a store that is not up has no traffic words, only its state', () => {
+    const m = model(status({ state: 'attention', components: [part('central'), part('metrics'), part('logs', { ready: 0 }), part('traces'), part('grafana')], traffic: traffic() } as Partial<FusionStatus>))
+    expect(m.stores.find((n) => n.id === 'logs')?.traffic).toBeUndefined()
+    expect(link(m, 'central', 'logs')).toBe('broken')
+  })
+})
+
 describe('FusionPicture', () => {
+  test('a box shows what it is doing and how much, beside its state', () => {
+    render(<MemoryRouter><FusionPicture model={model(status({ traffic: traffic() } as Partial<FusionStatus>))} /></MemoryRouter>)
+    expect(screen.getByTestId('fusion-traffic-metrics')).toHaveTextContent('Receiving · 20 samples/s')
+    expect(screen.getByTestId('fusion-traffic-traces')).toHaveAttribute('data-traffic', 'quiet')
+    expect(screen.getByTestId('fusion-traffic-central')).toHaveTextContent('Taking in')
+  })
+
   test('every box says its state in words, and each arrow carries its link', () => {
     render(<MemoryRouter><FusionPicture model={model(status({ state: 'attention', components: [part('central'), part('metrics'), part('logs', { ready: 0 }), part('traces'), part('grafana')] }))} /></MemoryRouter>)
     expect(screen.getByTestId('fusion-node-logs')).toHaveAttribute('data-health', 'down')

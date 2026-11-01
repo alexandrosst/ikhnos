@@ -3,6 +3,7 @@ import { ago } from '@/lib/observed'
 import { NO_DATA_AFTER_MS, fusionSentence, partHealth, type FusionProblem, type Shown } from '@/features/fusion/lib/fusionStatus'
 import type { LinkState } from '@/lib/linkTone'
 import type { HealthOrSetup } from '@/lib/status'
+import { gatewayTraffic, storeTraffic, trafficLink, type TrafficState } from '@/features/fusion/lib/fusionTraffic'
 
 /** One box of the picture: what it is called, its state in FUSION's own words, and what to say under it. */
 export interface PictureNode {
@@ -15,6 +16,8 @@ export interface PictureNode {
   more?: string
   /** The store behind a box, for its disk bar. */
   store?: FusionRetentionStore
+  /** What the gateway's own counters say it is doing with data now (Receiving, Quiet, Held up...), when they are known. */
+  traffic?: { state: TrafficState; word: string; text: string }
   /** Where a click goes, when the box is somewhere else (the senders are on the Pipeline page). */
   to?: string
 }
@@ -91,7 +94,10 @@ export function fusionPicture({ status, retention, problems, hops, now }: { stat
   const times: Partial<Record<'metrics' | 'logs' | 'traces', string>> = status.lastData ?? { metrics: status.lastDataAt }
   const recent = (iso?: string) => !!iso && Number.isFinite(Date.parse(iso)) && now - Date.parse(iso) <= NO_DATA_AFTER_MS
   // Data is arriving at FUSION when any store received something lately; what a store itself received is its own question.
-  const fresh = recent(times.metrics) || recent(times.logs) || recent(times.traces) || recent(status.lastDataAt)
+  // When the gateway's own counters are known they say it better: data is moving while it took something in or delivered something lately.
+  const traffic = status.traffic
+  const moving = traffic ? gatewayTraffic(traffic).moving || (['metrics', 'logs', 'traces'] as const).some((k) => traffic[k].sent > 0) : false
+  const fresh = traffic ? moving : recent(times.metrics) || recent(times.logs) || recent(times.traces) || recent(status.lastDataAt)
   const health = (c: FusionComponent) => partHealth(c, kind, problems)
 
   const exposed = status.central?.exposed
@@ -106,6 +112,10 @@ export function fusionPicture({ status, retention, problems, hops, now }: { stat
       : undefined,
   }
   if (centralPart?.reason && centralPart.ready < centralPart.desired) central.more = centralPart.reason
+  if (traffic && centralHealth === 'healthy') {
+    const g = gatewayTraffic(traffic)
+    central.traffic = { state: g.state, word: g.word, text: g.text }
+  }
 
   const regional = hops.find((h) => h.key === 'regional')
   const local = hops.find((h) => h.key === 'local')
@@ -137,11 +147,12 @@ export function fusionPicture({ status, retention, problems, hops, now }: { stat
     const h = health(c)
     const st = retention?.available ? retention.stores.find((s) => s.component === name) : undefined
     // A store is drawn as receiving only when it holds something that arrived lately; "nothing yet" and "a while ago" claim no movement.
-    const own = partLink(h, recent(times[name]))
+    const words = traffic && h === 'healthy' ? storeTraffic(name, traffic[name]) : undefined
+    const own = words ? trafficLink(words.state) : partLink(h, recent(times[name]))
     const seen = times[name]
     // What the store last held, in words; an older server does not say for logs and traces, so nothing is said of them.
     const lastWord = seen ? `Last ${LAST_WORD[name]} ${ago(seen, now)}` : h !== 'healthy' ? undefined : name === 'metrics' ? 'No sample yet' : status.lastData ? `No ${LAST_WORD[name]} in the last six hours` : undefined
-    stores.push({ id: name, title: c.label, health: h, note: { metrics: 'metrics', logs: 'logs', traces: 'traces' }[name], more: c.reason && c.ready < c.desired ? c.reason : lastWord, store: st })
+    stores.push({ id: name, title: c.label, health: h, note: { metrics: 'metrics', logs: 'logs', traces: 'traces' }[name], more: c.reason && c.ready < c.desired ? c.reason : lastWord, store: st, traffic: words })
     edges.push({ from: 'central', to: name, link: worse(centralIn, own) })
   }
 

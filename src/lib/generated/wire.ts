@@ -1281,6 +1281,7 @@ export interface FusionFusionStatus {
   components?: FusionComponent[]
   lastDataAt?: string
   lastData?: StoreTimes
+  traffic?: GatewayTraffic
 }
 
 export interface FusionLinkPair {
@@ -1330,6 +1331,7 @@ export interface FusionStatus {
   components?: FusionComponent[]
   lastDataAt?: string
   lastData?: StoreTimes
+  traffic?: GatewayTraffic
   central?: CentralDoc
   data: boolean
   links?: PageLinks
@@ -1345,6 +1347,13 @@ export interface FusionTokenDoc {
   createdAt: string
   expiresAt: string
   lastUsedAt?: string
+}
+
+export interface GatewayTraffic {
+  windowSeconds: number
+  metrics: SignalTraffic
+  logs: SignalTraffic
+  traces: SignalTraffic
 }
 
 export interface GeoInfo {
@@ -2703,6 +2712,14 @@ export type Signal = 'metrics' | 'logs' | 'traces'
 export interface SignalGrantDoc {
   id: string
   source: string
+}
+
+export interface SignalTraffic {
+  accepted: number
+  refused?: number
+  sent: number
+  failed?: number
+  queue?: number
 }
 
 export interface Signals {
