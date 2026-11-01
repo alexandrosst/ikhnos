@@ -1401,6 +1401,54 @@ func orderAddresses(p Peer, last string, max int) []string {
 	return append(out, rest...)
 }
 
+// raceAddresses are the addresses a connect round tries together towards a peer, most likely first: those the traffic uses, the one
+// that answered last, then one address of each kind and family the peer has (mesh, private and public, IPv4 and IPv6), then the
+// others in random order, at most max in all. The kinds and families come before the others because a round that has not found
+// the address that answers has no better guess than a different path, and a peer with five public addresses and one on a mesh
+// must not be tried at five public ones before the sixth. A pinned pair (p.Via) is offered only addresses of its kind, as in
+// orderAddresses.
+func raceAddresses(p Peer, last string, limit int) []string {
+	preferred, answered, rest := rankAddresses(p, last)
+	room := limit
+	if answered != "" {
+		room--
+	}
+	if len(preferred) > room {
+		preferred = preferred[:max(room, 0)]
+	}
+	out := append([]string(nil), preferred...)
+	if answered != "" {
+		out = append(out, answered)
+	}
+	type form struct {
+		class string
+		v6    bool
+	}
+	formOf := func(s string) form {
+		a, _ := netip.ParseAddr(s)
+		return form{Class(a), a.Unmap().Is6()}
+	}
+	seen := map[form]bool{}
+	for _, s := range out {
+		seen[formOf(s)] = true
+	}
+	rand.Shuffle(len(rest), func(i, j int) { rest[i], rest[j] = rest[j], rest[i] })
+	var others []string
+	for _, s := range rest {
+		if f := formOf(s); !seen[f] {
+			seen[f] = true
+			out = append(out, s)
+		} else {
+			others = append(others, s)
+		}
+	}
+	out = append(out, others...)
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out
+}
+
 // traceTarget is the address the route to p is traced towards: the first of the order above, but with the others in a fixed
 // order, so that the target does not change from one trace to the next and a route change is a real one. "" if there is none.
 func traceTarget(p Peer, last string) string {

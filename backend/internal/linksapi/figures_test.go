@@ -320,3 +320,54 @@ func TestAPairWhoseLatestTestsAreHeldToTheirCapIsAFloor(t *testing.T) {
 		t.Errorf("%+v", got)
 	}
 }
+
+func kindUp(cluster, peer, kind string, v float64) fusionapi.LinkReading {
+	return fusionapi.LinkReading{Cluster: cluster, Peer: peer, Kind: kind, Value: v}
+}
+
+// A pair reached over one kind of address and not over another is told apart from one that is not reached at all.
+func TestTheKindsOfAddressThatDidNotAnswerAreNamed(t *testing.T) {
+	now := time.Unix(1791200000, 0)
+	pairs := []kernel.LinkSetting{{A: "cl-a", B: "cl-b"}}
+	silent := func(in ...fusionapi.LinkReading) string {
+		var out []string
+		for _, k := range latestPairs(pairs, fusionapi.LinkReadings{KindUp: in}, now)[0].Silent {
+			out = append(out, string(k))
+		}
+		return strings.Join(out, ",")
+	}
+	if got := silent(kindUp("cl-a", "cl-b", "mesh", 1), kindUp("cl-a", "cl-b", "public", 0)); got != "public" {
+		t.Errorf("mesh answers, public does not: %q", got)
+	}
+	if got := silent(kindUp("cl-a", "cl-b", "public", 0), kindUp("cl-a", "cl-b", "private", 0), kindUp("cl-a", "cl-b", "mesh", 1)); got != "private,public" {
+		t.Errorf("two kinds are silent, in the order of the words: %q", got)
+	}
+	if got := silent(kindUp("cl-a", "cl-b", "mesh", 1), kindUp("cl-a", "cl-b", "public", 1)); got != "" {
+		t.Errorf("every kind answers: %q", got)
+	}
+	if got := silent(kindUp("cl-a", "cl-b", "mesh", 0), kindUp("cl-a", "cl-b", "public", 0)); got != "" {
+		t.Errorf("none answers, which says nothing of one path against another: %q", got)
+	}
+	if got := silent(kindUp("cl-a", "cl-b", "public", 0)); got != "" {
+		t.Errorf("a single kind that was tried and failed: %q", got)
+	}
+	// either cluster may have measured it, and one that reached a kind makes it answer.
+	if got := silent(kindUp("cl-b", "cl-a", "mesh", 1), kindUp("cl-b", "cl-a", "public", 0)); got != "public" {
+		t.Errorf("from the second cluster's side: %q", got)
+	}
+	if got := silent(kindUp("cl-a", "cl-b", "mesh", 1), kindUp("cl-a", "cl-b", "public", 0), kindUp("cl-b", "cl-a", "public", 1)); got != "" {
+		t.Errorf("reached from the other side: %q", got)
+	}
+	// another pair's readings, and words that are not kinds (the label is whatever a cluster's metrics said), are not used.
+	if got := silent(kindUp("cl-a", "cl-c", "mesh", 1), kindUp("cl-a", "cl-c", "public", 0), kindUp("cl-a", "cl-b", "mesh", 1), kindUp("cl-a", "cl-b", "10.2.3.4", 0)); got != "" {
+		t.Errorf("%q", got)
+	}
+	j, _ := json.Marshal(latestPairs(pairs, fusionapi.LinkReadings{KindUp: []fusionapi.LinkReading{kindUp("cl-a", "cl-b", "mesh", 1), kindUp("cl-a", "cl-b", "10.2.3.4", 0)}}, now)[0])
+	if strings.Contains(string(j), "10.2.3.4") {
+		t.Errorf("an address reached the answer: %s", j)
+	}
+	// a pair that is not probed carries none.
+	if got := latestPairs([]kernel.LinkSetting{{A: "cl-a", B: "cl-b", NoProbe: true}}, fusionapi.LinkReadings{KindUp: []fusionapi.LinkReading{kindUp("cl-a", "cl-b", "mesh", 1), kindUp("cl-a", "cl-b", "public", 0)}}, now)[0]; len(got.Silent) != 0 {
+		t.Errorf("a pair with probing off: %v", got.Silent)
+	}
+}

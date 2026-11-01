@@ -478,8 +478,8 @@ func TestTheConnectTimingFollowsThePreferenceAndThePin(t *testing.T) {
 	c := connectFor(t, dial, lp)
 	c.Meter.Peers.set("cl-me", []*ikhnosv1.LinkPeer{lp}, map[string][]string{"cl-a": {"203.0.113.2"}})
 	c.Round(context.Background())
-	if len(dialed) != 2 || dialed[0] != "203.0.113.2:8861" {
-		t.Errorf("the address the traffic uses is not dialed first: %v", dialed)
+	if len(dialed) != 3 || dialed[0] != "203.0.113.2:8861" {
+		t.Errorf("the address the traffic uses is not dialed first, or an address is left out when none answers: %v", dialed)
 	}
 
 	dialed = nil
@@ -543,5 +543,28 @@ func TestThroughputTestsFollowThePreferenceAndThePin(t *testing.T) {
 	got := render(c.Meter)
 	if got[`ikhnos_link_throughput_test_failures_total{cluster="cl-me",peer="cl-a",method="iperf3",reason="no_such_kind"}`] == "0" || !hasKey(got, `reason="no_such_kind"`) {
 		t.Errorf("the failure is not counted: %v", got)
+	}
+}
+
+// A prober that has just started knows no address that answered the one-way probe, but the connect timing may, within seconds:
+// the probe begins there instead of at a random address of a peer with many.
+func TestTheOneWayProbeStartsAtTheAddressTheConnectTimingFound(t *testing.T) {
+	r := runnerFor(t, &fakeOwping{}, "10.0.0.1", "10.0.0.2", "203.0.113.2", "100.64.0.7", "2001:db8::2")
+	p := r.Meter.Peers.List()[0]
+	r.Meter.NoteAnswered("cl-a", "100.64.0.7")
+	for i := 0; i < 30; i++ {
+		if got := r.candidates(p); got[0] != "100.64.0.7" {
+			t.Fatalf("the probe starts at %v, not the address the connect timing found", got)
+		}
+	}
+	// Once the probe has an answer of its own, that one goes first.
+	r.good = map[string]string{"cl-a": "203.0.113.2"}
+	if got := r.candidates(p); got[0] != "203.0.113.2" {
+		t.Errorf("the probe's own answer is not first: %v", got)
+	}
+	// Nothing known: no address is invented.
+	r2 := runnerFor(t, &fakeOwping{}, "10.0.0.1", "10.0.0.2")
+	if got := r2.candidates(r2.Meter.Peers.List()[0]); len(got) != 2 {
+		t.Errorf("%v", got)
 	}
 }

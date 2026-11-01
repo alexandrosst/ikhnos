@@ -3,6 +3,7 @@ package linksapi
 import (
 	"context"
 	"math"
+	"slices"
 	"sync"
 	"time"
 
@@ -60,6 +61,11 @@ type LinkPairLatest struct {
 	// direction (probing off, an agent that does not report it, nothing arrived yet).
 	ProbeAToB *LinkProbeLatest `json:"probeAToB,omitempty"`
 	ProbeBToA *LinkProbeLatest `json:"probeBToA,omitempty"`
+	// Silent are the kinds of address of the other cluster that no connection reached in the latest rounds of the connect timing,
+	// while the pair has others that were tried: a path that is closed (a firewall that lets the mesh in and not the public
+	// address, say) rather than a cluster that is down. Absent when every kind that was tried answered, and when none did, since
+	// that says nothing of one path against another.
+	Silent []kernel.LinkVia `json:"silent,omitempty"`
 }
 
 // ProbeState is how the one-way probe stands in one direction of a pair.
@@ -432,6 +438,7 @@ func readPairs(links []kernel.LinkSetting, rd fusionapi.LinkReadings, now time.T
 				}
 			}
 			connect.timed = p.RTTSeconds != nil
+			p.Silent = silentKinds(rd.KindUp, a, b)
 			diagnose(p.ProbeAToB, p.ProbeBToA, p.LossAToB, connect, now)
 			diagnose(p.ProbeBToA, p.ProbeAToB, p.LossBToA, connect, now)
 		}
@@ -446,6 +453,37 @@ func readPairs(links []kernel.LinkSetting, rd fusionapi.LinkReadings, now time.T
 			}
 		}
 		out = append(out, p)
+	}
+	return out
+}
+
+// silentKinds are the kinds of address of the pair that did not answer while another kind did, in the order mesh, private,
+// public. A kind counts as answering if either cluster reached it, and the words come from a fixed list, since the label is what
+// the cluster's metrics said.
+func silentKinds(in []fusionapi.LinkReading, a, b string) []kernel.LinkVia {
+	up, down := map[kernel.LinkVia]bool{}, map[kernel.LinkVia]bool{}
+	for _, x := range in {
+		if !(x.Cluster == a && x.Peer == b || x.Cluster == b && x.Peer == a) {
+			continue
+		}
+		k := kernel.LinkVia(x.Kind)
+		if !slices.Contains((kernel.LinkVia("")).WireWords(), x.Kind) {
+			continue
+		}
+		if x.Value >= 1 {
+			up[k] = true
+		} else {
+			down[k] = true
+		}
+	}
+	if len(up) == 0 {
+		return nil
+	}
+	var out []kernel.LinkVia
+	for _, w := range (kernel.LinkVia("")).WireWords() {
+		if k := kernel.LinkVia(w); down[k] && !up[k] {
+			out = append(out, k)
+		}
 	}
 	return out
 }

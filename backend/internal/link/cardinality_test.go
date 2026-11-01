@@ -16,7 +16,7 @@ import (
 // follows the data (a rate, an address, a port) or a metric added without a thought fails, and the docs get updated with it.
 const (
 	maxPassiveSeriesPerPeer = 32
-	maxSeriesPerPeer        = 146
+	maxSeriesPerPeer        = 149
 	// maxSeriesPerPeerWidest is the bound with the widest settings: four DSCP classes (each adds the TCP readings at both
 	// stream counts and the UDP ramp, in both directions) and the bidirectional test.
 	maxSeriesPerPeerWidest  = 235
@@ -81,6 +81,7 @@ func checkSeriesPerPeer(t *testing.T, dscp []int, bidir bool, maxSeries int) {
 	m.ObservePath("cl-a", PathResult{MTU: 1500, Hops: 4, Reached: true, Route: "r"})
 	m.PathFailed("cl-a")
 	m.ObserveConnect("cl-a", 3*time.Millisecond)
+	m.ObserveAddresses("cl-a", map[string]bool{ClassMesh: true, ClassPrivate: false, ClassPublic: true})
 	for _, r := range failReasons {
 		m.ConnectFailed("cl-a", r)
 	}

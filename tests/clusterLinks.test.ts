@@ -265,6 +265,20 @@ test('a failing direction is named by the clusters when the page has their names
   assert.ok(!JSON.stringify(w).match(/\d+\.\d+\.\d+\.\d+/))
 })
 
+test('the kinds of address that did not answer are said, never an address, and a word it does not know is dropped', () => {
+  const one = latestView({ a: 'x', b: 'y', rttSeconds: 0.01, silent: ['public'] }, T0)
+  assert.equal(one?.hints.length, 1)
+  assert.match(one?.hints[0] ?? '', /^Connections to the public addresses of the other cluster got no answer, while another kind did answer.*One of: a firewall drops that path/)
+  const two = latestView({ a: 'x', b: 'y', rttSeconds: 0.01, silent: ['private', 'public'] }, T0)
+  assert.match(two?.hints[0] ?? '', /^Connections to the private and public addresses of the other cluster/)
+  assert.doesNotMatch(JSON.stringify(two), /\d+\.\d+\.\d+\.\d+/)
+  assert.equal(latestView({ a: 'x', b: 'y', rttSeconds: 0.01 }, T0)?.hints.length, 0)
+  const got = normalizeLinksLatest({ available: true, pairs: [{ a: 'x', b: 'y', silent: ['public', 'public', '10.2.3.4', 'mesh'] as never }, { a: 'x', b: 'z', silent: 'public' as never }, { a: 'x', b: 'w', silent: [] }] }).pairs
+  assert.deepEqual(got[0].silent, ['public', 'mesh'])
+  assert.equal('silent' in got[1], false)
+  assert.equal('silent' in got[2], false)
+})
+
 test('a probe that never succeeded is a failure, not an old result', () => {
   const v = latestView({ a: 'x', b: 'y', probeAToB: { state: 'never', reason: 'refused' }, probeBToA: { state: 'never', reason: 'refused' } }, T0)
   assert.ok(v)

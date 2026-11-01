@@ -162,7 +162,7 @@ var (
 
 // linkSeriesLabels are the labels the link series carry (see internal/link): a dashboard that groups or selects by anything
 // else would not find it, or would join on a label the series do not have.
-var linkSeriesLabels = []string{"cluster", "peer", "direction", "method", "stat", "reason", "point", "streams", "dscp", "protocol", "le", "peer_name"}
+var linkSeriesLabels = []string{"cluster", "peer", "direction", "method", "stat", "reason", "kind", "point", "streams", "dscp", "protocol", "le", "peer_name"}
 
 // The dashboard shows a cluster by its name where the series carry only its id, by joining the info series the server writes
 // into FUSION (fusionapi.ClusterInfoMetric: one series per cluster id, with its name). The join is written the same way

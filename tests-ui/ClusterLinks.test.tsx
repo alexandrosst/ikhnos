@@ -417,6 +417,19 @@ describe('ClusterLinks', () => {
       expect(within(rows[1]).getByTestId('state-unconfirmed')).toHaveAttribute('title', expect.stringContaining('turns green'))
     })
 
+    it('says which kinds of address did not answer while the pair is reached, and names no address', async () => {
+      seed('viewer', [{ a: 'c-eu', b: 'c-us' }])
+      const recent = new Date(Date.now() - 60_000).toISOString()
+      vi.spyOn(api, 'linksLatest').mockResolvedValue(answer({ pairs: [
+        { a: 'c-eu', b: 'c-us', rttSeconds: 0.012, lossAToB: 0, probedAt: recent, probeAToB: { state: 'ok', at: recent }, silent: ['public'] },
+      ] }))
+      render(<ClusterLinks />)
+      const rows = await screen.findAllByTestId('pair-row')
+      const latest = await within(rows[0]).findByTestId('latest')
+      expect(within(latest).getAllByTestId('latest-hint').map((e) => e.textContent)).toEqual([expect.stringContaining('Connections to the public addresses of the other cluster got no answer')])
+      expect(latest.textContent).not.toMatch(/\d+\.\d+\.\d+\.\d+/)
+    })
+
     it('keeps the Probing dot neutral while no figures are known, and green once a probe completed', async () => {
       seed('viewer', [{ a: 'c-eu', b: 'c-us' }])
       render(<ClusterLinks />)

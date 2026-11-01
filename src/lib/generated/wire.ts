@@ -1301,6 +1301,7 @@ export interface FusionLinkPair {
   testedAt?: string
   probeAToB?: LinkProbeLatest
   probeBToA?: LinkProbeLatest
+  silent?: LinkVia[]
   measuredBy: string[]
 }
 
@@ -1580,6 +1581,7 @@ export interface LinkPairLatest {
   testedAt?: string
   probeAToB?: LinkProbeLatest
   probeBToA?: LinkProbeLatest
+  silent?: LinkVia[]
 }
 
 export interface LinkProbeLatest {

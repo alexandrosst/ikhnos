@@ -100,7 +100,8 @@
     "probedAt": {"type": "string", "format": "date-time", "description": "When a probe run last finished in either cluster."},
     "testedAt": {"type": "string", "format": "date-time", "description": "When a throughput test last finished."},
     "probeAToB": {"allOf": [{"$ref": "#/components/schemas/LinkProbe"}], "description": "How the one-way probe stands from `a` to `b`. Absent where FUSION holds no state for the direction (probing off, an agent that does not report it, nothing arrived yet)."},
-    "probeBToA": {"allOf": [{"$ref": "#/components/schemas/LinkProbe"}], "description": "The same from `b` to `a`."}}, "required": ["a", "b", "measuredBy"]},
+    "probeBToA": {"allOf": [{"$ref": "#/components/schemas/LinkProbe"}], "description": "The same from `b` to `a`."},
+    "silent": {"type": "array", "items": {"type": "string", "enum": ["mesh", "private", "public"]}, "description": "The kinds of address of the pair that no connection reached in the latest rounds of the connect timing while another kind was reached: a path that is closed (a firewall that drops the public addresses and lets the mesh in, say) or nodes that are down, not a cluster that is down. Absent when every kind that was tried answered, and when none did."}}, "required": ["a", "b", "measuredBy"]},
   "LinkProbe": {"type": "object", "description": "How the one-way probe stands in one direction of a pair.", "properties": {
     "state": {"type": "string", "enum": ["ok", "failing", "never"], "description": "ok: the latest run completed. failing: the latest run failed, an earlier one completed. never: the latest run failed and none completed within a day."},
     "reason": {"type": "string", "enum": ["unreachable", "refused", "timeout", "auth", "no-such-kind", "reset", "other"], "description": "Why the latest runs failed; present only when they did."},

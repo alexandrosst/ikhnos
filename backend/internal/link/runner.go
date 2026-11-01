@@ -647,6 +647,10 @@ func (r *Runner) candidates(p Peer) []string {
 	r.mu.Lock()
 	last := r.good[p.ID]
 	r.mu.Unlock()
+	if last == "" {
+		// Not yet answered by a one-way test (this prober has just started): the connect timing may know one that answers.
+		last = r.Meter.Answered(p.ID)
+	}
 	return orderAddresses(p, last, 5)
 }
 

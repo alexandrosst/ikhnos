@@ -198,11 +198,15 @@ export function normalizeProbe(raw: unknown): ProbeLatest | undefined {
   }
 }
 
+const KINDS = { mesh: 1, private: 1, public: 1 } satisfies Record<W.LinkVia, 1>
+
 const normalizePair = (l: LinkPairLatest): LinkPairLatest => {
-  const { probeAToB, probeBToA, ...rest } = l
+  const { probeAToB, probeBToA, silent, ...rest } = l
   const a = normalizeProbe(probeAToB)
   const b = normalizeProbe(probeBToA)
-  return { ...rest, ...(a ? { probeAToB: a } : {}), ...(b ? { probeBToA: b } : {}) }
+  // The kinds of address that did not answer: a word this page does not know is dropped, and each kind is said once.
+  const kinds = [...new Set((Array.isArray(silent) ? silent : []).filter((k) => isWord(KINDS, k)))]
+  return { ...rest, ...(a ? { probeAToB: a } : {}), ...(b ? { probeBToA: b } : {}), ...(kinds.length > 0 ? { silent: kinds } : {}) }
 }
 
 export const normalizeLinksLatest = (d: Partial<LinksLatest> | undefined): LinksLatest => ({
@@ -321,6 +325,12 @@ const DIAGNOSIS_WORDS: Record<ProbeDiagnosis, string> = {
   stale: 'no probe run has finished lately.',
 }
 
+/** What it means that some kinds of address did not answer while others did. Never an address: the kind, and what could close that path. */
+export function silentWords(kinds: W.LinkVia[]): string {
+  const list = kinds.length === 1 ? `the ${kinds[0]} addresses` : `the ${kinds.slice(0, -1).join(', ')} and ${kinds[kinds.length - 1]} addresses`
+  return `Connections to ${list} of the other cluster got no answer, while another kind did answer, so the cluster is up but not reached by that path. One of: a firewall drops that path, or the nodes at those addresses are down.`
+}
+
 const timeOf = (iso: string | undefined): number | null => {
   if (!iso) return null
   const t = new Date(iso).getTime()
@@ -389,6 +399,8 @@ export function latestView(l: LinkPairLatest | undefined, now = Date.now(), name
     if (probe.diagnosis) byDiagnosis.set(probe.diagnosis, [...(byDiagnosis.get(probe.diagnosis) ?? []), arrow])
   }
   for (const [d, arrows] of byDiagnosis) v.hints.push(`${arrows.join(' ')} ${DIAGNOSIS_WORDS[d]}`)
+  // The kinds of address that stayed silent while others answered: the cluster is reached, but not by that path. Only the kinds are named.
+  if (l.silent && l.silent.length > 0) v.hints.push(silentWords(l.silent))
   const probed = probedAtMs(l)
   if (probed !== null) {
     v.when = { text: `probed ${ago(new Date(probed).toISOString(), now)}`, stale: now - probed > PROBE_STALE_AFTER_MS }

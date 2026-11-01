@@ -6,6 +6,9 @@ import (
 	"errors"
 	"log/slog"
 	"net"
+	"net/netip"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -318,5 +321,197 @@ func TestFailuresAreLoggedAsWarningsOnlyWhenTheyChangeAndRoundsThatOverrunAreSai
 	c.noteRound(context.Background(), c.Every/2)
 	if count("fit the interval again") != 1 {
 		t.Errorf("the end of the overrun was not said:\n%s", buf.String())
+	}
+}
+
+// stagedDial answers the addresses in answers (a loopback connection), refuses those in refuse, and leaves every other one
+// silent until its context ends, as a firewall that drops the packets does.
+func stagedDial(t *testing.T, answers, refuse []string, tried *sync.Map) DialFunc {
+	t.Helper()
+	good := listener(t)
+	return func(ctx context.Context, n, addr string) (net.Conn, error) {
+		tried.Store(addr, true)
+		host, _, _ := net.SplitHostPort(addr)
+		switch {
+		case slices.Contains(answers, host):
+			return good(ctx, n, addr)
+		case slices.Contains(refuse, host):
+			return nil, &net.OpError{Op: "dial", Err: syscall.ECONNREFUSED}
+		}
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+}
+
+func TestAnAddressThatIsUpIsNotMadeToWaitForOnesThatAreSilent(t *testing.T) {
+	// A peer reached over its mesh address only: the public ones are dropped, as by a firewall that lets the mesh in.
+	var tried sync.Map
+	dial := stagedDial(t, []string{"100.64.0.7"}, nil, &tried)
+	c := connectFor(t, dial, peer("cl-a", "A", "203.0.113.2", "2001:db8::2", "100.64.0.7"))
+	c.Timeout, c.Stagger = 600*time.Millisecond, 20*time.Millisecond
+	started := time.Now()
+	c.Round(context.Background())
+	if took := time.Since(started); took < c.Timeout {
+		t.Errorf("the round did not wait for the silent addresses (%s): the kinds that did not answer would not be known", took)
+	}
+	got := render(c.Meter)
+	if got[`ikhnos_link_tcp_connect_seconds_count{cluster="cl-me",peer="cl-a"}`] != "1" {
+		t.Fatalf("the mesh address answers, so the round is one sample: %v", got)
+	}
+	// The sample is the handshake of the address that answered, not the time the round took.
+	sum, err := strconv.ParseFloat(got[`ikhnos_link_tcp_connect_seconds_sum{cluster="cl-me",peer="cl-a"}`], 64)
+	if err != nil || sum > 0.3 {
+		t.Errorf("the sample (%v, %v) includes the wait for the silent addresses", sum, err)
+	}
+	for _, r := range failReasons {
+		if got[`ikhnos_link_tcp_connect_failures_total{cluster="cl-me",peer="cl-a",reason="`+r+`"}`] != "0" {
+			t.Errorf("a path that answers is no failure, but %s was counted: %v", r, got)
+		}
+	}
+	for kind, want := range map[string]string{"mesh": "1", "public": "0"} {
+		if v := got[`ikhnos_link_tcp_connect_kind_up{cluster="cl-me",peer="cl-a",kind="`+kind+`"}`]; v != want {
+			t.Errorf("kind %s: got %q, want %s: %v", kind, v, want, got)
+		}
+	}
+	if _, ok := got[`ikhnos_link_tcp_connect_kind_up{cluster="cl-me",peer="cl-a",kind="private"}`]; ok {
+		t.Error("a kind the peer has no address of is reported")
+	}
+	if c.good["cl-a"] != "100.64.0.7" || c.Meter.Answered("cl-a") != "100.64.0.7" {
+		t.Errorf("the address that answered is not the one remembered: %q %q", c.good["cl-a"], c.Meter.Answered("cl-a"))
+	}
+
+	// The next round starts at the address that answered, and the kinds are reported again.
+	c.Round(context.Background())
+	got = render(c.Meter)
+	if got[`ikhnos_link_tcp_connect_seconds_count{cluster="cl-me",peer="cl-a"}`] != "2" || got[`ikhnos_link_tcp_connect_kind_up{cluster="cl-me",peer="cl-a",kind="public"}`] != "0" {
+		t.Errorf("second round: %v", got)
+	}
+}
+
+func TestEveryKindIsReportedAsAnsweringWhenOneAddressOfItDoes(t *testing.T) {
+	var tried sync.Map
+	dial := stagedDial(t, []string{"203.0.113.2", "203.0.113.3", "203.0.113.4", "100.64.0.7"}, nil, &tried)
+	c := connectFor(t, dial, peer("cl-a", "A", "203.0.113.2", "203.0.113.3", "203.0.113.4", "100.64.0.7"))
+	c.Timeout, c.Stagger = 600*time.Millisecond, 20*time.Millisecond
+	c.Round(context.Background())
+	got := render(c.Meter)
+	for _, kind := range []string{"mesh", "public"} {
+		if got[`ikhnos_link_tcp_connect_kind_up{cluster="cl-me",peer="cl-a",kind="`+kind+`"}`] != "1" {
+			t.Errorf("kind %s answered: %v", kind, got)
+		}
+	}
+	// The public addresses are the same path as one another: once one has answered the others are not dialed, and while none has,
+	// no more than two are.
+	n := 0
+	tried.Range(func(k, _ any) bool { n++; return true })
+	if n > 3 {
+		var all []string
+		tried.Range(func(k, _ any) bool { all = append(all, k.(string)); return true })
+		t.Errorf("dialed %v, more than the mesh address and two public ones", all)
+	}
+}
+
+func TestARoundFailsByTheReasonOfTheAddressItTriedFirst(t *testing.T) {
+	var tried sync.Map
+	dial := stagedDial(t, nil, []string{"10.0.0.1"}, &tried) // the others are silent
+	lp := peer("cl-a", "A", "10.0.0.1", "203.0.113.2", "100.64.0.7")
+	c := connectFor(t, dial, lp)
+	c.Meter.Peers.set("cl-me", []*ikhnosv1.LinkPeer{lp}, map[string][]string{"cl-a": {"10.0.0.1"}})
+	c.Timeout, c.Stagger = 500*time.Millisecond, 10*time.Millisecond
+	c.Round(context.Background())
+	got := render(c.Meter)
+	if got[`ikhnos_link_tcp_connect_failures_total{cluster="cl-me",peer="cl-a",reason="refused"}`] != "1" || got[`ikhnos_link_tcp_connect_failures_total{cluster="cl-me",peer="cl-a",reason="timeout"}`] != "0" {
+		t.Errorf("the first address the round tried was refused, and that is the reason: %v", got)
+	}
+	if got[`ikhnos_link_tcp_connect_seconds_count{cluster="cl-me",peer="cl-a"}`] != "0" {
+		t.Errorf("nothing opened: %v", got)
+	}
+	for _, kind := range []string{"mesh", "private", "public"} {
+		if got[`ikhnos_link_tcp_connect_kind_up{cluster="cl-me",peer="cl-a",kind="`+kind+`"}`] != "0" {
+			t.Errorf("kind %s did not answer: %v", kind, got)
+		}
+	}
+	if c.Meter.Answered("cl-a") != "" {
+		t.Error("an address is remembered as answering when none did")
+	}
+}
+
+func TestAnAddressIsTriedAtOnceWhenTheOneBeforeItFails(t *testing.T) {
+	// The first address is refused straight away and the second is up: a long stagger must not make the round wait for it.
+	var tried sync.Map
+	dial := stagedDial(t, []string{"203.0.113.2"}, []string{"10.0.0.1"}, &tried)
+	lp := peer("cl-a", "A", "10.0.0.1", "203.0.113.2")
+	c := connectFor(t, dial, lp)
+	c.Meter.Peers.set("cl-me", []*ikhnosv1.LinkPeer{lp}, map[string][]string{"cl-a": {"10.0.0.1"}})
+	c.Timeout, c.Stagger = 2*time.Second, 2*time.Second
+	started := time.Now()
+	c.Round(context.Background())
+	if took := time.Since(started); took > time.Second {
+		t.Errorf("the round waited %s for the stagger after a refusal", took)
+	}
+	if render(c.Meter)[`ikhnos_link_tcp_connect_seconds_count{cluster="cl-me",peer="cl-a"}`] != "1" {
+		t.Error("the second address answered and was not timed")
+	}
+}
+
+func TestTheStaggerIsHeldBetweenZeroAndTheTimeout(t *testing.T) {
+	for _, bad := range []time.Duration{-time.Millisecond, 4 * time.Second} {
+		c := &TCPConnect{Stagger: bad}
+		c.Defaults()
+		if c.Validate() == nil {
+			t.Errorf("a stagger of %s is accepted", bad)
+		}
+	}
+	c := &TCPConnect{}
+	c.Defaults()
+	if err := c.Validate(); err != nil || c.Stagger != 250*time.Millisecond {
+		t.Errorf("the default: %v %s", err, c.Stagger)
+	}
+}
+
+func TestTheAddressesOfARoundCoverEveryKindAndFamilyBeforeRepeatingOne(t *testing.T) {
+	lp := peer("cl-a", "A", "10.0.0.1", "10.0.0.2", "10.0.0.3", "203.0.113.2", "2001:db8::1", "2001:db8::2", "2001:db8::3", "100.64.0.7")
+	ps := NewPeers()
+	ps.Set("cl-me", []*ikhnosv1.LinkPeer{lp})
+	p := ps.List()[0]
+	for i := 0; i < 50; i++ {
+		got := raceAddresses(p, "10.0.0.2", 6)
+		if len(got) != 6 || got[0] != "10.0.0.2" {
+			t.Fatalf("the address that answered is not first, or the round is not six wide: %v", got)
+		}
+		forms := map[string]bool{}
+		for _, s := range got[:4] {
+			a := netip.MustParseAddr(s)
+			forms[Class(a)+strconv.FormatBool(a.Is6())] = true
+		}
+		if len(forms) != 4 {
+			t.Fatalf("the first four of %v are not one of each of the four kinds and families", got)
+		}
+	}
+	// The one that answered stays in even when the traffic names more addresses than there is room for.
+	lp.Addresses = []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"}
+	ps.Set("cl-me", []*ikhnosv1.LinkPeer{lp})
+	p = ps.List()[0]
+	ps.set("cl-me", []*ikhnosv1.LinkPeer{lp}, map[string][]string{"cl-a": {"10.0.0.1", "10.0.0.3"}})
+	p = ps.List()[0]
+	if got := raceAddresses(p, "10.0.0.2", 2); !slices.Contains(got, "10.0.0.2") || len(got) != 2 {
+		t.Errorf("with room for two: %v", got)
+	}
+}
+
+func TestAKindWithOneSilentAddressAndOneThatAnswersIsUp(t *testing.T) {
+	// One node of the peer is down; its other node answers. That is not a path that is closed.
+	var tried sync.Map
+	dial := stagedDial(t, []string{"203.0.113.3", "100.64.0.7"}, nil, &tried)
+	c := connectFor(t, dial, peer("cl-a", "A", "203.0.113.2", "203.0.113.3", "100.64.0.7"))
+	c.Timeout, c.Stagger = 400*time.Millisecond, 10*time.Millisecond
+	for i := 0; i < 5; i++ {
+		c.Round(context.Background())
+		got := render(c.Meter)
+		for _, kind := range []string{"mesh", "public"} {
+			if got[`ikhnos_link_tcp_connect_kind_up{cluster="cl-me",peer="cl-a",kind="`+kind+`"}`] != "1" {
+				t.Fatalf("round %d: kind %s has an address that answers: %v", i, kind, got)
+			}
+		}
 	}
 }

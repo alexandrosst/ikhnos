@@ -14,10 +14,10 @@ import (
 
 // LinkReading is one number of one series: what cluster measured it towards which peer, and in which direction when the series
 // has one ("forward" is from the cluster to the peer, "reverse" the other way). Reason is set only on the failure readings
-// (LinkReadings.ProbeFailure and ConnectFailure), where it is the failure reason label.
+// (LinkReadings.ProbeFailure and ConnectFailure), where it is the failure reason label, and Kind only on LinkReadings.KindUp.
 type LinkReading struct {
 	Cluster, Peer, Direction string
-	Reason                   string
+	Reason, Kind             string
 	Value                    float64
 }
 
@@ -48,6 +48,9 @@ type LinkReadings struct {
 	// ProbeFailure is, per direction that failed lately, the reason that failed most often and how often (Value) in the last
 	// linkFailureWindow. ConnectFailure is the same for the connect timing of a peer (no direction).
 	ProbeFailure, ConnectFailure []LinkReading
+	// KindUp is, per kind of address of the peer (Kind: mesh, private or public), 1 where a connection to one of that kind opened
+	// in the latest rounds of the connect timing and 0 where every one that was tried stayed silent.
+	KindUp []LinkReading
 }
 
 // NeedLinks says whether the Scope may read the link figures at all. They are metrics, so a token without that signal may not.
@@ -79,6 +82,9 @@ const (
 	linkProbedLookback = "1d"
 	// How far back the failure reasons are counted: many runs, so the commonest reason is the current one.
 	linkFailureWindow = "15m"
+	// How far back the kinds of address that answered are looked for: a round is every few seconds, so a reading older than this
+	// is of a prober that has gone.
+	linkKindLookback = "2m"
 )
 
 // LinkReadings asks the metrics store for the latest link figures of every cluster that reports them. Only a Scope that may
@@ -107,6 +113,7 @@ func (c *Client) LinkReadings(ctx context.Context, s Scope) (LinkReadings, error
 		{`max by (cluster, peer, direction) (ikhnos_link_probe_up)`, &out.Up},
 		{`topk by (cluster, peer, direction) (1, sum by (cluster, peer, direction, reason) (increase(ikhnos_link_probe_failures_total[` + linkFailureWindow + `])) > 0)`, &out.ProbeFailure},
 		{`topk by (cluster, peer) (1, sum by (cluster, peer, reason) (increase(ikhnos_link_tcp_connect_failures_total[` + linkFailureWindow + `])) > 0)`, &out.ConnectFailure},
+		{`min by (cluster, peer, kind) (last_over_time(ikhnos_link_tcp_connect_kind_up[` + linkKindLookback + `]))`, &out.KindUp},
 	}
 	errs := make([]error, len(jobs))
 	var wg sync.WaitGroup
@@ -148,7 +155,7 @@ func (c *Client) linkQuery(ctx context.Context, s Scope, q string, into *[]LinkR
 		if err != nil || math.IsNaN(v) || math.IsInf(v, 0) || r.Metric["cluster"] == "" || r.Metric["peer"] == "" {
 			continue
 		}
-		*into = append(*into, LinkReading{Cluster: r.Metric["cluster"], Peer: r.Metric["peer"], Direction: r.Metric["direction"], Reason: r.Metric["reason"], Value: v})
+		*into = append(*into, LinkReading{Cluster: r.Metric["cluster"], Peer: r.Metric["peer"], Direction: r.Metric["direction"], Reason: r.Metric["reason"], Kind: r.Metric["kind"], Value: v})
 	}
 	return nil
 }

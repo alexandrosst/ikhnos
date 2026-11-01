@@ -34,6 +34,8 @@ func TestLinkReadingsReadEachFigureWithItsOwnQuery(t *testing.T) {
 		switch {
 		case strings.Contains(q, "probe_failures_total"):
 			out = vec(row("3", "cluster", "a", "peer", "b", "direction", "reverse", "reason", "other"))
+		case strings.Contains(q, "tcp_connect_kind_up"):
+			out = vec(row("1", "cluster", "a", "peer", "b", "kind", "mesh"), row("0", "cluster", "a", "peer", "b", "kind", "public"))
 		case strings.Contains(q, "tcp_connect_failures_total"):
 			out = vec(row("2", "cluster", "a", "peer", "b", "reason", "refused"))
 		case strings.HasPrefix(q, "max by (cluster, peer, direction) (ikhnos_link_probe_up)"):
@@ -90,6 +92,9 @@ func TestLinkReadingsReadEachFigureWithItsOwnQuery(t *testing.T) {
 	if len(got.ConnectFailure) != 1 || got.ConnectFailure[0].Reason != "refused" || got.ConnectFailure[0].Direction != "" {
 		t.Errorf("connect failures = %+v", got.ConnectFailure)
 	}
+	if len(got.KindUp) != 2 || got.KindUp[0].Kind != "mesh" || got.KindUp[0].Value != 1 || got.KindUp[1].Kind != "public" || got.KindUp[1].Value != 0 {
+		t.Errorf("kinds = %+v", got.KindUp)
+	}
 	// every figure is asked for by a fixed query: nothing the caller supplies reaches PromQL
 	seen := 0
 	f.mu.Lock()
@@ -99,7 +104,7 @@ func TestLinkReadingsReadEachFigureWithItsOwnQuery(t *testing.T) {
 		}
 	}
 	f.mu.Unlock()
-	if seen != 13 {
+	if seen != 14 {
 		t.Errorf("%d queries", seen)
 	}
 }

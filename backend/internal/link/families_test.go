@@ -37,6 +37,7 @@ func TestMetricFamiliesAreWhatTheMeterExports(t *testing.T) {
 	}
 	m.ObservePath("cl-a", PathResult{MTU: 1500, Hops: 4, Reached: true, Route: "r"})
 	m.ObserveConnect("cl-a", 3*time.Millisecond)
+	m.ObserveAddresses("cl-a", map[string]bool{ClassPrivate: true})
 	settle(c)
 
 	var out bytes.Buffer

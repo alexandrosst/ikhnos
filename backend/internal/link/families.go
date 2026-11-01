@@ -42,6 +42,7 @@ var families = []MetricFamily{
 	{"ikhnos_link_path_last_success_timestamp_seconds", "gauge"},
 	{"ikhnos_link_tcp_connect_seconds", "histogram"},
 	{"ikhnos_link_tcp_connect_failures_total", "counter"},
+	{"ikhnos_link_tcp_connect_kind_up", "gauge"},
 	{"ikhnos_link_tcp_connect_last_success_timestamp_seconds", "gauge"},
 	{"ikhnos_link_throughput_bits_per_second", "gauge"},
 	{"ikhnos_link_throughput_bounded", "gauge"},
