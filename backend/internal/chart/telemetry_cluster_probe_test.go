@@ -1,6 +1,7 @@
 package chart
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -177,7 +178,7 @@ func TestTheProbeIsScrapedAndPermittedThroughTheNetworkPolicies(t *testing.T) {
 	// collector scrapes the prober by node address and the port the prober listens on.
 	from := map[string]bool{}
 	cidrs := map[string]bool{}
-	for _, rule := range r.policies["ikhnos-agent-probe"].Spec.Ingress {
+	for _, rule := range r.policies["ikhnos-link-hub"].Spec.Ingress {
 		for _, p := range rule.Ports {
 			if p.Port != nil && p.Port.IntValue() == 9104 {
 				for _, f := range rule.From {
@@ -359,27 +360,39 @@ func TestTheProberMountsItsOwnSecretAndNotTheFlowSecret(t *testing.T) {
 		t.Error("the prober does not roll when its secret is replaced")
 	}
 
-	// the agent verifies with that secret, still reads the flow secret for the collectors, and the Secret is the chart's own
-	ag := r.deployments["ikhnos-agent"].Spec.Template
+	// the hub verifies with that secret and the Secret is the chart's own; the agent still reads the flow secret for the collectors and
+	// holds the peers secret no more
+	hub := r.deployments["ikhnos-link-hub"].Spec.Template
 	env := map[string]string{}
-	for _, e := range ag.Spec.Containers[0].Env {
+	for _, e := range hub.Spec.Containers[0].Env {
 		env[e.Name] = e.Value
 	}
-	if env["IKHNOS_LINK_PEERS_SECRET_FILE"] != "/link-peers/secret" || env["IKHNOS_FLOW_SECRET_FILE"] != "/flows/secret" {
-		t.Errorf("agent env: peers %q, flow %q", env["IKHNOS_LINK_PEERS_SECRET_FILE"], env["IKHNOS_FLOW_SECRET_FILE"])
+	if env["IKHNOS_LINK_PEERS_SECRET_FILE"] != "/link-peers/secret" {
+		t.Errorf("hub env: peers %q", env["IKHNOS_LINK_PEERS_SECRET_FILE"])
 	}
-	if got := mounted(ag.Spec); len(got) != 2 || got[0] != "ikhnos-agent-flows" || got[1] != "ikhnos-agent-link-peers" {
-		t.Errorf("the agent mounts secrets %v", got)
+	if got := mounted(hub.Spec); len(got) != 2 || !slices.Contains(got, "ikhnos-agent-link-hub") || !slices.Contains(got, "ikhnos-agent-link-peers") {
+		t.Errorf("the hub mounts secrets %v", got)
 	}
 	mounts := map[string]string{}
-	for _, m := range ag.Spec.Containers[0].VolumeMounts {
+	for _, m := range hub.Spec.Containers[0].VolumeMounts {
 		mounts[m.Name] = m.MountPath
 	}
-	if mounts["link-peers-secret"] != "/link-peers" || mounts["flow-secret"] != "/flows" {
-		t.Errorf("agent mounts = %v", mounts)
+	if mounts["link-peers-secret"] != "/link-peers" {
+		t.Errorf("hub mounts = %v", mounts)
 	}
-	if ag.Annotations["checksum/link-peers-secret"] == "" {
-		t.Error("the agent does not roll when the peers secret is replaced")
+	if hub.Annotations["checksum/link-peers-secret"] == "" {
+		t.Error("the hub does not roll when the peers secret is replaced")
+	}
+	ag := r.deployments["ikhnos-agent"].Spec.Template
+	aenv := map[string]string{}
+	for _, e := range ag.Spec.Containers[0].Env {
+		aenv[e.Name] = e.Value
+	}
+	if _, ok := aenv["IKHNOS_LINK_PEERS_SECRET_FILE"]; ok || aenv["IKHNOS_FLOW_SECRET_FILE"] != "/flows/secret" {
+		t.Errorf("agent env: peers %q, flow %q", aenv["IKHNOS_LINK_PEERS_SECRET_FILE"], aenv["IKHNOS_FLOW_SECRET_FILE"])
+	}
+	if got := mounted(ag.Spec); slices.Contains(got, "ikhnos-agent-link-peers") {
+		t.Errorf("the agent mounts secrets %v", got)
 	}
 	peers, flows := r.secrets["ikhnos-agent-link-peers"], r.secrets["ikhnos-agent-flows"]
 	if len(peers.StringData["secret"]) < 32 || peers.StringData["secret"] == flows.StringData["secret"] {
@@ -391,12 +404,15 @@ func TestTheProberMountsItsOwnSecretAndNotTheFlowSecret(t *testing.T) {
 	if _, ok := off.secrets["ikhnos-agent-link-peers"]; ok {
 		t.Error("the peers secret exists with the probe off")
 	}
-	offAgent := off.deployments["ikhnos-agent"].Spec.Template
-	if got := mounted(offAgent.Spec); len(got) != 1 || got[0] != "ikhnos-agent-flows" {
-		t.Errorf("probe off: the agent mounts %v", got)
+	offHub := off.deployments["ikhnos-link-hub"].Spec.Template
+	if got := mounted(offHub.Spec); len(got) != 1 || got[0] != "ikhnos-agent-link-hub" {
+		t.Errorf("probe off: the hub mounts %v", got)
 	}
-	if offAgent.Annotations["checksum/link-peers-secret"] != "" {
-		t.Error("probe off: the agent has a peers checksum")
+	if offHub.Annotations["checksum/link-peers-secret"] != "" {
+		t.Error("probe off: the hub has a peers checksum")
+	}
+	if got := mounted(off.deployments["ikhnos-agent"].Spec.Template.Spec); slices.Contains(got, "ikhnos-agent-link-peers") {
+		t.Errorf("probe off: the agent mounts %v", got)
 	}
 }
 
@@ -407,12 +423,12 @@ func TestThePeersSecretIsGivenKeptOnUpgradeAndNeverTheFlowSecret(t *testing.T) {
 	}
 	a := render(t, probeArgs("telemetry.clusterLinks.probe.peersSecret=one-secret-of-sixteen-plus")...)
 	b := render(t, probeArgs("telemetry.clusterLinks.probe.peersSecret=two-secret-of-sixteen-plus")...)
-	if a.deployments["ikhnos-agent"].Spec.Template.Annotations["checksum/link-peers-secret"] == b.deployments["ikhnos-agent"].Spec.Template.Annotations["checksum/link-peers-secret"] ||
+	if a.deployments["ikhnos-link-hub"].Spec.Template.Annotations["checksum/link-peers-secret"] == b.deployments["ikhnos-link-hub"].Spec.Template.Annotations["checksum/link-peers-secret"] ||
 		a.deployments["ikhnos-link-prober"].Spec.Template.Annotations["checksum/link-peers-secret"] == b.deployments["ikhnos-link-prober"].Spec.Template.Annotations["checksum/link-peers-secret"] {
-		t.Error("a new peers secret does not roll the agent and the prober")
+		t.Error("a new peers secret does not roll the hub and the prober")
 	}
-	x := render(t, probeArgs()...).deployments["ikhnos-agent"].Spec.Template.Annotations["checksum/link-peers-secret"]
-	y := render(t, probeArgs()...).deployments["ikhnos-agent"].Spec.Template.Annotations["checksum/link-peers-secret"]
+	x := render(t, probeArgs()...).deployments["ikhnos-link-hub"].Spec.Template.Annotations["checksum/link-peers-secret"]
+	y := render(t, probeArgs()...).deployments["ikhnos-link-hub"].Spec.Template.Annotations["checksum/link-peers-secret"]
 	if x != y {
 		t.Error("a generated peers secret changes the checksum on every render, so every upgrade would roll the pods")
 	}

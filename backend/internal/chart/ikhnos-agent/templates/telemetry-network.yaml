@@ -87,7 +87,7 @@ spec:
 {{- if and .Values.telemetry.energy.metrics.enabled (eq .Values.telemetry.energy.metrics.source "bundle-kepler") }}
 {{- $scrapes = append $scrapes (dict "to" (list (dict "podSelector" (dict "matchLabels" (dict "app.kubernetes.io/name" (printf "%s-kepler" (include "agent.telemetryName" .)) "app.kubernetes.io/instance" .Release.Name)))) "port" 9103) }}
 {{- end }}
-{{- /* The link metrics (telemetry.clusterLinks), served on port 9104 by the agent or, with telemetry.clusterLinks.hub, by the hub. */ -}}
+{{- /* The link metrics (telemetry.clusterLinks), served on port 9104 by the hub. */ -}}
 {{- if .Values.telemetry.clusterLinks.metrics.enabled }}
 {{- $scrapes = append $scrapes (dict "to" (list (dict "podSelector" (dict "matchLabels" (dict "app.kubernetes.io/name" (include "agent.linkServerName" .) "app.kubernetes.io/instance" .Release.Name)))) "port" 9104) }}
 {{- end }}

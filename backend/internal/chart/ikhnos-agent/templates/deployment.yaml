@@ -163,7 +163,7 @@ spec:
             {{- end }}
             {{- if .Values.telemetry.clusterLinks.metrics.enabled }}
             {{- if include "agent.linkHub" . }}
-            # The link hub (telemetry.clusterLinks.hub) serves the link series, the prober's peer list and the responders' credentials, so this process
+            # The link hub serves the link series, the prober's peer list and the responders' credentials, so this process
             # listens for none of them and holds neither of their secrets: it sends the hub the rows it has admitted and the configuration to
             # serve, signed with the one secret it shares with the hub.
             - {name: IKHNOS_LINK_HUB_URL, value: {{ include "agent.linkHubURL" . | quote }}}

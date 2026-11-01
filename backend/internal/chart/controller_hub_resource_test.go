@@ -10,9 +10,9 @@ import (
 	"ikhnos/internal/install"
 )
 
-// An agent that a controller keeps takes the link hub from its resource: the values the controller makes from
-// spec.telemetry.clusterLinks.hub render the hub, and a resource without it renders none.
-func TestAResourceThatNamesTheLinkHubGetsOne(t *testing.T) {
+// An agent that a controller keeps has the link hub whenever its resource turns the cluster-links signal on, and none without it: the
+// hub is part of cluster links, not a field of the resource.
+func TestAResourceWithClusterLinksGetsTheLinkHub(t *testing.T) {
 	b, err := Package()
 	if err != nil {
 		t.Fatal(err)
@@ -23,12 +23,12 @@ func TestAResourceThatNamesTheLinkHubGetsOne(t *testing.T) {
 		t.Fatal(err)
 	}
 	two := 2
-	render := func(hub bool) []object {
+	render := func(links bool) []object {
 		spec := controller.Spec{
 			Server: controller.ServerSpec{Address: "a.example:8443", CAPin: "sha256/ab"}, AccessTier: &two,
 			Telemetry: &install.ResourceTelemetry{
-				Signals:      install.ResourceSignals{ClusterLinks: true},
-				ClusterLinks: &install.ResourceClusterLinks{Probe: true, Hub: hub},
+				Signals:      install.ResourceSignals{ClusterLinks: links, ResourceUsage: true},
+				ClusterLinks: &install.ResourceClusterLinks{Probe: links},
 				Destination:  &install.ResourceDestination{Endpoint: "otel.example.com:4317"},
 			},
 		}
@@ -55,9 +55,9 @@ func TestAResourceThatNamesTheLinkHubGetsOne(t *testing.T) {
 		return false
 	}
 	if !has(render(true), "link-hub") {
-		t.Error("a resource that names the hub renders none")
+		t.Error("a resource with cluster links renders no hub")
 	}
 	if has(render(false), "link-hub") {
-		t.Error("a resource that does not name the hub renders one")
+		t.Error("a resource without cluster links renders a hub")
 	}
 }

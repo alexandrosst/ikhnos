@@ -93,7 +93,7 @@ func TestTheAgentCanWriteExactlyThreeThingsEachByName(t *testing.T) {
 		"--set", "telemetry.resourceUsage.metrics.enabled=true",
 		"--set", "flowObserver.enabled=true", "--set", "nodeProbe.enabled=true",
 		"--set", "telemetry.clusterLinks.metrics.enabled=true", "--set", "telemetry.clusterLinks.probe.enabled=true",
-		"--set", "telemetry.clusterLinks.probe.capacity.enabled=true", "--set", "telemetry.clusterLinks.hub.enabled=true")
+		"--set", "telemetry.clusterLinks.probe.capacity.enabled=true")
 	want := []string{
 		"namespace: /secrets [ikhnos-agent-identity] update",
 		"namespace: /secrets [op-client-tls] update",

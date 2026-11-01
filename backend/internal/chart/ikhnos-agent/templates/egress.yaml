@@ -53,7 +53,7 @@ spec:
         {{- end }}
     {{- end }}
     {{- if include "agent.linkHub" . }}
-    # The link hub (telemetry.clusterLinks.hub), which the agent sends the link rows and configuration to.
+    # The link hub, which the agent sends the link rows and configuration to.
     - to:
         - podSelector:
             matchLabels: {app.kubernetes.io/name: ikhnos-link-hub, app.kubernetes.io/instance: {{ .Release.Name | quote }}}

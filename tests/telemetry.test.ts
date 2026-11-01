@@ -503,22 +503,10 @@ test('cluster links: an install that already has them keeps its probe and throug
   assert.ok(isKept(seeded, 'clusterLinksOptions'))
 })
 
-test('cluster links: the link hub is kept as installed on its own, so editing the probe does not say what the hub is', () => {
+test('cluster links: the link hub is not a choice, so nothing about it is kept, stated or sent', () => {
   const seeded = seedTelemetryFromInstalled(['clusterLinks'], { exportEndpoint: 'gw:4317', redactionEnabled: true, resourceDetectionEnabled: false })
-  assert.ok(isKept(seeded, 'clusterLinksHub'))
   assert.ok(isKept(seeded, 'clusterLinksOptions'))
-  const probe = { ...seeded, clusterLinksProbe: !seeded.clusterLinksProbe }
-  assert.ok(!isKept(probe, 'clusterLinksOptions'))
-  assert.ok(isKept(probe, 'clusterLinksHub'), 'the hub was said without being edited')
-  const hub = { ...seeded, clusterLinksHub: true }
-  assert.ok(!isKept(hub, 'clusterLinksHub'))
-  assert.ok(isKept(hub, 'clusterLinksOptions'), 'the probe options were said without being edited')
-  assert.ok(keptSummary(seeded).some((w) => w.includes('link hub')), 'the page does not say it leaves the hub as it is')
-})
-
-test('cluster links: the spec names the hub only while the links are on', () => {
-  const on = { ...emptyTelemetry, clusterLinks: true, clusterLinksHub: true }
-  assert.equal(telemetrySpec(on).clusterLinks.hub, true)
-  assert.equal(telemetrySpec({ ...on, clusterLinks: false }).clusterLinks.hub, false)
-  assert.equal(telemetrySpec(emptyTelemetry).clusterLinks.hub, false)
+  assert.ok(!keptSummary(seeded).some((w) => w.includes('link hub')), 'the page speaks of a hub setting that is not there')
+  assert.ok(!('clusterLinksHub' in seeded))
+  assert.ok(!('hub' in telemetrySpec({ ...emptyTelemetry, clusterLinks: true }).clusterLinks))
 })

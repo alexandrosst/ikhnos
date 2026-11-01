@@ -1013,15 +1013,15 @@ telemetry:
       enabled: false
       source: builtin   # builtin -> this agent's own link meter (see flowObserver)
       interval: 30s     # how often the cluster collector scrapes it
-    # The link hub: a pod of its own that makes the series above and answers the prober and the responders, so that the agent - the one
+    # The link hub, which runs whenever metrics.enabled is true: a pod of its own that makes the series above and answers the prober and the responders, so that the agent - the one
     # process that holds this cluster's identity - listens for none of them. The agent keeps deciding what is served (it still receives
     # the peers from the Ikhnos server and admits the node collectors' reports); it sends the hub the rows it has admitted and the
     # configuration to serve over two messages signed with `secret` below, and the hub serves them. The hub runs the same image as
     # `ikhnos link-hub`, holds no credential of the Ikhnos server and no Kubernetes token, makes no outbound connection, and keeps serving
     # what it was last told while the agent is away. The Service ikhnos-agent-link-metrics keeps its name and so does every address the
-    # collector, the prober and the responders use; only the pods behind it change. Needs metrics.enabled. Off by default for this release.
+    # collector, the prober and the responders use; only the pods behind it change. Needs metrics.enabled.
+    # (`hub.enabled` is no longer a choice and is ignored if a release still carries it, so that such a release upgrades.)
     hub:
-      enabled: false
       # The secret the agent signs what it sends the hub with: held by the agent and the hub alone, so it must differ from flowObserver.secret,
       # nodeProbe.secret, probe.peersSecret and probe.capacity.auth.requestSecret. Leave empty to generate one on first install and keep it.
       secret: ""

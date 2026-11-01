@@ -1,7 +1,7 @@
 {{- if .Values.telemetry.clusterLinks.metrics.enabled }}
 # The link metrics (telemetry.clusterLinks): Prometheus text on port 9104, scraped by the cluster collector, with the prober's and the responders'
 # signed requests beside it. Its own Service (not ikhnos-agent-probe, which exists only with the node probe or flow collector) so that the
-# collector's scrape target does not depend on how those are installed. It selects the agent, or with telemetry.clusterLinks.hub the hub, and keeps
+# collector's scrape target does not depend on how those are installed. It selects the hub, and keeps
 # its name either way, so switching changes no address anyone is configured with.
 apiVersion: v1
 kind: Service

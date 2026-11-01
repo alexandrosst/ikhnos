@@ -80,13 +80,6 @@ func TestTelemetryProblems(t *testing.T) {
 			t.Signals.ClusterLinks = true
 			t.ClusterLinks = ClusterLinks{Probe: true, AuthSecret: "Bad_Name"}
 		}), ""},
-		{"the link hub without the cluster-links signal", mut(func(t *Telemetry) {
-			t.ClusterLinks = ClusterLinks{Hub: true}
-		}), "Cluster links: the link hub"},
-		{"the link hub with it", mut(func(t *Telemetry) {
-			t.Signals.ClusterLinks = true
-			t.ClusterLinks = ClusterLinks{Hub: true}
-		}), ""},
 		{"network latency without the measurements", func() Telemetry {
 			t := valid()
 			t.Signals.NetworkLatency = true
@@ -376,52 +369,23 @@ func TestTagsWithNoNameAreEachReportedOnce(t *testing.T) {
 	}
 }
 
-func TestTheLinkHubIsStatedUnlessItIsKeptAsInstalled(t *testing.T) {
-	const on, off = "--set telemetry.clusterLinks.hub.enabled=true", "--set telemetry.clusterLinks.hub.enabled=false"
-	links := func(l ClusterLinks, kept ...string) string {
+func TestNoCommandStatesTheLinkHub(t *testing.T) {
+	// The link hub is part of cluster links, not a choice: nothing in a command names it, with the links on, off or kept as installed.
+	for _, kept := range [][]string{nil, {KeptClusterLinksOptions}} {
 		d := valid()
 		d.Signals.ClusterLinks = true
-		d.ClusterLinks = l
+		d.ClusterLinks = ClusterLinks{Probe: true}
 		d.Kept = kept
 		v, err := d.Values()
 		if err != nil {
 			t.Fatal(err)
 		}
-		return Flags(v)
-	}
-	if got := links(ClusterLinks{Probe: true, Hub: true}); !strings.Contains(got, on) || strings.Contains(got, off) {
-		t.Errorf("a hub that was asked for is not stated on:\n%s", got)
-	}
-	// Unticked is stated too: it is what turns a hub off.
-	if got := links(ClusterLinks{Probe: true}); !strings.Contains(got, off) {
-		t.Errorf("a hub that was not asked for is not stated off:\n%s", got)
-	}
-	// Kept as installed: nothing about the hub is said, whatever the draft holds, and the probe options are still stated.
-	got := links(ClusterLinks{Probe: true, Hub: true}, KeptClusterLinksHub)
-	if strings.Contains(got, "clusterLinks.hub") || !strings.Contains(got, "telemetry.clusterLinks.probe.enabled=true") {
-		t.Errorf("a hub kept as installed is stated, or its being kept silenced the probe options:\n%s", got)
-	}
-	// And the other way: the probe options kept, the hub edited.
-	got = links(ClusterLinks{Probe: true, Hub: true}, KeptClusterLinksOptions)
-	if !strings.Contains(got, on) || strings.Contains(got, "clusterLinks.probe.enabled") {
-		t.Errorf("the hub is not stated when only the probe options are kept:\n%s", got)
-	}
-	// A hub without the signal is refused; with the links gone the hub is stated off, as the prober is.
-	d := valid()
-	d.ClusterLinks = ClusterLinks{Hub: true}
-	if v, err := d.Values(); err == nil {
-		t.Fatalf("a hub without the signal was accepted: %v", Flags(v))
-	}
-	// With no signal on at all it is the same: not "telemetry off", a setting that would be ignored without a word.
-	none := Telemetry{ClusterLinks: ClusterLinks{Hub: true}}
-	if p := none.Problems(); len(p) != 1 || !strings.Contains(p[0], "link hub") {
-		t.Errorf("a hub with no signal on is not refused: %v", p)
-	}
-	if _, err := none.Values(); err == nil {
-		t.Error("a hub with no signal on has values")
+		if got := Flags(v); strings.Contains(got, "clusterLinks.hub") {
+			t.Errorf("a command names the link hub (kept %v):\n%s", kept, got)
+		}
 	}
 	v, err := valid().Values()
-	if err != nil || !strings.Contains(Flags(v), off) {
-		t.Errorf("without the links the hub is not stated off (%v):\n%s", err, Flags(v))
+	if err != nil || strings.Contains(Flags(v), "clusterLinks.hub") {
+		t.Errorf("a command with the links off names the link hub (%v):\n%s", err, Flags(v))
 	}
 }

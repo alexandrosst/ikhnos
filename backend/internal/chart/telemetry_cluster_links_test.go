@@ -63,7 +63,7 @@ func TestClusterLinksNeedTheFlowObserver(t *testing.T) {
 	}
 }
 
-func TestClusterLinksAreServedByTheAgentAndScrapedByTheClusterCollector(t *testing.T) {
+func TestClusterLinksAreServedByTheHubAndScrapedByTheClusterCollector(t *testing.T) {
 	args := clusterLinksArgs()
 	r := render(t, args...)
 
@@ -82,8 +82,9 @@ func TestClusterLinksAreServedByTheAgentAndScrapedByTheClusterCollector(t *testi
 	for _, e := range agentContainer.Env {
 		env[e.Name] = e.Value
 	}
-	if env["IKHNOS_LINK_METRICS_LISTEN"] != ":9104" {
-		t.Errorf("IKHNOS_LINK_METRICS_LISTEN = %q", env["IKHNOS_LINK_METRICS_LISTEN"])
+	// The agent listens for no link request: the hub serves the series (see telemetry_cluster_hub_test.go).
+	if v, ok := env["IKHNOS_LINK_METRICS_LISTEN"]; ok {
+		t.Errorf("IKHNOS_LINK_METRICS_LISTEN = %q: the agent serves the link metrics itself", v)
 	}
 	if env["IKHNOS_FLOW_SECRET_FILE"] == "" {
 		t.Error("the agent has no flow secret to take reports with")
@@ -91,14 +92,25 @@ func TestClusterLinksAreServedByTheAgentAndScrapedByTheClusterCollector(t *testi
 	if got := env["IKHNOS_TELEMETRY_SIGNALS"]; !strings.Contains(got, "clusterLinks") {
 		t.Errorf("the signal is not reported in IKHNOS_TELEMETRY_SIGNALS: %q", got)
 	}
-	var port int32
 	for _, p := range agentContainer.Ports {
 		if p.Name == "link-metrics" {
-			port = p.ContainerPort
+			t.Errorf("the agent opens the link-metrics port %d", p.ContainerPort)
 		}
 	}
-	if port != 9104 {
-		t.Errorf("link-metrics container port = %d", port)
+	if hub, ok := r.deployments["ikhnos-link-hub"]; !ok {
+		t.Error("no link hub is rendered")
+	} else {
+		var port int32
+		for _, c := range hub.Spec.Template.Spec.Containers {
+			for _, p := range c.Ports {
+				if p.Name == "link-metrics" {
+					port = p.ContainerPort
+				}
+			}
+		}
+		if port != 9104 {
+			t.Errorf("the hub's link-metrics container port = %d", port)
+		}
 	}
 
 	var svc *corev1.Service
@@ -115,8 +127,8 @@ func TestClusterLinksAreServedByTheAgentAndScrapedByTheClusterCollector(t *testi
 	if svc == nil || len(svc.Spec.Ports) != 1 || svc.Spec.Ports[0].Port != 9104 || svc.Spec.Ports[0].TargetPort.StrVal != "link-metrics" {
 		t.Fatalf("service = %+v", svc)
 	}
-	if svc.Spec.Selector["app.kubernetes.io/name"] != "ikhnos-agent" {
-		t.Errorf("the Service selects %v, not the agent", svc.Spec.Selector)
+	if svc.Spec.Selector["app.kubernetes.io/name"] != "ikhnos-link-hub" {
+		t.Errorf("the Service selects %v, not the hub", svc.Spec.Selector)
 	}
 	if cluster == nil {
 		t.Fatal("no cluster collector config")
@@ -171,9 +183,9 @@ func TestClusterLinksArePermittedThroughTheNetworkPolicies(t *testing.T) {
 	r := render(t, clusterLinksArgs(
 		"flowObserver.networkPolicy=true", "flowObserver.nodeCIDRs[0]=10.0.0.0/8",
 		"networkPolicy.telemetryEgress.enabled=true", "networkPolicy.telemetryEgress.allowedEgress[0].cidr=10.0.0.0/8", "networkPolicy.telemetryEgress.allowedEgress[0].ports[0]=4317")...)
-	ingress, ok := r.policies["ikhnos-agent-probe"]
+	ingress, ok := r.policies["ikhnos-link-hub"]
 	if !ok {
-		t.Fatal("no agent ingress policy")
+		t.Fatal("no hub ingress policy")
 	}
 	found := false
 	for _, rule := range ingress.Spec.Ingress {
@@ -187,7 +199,7 @@ func TestClusterLinksArePermittedThroughTheNetworkPolicies(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("the agent's ingress policy does not let the collector reach port 9104, so the scrape would be refused")
+		t.Error("the hub's ingress policy does not let the collector reach port 9104, so the scrape would be refused")
 	}
 	scrape, ok := r.policies["ikhnos-telemetry-scrape-egress"]
 	if !ok {
@@ -198,14 +210,14 @@ func TestClusterLinksArePermittedThroughTheNetworkPolicies(t *testing.T) {
 		for _, p := range rule.Ports {
 			if p.Port != nil && p.Port.IntValue() == 9104 {
 				found = true
-				if len(rule.To) != 1 || rule.To[0].PodSelector == nil || rule.To[0].PodSelector.MatchLabels["app.kubernetes.io/name"] != "ikhnos-agent" {
-					t.Errorf("the collector may reach %+v on 9104, want only the agent", rule.To)
+				if len(rule.To) != 1 || rule.To[0].PodSelector == nil || rule.To[0].PodSelector.MatchLabels["app.kubernetes.io/name"] != "ikhnos-link-hub" {
+					t.Errorf("the collector may reach %+v on 9104, want only the hub", rule.To)
 				}
 			}
 		}
 	}
 	if !found {
-		t.Error("the collector's egress policy does not allow the agent's port 9104")
+		t.Error("the collector's egress policy does not allow the hub's port 9104")
 	}
 }
 

@@ -82,7 +82,6 @@ const undetermined = (on: boolean) => (el: HTMLInputElement | null) => {
 export function ClusterLinksFields({ value, onChange, testIdPrefix }: { value: TelemetryInput; onChange: (v: TelemetryInput) => void; testIdPrefix: string }) {
   const set = <K extends keyof TelemetryInput>(key: K, v: TelemetryInput[K]) => onChange({ ...value, [key]: v })
   const optionsKept = isKept(value, 'clusterLinksOptions')
-  const hubKept = isKept(value, 'clusterLinksHub')
   return (
     <div className="space-y-3 border-t border-nb-850 pt-3">
       <p className="text-xs text-nb-500" data-testid={`${testIdPrefix}-links-requirement`}>{LINK_REQUIREMENT}</p>
@@ -117,18 +116,6 @@ export function ClusterLinksFields({ value, onChange, testIdPrefix }: { value: T
           </div>
         </details>
       )}
-      {hubKept && (
-        <KeptNote testId={`${testIdPrefix}-links-hub-kept`}>
-          As installed, not reported: the agents do not say whether the link hub runs, so the command leaves it as it is. Tick or untick the box to set it.
-        </KeptNote>
-      )}
-      <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-        <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" ref={undetermined(hubKept)} checked={value.clusterLinksHub} onChange={(e) => set('clusterLinksHub', e.target.checked)} data-testid={`${testIdPrefix}-links-hub`} />
-        <span>
-          <span className="text-nb-300">Link hub</span>
-          <span className="block text-xs text-nb-500">Keeps the link metrics, the peer list and the responders’ credentials in a small pod of its own, so the agent that holds this cluster’s identity listens for none of them. It has no Kubernetes token and no credential of the server; the agent still receives everything and sends it the rows. Adds one pod, and the link series start at zero when it restarts. Turning it on or off replaces the agent’s pod.</span>
-        </span>
-      </label>
     </div>
   )
 }

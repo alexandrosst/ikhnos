@@ -12,7 +12,7 @@ import (
 
 // hubArgs turns the link hub on, with the prober and the throughput tests in the automatic mode, so that every secret the hub may hold is in play.
 func hubArgs(extra ...string) []string {
-	return autoArgs(append([]string{"telemetry.clusterLinks.hub.enabled=true"}, extra...)...)
+	return autoArgs(extra...)
 }
 
 func agentContainerOf(t *testing.T, r rendered) corev1.Container {
@@ -64,48 +64,47 @@ func hasPort(c corev1.Container, name string, port int32) bool {
 	return false
 }
 
-// Without the switch nothing of the hub exists and the agent serves the link pieces exactly as it did.
-func TestTheLinkHubIsOffByDefaultAndTheAgentServesTheLinksItself(t *testing.T) {
+// The hub is part of the link metrics: it exists whenever they are on, the Service of the series selects it and the agent serves none of
+// the link pieces itself; with the metrics off nothing of it is rendered.
+func TestTheLinkHubRunsWithTheLinkMetricsAndNotWithoutThem(t *testing.T) {
 	args := autoArgs()
 	r := render(t, args...)
 	docs := renderDocs(t, args...)
-	if _, ok := r.deployments["ikhnos-link-hub"]; ok {
-		t.Error("a hub Deployment is rendered while the hub is off")
+	if _, ok := r.deployments["ikhnos-link-hub"]; !ok {
+		t.Error("no hub Deployment is rendered with the link metrics on")
 	}
-	if _, ok := r.secrets["ikhnos-agent-link-hub"]; ok {
-		t.Error("a hub Secret is rendered while the hub is off")
+	if _, ok := r.secrets["ikhnos-agent-link-hub"]; !ok {
+		t.Error("no hub Secret is rendered with the link metrics on")
 	}
-	if _, ok := r.policies["ikhnos-link-hub"]; ok {
-		t.Error("a hub NetworkPolicy is rendered while the hub is off")
+	if _, ok := r.policies["ikhnos-link-hub"]; !ok {
+		t.Error("no hub NetworkPolicy is rendered with the link metrics on")
 	}
-	if hasServiceNamed(docs, "ikhnos-agent-link-hub") {
-		t.Error("the hub's Service is rendered while the hub is off")
+	if !hasServiceNamed(docs, "ikhnos-agent-link-hub") {
+		t.Error("the hub's Service is not rendered with the link metrics on")
 	}
-	a := agentContainerOf(t, r)
-	env := iperfPodEnv(a)
-	for k, want := range map[string]string{"IKHNOS_LINK_METRICS_LISTEN": ":9104", "IKHNOS_LINK_PEERS_SECRET_FILE": "/link-peers/secret", "IKHNOS_LINK_IPERF_SECRET_FILE": "/link-iperf/secret"} {
-		if env[k] != want {
-			t.Errorf("%s = %q, want %q", k, env[k], want)
-		}
+	if sel := serviceNamed(t, docs, "ikhnos-agent-link-metrics").Spec.Selector["app.kubernetes.io/name"]; sel != "ikhnos-link-hub" {
+		t.Errorf("the link metrics Service selects %q, want the hub", sel)
 	}
-	for _, k := range []string{"IKHNOS_LINK_HUB_URL", "IKHNOS_LINK_HUB_SECRET_FILE"} {
-		if _, ok := env[k]; ok {
-			t.Errorf("the agent sets %s while the hub is off", k)
-		}
+	// Off: nothing of it, and nothing of the agent's link pieces either.
+	offArgs := append(append([]string{}, agentTel...), "--set", "flowObserver.enabled=true")
+	off := render(t, offArgs...)
+	offDocs := renderDocs(t, offArgs...)
+	if _, ok := off.deployments["ikhnos-link-hub"]; ok {
+		t.Error("a hub Deployment is rendered with the link metrics off")
 	}
-	if !hasPort(a, "link-metrics", 9104) {
-		t.Error("the agent does not open the link metrics port")
+	if _, ok := off.secrets["ikhnos-agent-link-hub"]; ok {
+		t.Error("a hub Secret is rendered with the link metrics off")
 	}
-	if sel := serviceNamed(t, docs, "ikhnos-agent-link-metrics").Spec.Selector["app.kubernetes.io/name"]; sel != "ikhnos-agent" {
-		t.Errorf("the link metrics Service selects %q, want the agent", sel)
+	if _, ok := off.policies["ikhnos-link-hub"]; ok {
+		t.Error("a hub NetworkPolicy is rendered with the link metrics off")
 	}
-	if got := mountedSecrets(r.deployments["ikhnos-agent"].Spec.Template.Spec); !slices.Contains(got, "ikhnos-agent-link-peers") || !slices.Contains(got, "ikhnos-agent-link-iperf") {
-		t.Errorf("the agent mounts %v", got)
+	if hasServiceNamed(offDocs, "ikhnos-agent-link-hub") {
+		t.Error("the hub's Service is rendered with the link metrics off")
 	}
 }
 
 // With the hub the agent listens for nothing of the links and holds neither secret of the APIs the hub now answers; it holds the hub's.
-func TestWithTheHubTheAgentListensForNoLinkRequestAndHoldsTheHubSecretOnly(t *testing.T) {
+func TestTheAgentListensForNoLinkRequestAndHoldsTheHubSecretOnly(t *testing.T) {
 	r := render(t, hubArgs()...)
 	a := agentContainerOf(t, r)
 	env := iperfPodEnv(a)
@@ -317,15 +316,23 @@ func TestTheHubSecretMustDifferFromTheOthersAndBeLongEnough(t *testing.T) {
 	}
 }
 
-func TestTheHubNeedsTheLinkMetricsAndRefusesWhatItDoesNotKnow(t *testing.T) {
+func TestTheHubIsNotAChoiceAndRefusesWhatItDoesNotKnow(t *testing.T) {
 	base := append([]string{}, agentTel...)
-	base = append(base, "--set", "flowObserver.enabled=true", "--set", "telemetry.clusterLinks.hub.enabled=true")
-	// Without metrics.enabled the hub has nothing to make: that is said, not rendered idle or silently left out.
-	out, err := helmTemplate(t, base...)
-	if err == nil {
-		t.Errorf("a hub was accepted although the link metrics are off:\n%s", out)
-	} else if !strings.Contains(out, "telemetry.clusterLinks.hub.enabled requires telemetry.clusterLinks.metrics.enabled") {
-		t.Errorf("the refusal does not say why:\n%s", out)
+	base = append(base, "--set", "flowObserver.enabled=true")
+	// A release that was installed when the hub was a switch still carries it: it is accepted and means nothing, with the link metrics
+	// off (no hub, no complaint) and on (the hub, as without it).
+	out, err := helmTemplate(t, append(base, "--set", "telemetry.clusterLinks.hub.enabled=true")...)
+	if err != nil {
+		t.Fatalf("the old hub switch is refused (%v):\n%s", err, out)
+	}
+	if strings.Contains(out, "ikhnos-link-hub") {
+		t.Error("the old hub switch, on its own, renders a hub")
+	}
+	if _, err := helmTemplate(t, hubArgs("telemetry.clusterLinks.hub.enabled=false")...); err != nil {
+		t.Errorf("the old hub switch, off, is refused with the link metrics on: %v", err)
+	}
+	if out, err := helmTemplate(t, hubArgs("telemetry.clusterLinks.hub.enabled=false")...); err == nil && !strings.Contains(out, "name: ikhnos-link-hub") {
+		t.Error("the old hub switch, off, takes the hub away")
 	}
 	if _, err := helmTemplate(t, hubArgs("telemetry.clusterLinks.hub.speed=fast")...); err == nil {
 		t.Error("an unknown hub key was accepted")
@@ -454,12 +461,14 @@ func TestTheCollectorAndTheAgentMayReachTheHubWhenTheirEgressIsRestricted(t *tes
 	if !found {
 		t.Error("the agent's egress policy does not allow the hub's ingest port, so it could not send anything")
 	}
-	// And without the hub the egress policy is as it was.
-	off := render(t, autoArgs("networkPolicy.egress.enabled=true", "networkPolicy.egress.apiServerCIDRs[0]=10.43.0.1/32", "networkPolicy.egress.serverCIDRs[0]=192.0.2.10/32")...)
+	// And with the link metrics off there is no hub to send to: the egress policy does not open its port.
+	offArgs := append(append([]string{}, agentTel...), "--set", "flowObserver.enabled=true", "--set", "networkPolicy.egress.enabled=true",
+		"--set", "networkPolicy.egress.apiServerCIDRs[0]=10.43.0.1/32", "--set", "networkPolicy.egress.serverCIDRs[0]=192.0.2.10/32")
+	off := render(t, offArgs...)
 	for _, rule := range off.policies["ikhnos-agent-egress"].Spec.Egress {
 		for _, p := range rule.Ports {
 			if p.Port != nil && p.Port.IntValue() == 9106 {
-				t.Error("the agent's egress policy opens 9106 with the hub off")
+				t.Error("the agent's egress policy opens 9106 with the link metrics off")
 			}
 		}
 	}
@@ -467,7 +476,7 @@ func TestTheCollectorAndTheAgentMayReachTheHubWhenTheirEgressIsRestricted(t *tes
 
 // With the metrics on and the prober off the hub serves the series only: no peers, no credentials, no secret of those APIs.
 func TestTheHubWithoutTheProberServesTheSeriesOnly(t *testing.T) {
-	r := render(t, clusterLinksArgs("telemetry.clusterLinks.hub.enabled=true")...)
+	r := render(t, clusterLinksArgs()...)
 	h := hubContainerOf(t, r)
 	env := iperfPodEnv(h)
 	for _, k := range []string{"IKHNOS_LINK_PEERS_SECRET_FILE", "IKHNOS_LINK_IPERF_SECRET_FILE", "IKHNOS_LINK_PROBER_PORTS"} {

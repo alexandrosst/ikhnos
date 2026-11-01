@@ -222,7 +222,6 @@ telemetry:
     viaAPIServer: false
   clusterLinks:
     hub:
-      enabled: false
       goMemLimit: 48MiB
       networkPolicy: true
       nodeSelector:

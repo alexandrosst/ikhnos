@@ -120,10 +120,10 @@ IfNotPresent
 {{/* True when the prober is on (and so the peer list is answered, by the agent or, with the hub, by the hub). */}}
 {{- define "agent.linkPeers" -}}{{- if and .Values.telemetry.clusterLinks.metrics.enabled .Values.telemetry.clusterLinks.probe.enabled -}}true{{- end -}}{{- end -}}
 
-{{/* True when the link series, the prober's peer list and the responders' credentials are served by the link hub (a pod of its own,
-     telemetry.clusterLinks.hub) and not by the agent. The agent then listens for none of them and holds neither the peers nor the iperf
-     secret: it sends the hub the rows it has admitted and the configuration to serve, signed with the hub secret. */}}
-{{- define "agent.linkHub" -}}{{- if and .Values.telemetry.clusterLinks.metrics.enabled .Values.telemetry.clusterLinks.hub.enabled -}}true{{- end -}}{{- end -}}
+{{/* True when the link series, the prober's peer list and the responders' credentials are served by the link hub (a pod of its own) and
+     not by the agent: always, whenever the link metrics are on. The agent then listens for none of them and holds neither the peers nor
+     the iperf secret: it sends the hub the rows it has admitted and the configuration to serve, signed with the hub secret. */}}
+{{- define "agent.linkHub" -}}{{- if .Values.telemetry.clusterLinks.metrics.enabled -}}true{{- end -}}{{- end -}}
 {{/* The same for the agent's own process: it serves the link pieces (and mounts their secrets) only without the hub. */}}
 {{- define "agent.linkPeersInAgent" -}}{{- if and (include "agent.linkPeers" .) (not (include "agent.linkHub" .)) -}}true{{- end -}}{{- end -}}
 {{- define "agent.linkIperfInAgent" -}}{{- if and (include "agent.linkIperf" .) (not (include "agent.linkHub" .)) -}}true{{- end -}}{{- end -}}

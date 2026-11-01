@@ -597,7 +597,6 @@ export interface ClusterLinks {
   probe: boolean
   throughput: boolean
   authSecret: string
-  hub?: boolean
 }
 
 export interface ClusterMesh {

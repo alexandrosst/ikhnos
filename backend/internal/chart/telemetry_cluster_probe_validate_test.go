@@ -98,13 +98,13 @@ func TestTheProberServesItsMetricsOnTheNodeAddressAtTheListenPort(t *testing.T) 
 	}
 }
 
-// With no NetworkPolicy asked for on the node collectors the agent's policy (made for the node probe here) still has to let the
-// prober in, from any address, as the other host-network senders are.
-func TestTheAgentLetsTheHostNetworkProberInFromAnyAddressWhenNoNodeCIDRsAreSet(t *testing.T) {
+// With no NetworkPolicy asked for on the node collectors the hub's policy still has to let the prober in, from any address, as the other
+// host-network senders are.
+func TestTheHubLetsTheHostNetworkProberInFromAnyAddressWhenNoNodeCIDRsAreSet(t *testing.T) {
 	r := render(t, probeArgs("nodeProbe.enabled=true", "nodeProbe.networkPolicy=true", "nodeProbe.hostNetwork=false")...)
-	pol, ok := r.policies["ikhnos-agent-probe"]
+	pol, ok := r.policies["ikhnos-link-hub"]
 	if !ok {
-		t.Fatal("no agent policy")
+		t.Fatal("no hub policy")
 	}
 	open := false
 	for _, rule := range pol.Spec.Ingress {

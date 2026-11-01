@@ -1,6 +1,7 @@
 package chart
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -30,7 +31,7 @@ func iperfPodEnv(c corev1.Container) map[string]string {
 	return m
 }
 
-func TestIssuedCredentialsReachOnlyTheAgentAndTheResponder(t *testing.T) {
+func TestIssuedCredentialsReachOnlyTheHubAndTheResponder(t *testing.T) {
 	r := render(t, autoArgs()...)
 
 	sec, ok := r.secrets[iperfSecretName]
@@ -106,17 +107,25 @@ func TestIssuedCredentialsReachOnlyTheAgentAndTheResponder(t *testing.T) {
 		}
 	}
 
-	// The agent verifies with it and mounts it, plus the others it had.
+	// The hub verifies with it and mounts it, with the secret the agent signs for it; the agent only passes the credentials on, and holds
+	// neither the request secret nor a listener for it.
+	hub := r.deployments["ikhnos-link-hub"].Spec.Template
+	he := iperfPodEnv(hub.Spec.Containers[0])
+	if he["IKHNOS_LINK_IPERF_SECRET_FILE"] != "/link-iperf/secret" {
+		t.Errorf("hub env = %v", he)
+	}
+	if got := mountedSecrets(hub.Spec); !slices.Contains(got, iperfSecretName) {
+		t.Errorf("the hub mounts secrets %v", got)
+	}
+	if hub.Annotations["checksum/link-iperf-secret"] == "" {
+		t.Error("the hub does not roll when the request secret is replaced")
+	}
 	ag := r.deployments["ikhnos-agent"].Spec.Template
-	ae := iperfPodEnv(ag.Spec.Containers[0])
-	if ae["IKHNOS_LINK_SERVE_IPERF"] != "true" || ae["IKHNOS_LINK_IPERF_SECRET_FILE"] != "/link-iperf/secret" {
+	if ae := iperfPodEnv(ag.Spec.Containers[0]); ae["IKHNOS_LINK_SERVE_IPERF"] != "true" || ae["IKHNOS_LINK_IPERF_SECRET_FILE"] != "" {
 		t.Errorf("agent env = %v", ae)
 	}
-	if got := mountedSecrets(ag.Spec); len(got) != 3 {
+	if got := mountedSecrets(ag.Spec); slices.Contains(got, iperfSecretName) {
 		t.Errorf("the agent mounts secrets %v", got)
-	}
-	if ag.Annotations["checksum/link-iperf-secret"] == "" {
-		t.Error("the agent does not roll when the request secret is replaced")
 	}
 	if r.daemonsets["ikhnos-link-responder"].Spec.Template.Annotations["checksum/config"] == r2sum(t) {
 		t.Error("the responder's checksum does not tell the issued mode from the manual one")
@@ -134,7 +143,7 @@ func TestIssuedCredentialsReachOnlyTheAgentAndTheResponder(t *testing.T) {
 		}
 	}
 	for n, d := range r.deployments {
-		if n == "ikhnos-agent" {
+		if n == "ikhnos-link-hub" {
 			continue
 		}
 		for _, s := range mountedSecrets(d.Spec.Template.Spec) {
@@ -145,13 +154,12 @@ func TestIssuedCredentialsReachOnlyTheAgentAndTheResponder(t *testing.T) {
 	}
 }
 
-// Where the agent has a network policy (it does when a receiver asks for one), the host-network responder's request must be allowed on 9104
-// by source address, within flowObserver.nodeCIDRs.
-func TestTheNetworkPolicyLetsTheResponderAskTheAgent(t *testing.T) {
+// The hub's network policy lets the host-network responder's request in on 9104 by source address, within flowObserver.nodeCIDRs.
+func TestTheNetworkPolicyLetsTheResponderAskTheHub(t *testing.T) {
 	r := render(t, autoArgs("flowObserver.enabled=true", "flowObserver.networkPolicy=true", "flowObserver.nodeCIDRs={10.42.0.0/16}")...)
-	p, ok := r.policies["ikhnos-agent-probe"]
+	p, ok := r.policies["ikhnos-link-hub"]
 	if !ok {
-		t.Fatal("no agent network policy")
+		t.Fatal("no hub network policy")
 	}
 	found := false
 	for _, in := range p.Spec.Ingress {

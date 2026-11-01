@@ -14,10 +14,6 @@ import (
 // Without a signal on there is nothing to export: for an install that has telemetry the values that switch it all off, for one that
 // has none nothing. For settings with a problem there are no values, and the error says what is wrong.
 func (t Telemetry) Values() ([]Value, error) {
-	// Before the answer for "nothing on": a hub named beside no signal is a setting that would be ignored without a word.
-	if t.ClusterLinks.Hub && !t.Signals.ClusterLinks {
-		return nil, &ProblemsError{Problems: t.Problems()}
-	}
 	if !t.Active() {
 		if t.HadTelemetry {
 			return off(), nil
@@ -112,13 +108,9 @@ func (t Telemetry) Values() ([]Value, error) {
 				add(SetString("telemetry.clusterLinks.probe.capacity.auth.existingSecret", own))
 			}
 		}
-		// Its own group: the probe options can be edited without saying what the hub is, and the hub without the probe's.
-		if !t.kept(KeptClusterLinksHub) {
-			add(flag("telemetry.clusterLinks.hub.enabled", t.ClusterLinks.Hub))
-		}
 	} else {
 		// Stated off with the signal, whatever the draft says: the prober cannot stay on without it.
-		add(Set("telemetry.clusterLinks.probe.enabled", "false"), Set("telemetry.clusterLinks.probe.capacity.enabled", "false"), Set("telemetry.clusterLinks.hub.enabled", "false"))
+		add(Set("telemetry.clusterLinks.probe.enabled", "false"), Set("telemetry.clusterLinks.probe.capacity.enabled", "false"))
 	}
 	// Each application signal's scope is stated while the signal is on, even when both lists are empty: an empty list means "no
 	// override, fall back to the install's scope", and stating it is what lets clearing an override actually take effect; leaving it
