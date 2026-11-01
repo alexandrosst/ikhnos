@@ -96,6 +96,10 @@ type Admin struct {
 	opsOnce sync.Once
 	// fusionRL limits how fast one FUSION data-API caller (a token or a person) may read.
 	fusionRL *kernel.Limiter
+	// fusionUIRL limits how fast one signed-in person may load FUSION's own pages (Grafana, Prometheus) through the server. A page is
+	// many requests at once, not one read: a dashboard of sixty panels asks for each panel's data and for its scripts and styles in the
+	// same second, and a budget made for an API client refuses the last of them ("too many requests, slow down" in the middle of a plot).
+	fusionUIRL *kernel.Limiter
 	// dataGuard authenticates and bounds the calls of the data API over FUSION (see fd).
 	dataGuard *fusionhttp.Guard
 	// fusionPageRL throttles failed authentications on the Prometheus and Grafana pages per address. It is its own limiter, not
@@ -154,6 +158,7 @@ func (a *Admin) Handler() http.Handler {
 	a.authRL = kernel.NewLimiter(30, 10)
 	a.hbFailRL = kernel.NewLimiter(30, 10)
 	a.fusionRL = kernel.NewLimiter(600, 60)
+	a.fusionUIRL = kernel.NewLimiter(6000, 600)
 	a.fusionPageRL = kernel.NewLimiter(30, 10)
 	a.fusionUIAccess = fusionpages.NewAccess()
 	a.dataGuard = a.newDataGuard()

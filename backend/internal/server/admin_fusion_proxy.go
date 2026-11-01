@@ -87,7 +87,7 @@ func (a *Admin) fusionUI(component string) http.Handler {
 			httpkit.WriteErr(w, http.StatusUnauthorized, "sign in required")
 			return
 		}
-		if !a.fusionRL.Allow("ui|" + who.ID) {
+		if !a.fusionUIRL.Allow("ui|" + who.ID) {
 			w.Header().Set("Retry-After", "5")
 			httpkit.WriteErr(w, http.StatusTooManyRequests, "too many requests, slow down")
 			return

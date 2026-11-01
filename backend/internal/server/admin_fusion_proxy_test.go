@@ -370,7 +370,7 @@ func TestFusionProxyRefusesProtocolUpgrades(t *testing.T) {
 
 func TestFusionProxyIsRateLimitedPerPerson(t *testing.T) {
 	p := newPageRig(t)
-	p.a.fusionRL = kernel.NewLimiter(60, 3)
+	p.a.fusionUIRL = kernel.NewLimiter(60, 3)
 	for i := range 3 {
 		if r := p.send("GET", fusionPromPath+"graph", nil); r.Code == 429 {
 			t.Fatalf("request %d was limited", i+1)
@@ -511,5 +511,21 @@ func TestGrafanaIsToldANamespacedLoginSoTheBootstrapAdminIsNotGrafanasAdmin(t *t
 	}
 	if got := p.last("grafana").Header.Get("X-WEBAUTH-USER"); got != "ikhnos-admin" {
 		t.Fatalf("Grafana was told %q for the Ikhnos account admin, want ikhnos-admin", got)
+	}
+}
+
+// A dashboard of many panels loads in one burst: the pages' budget holds a page of that size, and the data API's does not need to.
+func TestAFullDashboardLoadsWithoutBeingTurnedAway(t *testing.T) {
+	p := newPageRig(t)
+	// The links dashboard has 63 panels, each with a query of its own, and a page asks for its scripts and styles besides.
+	const burst = 63 + 40
+	for i := range burst {
+		if r := p.send("GET", fusionPromPath+"graph", nil); r.Code == 429 {
+			t.Fatalf("request %d of %d in one load was refused", i+1, burst)
+		}
+	}
+	// The data API keeps the stricter budget made for clients that read in a loop.
+	if p.a.fusionRL == p.a.fusionUIRL {
+		t.Fatal("the pages and the data API share one limiter")
 	}
 }
