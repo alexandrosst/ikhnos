@@ -290,9 +290,7 @@ func TestTheProberLogsWhatChangesInThePeerList(t *testing.T) {
 // A hub that was just started holds no configuration, and the agent sends it within seconds. The prober asks again soon, not after the
 // minute it waits between questions when it has its peers: otherwise that minute is the whole of the gap.
 func TestAProberThatHasNoPeersYetAsksAgainSoon(t *testing.T) {
-	old1, old2 := followEvery, followRetry
-	followEvery, followRetry = time.Hour, 20*time.Millisecond
-	defer func() { followEvery, followRetry = old1, old2 }()
+	setFollow(t, time.Hour, 20*time.Millisecond)
 
 	secret := []byte("a-secret-of-sixteen-plus-chars")
 	hubPeers := link.NewPeers()
@@ -324,9 +322,7 @@ func TestAProberThatHasNoPeersYetAsksAgainSoon(t *testing.T) {
 
 // Once it has its peers the prober asks as seldom as before, and when a hub is gone it backs off rather than asking every few seconds for ever.
 func TestAProberThatCannotReachTheHubBacksOff(t *testing.T) {
-	old1, old2 := followEvery, followRetry
-	followEvery, followRetry = 160*time.Millisecond, 10*time.Millisecond
-	defer func() { followEvery, followRetry = old1, old2 }()
+	setFollow(t, 160*time.Millisecond, 10*time.Millisecond)
 
 	var asked atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -345,4 +341,13 @@ func TestAProberThatCannotReachTheHubBacksOff(t *testing.T) {
 	if n := asked.Load(); n < 4 || n > 14 {
 		t.Fatalf("asked %d times in 700 ms; the waits should double up to the ordinary interval", n)
 	}
+}
+
+// setFollow shortens the waits of follow for one test.
+func setFollow(t *testing.T, every, retry time.Duration) {
+	t.Helper()
+	oldEvery, oldRetry := followEvery.Load(), followRetry.Load()
+	followEvery.Store(int64(every))
+	followRetry.Store(int64(retry))
+	t.Cleanup(func() { followEvery.Store(oldEvery); followRetry.Store(oldRetry) })
 }

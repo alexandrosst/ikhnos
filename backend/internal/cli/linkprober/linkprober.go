@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -121,7 +122,8 @@ func Main(args []string) int {
 // waiting a whole minute to ask would be the longest part of the gap.
 func follow(ctx context.Context, log *slog.Logger, hc *http.Client, url string, secret []byte, peers *link.Peers, meter *link.Meter, load *link.Load, iperf bool) {
 	var seen followed
-	retry := followRetry
+	first := time.Duration(followRetry.Load())
+	retry := first
 	for {
 		d, err := link.FetchPeersWith(ctx, hc, url, secret, time.Now(), iperf)
 		notYet := seen.note(log, d, err, func() {
@@ -133,12 +135,13 @@ func follow(ctx context.Context, log *slog.Logger, hc *http.Client, url string, 
 				load.Observe(d, time.Now())
 			}
 		})
-		wait := followEvery
+		every := time.Duration(followEvery.Load())
+		wait := every
 		if notYet {
-			wait = min(retry, followEvery)
-			retry = min(2*retry, followEvery)
+			wait = min(retry, every)
+			retry = min(2*retry, every)
 		} else {
-			retry = followRetry
+			retry = first
 		}
 		t := time.NewTimer(wait)
 		select {
@@ -151,11 +154,14 @@ func follow(ctx context.Context, log *slog.Logger, hc *http.Client, url string, 
 }
 
 // followEvery is how often the peers are asked for when they are known; followRetry is the first wait before asking again when they were
-// not to be had. Variables so a test need not wait.
-var (
-	followEvery = time.Minute
-	followRetry = 5 * time.Second
-)
+// not to be had (both are durations, in nanoseconds). Variables so a test need not wait.
+// Atomic, because a test changes them while a follow it started earlier may still be running.
+var followEvery, followRetry atomic.Int64
+
+func init() {
+	followEvery.Store(int64(time.Minute))
+	followRetry.Store(int64(5 * time.Second))
+}
 
 // followed remembers what the last answers said, so the log carries what changed and not every minute's repetition: the first
 // list, a different cluster or number of peers, and the first answer after the agent (or the link hub in front of it) could
