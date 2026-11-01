@@ -215,6 +215,10 @@ func oomKillFromEvents(path string) uint64 {
 // comment. A var, not a const, so a test can shrink it; production code never changes it.
 var raplSampleWindow = 30 * time.Millisecond
 
+// raplSleep waits out raplSampleWindow. A variable so that a test can change the counter exactly while rapl() waits, instead of racing a
+// goroutine against the wall clock (on a loaded CI runner under -race the goroutine can land after the second reading).
+var raplSleep = time.Sleep
+
 // readUint64 parses a sysfs counter file (one bare decimal number, as every powercap energy_uj/
 // max_energy_range_uj file is documented to hold) - see Documentation/power/powercap/powercap.rst.
 // ok is false for a missing file, a permission error, or content that is not a plain non-negative
@@ -259,7 +263,7 @@ func rapl(sysClassPowercap string) *float64 {
 		return nil
 	}
 	t1 := time.Now()
-	time.Sleep(raplSampleWindow)
+	raplSleep(raplSampleWindow)
 	e2, ok := readUint64(energyPath)
 	if !ok {
 		return nil

@@ -408,34 +408,30 @@ func TestRAPLAbsentIsNotAnError(t *testing.T) {
 	}
 }
 
-// TestRAPLComputesAverageWatts covers the real, present case end to end through Read(): a counter that
-// genuinely increases between the two samples rapl() takes raplSampleWindow apart. raplSampleWindow is
-// shrunk for the test's own duration so this does not slow the suite down; the counter is mutated by a
-// goroutine timed to land inside that window, the same real-timing idiom this package's e2e-style tests
-// already use elsewhere (see e.g. the agent package's multi-second sleeps).
+// TestRAPLComputesAverageWatts: rapl() reads the counter, waits raplSampleWindow, reads it again and divides the difference by the time that
+// really passed. The wait is replaced for the test's duration by one that raises the counter by 0.5 J exactly while rapl() is waiting, so
+// the second reading always sees it (a goroutine timed against the wall clock did not, on a loaded runner under -race), and still waits the
+// real window, so that the elapsed time the division uses is a real one.
 func TestRAPLComputesAverageWatts(t *testing.T) {
-	old := raplSampleWindow
+	old, oldSleep := raplSampleWindow, raplSleep
 	raplSampleWindow = 40 * time.Millisecond
-	defer func() { raplSampleWindow = old }()
+	defer func() { raplSampleWindow, raplSleep = old, oldSleep }()
 
 	root := t.TempDir()
 	sys := filepath.Join(root, "sys")
 	write(t, sys, "class/powercap/intel-rapl:0/energy_uj", "1000000\n") // 1 J to start
-
-	go func() {
-		time.Sleep(raplSampleWindow / 4)
+	raplSleep = func(d time.Duration) {
 		write(t, sys, "class/powercap/intel-rapl:0/energy_uj", "1500000\n") // +0.5 J before the second read
-	}()
+		time.Sleep(d)
+	}
 
 	h := Read(Paths{Sys: sys, Proc: t.TempDir()})
 	if h.HostWatts == nil {
 		t.Fatal("hostWatts = nil, want a real reading: the counter file exists and genuinely increased")
 	}
-	// At least 0.5J was consumed over at most a handful of raplSampleWindow's worth of wall-clock time
-	// (generous margin for scheduling jitter in a busy sandbox) - a real, clearly nonzero, clearly
-	// bounded reading, not a crude sanity check for "some number came back".
-	if *h.HostWatts <= 0 || *h.HostWatts > 0.5/(raplSampleWindow.Seconds())*4 {
-		t.Fatalf("hostWatts = %v, want roughly 0.5J divided by about %v", *h.HostWatts, raplSampleWindow)
+	// 0.5 J over at least the window: no more than 0.5/window watts, and more than nothing however long the runner took to come back.
+	if *h.HostWatts <= 0 || *h.HostWatts > 0.5/raplSampleWindow.Seconds() {
+		t.Fatalf("hostWatts = %v, want more than 0 and at most 0.5 J over %v", *h.HostWatts, raplSampleWindow)
 	}
 }
 
