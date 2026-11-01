@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  LINK_REQUIREMENT, PRESETS, VIA_OPTIONS, clusterChecks, firstLines, normalizeSetup, setupSummary, uncoveredChecks, uncoveredNotes, costLine, delayWords, everyWords, clockWords, hasPair, latestView, lossWords, newPair, normalizeLinksLatest, normalizeProbe, probeRecent, rateWords, presetOf, removePair, replacePair, runnerOf, runsFromWords, throughputFor, throughputSummary, viaWords,
+  LINK_REQUIREMENT, testsHeldWords, PRESETS, VIA_OPTIONS, clusterChecks, firstLines, normalizeSetup, setupSummary, uncoveredChecks, uncoveredNotes, costLine, delayWords, everyWords, clockWords, hasPair, latestView, lossWords, newPair, normalizeLinksLatest, normalizeProbe, probeRecent, rateWords, presetOf, removePair, replacePair, runnerOf, runsFromWords, throughputFor, throughputSummary, viaWords,
 } from '../src/lib/clusterLinks'
 import type { LinkNote, LinkPairLatest, PairSetup, SetupStep } from '../src/lib/clusterLinks'
 import { PROBE_STALE_AFTER_MS } from '../src/lib/status'
@@ -277,6 +277,21 @@ test('the kinds of address that did not answer are said, never an address, and a
   assert.deepEqual(got[0].silent, ['public', 'mesh'])
   assert.equal('silent' in got[1], false)
   assert.equal('silent' in got[2], false)
+})
+
+test('why the throughput tests have no result is worded for each reason, and a word it does not know is dropped', () => {
+  const base = { a: 'x', b: 'y', rttSeconds: 0.01 }
+  assert.match(latestView({ ...base, testsHeld: 'link-busy' }, T0)?.hints[0] ?? '', /waiting for the link: real traffic is using it/)
+  assert.match(latestView({ ...base, testsHeld: 'budget' }, T0)?.hints[0] ?? '', /waiting for the daily amount/)
+  assert.match(latestView({ ...base, testsHeld: 'server-busy' }, T0)?.hints[0] ?? '', /other cluster, which is serving another test/)
+  assert.match(latestView({ ...base, testsHeld: 'failing', testsReason: 'timeout' }, T0)?.hints[0] ?? '', /could not be run \(timed out\)/)
+  assert.match(latestView({ ...base, testsHeld: 'failing' }, T0)?.hints[0] ?? '', /could not be run \(other\)/)
+  assert.match(latestView({ ...base, testsHeld: 'waiting' }, T0)?.hints[0] ?? '', /No throughput test has finished yet/)
+  for (const h of ['link-busy', 'budget', 'server-busy', 'failing', 'waiting'] as const) assert.doesNotMatch(testsHeldWords(h, 'timeout'), /\d+\.\d+\.\d+\.\d+/)
+  const got = normalizeLinksLatest({ available: true, pairs: [{ a: 'x', b: 'y', testsHeld: 'waiting' }, { a: 'x', b: 'z', testsHeld: '10.2.3.4' as never, testsReason: 'timeout' }, { a: 'x', b: 'w', testsHeld: 'budget', testsReason: 'timeout' }] }).pairs
+  assert.equal(got[0].testsHeld, 'waiting')
+  assert.equal('testsHeld' in got[1] || 'testsReason' in got[1], false)
+  assert.equal('testsReason' in got[2], false, 'a reason only goes with failing')
 })
 
 test('a probe that never succeeded is a failure, not an old result', () => {

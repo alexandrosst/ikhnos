@@ -199,14 +199,17 @@ export function normalizeProbe(raw: unknown): ProbeLatest | undefined {
 }
 
 const KINDS = { mesh: 1, private: 1, public: 1 } satisfies Record<W.LinkVia, 1>
+const TESTS_HELD = { 'link-busy': 1, budget: 1, 'server-busy': 1, failing: 1, waiting: 1 } satisfies Record<W.TestsHeld, 1>
 
 const normalizePair = (l: LinkPairLatest): LinkPairLatest => {
-  const { probeAToB, probeBToA, silent, ...rest } = l
+  const { probeAToB, probeBToA, silent, testsHeld, testsReason, ...rest } = l
   const a = normalizeProbe(probeAToB)
   const b = normalizeProbe(probeBToA)
   // The kinds of address that did not answer: a word this page does not know is dropped, and each kind is said once.
   const kinds = [...new Set((Array.isArray(silent) ? silent : []).filter((k) => isWord(KINDS, k)))]
-  return { ...rest, ...(a ? { probeAToB: a } : {}), ...(b ? { probeBToA: b } : {}), ...(kinds.length > 0 ? { silent: kinds } : {}) }
+  return { ...rest, ...(a ? { probeAToB: a } : {}), ...(b ? { probeBToA: b } : {}), ...(kinds.length > 0 ? { silent: kinds } : {}),
+    // Why the throughput tests have no result: a word this page does not know is dropped, so a newer server cannot make it say something false.
+    ...(isWord(TESTS_HELD, testsHeld) ? { testsHeld, ...(testsHeld === 'failing' && typeof testsReason === 'string' ? { testsReason } : {}) } : {}) }
 }
 
 export const normalizeLinksLatest = (d: Partial<LinksLatest> | undefined): LinksLatest => ({
@@ -331,6 +334,22 @@ export function silentWords(kinds: W.LinkVia[]): string {
   return `Connections to ${list} of the other cluster got no answer, while another kind did answer, so the cluster is up but not reached by that path. One of: a firewall drops that path, or the nodes at those addresses are down.`
 }
 
+/** What a pair's throughput tests are waiting for, or how they failed. Never an address; the tests wait, they are not broken, unless they fail. */
+export function testsHeldWords(held: W.TestsHeld, reason?: W.ProbeFailure): string {
+  switch (held) {
+    case 'link-busy':
+      return 'The throughput tests are waiting for the link: real traffic is using it, and the tests run when it is quiet.'
+    case 'budget':
+      return 'The throughput tests are waiting for the daily amount: it is used up for now. They continue when it has been paid back; a larger amount runs them sooner.'
+    case 'server-busy':
+      return 'The throughput tests are waiting for the other cluster, which is serving another test. They are tried again shortly.'
+    case 'failing':
+      return `The throughput tests could not be run (${REASON_WORDS[reason ?? 'other'] ?? 'other'}). See Probing for the same cluster: a test needs the responder and its iperf3 server to answer.`
+    case 'waiting':
+      return 'No throughput test has finished yet. The first runs within the pair’s first cycle; if this stays, check the pair’s setup.'
+  }
+}
+
 const timeOf = (iso: string | undefined): number | null => {
   if (!iso) return null
   const t = new Date(iso).getTime()
@@ -401,6 +420,7 @@ export function latestView(l: LinkPairLatest | undefined, now = Date.now(), name
   for (const [d, arrows] of byDiagnosis) v.hints.push(`${arrows.join(' ')} ${DIAGNOSIS_WORDS[d]}`)
   // The kinds of address that stayed silent while others answered: the cluster is reached, but not by that path. Only the kinds are named.
   if (l.silent && l.silent.length > 0) v.hints.push(silentWords(l.silent))
+  if (l.testsHeld) v.hints.push(testsHeldWords(l.testsHeld, l.testsReason))
   const probed = probedAtMs(l)
   if (probed !== null) {
     v.when = { text: `probed ${ago(new Date(probed).toISOString(), now)}`, stale: now - probed > PROBE_STALE_AFTER_MS }

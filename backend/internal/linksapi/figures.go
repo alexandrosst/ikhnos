@@ -66,6 +66,68 @@ type LinkPairLatest struct {
 	// address, say) rather than a cluster that is down. Absent when every kind that was tried answered, and when none did, since
 	// that says nothing of one path against another.
 	Silent []kernel.LinkVia `json:"silent,omitempty"`
+	// TestsHeld says why a pair with throughput tests has no result lately: what its tests have been held back by or failed with in the
+	// last hours, or that none has been tried yet. Absent where a test finished within the window, where the pair has no tests and where
+	// nothing explains the wait (a plan that runs once a day is not late). TestsReason is the failure reason when TestsHeld is failing.
+	TestsHeld   TestsHeld    `json:"testsHeld,omitempty"`
+	TestsReason ProbeFailure `json:"testsReason,omitempty"`
+}
+
+// TestsHeld is why a pair's throughput tests have not produced a result lately.
+type TestsHeld string
+
+// The reasons the tests of a pair wait. They are bounded words, not text: the screen words them.
+const (
+	heldLinkBusy   TestsHeld = "link-busy"   // real traffic was using the link, and the tests wait for it to be quiet
+	heldBudget     TestsHeld = "budget"      // the daily amount of data the tests may carry is used up for now
+	heldServerBusy TestsHeld = "server-busy" // the other cluster's server was serving another test
+	heldFailing    TestsHeld = "failing"     // tests were tried and failed (TestsReason says how)
+	heldWaiting    TestsHeld = "waiting"     // none has been tried yet
+)
+
+// WireWords is the list of TestsHeld's words, as the generated types give it.
+func (TestsHeld) WireWords() []string {
+	return []string{string(heldLinkBusy), string(heldBudget), string(heldServerBusy), string(heldFailing), string(heldWaiting)}
+}
+
+// testsWindow is how long a result counts as lately for the explanation above; it matches what the counters are read over.
+const testsWindow = 6 * time.Hour
+
+// heldReasons maps the skip reasons the tests count by to the words above.
+var heldReasons = map[string]TestsHeld{"link_busy": heldLinkBusy, "budget": heldBudget, "server_busy": heldServerBusy}
+
+// topPairReason is the reason of the reading with the highest count among those of the pair (either cluster measuring), the first
+// in alphabetical order on a tie; "" when there is none.
+func topPairReason(in []fusionapi.LinkReading, a, b string) string {
+	var best fusionapi.LinkReading
+	found := false
+	for _, x := range in {
+		if !(x.Cluster == a && x.Peer == b || x.Cluster == b && x.Peer == a) || x.Value <= 0 {
+			continue
+		}
+		if !found || x.Value > best.Value || x.Value == best.Value && x.Reason < best.Reason {
+			best, found = x, true
+		}
+	}
+	return best.Reason
+}
+
+// testsHeldFor explains the missing result of a pair that has throughput tests. Failures come first, since they are the news; a
+// skipped test is the scheduler doing its job and is said as what it waits for.
+func testsHeldFor(rd fusionapi.LinkReadings, a, b string, testedAt *time.Time, now time.Time) (TestsHeld, ProbeFailure) {
+	if testedAt != nil && now.Sub(*testedAt) < testsWindow {
+		return "", ""
+	}
+	if why := topPairReason(rd.TestsFailed, a, b); why != "" {
+		return heldFailing, knownFailureReason(why)
+	}
+	if held, ok := heldReasons[topPairReason(rd.TestsSkipped, a, b)]; ok {
+		return held, ""
+	}
+	if testedAt == nil {
+		return heldWaiting, ""
+	}
+	return "", ""
 }
 
 // ProbeState is how the one-way probe stands in one direction of a pair.
@@ -407,6 +469,9 @@ func readPairs(links []kernel.LinkSetting, rd fusionapi.LinkReadings, now time.T
 		}
 		p.ProbedAt = latest(probed, [3]string{a, b, "forward"}, [3]string{a, b, "reverse"}, [3]string{b, a, "forward"}, [3]string{b, a, "reverse"})
 		p.TestedAt = latest(tested, [3]string{a, b, ""}, [3]string{b, a, ""})
+		if l.Throughput != nil {
+			p.TestsHeld, p.TestsReason = testsHeldFor(rd, a, b, p.TestedAt, now)
+		}
 		if !l.NoProbe {
 			// The state of a direction comes from the cluster that reports it first, as the loss does.
 			state := func(keys ...[3]string) *LinkProbeLatest {

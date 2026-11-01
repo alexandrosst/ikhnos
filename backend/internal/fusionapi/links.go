@@ -48,6 +48,9 @@ type LinkReadings struct {
 	// ProbeFailure is, per direction that failed lately, the reason that failed most often and how often (Value) in the last
 	// linkFailureWindow. ConnectFailure is the same for the connect timing of a peer (no direction).
 	ProbeFailure, ConnectFailure []LinkReading
+	// TestsSkipped and TestsFailed are, per pair, the reason a throughput test was held back (link_busy, budget, server_busy) or failed
+	// most often in the last linkTestsWindow, and how often (Value): what the pair's tests have been doing when no result comes.
+	TestsSkipped, TestsFailed []LinkReading
 	// KindUp is, per kind of address of the peer (Kind: mesh, private or public), 1 where a connection to one of that kind opened
 	// in the latest rounds of the connect timing and 0 where every one that was tried stayed silent.
 	KindUp []LinkReading
@@ -85,6 +88,9 @@ const (
 	// How far back the kinds of address that answered are looked for: a round is every few seconds, so a reading older than this
 	// is of a prober that has gone.
 	linkKindLookback = "2m"
+	// How far back the throughput tests that were held back or failed are counted: they run once in hours, so a shorter window would
+	// see nothing between two tests.
+	linkTestsWindow = "6h"
 )
 
 // LinkReadings asks the metrics store for the latest link figures of every cluster that reports them. Only a Scope that may
@@ -113,6 +119,8 @@ func (c *Client) LinkReadings(ctx context.Context, s Scope) (LinkReadings, error
 		{`max by (cluster, peer, direction) (ikhnos_link_probe_up)`, &out.Up},
 		{`topk by (cluster, peer, direction) (1, sum by (cluster, peer, direction, reason) (increase(ikhnos_link_probe_failures_total[` + linkFailureWindow + `])) > 0)`, &out.ProbeFailure},
 		{`topk by (cluster, peer) (1, sum by (cluster, peer, reason) (increase(ikhnos_link_tcp_connect_failures_total[` + linkFailureWindow + `])) > 0)`, &out.ConnectFailure},
+		{`topk by (cluster, peer) (1, sum by (cluster, peer, reason) (increase(ikhnos_link_throughput_tests_skipped_total[` + linkTestsWindow + `])) > 0)`, &out.TestsSkipped},
+		{`topk by (cluster, peer) (1, sum by (cluster, peer, reason) (increase(ikhnos_link_throughput_test_failures_total[` + linkTestsWindow + `])) > 0)`, &out.TestsFailed},
 		{`min by (cluster, peer, kind) (last_over_time(ikhnos_link_tcp_connect_kind_up[` + linkKindLookback + `]))`, &out.KindUp},
 	}
 	errs := make([]error, len(jobs))

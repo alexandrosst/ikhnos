@@ -34,6 +34,10 @@ func TestLinkReadingsReadEachFigureWithItsOwnQuery(t *testing.T) {
 		switch {
 		case strings.Contains(q, "probe_failures_total"):
 			out = vec(row("3", "cluster", "a", "peer", "b", "direction", "reverse", "reason", "other"))
+		case strings.Contains(q, "tests_skipped_total"):
+			out = vec(row("4", "cluster", "a", "peer", "b", "reason", "budget"))
+		case strings.Contains(q, "test_failures_total"):
+			out = vec(row("2", "cluster", "a", "peer", "b", "reason", "timeout"))
 		case strings.Contains(q, "tcp_connect_kind_up"):
 			out = vec(row("1", "cluster", "a", "peer", "b", "kind", "mesh"), row("0", "cluster", "a", "peer", "b", "kind", "public"))
 		case strings.Contains(q, "tcp_connect_failures_total"):
@@ -95,6 +99,9 @@ func TestLinkReadingsReadEachFigureWithItsOwnQuery(t *testing.T) {
 	if len(got.KindUp) != 2 || got.KindUp[0].Kind != "mesh" || got.KindUp[0].Value != 1 || got.KindUp[1].Kind != "public" || got.KindUp[1].Value != 0 {
 		t.Errorf("kinds = %+v", got.KindUp)
 	}
+	if len(got.TestsSkipped) != 1 || got.TestsSkipped[0].Reason != "budget" || got.TestsSkipped[0].Value != 4 || len(got.TestsFailed) != 1 || got.TestsFailed[0].Reason != "timeout" {
+		t.Errorf("tests skipped = %+v, failed = %+v", got.TestsSkipped, got.TestsFailed)
+	}
 	// every figure is asked for by a fixed query: nothing the caller supplies reaches PromQL
 	seen := 0
 	f.mu.Lock()
@@ -104,7 +111,7 @@ func TestLinkReadingsReadEachFigureWithItsOwnQuery(t *testing.T) {
 		}
 	}
 	f.mu.Unlock()
-	if seen != 14 {
+	if seen != 16 {
 		t.Errorf("%d queries", seen)
 	}
 }

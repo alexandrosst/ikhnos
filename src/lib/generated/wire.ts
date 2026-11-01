@@ -1302,6 +1302,8 @@ export interface FusionLinkPair {
   probeAToB?: LinkProbeLatest
   probeBToA?: LinkProbeLatest
   silent?: LinkVia[]
+  testsHeld?: TestsHeld
+  testsReason?: ProbeFailure
   measuredBy: string[]
 }
 
@@ -1582,6 +1584,8 @@ export interface LinkPairLatest {
   probeAToB?: LinkProbeLatest
   probeBToA?: LinkProbeLatest
   silent?: LinkVia[]
+  testsHeld?: TestsHeld
+  testsReason?: ProbeFailure
 }
 
 export interface LinkProbeLatest {
@@ -2964,6 +2968,8 @@ export interface TelemetrySignals {
 }
 
 export type TestState = 'pending' | 'reachable' | 'unreachable'
+
+export type TestsHeld = 'link-busy' | 'budget' | 'server-busy' | 'failing' | 'waiting'
 
 export type Tier = 'cloud' | 'edge' | 'far-edge'
 

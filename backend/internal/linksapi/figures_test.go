@@ -371,3 +371,43 @@ func TestTheKindsOfAddressThatDidNotAnswerAreNamed(t *testing.T) {
 		t.Errorf("a pair with probing off: %v", got.Silent)
 	}
 }
+
+func tr(cluster, peer, reason string, n float64) fusionapi.LinkReading {
+	return fusionapi.LinkReading{Cluster: cluster, Peer: peer, Reason: reason, Value: n}
+}
+
+// A pair with throughput tests and no recent result is told why: what held its tests back or made them fail, or that none has been tried.
+func TestWhyAPairsTestsHaveNotRunIsSaid(t *testing.T) {
+	now := time.Unix(1791200000, 0)
+	recent, old := float64(now.Unix()-3600), float64(now.Unix()-8*3600)
+	with := []kernel.LinkSetting{{A: "cl-a", B: "cl-b", Throughput: &kernel.LinkThroughput{}}}
+	tested := func(at float64) []fusionapi.LinkReading { return []fusionapi.LinkReading{lr("cl-a", "cl-b", "", at)} }
+	for _, c := range []struct {
+		name   string
+		links  []kernel.LinkSetting
+		rd     fusionapi.LinkReadings
+		held   TestsHeld
+		reason ProbeFailure
+	}{
+		{name: "nothing tried yet", links: with, held: heldWaiting},
+		{name: "a result within the window says nothing", links: with, rd: fusionapi.LinkReadings{Tested: tested(recent), TestsSkipped: []fusionapi.LinkReading{tr("cl-a", "cl-b", "budget", 3)}}},
+		{name: "held back by real traffic", links: with, rd: fusionapi.LinkReadings{TestsSkipped: []fusionapi.LinkReading{tr("cl-a", "cl-b", "link_busy", 5)}}, held: heldLinkBusy},
+		{name: "held back by the daily amount, with an old result", links: with, rd: fusionapi.LinkReadings{Tested: tested(old), TestsSkipped: []fusionapi.LinkReading{tr("cl-a", "cl-b", "budget", 2)}}, held: heldBudget},
+		{name: "the other cluster's server is busy, reported from the second cluster", links: with, rd: fusionapi.LinkReadings{TestsSkipped: []fusionapi.LinkReading{tr("cl-b", "cl-a", "server_busy", 1)}}, held: heldServerBusy},
+		{name: "failures come before holds", links: with, rd: fusionapi.LinkReadings{TestsSkipped: []fusionapi.LinkReading{tr("cl-a", "cl-b", "budget", 9)}, TestsFailed: []fusionapi.LinkReading{tr("cl-a", "cl-b", "auth", 1)}}, held: heldFailing, reason: failAuth},
+		{name: "a reason that is not a known word reads as other", links: with, rd: fusionapi.LinkReadings{TestsFailed: []fusionapi.LinkReading{tr("cl-a", "cl-b", "dial tcp 10.2.3.4:5201: i/o timeout", 2)}}, held: heldFailing, reason: failOther},
+		{name: "a hold that is not a known word says nothing", links: with, rd: fusionapi.LinkReadings{Tested: tested(old), TestsSkipped: []fusionapi.LinkReading{tr("cl-a", "cl-b", "10.2.3.4", 2)}}},
+		{name: "an old result and nothing counted: a plan that runs once a day is not late", links: with, rd: fusionapi.LinkReadings{Tested: tested(old)}},
+		{name: "another pair's counts are not used", links: with, rd: fusionapi.LinkReadings{TestsSkipped: []fusionapi.LinkReading{tr("cl-a", "cl-c", "budget", 9)}}, held: heldWaiting},
+		{name: "a pair with no tests says nothing", links: []kernel.LinkSetting{{A: "cl-a", B: "cl-b"}}, rd: fusionapi.LinkReadings{TestsSkipped: []fusionapi.LinkReading{tr("cl-a", "cl-b", "budget", 9)}}},
+	} {
+		got := latestPairs(c.links, c.rd, now)[0]
+		if got.TestsHeld != c.held || got.TestsReason != c.reason {
+			t.Errorf("%s: held %q reason %q, want %q %q", c.name, got.TestsHeld, got.TestsReason, c.held, c.reason)
+		}
+	}
+	j, _ := json.Marshal(latestPairs(with, fusionapi.LinkReadings{TestsFailed: []fusionapi.LinkReading{tr("cl-a", "cl-b", "dial tcp 10.2.3.4:5201: i/o timeout", 2)}}, now)[0])
+	if strings.Contains(string(j), "10.2.3.4") {
+		t.Errorf("the store's text reached the answer: %s", j)
+	}
+}
