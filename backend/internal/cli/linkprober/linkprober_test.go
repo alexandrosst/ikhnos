@@ -286,3 +286,63 @@ func TestTheProberLogsWhatChangesInThePeerList(t *testing.T) {
 		t.Errorf("the list after the agent got its config back is not logged:\n%s", buf.String())
 	}
 }
+
+// A hub that was just started holds no configuration, and the agent sends it within seconds. The prober asks again soon, not after the
+// minute it waits between questions when it has its peers: otherwise that minute is the whole of the gap.
+func TestAProberThatHasNoPeersYetAsksAgainSoon(t *testing.T) {
+	old1, old2 := followEvery, followRetry
+	followEvery, followRetry = time.Hour, 20*time.Millisecond
+	defer func() { followEvery, followRetry = old1, old2 }()
+
+	secret := []byte("a-secret-of-sixteen-plus-chars")
+	hubPeers := link.NewPeers()
+	hubMeter := link.NewMeter(hubPeers) // a hub with no configuration yet
+	hubMeter.ServePeers(secret)
+	srv := httptest.NewServer(hubMeter.Handler())
+	defer srv.Close()
+
+	peers := link.NewPeers()
+	meter := link.NewMeter(peers)
+	meter.OnlyProbes()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go follow(ctx, slog.New(slog.NewTextHandler(io.Discard, nil)), srv.Client(), srv.URL, secret, peers, meter, nil, false)
+
+	time.Sleep(100 * time.Millisecond) // asked a few times, and told "not yet" each time
+	if !peers.Empty() {
+		t.Fatal("the prober has peers from a hub that holds none")
+	}
+	hubPeers.Set("cl-me", []*ikhnosv1.LinkPeer{{ClusterId: "cl-a", Name: "A", Addresses: []string{"10.0.0.1"}}}) // the agent sent the configuration
+	deadline := time.Now().Add(5 * time.Second)
+	for peers.Empty() && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if peers.Empty() {
+		t.Fatal("the prober did not ask again while it had nothing, and so was still waiting after the hub had its configuration")
+	}
+}
+
+// Once it has its peers the prober asks as seldom as before, and when a hub is gone it backs off rather than asking every few seconds for ever.
+func TestAProberThatCannotReachTheHubBacksOff(t *testing.T) {
+	old1, old2 := followEvery, followRetry
+	followEvery, followRetry = 160*time.Millisecond, 10*time.Millisecond
+	defer func() { followEvery, followRetry = old1, old2 }()
+
+	var asked atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked.Add(1)
+		http.Error(w, "down", http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+	peers := link.NewPeers()
+	meter := link.NewMeter(peers)
+	meter.OnlyProbes()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go follow(ctx, slog.New(slog.NewTextHandler(io.Discard, nil)), srv.Client(), srv.URL, []byte("a-secret-of-sixteen-plus-chars"), peers, meter, nil, false)
+	time.Sleep(700 * time.Millisecond)
+	// 10, 20, 40, 80, 160, 160, ... ms: about eight questions, where a fixed 10 ms would have made seventy.
+	if n := asked.Load(); n < 4 || n > 14 {
+		t.Fatalf("asked %d times in 700 ms; the waits should double up to the ordinary interval", n)
+	}
+}

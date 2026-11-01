@@ -115,11 +115,16 @@ func Main(args []string) int {
 // follow keeps the peer list current: the agent hears about changes from the server at least once a minute, so asking
 // once a minute is as fresh as the answer can be. load, if not nil, is told the link traffic each answer carries. iperf also asks
 // for the credentials of the throughput tests (they come back sealed, and only for the peers this cluster tests).
+//
+// While the answer is "not yet" (the hub was just started and holds no configuration, or cannot be reached) it asks again after
+// followRetry, then twice as long each time up to followEvery: the agent sends a restarted hub its configuration within seconds, so
+// waiting a whole minute to ask would be the longest part of the gap.
 func follow(ctx context.Context, log *slog.Logger, hc *http.Client, url string, secret []byte, peers *link.Peers, meter *link.Meter, load *link.Load, iperf bool) {
 	var seen followed
+	retry := followRetry
 	for {
 		d, err := link.FetchPeersWith(ctx, hc, url, secret, time.Now(), iperf)
-		seen.note(log, d, err, func() {
+		notYet := seen.note(log, d, err, func() {
 			for _, why := range peers.SetFromDoc(d) {
 				log.Warn("link peer list", "note", why)
 			}
@@ -128,7 +133,14 @@ func follow(ctx context.Context, log *slog.Logger, hc *http.Client, url string, 
 				load.Observe(d, time.Now())
 			}
 		})
-		t := time.NewTimer(time.Minute)
+		wait := followEvery
+		if notYet {
+			wait = min(retry, followEvery)
+			retry = min(2*retry, followEvery)
+		} else {
+			retry = followRetry
+		}
+		t := time.NewTimer(wait)
 		select {
 		case <-ctx.Done():
 			t.Stop()
@@ -137,6 +149,13 @@ func follow(ctx context.Context, log *slog.Logger, hc *http.Client, url string, 
 		}
 	}
 }
+
+// followEvery is how often the peers are asked for when they are known; followRetry is the first wait before asking again when they were
+// not to be had. Variables so a test need not wait.
+var (
+	followEvery = time.Minute
+	followRetry = 5 * time.Second
+)
 
 // followed remembers what the last answers said, so the log carries what changed and not every minute's repetition: the first
 // list, a different cluster or number of peers, and the first answer after the agent (or the link hub in front of it) could
@@ -147,12 +166,14 @@ type followed struct {
 	peers                   int
 }
 
-// note logs what the answer (d, or err) changes and, when it is a usable list, calls apply.
-func (f *followed) note(log *slog.Logger, d link.PeersDoc, err error, apply func()) {
+// note logs what the answer (d, or err) changes and, when it is a usable list, calls apply. It says whether the answer was "not yet": no
+// answer, or one from a hub that holds no configuration.
+func (f *followed) note(log *slog.Logger, d link.PeersDoc, err error, apply func()) (notYet bool) {
 	switch {
 	case err != nil:
 		log.Warn("could not fetch the link peers from the agent", "err", err)
 		f.failing = true
+		return true
 	case d.ClusterID == "":
 		// The agent has not had its Config yet (it was just restarted): its empty list is "unknown", not "no peers". Applying
 		// it would make the prober forget the schedule, the budget already spent and the counters of every peer.
@@ -161,6 +182,7 @@ func (f *followed) note(log *slog.Logger, d link.PeersDoc, err error, apply func
 			log.Info("the agent has not received its configuration yet; keeping the peers as they are")
 			f.waiting = true
 		}
+		return true
 	default:
 		apply()
 		changed := !f.asked || f.waiting || d.ClusterID != f.cluster || len(d.Peers) != f.peers
@@ -172,6 +194,7 @@ func (f *followed) note(log *slog.Logger, d link.PeersDoc, err error, apply func
 		}
 		f.asked, f.waiting, f.failing = true, false, false
 		f.cluster, f.peers = d.ClusterID, len(d.Peers)
+		return false
 	}
 }
 
