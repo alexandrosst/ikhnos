@@ -355,6 +355,20 @@ export function parseRoutedDestination(s: string): { routes: Partial<Record<Moda
   return { routes, fallback }
 }
 
+/**
+ * Whether the link prober and the throughput tests are on, as the cluster runs them: read from the workloads the controller reports (the prober's
+ * pod template says what it does). Undefined when that is not known: no workloads reported (nothing keeps the agent installed, or the relay is
+ * off), the list may be cut, or the prober is there but its controller is older than the field that says what it does.
+ */
+export function linkOptionsRunning(workloads?: W.WorkloadDoc[]): { probe: boolean; throughput: boolean } | undefined {
+  if (!workloads || workloads.length === 0 || workloads.length >= 16) return undefined
+  const prober = workloads.find((w) => w.component === 'link-prober')
+  if (!prober) return { probe: false, throughput: false }
+  const features = (prober.features ?? '').split(',')
+  if (!features.includes('probe')) return undefined
+  return { probe: true, throughput: features.includes('throughput') }
+}
+
 const APP_SCOPE_KEYS = ['applicationMetrics', 'applicationLogs', 'traces'] as const
 
 /**
@@ -370,7 +384,7 @@ const APP_SCOPE_KEYS = ['applicationMetrics', 'applicationLogs', 'traces'] as co
  * them out (and `--reset-then-reuse-values` keeps the installed value) until they are edited - stating a default there would silently
  * widen the scope, drop the tags, or lose a credential. Nothing installed and nothing reported is a fresh draft: all of it is stated.
  */
-export function seedTelemetryFromInstalled(installed: string[], config?: AgentTelemetryConfig, intent?: TelemetryIntent): TelemetryInput {
+export function seedTelemetryFromInstalled(installed: string[], config?: AgentTelemetryConfig, intent?: TelemetryIntent, links?: { probe: boolean; throughput: boolean }): TelemetryInput {
   let next: TelemetryInput = { ...emptyTelemetry }
   const rec = next as unknown as Record<string, boolean>
   // A signal nothing emits yet is never seeded on, even when an older install has it: it would sit in the draft unseen and block the
@@ -453,8 +467,16 @@ export function seedTelemetryFromInstalled(installed: string[], config?: AgentTe
   kept.push('extraProcessors')
   if (rec.energy && !config?.energySource) kept.push('energySource')
   if (rec.accelerators && !config?.acceleratorsSource) kept.push('acceleratorsSource')
-  // No agent reports whether the link prober or the throughput tests are on: left as installed until edited here.
-  if (rec.clusterLinks) kept.push('clusterLinksOptions')
+  // The agent does not report whether the link prober or the throughput tests are on, nor the Secret of your own credentials: left as installed
+  // until edited here. What the controller reports of the prober is shown (links), but it is not stated by the command either.
+  if (rec.clusterLinks) {
+    kept.push('clusterLinksOptions')
+    if (links) {
+      next.clusterLinksProbe = links.probe
+      next.clusterLinksThroughput = links.throughput
+      next.clusterLinksRunning = true
+    }
+  }
   next = keepAsInstalled(next, kept)
   return next
 }

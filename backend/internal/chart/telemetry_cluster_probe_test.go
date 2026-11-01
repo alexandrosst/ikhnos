@@ -446,3 +446,20 @@ func TestThePeersSecretIsGivenKeptOnUpgradeAndNeverTheFlowSecret(t *testing.T) {
 		t.Errorf("the existing peers secret was not kept:\n%s", out)
 	}
 }
+
+// The controller copies this annotation into the release's status, which is how the Telemetry panel learns what the prober does: the agent
+// cannot read the chart's values, and nothing else says whether the throughput tests are on.
+func TestTheProberSaysWhatItDoesInItsPodTemplate(t *testing.T) {
+	const key = "ikhnos.io/link-features"
+	for name, tc := range map[string]struct {
+		args []string
+		want string
+	}{"probing only": {probeArgs(), "probe"}, "with throughput tests": {autoArgs(), "probe,throughput"}} {
+		t.Run(name, func(t *testing.T) {
+			got := render(t, tc.args...).deployments["ikhnos-link-prober"].Spec.Template.Annotations[key]
+			if got != tc.want {
+				t.Errorf("annotation %s = %q, want %q", key, got, tc.want)
+			}
+		})
+	}
+}

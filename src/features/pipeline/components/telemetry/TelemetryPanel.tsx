@@ -14,7 +14,7 @@ import type { IntentControllerDoc, TelemetryRequestDoc } from '@/lib/generated/w
 import { askAvailability, newestRequest } from '@/lib/telemetryRequest'
 import { upgradeRequest, useAgentUpgradeCommand } from '@/lib/agentUpgrade'
 import { api, atLeast } from '@/lib/api'
-import { describeTelemetryChanges, extrasOf, measurementsRunning, telemetrySecrets, TELEMETRY_CREDENTIAL_VAR, seedTelemetryFromInstalled, TELEMETRY_SIGNALS, type AgentDiagnostics, type InstallInfo, type ReleaseTarget } from '@/lib/consent'
+import { describeTelemetryChanges, extrasOf, linkOptionsRunning, measurementsRunning, telemetrySecrets, TELEMETRY_CREDENTIAL_VAR, seedTelemetryFromInstalled, TELEMETRY_SIGNALS, type AgentDiagnostics, type InstallInfo, type ReleaseTarget } from '@/lib/consent'
 import { clearDraft, loadDraft, saveDraft } from '@/features/pipeline/lib/draftStore'
 import { keptSummary, telemetryActive, telemetryProblems, type TelemetryInput } from '@/lib/install'
 import { receiverAuthOf } from '@/features/pipeline/lib/operatorHealth'
@@ -94,7 +94,9 @@ function TelemetryPanelBody({
   // is no longer there.
   const config = d?.installedTelemetryConfig
   const configKey = JSON.stringify(config ?? null)
-  const basis = `${installed.join(',')}|${configKey}`
+  // What the controller says the link prober does (the agent itself does not report it).
+  const links = linkOptionsRunning(d?.workloads)
+  const basis = `${installed.join(',')}|${configKey}|${links ? `${links.probe}${links.throughput}` : ''}`
   const [restored, setRestored] = useState<TelemetryInput | null>(() => (agentId ? loadDraft(agentId, basis) : null))
   const [open, setOpen] = useState(() => !!initialScope || !!initialDestination || restored !== null)
   // Seeded from what the agent actually reports running, not a blank form: the command states every
@@ -107,7 +109,7 @@ function TelemetryPanelBody({
   // reopening does not start from a draft that reads as "everything, nowhere". It arrives after the first paint and only replaces a draft
   // nobody has touched yet.
   const [intent, setIntent] = useState<TelemetryIntent | undefined>(undefined)
-  const [draft, setDraft] = useState<TelemetryInput>(() => restored ?? seedTelemetryFromInstalled(installed, config))
+  const [draft, setDraft] = useState<TelemetryInput>(() => restored ?? seedTelemetryFromInstalled(installed, config, undefined, links))
   const touched = useRef(restored !== null)
   // What the install reports can arrive after this mounted (the first poll has not answered yet, or a newer report follows an applied
   // command): a draft nobody has edited follows it. Without this a panel opened before the report shows "Installed now: Kepler" above a blank
@@ -117,7 +119,7 @@ function TelemetryPanelBody({
   useEffect(() => {
     if (seededKey.current === seedKey) return
     seededKey.current = seedKey
-    if (!touched.current) setDraft(seedTelemetryFromInstalled(installed, config, intent))
+    if (!touched.current) setDraft(seedTelemetryFromInstalled(installed, config, intent, links))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seedKey])
   const edit = (v: TelemetryInput) => {
@@ -129,7 +131,7 @@ function TelemetryPanelBody({
     if (agentId) clearDraft(agentId)
     touched.current = false
     setRestored(null)
-    setDraft(seedTelemetryFromInstalled(installed, config, intent))
+    setDraft(seedTelemetryFromInstalled(installed, config, intent, links))
   }
   const measurementsOn = measurementsRunning(d)
   const changes = useMemo(() => describeTelemetryChanges(installed, d?.installedTelemetryConfig, draft), [installed, d?.installedTelemetryConfig, draft])

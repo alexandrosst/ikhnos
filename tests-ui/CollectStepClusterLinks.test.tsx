@@ -60,6 +60,16 @@ describe('CollectStep: Cluster links', () => {
     expect(isKept(latest, 'clusterLinksOptions')).toBe(false)
   })
 
+  it('shows the boxes as they run, determined, when the cluster says what the prober does, and says what is still not reported', () => {
+    const seeded = keepAsInstalled({ ...emptyTelemetry, exportEndpoint: 'x:4317', clusterLinks: true, clusterLinksProbe: true, clusterLinksThroughput: false, clusterLinksRunning: true }, ['clusterLinksOptions'])
+    render(<Harness initial={seeded} onValue={() => {}} />)
+    expect(screen.getByTestId('t-links-kept')).toHaveTextContent(/show what runs now/)
+    expect(screen.getByTestId('t-links-kept')).not.toHaveTextContent(/not reported: the agents/)
+    expect((screen.getByTestId('t-links-probe') as HTMLInputElement).indeterminate).toBe(false)
+    expect(screen.getByTestId('t-links-probe')).toBeChecked()
+    expect(screen.getByTestId('t-links-throughput')).not.toBeChecked()
+  })
+
   it('shows no note and no undetermined box on a draft that states everything', () => {
     render(<Harness onValue={() => {}} />)
     fireEvent.click(screen.getByTestId('t-clusterLinks'))

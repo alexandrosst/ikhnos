@@ -514,7 +514,7 @@ func (v *View) diagDoc() *agents.DiagnosticsDoc {
 			break
 		}
 		out.Workloads = append(out.Workloads, agents.WorkloadDoc{Name: kernel.Printable(w.Name, 80), Kind: kernel.Printable(w.Kind, 20), Component: kernel.Printable(w.Component, 60),
-			Wanted: int(min(w.Wanted, 100000)), Ready: int(min(w.Ready, 100000)), RollingOut: w.RollingOut, NotReadySeconds: int(min(w.NotReadySeconds, 31_536_000))})
+			Wanted: int(min(w.Wanted, 100000)), Ready: int(min(w.Ready, 100000)), RollingOut: w.RollingOut, NotReadySeconds: int(min(w.NotReadySeconds, 31_536_000)), Features: kernel.Printable(w.Features, 100)})
 	}
 	for _, c := range d.Collectors {
 		cd := agents.AgentCollectorDoc{Name: kernel.Printable(c.Name, 20), Configured: c.Configured, Enabled: c.Enabled, PausedByServer: c.PausedByServer, Producing: c.Producing,

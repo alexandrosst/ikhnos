@@ -342,6 +342,9 @@ type WorkloadDoc struct {
 	RollingOut bool `json:"rollingOut,omitempty"`
 	// NotReadySeconds is how long the agent has seen it with fewer pods ready than it asks for (0: none missing).
 	NotReadySeconds int `json:"notReadySeconds,omitempty"`
+	// Features is what its pod template says it does: for the link prober "probe", or "probe,throughput". Absent: it says nothing, or the
+	// controller is older than this.
+	Features string `json:"features,omitempty"`
 }
 
 // ExportHealthDoc is DiagnosticsDoc.ExportHealth: the state the agent worked out for each route, relayed

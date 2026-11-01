@@ -11,7 +11,7 @@ metadata:
     # Which version of this definition it is. The controller reads it to tell that the definition in a cluster is older than itself (Helm never
     # upgrades a CRD, so an upgraded controller can sit on an old one). A test holds it to the controller's own number and to a hash of the
     # schema, so a change of the schema without a new number fails.
-    ikhnos.io/schema-revision: "3"
+    ikhnos.io/schema-revision: "4"
 spec:
   group: ikhnos.io
   scope: Namespaced
@@ -490,6 +490,12 @@ spec:
                         format: int32
                       rollingOut:
                         type: boolean
+                      features:
+                        type: string
+                        maxLength: 100
+                        description: >-
+                          What the workload does beyond what its component says, copied from the annotation ikhnos.io/link-features of its
+                          pod template: "probe", or "probe,throughput", for the link prober.
                 revoked:
                   type: object
                   description: >-

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { activeLanes, cleanTags, isKept, keepAsInstalled, combinedScope, destinationReady, emptyExportTarget, startLanes, withLane, laneView, emptyScopeOverride, emptyTelemetry, scopeOverlap, scopeTag, tagProblems, TAG_LIMIT, keptSummary, telemetryActive, telemetryProblems, workloadProblems, type ScopeOverrideInput, type TelemetryInput } from '../src/lib/install'
 import { newProcessorEntry, processorBody, processorProblems } from '../src/lib/processorCatalog'
-import { PICKABLE_SIGNALS, applyIntentPreset, describeTelemetryChanges, parseRoutedDestination, seedTelemetryFromInstalled, telemetrySecrets, TELEMETRY_CREDENTIAL_VAR, TELEMETRY_INTENT_PRESETS, TELEMETRY_SIGNALS } from '../src/lib/consent'
+import { PICKABLE_SIGNALS, applyIntentPreset, describeTelemetryChanges, linkOptionsRunning, parseRoutedDestination, seedTelemetryFromInstalled, telemetrySecrets, TELEMETRY_CREDENTIAL_VAR, TELEMETRY_INTENT_PRESETS, TELEMETRY_SIGNALS } from '../src/lib/consent'
 import { EXPORT_PRESETS, unsupportedDestinationNote } from '../src/lib/exportPresets'
 import { telemetrySpec } from '../src/lib/telemetrySpec'
 
@@ -509,4 +509,30 @@ test('cluster links: the link hub is not a choice, so nothing about it is kept, 
   assert.ok(!keptSummary(seeded).some((w) => w.includes('link hub')), 'the page speaks of a hub setting that is not there')
   assert.ok(!('clusterLinksHub' in seeded))
   assert.ok(!('hub' in telemetrySpec({ ...emptyTelemetry, clusterLinks: true }).clusterLinks))
+})
+
+const wl = (o: Partial<{ name: string; component: string; features: string }>) => ({ name: 'w', kind: 'Deployment' as const, wanted: 1, ready: 1, ...o })
+
+test('cluster links: what the controller says the prober does is read from its workloads, and is unknown when they do not say', () => {
+  const agent = wl({ name: 'ikhnos-agent' })
+  assert.equal(linkOptionsRunning(undefined), undefined)
+  assert.equal(linkOptionsRunning([]), undefined)
+  assert.deepEqual(linkOptionsRunning([agent]), { probe: false, throughput: false })
+  assert.deepEqual(linkOptionsRunning([agent, wl({ component: 'link-prober', features: 'probe' })]), { probe: true, throughput: false })
+  assert.deepEqual(linkOptionsRunning([agent, wl({ component: 'link-prober', features: 'probe,throughput' })]), { probe: true, throughput: true })
+  // A prober whose controller does not say what it does: it is there, but throughput is not known.
+  assert.equal(linkOptionsRunning([agent, wl({ component: 'link-prober' })]), undefined)
+  // A list at the limit may have been cut: a prober missing from it proves nothing.
+  assert.equal(linkOptionsRunning(Array.from({ length: 16 }, () => agent)), undefined)
+})
+
+test('cluster links: a draft starts from what runs, and still leaves the options as installed until a box is changed', () => {
+  const seeded = seedTelemetryFromInstalled(['clusterLinks'], { exportEndpoint: 'gw:4317', redactionEnabled: true, resourceDetectionEnabled: false }, undefined, { probe: true, throughput: true })
+  assert.equal(seeded.clusterLinksProbe, true)
+  assert.equal(seeded.clusterLinksThroughput, true)
+  assert.equal(seeded.clusterLinksRunning, true)
+  assert.ok(isKept(seeded, 'clusterLinksOptions'), 'the Secret of your own credentials is not reported, so the command must not state the options')
+  const off = seedTelemetryFromInstalled(['clusterLinks'], { exportEndpoint: 'gw:4317', redactionEnabled: true, resourceDetectionEnabled: false }, undefined, { probe: false, throughput: false })
+  assert.equal(off.clusterLinksProbe, false)
+  assert.equal(seedTelemetryFromInstalled(['clusterLinks'], undefined).clusterLinksRunning, undefined)
 })

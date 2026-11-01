@@ -3163,6 +3163,7 @@ export interface WorkloadDoc {
   ready: number
   rollingOut?: boolean
   notReadySeconds?: number
+  features?: string
 }
 
 export interface WorkspaceAtDoc {

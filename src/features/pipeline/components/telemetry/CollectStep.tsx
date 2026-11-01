@@ -87,11 +87,13 @@ export function ClusterLinksFields({ value, onChange, testIdPrefix }: { value: T
       <p className="text-xs text-nb-500" data-testid={`${testIdPrefix}-links-requirement`}>{LINK_REQUIREMENT}</p>
       {optionsKept && (
         <KeptNote testId={`${testIdPrefix}-links-kept`}>
-          As installed, not reported: the agents do not say whether probing and throughput tests are on, so the command leaves them as they are. Changing either box states both.
+          {value.clusterLinksRunning
+            ? 'The boxes show what runs now, read from the cluster. Your own iperf3 credentials Secret, if any, is not reported, so the command leaves all of this as it is. Changing either box states both, with no Secret of your own unless you name one.'
+            : 'As installed, not reported: the agents do not say whether probing and throughput tests are on, so the command leaves them as they are. Changing either box states both.'}
         </KeptNote>
       )}
       <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-        <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" ref={undetermined(optionsKept)} checked={value.clusterLinksProbe} onChange={(e) => set('clusterLinksProbe', e.target.checked)} data-testid={`${testIdPrefix}-links-probe`} />
+        <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" ref={undetermined(optionsKept && !value.clusterLinksRunning)} checked={value.clusterLinksProbe} onChange={(e) => set('clusterLinksProbe', e.target.checked)} data-testid={`${testIdPrefix}-links-probe`} />
         <span>
           <span className="text-nb-300">Probing</span>
           <span className="block text-xs text-nb-500">Small packets in both directions: delay, jitter and loss per direction, the path’s largest packet size and route changes. Runs a pod of its own and a responder on every node. The clusters of a pair must reach each other’s nodes on TCP 8861 and UDP 18900–18919 with no address translation (NAT) in between, on the same ports in every cluster. Without it only the real traffic is watched.</span>
@@ -99,7 +101,7 @@ export function ClusterLinksFields({ value, onChange, testIdPrefix }: { value: T
       </label>
       {value.clusterLinksProbe && (
         <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-          <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" ref={undetermined(optionsKept)} checked={value.clusterLinksThroughput} onChange={(e) => set('clusterLinksThroughput', e.target.checked)} data-testid={`${testIdPrefix}-links-throughput`} />
+          <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" ref={undetermined(optionsKept && !value.clusterLinksRunning)} checked={value.clusterLinksThroughput} onChange={(e) => set('clusterLinksThroughput', e.target.checked)} data-testid={`${testIdPrefix}-links-throughput`} />
           <span>
             <span className="text-nb-300">Throughput tests</span>
             <span className="block text-xs text-nb-500">Lets this cluster run and answer iperf3 tests, which fill the link for a few seconds. They run only on the pairs you turn them on for, within a daily budget, and wait while the link is busy.</span>

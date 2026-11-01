@@ -9,9 +9,12 @@ import (
 	"unicode/utf8"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stesting "k8s.io/client-go/testing"
+
+	"ikhnos/internal/relay"
 )
 
 var releaseLabels = func(component string) map[string]string {
@@ -219,5 +222,33 @@ func TestTheWorkloadsMessageIsCutByCharacters(t *testing.T) {
 	c := workloadsCondition(1, ws)
 	if c == nil || !utf8.ValidString(c.Message) || utf8.RuneCountInString(c.Message) > maxWorkloadMessage {
 		t.Fatalf("condition %+v", c)
+	}
+}
+
+// The link prober's pod template says what it does, and the chart is the only one that knows (it holds the release's values). The controller
+// copies it, and only a short list of lower-case words: nothing else of a pod template reaches the resource.
+func TestWhatThePodTemplateSaysTheWorkloadDoesIsCopiedIntoTheStatus(t *testing.T) {
+	g := newRig(t)
+	g.secret("enroll", "token", "ikh_abc")
+	g.agent("a", goodSpec())
+	g.deployment("ikhnos-agent", 1, 1)
+	one := int32(1)
+	for name, v := range map[string]string{"ikhnos-link-prober": "probe,throughput", "odd": "Probe; rm -rf /", "long": strings.Repeat("a", 101)} {
+		_, err := g.kube.AppsV1().Deployments(ns).Create(context.Background(), &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns, Labels: releaseLabels("link-prober"), Generation: 1},
+			Spec:       appsv1.DeploymentSpec{Replicas: &one, Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{relay.FeaturesAnnotation: v}}}},
+			Status:     appsv1.DeploymentStatus{ObservedGeneration: 1, Replicas: 1, UpdatedReplicas: 1, AvailableReplicas: 1},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	g.must("a")
+	got := map[string]string{}
+	for _, w := range g.status("a").Workloads {
+		got[w.Name] = w.Features
+	}
+	if got["ikhnos-link-prober"] != "probe,throughput" || got["ikhnos-agent"] != "" || got["odd"] != "" || got["long"] != "" {
+		t.Fatalf("features %v", got)
 	}
 }

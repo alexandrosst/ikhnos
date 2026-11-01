@@ -65,13 +65,15 @@ func (r *Reconciler) observe(ctx context.Context) ([]Workload, bool) {
 		s := d.Status
 		out = append(out, Workload{Name: d.Name, Kind: "Deployment", Component: d.Labels["app.kubernetes.io/component"], Wanted: want,
 			Ready:      min(s.UpdatedReplicas, s.AvailableReplicas),
-			RollingOut: d.Generation > s.ObservedGeneration || s.Replicas != want})
+			RollingOut: d.Generation > s.ObservedGeneration || s.Replicas != want,
+			Features:   features(d.Spec.Template.Annotations)})
 	}
 	for _, d := range sets.Items {
 		s := d.Status
 		out = append(out, Workload{Name: d.Name, Kind: "DaemonSet", Component: d.Labels["app.kubernetes.io/component"], Wanted: s.DesiredNumberScheduled,
 			Ready:      min(s.UpdatedNumberScheduled, s.NumberReady),
-			RollingOut: d.Generation > s.ObservedGeneration})
+			RollingOut: d.Generation > s.ObservedGeneration,
+			Features:   features(d.Spec.Template.Annotations)})
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Kind != out[j].Kind {
@@ -83,6 +85,24 @@ func (r *Reconciler) observe(ctx context.Context) ([]Workload, bool) {
 		out = out[:maxWorkloads]
 	}
 	return out, true
+}
+
+// maxFeatures bounds what is copied from the annotation (the definition allows 100).
+const maxFeatures = 100
+
+// features is what a pod template says its workload does: the annotation the chart writes, cut to what the resource takes. Only the words a
+// workload could be given are kept, so an annotation with anything else in it says nothing rather than being copied into a resource.
+func features(annotations map[string]string) string {
+	v := annotations[relay.FeaturesAnnotation]
+	if len(v) > maxFeatures {
+		return ""
+	}
+	for _, r := range v {
+		if (r < 'a' || r > 'z') && r != ',' && r != '-' {
+			return ""
+		}
+	}
+	return v
 }
 
 // workloadsCondition says in one sentence whether every workload has its pods; nil when there is nothing to say.

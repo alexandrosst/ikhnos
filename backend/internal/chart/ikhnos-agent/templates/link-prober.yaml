@@ -272,6 +272,8 @@ spec:
         {{- include "agent.podLabels" . | nindent 8 }}
       annotations:
         checksum/link-peers-secret: {{ include "agent.linkPeersSecretRevision" . }}
+        {{- /* What this prober does, for the controller to copy into the release's status (the agent cannot see its own chart's values): the Telemetry panel starts from it. */}}
+        ikhnos.io/link-features: {{ ternary "probe,throughput" "probe" $cap.enabled | quote }}
         {{- include "agent.meshOptOutAnnotations" . | nindent 8 }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}

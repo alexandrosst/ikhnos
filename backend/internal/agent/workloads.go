@@ -104,7 +104,7 @@ func (r *runner) workloadReport(now time.Time) []*ikhnosv1.WorkloadStatus {
 	}
 	out := make([]*ikhnosv1.WorkloadStatus, 0, len(st.list))
 	for _, w := range st.list {
-		ws := &ikhnosv1.WorkloadStatus{Name: clipMsg(w.Name, 80), Kind: clipMsg(w.Kind, 20), Component: clipMsg(w.Component, 60), Wanted: uint32(max(w.Wanted, 0)), Ready: uint32(max(w.Ready, 0)), RollingOut: w.RollingOut}
+		ws := &ikhnosv1.WorkloadStatus{Name: clipMsg(w.Name, 80), Kind: clipMsg(w.Kind, 20), Component: clipMsg(w.Component, 60), Wanted: uint32(max(w.Wanted, 0)), Ready: uint32(max(w.Ready, 0)), RollingOut: w.RollingOut, Features: clipMsg(w.Features, 100)}
 		if since, ok := st.notReady[w.Name]; ok {
 			ws.NotReadySeconds = uint32(max(now.Sub(since), 0) / time.Second)
 		}

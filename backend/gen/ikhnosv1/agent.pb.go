@@ -6570,8 +6570,11 @@ type WorkloadStatus struct {
 	// How long the agent has seen it with fewer pods ready than it asks for, in seconds; 0 when all are ready. The agent keeps the time:
 	// a pod that has just been asked for is not a pod held back.
 	NotReadySeconds uint32 `protobuf:"varint,7,opt,name=not_ready_seconds,json=notReadySeconds,proto3" json:"not_ready_seconds,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// What the workload does, as its pod template says (the controller copies the annotation ikhnos.io/link-features): for the link prober "probe",
+	// or "probe,throughput". Empty: it says nothing, or the controller is older than this field.
+	Features      string `protobuf:"bytes,8,opt,name=features,proto3" json:"features,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WorkloadStatus) Reset() {
@@ -6651,6 +6654,13 @@ func (x *WorkloadStatus) GetNotReadySeconds() uint32 {
 		return x.NotReadySeconds
 	}
 	return 0
+}
+
+func (x *WorkloadStatus) GetFeatures() string {
+	if x != nil {
+		return x.Features
+	}
+	return ""
 }
 
 // What the agent saw when it read the telemetry collectors' own export counters (otelcol_exporter_sent_* and
@@ -8521,7 +8531,7 @@ const file_ikhnos_v1_agent_proto_rawDesc = "" +
 	"\x1binstalled_telemetry_signals\x18\x11 \x03(\tR\x19installedTelemetrySignals\x12a\n" +
 	"\x1ainstalled_telemetry_config\x18\x12 \x01(\v2#.ikhnos.v1.InstalledTelemetryConfigR\x18installedTelemetryConfig\x12<\n" +
 	"\rexport_health\x18\x13 \x01(\v2\x17.ikhnos.v1.ExportHealthR\fexportHealth\x127\n" +
-	"\tworkloads\x18\x14 \x03(\v2\x19.ikhnos.v1.WorkloadStatusR\tworkloads\"\xd1\x01\n" +
+	"\tworkloads\x18\x14 \x03(\v2\x19.ikhnos.v1.WorkloadStatusR\tworkloads\"\xed\x01\n" +
 	"\x0eWorkloadStatus\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x1c\n" +
@@ -8530,7 +8540,8 @@ const file_ikhnos_v1_agent_proto_rawDesc = "" +
 	"\x05ready\x18\x05 \x01(\rR\x05ready\x12\x1f\n" +
 	"\vrolling_out\x18\x06 \x01(\bR\n" +
 	"rollingOut\x12*\n" +
-	"\x11not_ready_seconds\x18\a \x01(\rR\x0fnotReadySeconds\"\xd4\x03\n" +
+	"\x11not_ready_seconds\x18\a \x01(\rR\x0fnotReadySeconds\x12\x1a\n" +
+	"\bfeatures\x18\b \x01(\tR\bfeatures\"\xd4\x03\n" +
 	"\fExportHealth\x129\n" +
 	"\n" +
 	"scraped_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\tscrapedAt\x12!\n" +

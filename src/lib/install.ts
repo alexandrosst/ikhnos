@@ -167,6 +167,8 @@ export interface TelemetryInput {
   clusterLinksThroughput: boolean
   /** Optional with the throughput tests: a Secret of your own holding iperf3's credentials, the same in every cluster of the mesh. Empty (the default): Ikhnos issues the credentials and the chart asks for no Secret; the server never runs unauthenticated either way. */
   clusterLinksAuthSecret: string
+  /** Set by the seed when `clusterLinksProbe` and `clusterLinksThroughput` were read from what the cluster runs (the controller reports the link prober's features), not left at their defaults. The Secret of your own credentials is still not reported. */
+  clusterLinksRunning?: boolean
   applicationMetrics: boolean
   /** Per-signal scope override for applicationMetrics - see `ScopeOverrideInput`. */
   applicationMetricsScope: ScopeOverrideInput

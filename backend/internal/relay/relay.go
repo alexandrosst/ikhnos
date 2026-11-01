@@ -76,4 +76,11 @@ type Workload struct {
 	Ready int32 `json:"ready"`
 	// RollingOut says the last change to it has not been carried out yet.
 	RollingOut bool `json:"rollingOut,omitempty"`
+	// Features is what the pod template says the workload does, from its FeaturesAnnotation: for the link prober "probe", or
+	// "probe,throughput". Empty: it says nothing, or the controller or the definition is older than this field.
+	Features string `json:"features,omitempty"`
 }
+
+// FeaturesAnnotation is the annotation of a pod template that the controller copies into the workload's status. The chart writes it where a
+// value of the release decides what the pod does and the agent has no other way to know (it cannot read the release's values).
+const FeaturesAnnotation = "ikhnos.io/link-features"
