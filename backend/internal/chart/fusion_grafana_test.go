@@ -667,6 +667,10 @@ func TestFusionDashboardsKeepClustersApartAndAreCheapToRefresh(t *testing.T) {
 		} `json:"templating"`
 	}
 	byClause := regexp.MustCompile(`by \(([^)]*)\)`)
+	// A join that pairs series by pod or deployment must pair them within one cluster, by the cluster id and by the name the
+	// Kubernetes receiver gives the cluster: two clusters running a deployment of the same name (every one runs ikhnos-agent) would
+	// otherwise make "many-to-many matching not allowed", which Grafana shows as an error in the panel.
+	onClause := regexp.MustCompile(`\bon ?\(([^)]*)\)`)
 	nameless := regexp.MustCompile(`(^|[^\w])\{ikhnos_`)
 	for _, name := range []string{"clusters", "workloads", "delivery", "applications", "categories", "ikhnos-self", "fleet", "link-matrix", "arriving"} {
 		var d dashboard
@@ -678,6 +682,11 @@ func TestFusionDashboardsKeepClustersApartAndAreCheapToRefresh(t *testing.T) {
 				for _, m := range byClause.FindAllStringSubmatch(q.Expr, -1) {
 					if (strings.Contains(m[1], "k8s_pod_name") || strings.Contains(m[1], "k8s_deployment_name")) && !strings.Contains(m[1], "ikhnos_cluster_id") {
 						t.Errorf("%s: %q groups by %q without the cluster, so same-named pods of two clusters become one series", name, p.Title, m[1])
+					}
+				}
+				for _, m := range onClause.FindAllStringSubmatch(q.Expr, -1) {
+					if (strings.Contains(m[1], "k8s_pod_name") || strings.Contains(m[1], "k8s_deployment_name")) && !(strings.Contains(m[1], "ikhnos_cluster_id") && strings.Contains(m[1], "k8s_cluster_name")) {
+						t.Errorf("%s: %q matches series by %q without the cluster id and the cluster name, so a deployment of the same name in two clusters is a many-to-many match", name, p.Title, m[1])
 					}
 				}
 				// A selector with no metric name reads every series at every step; the default step is a minute.

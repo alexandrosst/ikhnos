@@ -39,8 +39,20 @@ type GatewayTraffic struct {
 	Traces        SignalTraffic `json:"traces"`
 }
 
-// trafficCounters: the names of the gateway's own counters, by kind of telemetry (the collector says metric points, log records and spans).
-const trafficCounters = `{__name__=~"otelcol_(receiver_(accepted|refused)|exporter_(sent|send_failed|enqueue_failed))_(metric_points|log_records|spans)_total"}`
+// trafficQuery asks for the gateway's own counters over the window, one sample per counter, named by a "counter" label. The name cannot
+// be left to the series: increase() drops the metric name from what it returns (as rate() does), so a sum "by (__name__)" over it is one
+// unnamed series, and nothing could be told apart. Each counter is summed over its own selector and given its name as a label instead.
+// A counter the gateway has not reported (it never refused anything) is simply absent.
+var trafficQuery = func() string {
+	var parts []string
+	for _, what := range []string{"receiver_accepted", "receiver_refused", "exporter_sent", "exporter_send_failed", "exporter_enqueue_failed"} {
+		for _, kind := range []string{"metric_points", "log_records", "spans"} {
+			name := "otelcol_" + what + "_" + kind + "_total"
+			parts = append(parts, `label_replace(sum(increase(`+name+`[`+TrafficWindow+`])), "counter", "`+name+`", "", "")`)
+		}
+	}
+	return strings.Join(parts, " or ")
+}()
 
 // GatewayTraffic asks the metrics store for the gateway's counters over the last TrafficWindow. It returns nil, with no error, when the
 // store holds none (the gateway has not pushed any lately: it is off, or too new): then nothing is known, which is not the same as nothing
@@ -52,7 +64,7 @@ func (c *Client) GatewayTraffic(ctx context.Context, s Scope) (*GatewayTraffic, 
 	if err := s.needUnrestricted("the gateway's traffic"); err != nil {
 		return nil, err
 	}
-	counted, err := c.promVector(ctx, s, `sum by (__name__) (increase(`+trafficCounters+`[`+TrafficWindow+`]))`)
+	counted, err := c.promVector(ctx, s, trafficQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -61,17 +73,18 @@ func (c *Client) GatewayTraffic(ctx context.Context, s Scope) (*GatewayTraffic, 
 	}
 	out := &GatewayTraffic{WindowSeconds: TrafficWindowSeconds}
 	for _, r := range counted {
-		sig := out.signal(r.Metric["__name__"])
+		name := r.Metric["counter"]
+		sig := out.signal(name)
 		if sig == nil {
 			continue
 		}
 		perSecond := r.Value / TrafficWindowSeconds
 		switch {
-		case strings.Contains(r.Metric["__name__"], "_receiver_accepted_"):
+		case strings.Contains(name, "_receiver_accepted_"):
 			sig.Accepted += perSecond
-		case strings.Contains(r.Metric["__name__"], "_receiver_refused_"):
+		case strings.Contains(name, "_receiver_refused_"):
 			sig.Refused += perSecond
-		case strings.Contains(r.Metric["__name__"], "_exporter_sent_"):
+		case strings.Contains(name, "_exporter_sent_"):
 			sig.Sent += perSecond
 		default:
 			sig.Failed += perSecond

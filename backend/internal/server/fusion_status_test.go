@@ -547,7 +547,8 @@ func TestStatusSaysWhenEachStoreLastHeldData(t *testing.T) {
 	for range 4 {
 		f.Status(ctx)
 	}
-	if asked.Load() != 2 {
+	// (Loki once; Tempo four times, which holds nothing: its short windows are tried first, then the whole of the six hours.)
+	if asked.Load() != 5 {
 		t.Fatalf("%d asks of Loki and Tempo inside 15 s", asked.Load())
 	}
 	// Then Tempo has a trace, Loki fails, and what Loki said before stands.
@@ -774,7 +775,7 @@ func TestTheFusionScreenRecordsTheGatewaysAddress(t *testing.T) {
 func TestStatusSaysWhatTheGatewayDidWithTheDataLately(t *testing.T) {
 	f, k, now := cachedFusion(t)
 	f.StatusTTL = -1
-	var counters atomic.Value // the answer to the counters' query: a list of [name, value]; nil = the store holds none
+	var counters atomic.Value // the answer to the counters' query: a list of [name, value], each named by a "counter" label as a real store answers (increase() drops the metric name); nil = the store holds none
 	counters.Store([][2]string{
 		{"otelcol_receiver_accepted_metric_points_total", "6000"}, {"otelcol_exporter_sent_metric_points_total", "6000"},
 		{"otelcol_receiver_accepted_log_records_total", "300"}, {"otelcol_exporter_sent_log_records_total", "150"}, {"otelcol_exporter_send_failed_log_records_total", "150"},
@@ -798,7 +799,7 @@ func TestStatusSaysWhatTheGatewayDidWithTheDataLately(t *testing.T) {
 			var res []any
 			if got, _ := counters.Load().([][2]string); got != nil {
 				for _, c := range got {
-					res = append(res, map[string]any{"metric": map[string]string{"__name__": c[0]}, "value": []any{1790000000, c[1]}})
+					res = append(res, map[string]any{"metric": map[string]string{"counter": c[0]}, "value": []any{1790000000, c[1]}})
 				}
 			}
 			jsonOut(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "vector", "result": res}})
