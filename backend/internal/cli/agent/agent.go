@@ -301,13 +301,17 @@ func Main(args []string) int {
 	if *controllerResource != "" {
 		markRevoked = agent.MarkResourceRevoked(client, *ns, *controllerResource)
 	}
+	var reportIdentity func(context.Context, agent.ClusterIdentity) error
+	if *controllerResource != "" {
+		reportIdentity = agent.ReportResourceIdentity(client, *ns, *controllerResource)
+	}
 	var relayStore agent.RelayStore
 	if *relayTelemetry && *controllerResource == "" {
 		log.Warn("--relay-telemetry does nothing without --controller-resource: nothing keeps this agent, so there is nobody to hand a request to")
 	} else if *relayTelemetry {
 		relayStore = agent.ResourceRelayStore(client, *ns, *controllerResource)
 	}
-	err = agent.Run(ctx, agent.Config{MarkRevoked: markRevoked, ControllerResource: *controllerResource, RelayTelemetry: relayStore != nil, Relay: relayStore, Server: *server, CAPin: *pin, Token: token, Tier: *tier, Kube: client, APIHost: apiHost, Identity: ids, Version: cli.Version, Log: log, Probes: probes, Flows: flows, LinkHub: linkHub, FlowWindow: *flowWindow, Measure: *measureOn, ProbeListen: *probeListen, Scope: scope, Health: health, RevokedHold: *revokedHold, ProbeInterval: *probeEvery, FlowInterval: *flowEvery, Namespace: *ns, ReleaseName: *releaseName, TelemetrySignals: telemetrySignalList, TelemetryConfig: telemetryConfig, ExportHealth: exportHealth, RBACSelfCheck: *rbacSelfCheck, RBACNamespaced: rbacNamespaced, RenewSecrets: certrenew.ParseTargets(*ns, *renewSecrets)})
+	err = agent.Run(ctx, agent.Config{MarkRevoked: markRevoked, ReportIdentity: reportIdentity, ControllerResource: *controllerResource, RelayTelemetry: relayStore != nil, Relay: relayStore, Server: *server, CAPin: *pin, Token: token, Tier: *tier, Kube: client, APIHost: apiHost, Identity: ids, Version: cli.Version, Log: log, Probes: probes, Flows: flows, LinkHub: linkHub, FlowWindow: *flowWindow, Measure: *measureOn, ProbeListen: *probeListen, Scope: scope, Health: health, RevokedHold: *revokedHold, ProbeInterval: *probeEvery, FlowInterval: *flowEvery, Namespace: *ns, ReleaseName: *releaseName, TelemetrySignals: telemetrySignalList, TelemetryConfig: telemetryConfig, ExportHealth: exportHealth, RBACSelfCheck: *rbacSelfCheck, RBACNamespaced: rbacNamespaced, RenewSecrets: certrenew.ParseTargets(*ns, *renewSecrets)})
 	if errors.Is(err, agent.ErrRevoked) {
 		// Exit with a code of its own (agent.ExitRevoked) so `kubectl get pod` and the restart count say what
 		// happened. Run has already said why, in plain words, and has waited a random 5-10 minutes if this was a

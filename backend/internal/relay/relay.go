@@ -14,7 +14,35 @@ const (
 	// StatusWorkloads is the controller's too, and is not part of the relay: what the release runs and how many pods of each are ready. The agent
 	// only reads it, to tell the server.
 	StatusWorkloads = "workloads"
+	// StatusIdentity is the agent's: who the server says this cluster is. It is not part of the relay either (it carries no request); it is
+	// here because it is the one other thing the agent writes to the resource.
+	StatusIdentity = "identity"
 )
+
+// MaxIDLength is as long as a cluster or organisation id may be in status.identity (the definition holds it to the same).
+const MaxIDLength = 128
+
+// Identity is what the agent says of the cluster it is in, as the server names it (status.identity). The controller puts the ids on the
+// telemetry as ikhnos.cluster.id and ikhnos.org.id when the resource does not say them itself (spec.telemetry.owner), so a cluster kept by a
+// controller needs nobody to copy them from the server into its resource.
+type Identity struct {
+	ClusterID string `json:"clusterId,omitempty"`
+	OrgID     string `json:"orgId,omitempty"`
+}
+
+// ValidID is whether an id can be stamped on telemetry: a word of letters, digits, dots, dashes and underscores. The ids are
+// written by the agent and read by the controller, which puts them in the values of a release, so they are held to what the server's own ids look like.
+func ValidID(id string) bool {
+	if id == "" || len(id) > MaxIDLength {
+		return false
+	}
+	for _, c := range id {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_' || c == '.') {
+			return false
+		}
+	}
+	return true
+}
 
 // The states of a request, as the controller says them (Result.State). "written" is said by the agent, before the controller has said
 // anything: the request is where the controller reads it.

@@ -363,6 +363,7 @@ func (r *runner) stream(ctx context.Context, id *Identity) error {
 	}
 	r.enforce(ov)
 	r.noteRelayRequest(cfg)
+	r.noteIdentity(cfg)
 	r.log.Info("streaming", "approved_tier", cfg.ApprovedAccessTier, "collecting_tier", tier, "paused", len(ov.paused), "extra_excluded_namespaces", len(ov.excluded))
 	r.cfg.Health.Connected()
 
@@ -615,6 +616,7 @@ func (r *runner) stream(ctx context.Context, id *Identity) error {
 				}
 				r.enforce(o)
 				r.noteRelayRequest(c)
+				r.noteIdentity(c)
 				applyConfig(c, o)
 				appliedDigest = c.Digest
 				if err := send(beatMsg(false)); err != nil { // says what is now in force, if that changed

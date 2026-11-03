@@ -3950,8 +3950,12 @@ type Config struct {
 	// it to the controller that keeps it installed, which checks it against what the cluster's owner allowed and applies it, or says why
 	// not (Heartbeat.telemetry_relay). Absent: nobody has asked for anything, and the cluster's own settings stand.
 	TelemetryRequest *TelemetryRequest `protobuf:"bytes,13,opt,name=telemetry_request,json=telemetryRequest,proto3" json:"telemetry_request,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// The organisation this agent's cluster belongs to, as the server names it. With cluster_id it is what the agent tells the controller that
+	// keeps it installed, which stamps both on the telemetry (ikhnos.org.id, ikhnos.cluster.id) when the resource does not say them. Empty
+	// from an older server.
+	OrgId         string `protobuf:"bytes,14,opt,name=org_id,json=orgId,proto3" json:"org_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Config) Reset() {
@@ -4073,6 +4077,13 @@ func (x *Config) GetTelemetryRequest() *TelemetryRequest {
 		return x.TelemetryRequest
 	}
 	return nil
+}
+
+func (x *Config) GetOrgId() string {
+	if x != nil {
+		return x.OrgId
+	}
+	return ""
 }
 
 // TelemetryRequest is what an administrator asked this cluster's local operator to collect. The Revision is the server's and rises with
@@ -8271,7 +8282,7 @@ const file_ikhnos_v1_agent_proto_rawDesc = "" +
 	"\arevoked\x18\x03 \x01(\v2\x12.ikhnos.v1.RevokedH\x00R\arevokedB\x05\n" +
 	"\x03msg\"\x17\n" +
 	"\x03Ack\x12\x10\n" +
-	"\x03seq\x18\x01 \x01(\x04R\x03seq\"\xf9\x04\n" +
+	"\x03seq\x18\x01 \x01(\x04R\x03seq\"\x90\x05\n" +
 	"\x06Config\x120\n" +
 	"\x14approved_access_tier\x18\x01 \x01(\rR\x12approvedAccessTier\x12+\n" +
 	"\x11heartbeat_seconds\x18\x02 \x01(\x05R\x10heartbeatSeconds\x12;\n" +
@@ -8288,7 +8299,8 @@ const file_ikhnos_v1_agent_proto_rawDesc = "" +
 	" \x03(\v2\x13.ikhnos.v1.LinkPeerR\tlinkPeers\x12F\n" +
 	"\x11link_iperf_server\x18\v \x01(\v2\x1a.ikhnos.v1.LinkIperfServerR\x0flinkIperfServer\x12\x16\n" +
 	"\x06digest\x18\f \x01(\tR\x06digest\x12H\n" +
-	"\x11telemetry_request\x18\r \x01(\v2\x1b.ikhnos.v1.TelemetryRequestR\x10telemetryRequest\"\xc7\x01\n" +
+	"\x11telemetry_request\x18\r \x01(\v2\x1b.ikhnos.v1.TelemetryRequestR\x10telemetryRequest\x12\x15\n" +
+	"\x06org_id\x18\x0e \x01(\tR\x05orgId\"\xc7\x01\n" +
 	"\x10TelemetryRequest\x12\x1a\n" +
 	"\brevision\x18\x01 \x01(\x04R\brevision\x125\n" +
 	"\asignals\x18\x02 \x01(\v2\x1b.ikhnos.v1.TelemetrySignalsR\asignals\x12A\n" +

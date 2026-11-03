@@ -47,6 +47,9 @@ type Status struct {
 	// Requested is the telemetry the server asked this cluster for, written by the agent (see package relay). The controller reads it
 	// (relay.go) and keeps it when it writes its own fields.
 	Requested *relay.Request `json:"requested,omitempty"`
+	// Identity is written by the agent: the ids the server gave this cluster and its organisation. The controller stamps them on the telemetry where the spec has no owner
+	// (see withIdentity) and keeps it when it writes its own fields.
+	Identity *relay.Identity `json:"identity,omitempty"`
 	// Relay is what became of the request, written by the controller (relay.go); it keeps whatever is there when it has nothing new to say.
 	Relay *relay.Result `json:"relay,omitempty"`
 	// Workloads is what the release runs and how many pods of each are ready, as the controller last looked (see observe). Only of a release that
@@ -219,6 +222,7 @@ func (r *Reconciler) apply(ctx context.Context, obj *unstructured.Unstructured) 
 		return 0, r.setStatus(ctx, obj, Status{Phase: PhaseInvalid, ObservedGeneration: obj.GetGeneration()},
 			r.cond(obj, "False", "InvalidSpec", err.Error()))
 	}
+	spec = withIdentity(spec, statusOf(obj).Identity)
 	token, wait, err := r.token(ctx, spec)
 	if err != nil {
 		return 0, err
@@ -532,6 +536,7 @@ func (r *Reconciler) matchPurge(ctx context.Context, obj *unstructured.Unstructu
 	if err != nil {
 		return nil // a spec that cannot be read says nothing about it: the release goes as it is
 	}
+	spec = withIdentity(spec, statusOf(obj).Identity) // (the values it installs must be the ones the release has, bar this setting)
 	// A revoked agent's identity is of no use to anyone, so it goes with the agent whatever the spec says about keeping it.
 	if _, revoked := revokedReason(obj); revoked {
 		spec.PurgeIdentityOnDelete = true
@@ -628,6 +633,7 @@ func (r *Reconciler) setStatus(ctx context.Context, obj *unstructured.Unstructur
 	st.Conditions = conds
 	st.Revoked = old.Revoked // the agent's word, not the controller's: writing the status must not take it away
 	st.Requested = old.Requested
+	st.Identity = old.Identity
 	if st.Relay == nil {
 		st.Relay = old.Relay // the answer stands until the controller gives another
 	}
@@ -655,6 +661,34 @@ func equalStatus(a, b Status) bool {
 	ma, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(&a)
 	mb, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(&b)
 	return fmt.Sprint(ma) == fmt.Sprint(mb)
+}
+
+// withIdentity is the spec with the ids the agent reported (status.identity) as the owner of its telemetry, each when the spec does not
+// name it itself: a cluster kept by a controller is otherwise never told who it is, and everything it sends lacks ikhnos.cluster.id (the
+// label every dashboard keeps clusters apart by) and ikhnos.org.id. What the spec says always stands, and a spec with no telemetry, or an id
+// that is not a plain word, is left as it is. The spec given is not changed.
+func withIdentity(spec Spec, id *relay.Identity) Spec {
+	if spec.Telemetry == nil || id == nil {
+		return spec
+	}
+	o := install.Owner{}
+	if spec.Telemetry.Owner != nil {
+		o = *spec.Telemetry.Owner
+	}
+	changed := false
+	if o.ClusterID == "" && relay.ValidID(id.ClusterID) {
+		o.ClusterID, changed = id.ClusterID, true
+	}
+	if o.OrgID == "" && relay.ValidID(id.OrgID) {
+		o.OrgID, changed = id.OrgID, true
+	}
+	if !changed {
+		return spec
+	}
+	t := *spec.Telemetry
+	t.Owner = &o
+	spec.Telemetry = &t
+	return spec
 }
 
 // parseSpec reads the spec of a resource. A spec that does not parse, or that has problems, is told in full.

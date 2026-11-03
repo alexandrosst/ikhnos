@@ -136,7 +136,9 @@ func DeriveTargets(ft *observed.FlowTable) []IssuedTarget {
 type ConfigFacts struct {
 	Tier      int
 	ClusterID string
-	Consent   agents.Consent
+	// OrgID is the organisation the cluster belongs to.
+	OrgID   string
+	Consent agents.Consent
 	// Telemetry is what an administrator asked this cluster to collect; a zero Revision means nobody has asked for anything.
 	Telemetry agents.TelemetryRequest
 
@@ -187,8 +189,8 @@ var configSections = []configSection{
 	{"timing", []string{"heartbeat_seconds", "resync_seconds"}, func(f ConfigFacts, b *configBuild) {
 		b.cfg.HeartbeatSeconds, b.cfg.ResyncSeconds = f.Heartbeat, f.Resync
 	}},
-	{"cluster", []string{"cluster_id"}, func(f ConfigFacts, b *configBuild) {
-		b.cfg.ClusterId = f.ClusterID
+	{"cluster", []string{"cluster_id", "org_id"}, func(f ConfigFacts, b *configBuild) {
+		b.cfg.ClusterId, b.cfg.OrgId = f.ClusterID, f.OrgID
 	}},
 	{"links", []string{"link_peers", "link_iperf_server"}, func(f ConfigFacts, b *configBuild) {
 		// The iperf3 credentials follow the same gates as the peers (tier 2, flow collector not paused) and go only where the cluster

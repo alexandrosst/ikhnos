@@ -14,7 +14,7 @@ var tracesShare = 25
 
 func baseFacts() ConfigFacts {
 	return ConfigFacts{
-		Tier: 2, ClusterID: "cl-a", Telemetry: agents.TelemetryRequest{Revision: 3, TracesSamplingPercent: &tracesShare}, Heartbeat: 30, Resync: 600, ServerTime: 1700000000, MeasureSeconds: 20,
+		Tier: 2, ClusterID: "cl-a", OrgID: "org-a", Telemetry: agents.TelemetryRequest{Revision: 3, TracesSamplingPercent: &tracesShare}, Heartbeat: 30, Resync: 600, ServerTime: 1700000000, MeasureSeconds: 20,
 		Peers: []*ikhnosv1.LinkPeer{
 			{ClusterId: "cl-b", Name: "b", Addresses: []string{"10.0.0.2"}, Throughput: true},
 			{ClusterId: "cl-c", Name: "c", Addresses: []string{"10.0.0.3"}},

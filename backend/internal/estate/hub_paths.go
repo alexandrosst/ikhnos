@@ -52,7 +52,7 @@ func (h *Hub) compileFor(a store.Agent, v *View) (*ikhnosv1.Config, []connectivi
 	}
 	creds := h.linkCredsFor(a, set.Links) // before h.mu: it may read and write the store
 	facts := connectivity.ConfigFacts{
-		Tier: a.AccessTier, ClusterID: a.ClusterID, Consent: consent, Telemetry: telemetry, Heartbeat: HeartbeatSeconds, Resync: resync,
+		Tier: a.AccessTier, ClusterID: a.ClusterID, OrgID: h.C.OrgID, Consent: consent, Telemetry: telemetry, Heartbeat: HeartbeatSeconds, Resync: resync,
 		ServerTime: h.C.Now().Unix(), MeasureSeconds: int32(set.MeasureSeconds), IperfClients: creds.Clients, IperfServer: creds.Server,
 	}
 	h.Mu.Lock()

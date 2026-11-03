@@ -32,7 +32,7 @@ func TestOnlyTheSectionThatChangedChangesItsDigest(t *testing.T) {
 	for section, edit := range map[string]func(c *ikhnosv1.Config){
 		"policy":  func(c *ikhnosv1.Config) { c.PausedCollectors = append(c.PausedCollectors, "flow") },
 		"timing":  func(c *ikhnosv1.Config) { c.HeartbeatSeconds++ },
-		"cluster": func(c *ikhnosv1.Config) { c.ClusterId = "cl-other" },
+		"cluster": func(c *ikhnosv1.Config) { c.OrgId = "org-other" },
 		"links":   func(c *ikhnosv1.Config) { c.LinkPeers[0].Addresses = append(c.LinkPeers[0].Addresses, "10.9.9.9") },
 		"probes":  func(c *ikhnosv1.Config) { c.ProbeTargets[0].Port++ },
 	} {

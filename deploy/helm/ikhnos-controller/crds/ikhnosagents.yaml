@@ -11,7 +11,7 @@ metadata:
     # Which version of this definition it is. The controller reads it to tell that the definition in a cluster is older than itself (Helm never
     # upgrades a CRD, so an upgraded controller can sit on an old one). A test holds it to the controller's own number and to a hash of the
     # schema, so a change of the schema without a new number fails.
-    ikhnos.io/schema-revision: "4"
+    ikhnos.io/schema-revision: "5"
 spec:
   group: ikhnos.io
   scope: Namespaced
@@ -500,11 +500,25 @@ spec:
                   type: object
                   description: >-
                     Written by the agent, through the status subresource, when the server revokes it; the controller then removes
-                    the agent. The agent may write nothing else of this resource.
+                    the agent. The agent writes nothing else of this resource but status.identity and status.requested.
                   properties:
                     reason:
                       type: string
                       maxLength: 200
+                identity:
+                  type: object
+                  description: >-
+                    Written by the agent, through the status subresource, once the server has named this cluster: the ids it gives the
+                    cluster and its organisation. The controller stamps them on the telemetry (ikhnos.cluster.id, ikhnos.org.id) when
+                    spec.telemetry.owner does not say them. It is a reading of what the server said, never an instruction: nothing the
+                    agent writes here changes what is installed except those two labels.
+                  properties:
+                    clusterId:
+                      type: string
+                      maxLength: 128
+                    orgId:
+                      type: string
+                      maxLength: 128
                 requested:
                   type: object
                   description: >-

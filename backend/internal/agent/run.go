@@ -25,6 +25,7 @@ import (
 	"ikhnos/internal/measure"
 	"ikhnos/internal/pki"
 	"ikhnos/internal/probe"
+	"ikhnos/internal/relay"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -219,6 +220,12 @@ type Config struct {
 	// refused, in words, and nothing is written.
 	RelayTelemetry bool
 	Relay          RelayStore
+	// ReportIdentity, when set, is called with the ids the server gave this cluster and its organisation, until it succeeds, so that the
+	// controller that keeps this agent installed can stamp them on the telemetry (see identity_resource.go). Nil: nothing keeps this agent. IdentityEvery and IdentityRetry
+	// are how often it is looked at and how long a failure is waited out (0: 30 seconds and 5 minutes).
+	ReportIdentity func(ctx context.Context, id relay.Identity) error
+	IdentityEvery  time.Duration
+	IdentityRetry  time.Duration
 	// RelayEvery is how often a request is handed on and followed (0: 10 seconds).
 	RelayEvery time.Duration
 	// WorkloadsEvery is how often what the release runs is read from the resource of the controller that keeps it (0: 30 seconds; see workloads.go).
@@ -242,9 +249,12 @@ func Run(ctx context.Context, cfg Config) error {
 	if cfg.FlowWindow == 0 {
 		cfg.FlowWindow = 15 * time.Second
 	}
-	a := &runner{cfg: cfg, log: cfg.Log, root: ctx, started: time.Now(), probs: newProblemSet(), dg: newDiagState(), relay: newRelayState()}
+	a := &runner{cfg: cfg, log: cfg.Log, root: ctx, started: time.Now(), probs: newProblemSet(), dg: newDiagState(), relay: newRelayState(), ident: newIdentityState()}
 	if cfg.ExportHealth != nil {
 		go cfg.ExportHealth.Run(ctx)
+	}
+	if cfg.ReportIdentity != nil {
+		go a.identityLoop(ctx)
 	}
 	if cfg.Relay != nil && cfg.RelayTelemetry {
 		go a.relayLoop(ctx, cmp.Or(cfg.RelayEvery, 10*time.Second))
@@ -351,8 +361,9 @@ type runner struct {
 
 	ex extra // enrollment end state and clock skew (enroll.go)
 
-	relay *relayState   // the telemetry request the server last sent and what became of it (relay.go)
-	wl    workloadState // what the release runs, as its controller counted it (workloads.go)
+	relay *relayState    // the telemetry request the server last sent and what became of it (relay.go)
+	wl    workloadState  // what the release runs, as its controller counted it (workloads.go)
+	ident *identityState // the cluster id the server named and whether the controller was told (identity_resource.go)
 }
 
 func (r *runner) dial(id *Identity) (*grpc.ClientConn, error) {
