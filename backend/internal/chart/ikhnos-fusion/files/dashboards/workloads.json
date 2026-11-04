@@ -841,7 +841,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "label_join((((label_replace(k8s_pod_phase{ikhnos_cluster_id=~\"$cluster\", k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\", k8s_deployment_name=~\"$service\"}, \"service_name\", \"$1\", \"k8s_deployment_name\", \"(.+)\") or label_replace(k8s_pod_phase{ikhnos_cluster_id=~\"$cluster\", k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\", k8s_statefulset_name=~\"$service\"}, \"service_name\", \"$1\", \"k8s_statefulset_name\", \"(.+)\") or label_replace(k8s_pod_phase{ikhnos_cluster_id=~\"$cluster\", k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\", k8s_daemonset_name=~\"$service\"}, \"service_name\", \"$1\", \"k8s_daemonset_name\", \"(.+)\")) and on(service_name, k8s_namespace_name, ikhnos_cluster_id) ikhnos_application_info{application=${application:doublequote}, member=~\"$member\"}) or (k8s_pod_phase{ikhnos_cluster_id=~\"$cluster\", k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\"} and on() (label_replace(vector(1), \"application\", ${application:doublequote}, \"\", \"\") and on(application) label_replace(vector(1), \"application\", \"__all__\", \"\", \"\")))), \"pod_key\", \"/\", \"ikhnos_cluster_id\", \"k8s_namespace_name\", \"k8s_pod_name\")",
+          "expr": "(label_join((((label_replace(k8s_pod_phase{ikhnos_cluster_id=~\"$cluster\", k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\", k8s_deployment_name=~\"$service\"}, \"service_name\", \"$1\", \"k8s_deployment_name\", \"(.+)\") or label_replace(k8s_pod_phase{ikhnos_cluster_id=~\"$cluster\", k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\", k8s_statefulset_name=~\"$service\"}, \"service_name\", \"$1\", \"k8s_statefulset_name\", \"(.+)\") or label_replace(k8s_pod_phase{ikhnos_cluster_id=~\"$cluster\", k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\", k8s_daemonset_name=~\"$service\"}, \"service_name\", \"$1\", \"k8s_daemonset_name\", \"(.+)\")) and on(service_name, k8s_namespace_name, ikhnos_cluster_id) ikhnos_application_info{application=${application:doublequote}, member=~\"$member\"}) or (k8s_pod_phase{ikhnos_cluster_id=~\"$cluster\", k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\"} and on() (label_replace(vector(1), \"application\", ${application:doublequote}, \"\", \"\") and on(application) label_replace(vector(1), \"application\", \"__all__\", \"\", \"\")))), \"pod_key\", \"/\", \"ikhnos_cluster_id\", \"k8s_namespace_name\", \"k8s_pod_name\")) * on (ikhnos_cluster_id) group_left (cluster_name) label_replace(topk by (cluster) (1, ikhnos_cluster_info), \"ikhnos_cluster_id\", \"$1\", \"cluster\", \"(.+)\") or ignoring (cluster_name) label_replace((label_join((((label_replace(k8s_pod_phase{ikhnos_cluster_id=~\"$cluster\", k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\", k8s_deployment_name=~\"$service\"}, \"service_name\", \"$1\", \"k8s_deployment_name\", \"(.+)\") or label_replace(k8s_pod_phase{ikhnos_cluster_id=~\"$cluster\", k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\", k8s_statefulset_name=~\"$service\"}, \"service_name\", \"$1\", \"k8s_statefulset_name\", \"(.+)\") or label_replace(k8s_pod_phase{ikhnos_cluster_id=~\"$cluster\", k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\", k8s_daemonset_name=~\"$service\"}, \"service_name\", \"$1\", \"k8s_daemonset_name\", \"(.+)\")) and on(service_name, k8s_namespace_name, ikhnos_cluster_id) ikhnos_application_info{application=${application:doublequote}, member=~\"$member\"}) or (k8s_pod_phase{ikhnos_cluster_id=~\"$cluster\", k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\"} and on() (label_replace(vector(1), \"application\", ${application:doublequote}, \"\", \"\") and on(application) label_replace(vector(1), \"application\", \"__all__\", \"\", \"\")))), \"pod_key\", \"/\", \"ikhnos_cluster_id\", \"k8s_namespace_name\", \"k8s_pod_name\")), \"cluster_name\", \"$1\", \"ikhnos_cluster_id\", \"(.+)\")",
           "datasource": {
             "type": "prometheus",
             "uid": "fusion-metrics"
@@ -983,18 +983,23 @@
               "ikhnos_operator_id": true,
               "ikhnos_org_id": true,
               "pod_key": true,
-              "service_name": true
+              "service_name": true,
+              "ikhnos_cluster_id": true,
+              "ikhnos_operator_name": true
             },
             "renameByName": {
               "k8s_pod_name": "Pod",
               "k8s_namespace_name": "Namespace",
               "k8s_deployment_name": "Workload",
               "k8s_node_name": "Node",
-              "ikhnos_cluster_id": "Cluster",
               "Value #A": "Phase",
               "Value #B": "Restarts (1h)",
               "Value #C": "CPU (cores)",
-              "Value #D": "Memory"
+              "Value #D": "Memory",
+              "cluster_name": "Cluster"
+            },
+            "indexByName": {
+              "cluster_name": 0
             }
           }
         }
@@ -1017,12 +1022,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "60 * sum by (ikhnos_cluster_id, k8s_namespace_name, k8s_pod_name) (rate({k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\"} | ikhnos_cluster_id=~\"$cluster\" | label_format ikhnos_member=\"{{.service_name}}/{{.k8s_namespace_name}}/{{.ikhnos_cluster_id}}\", ikhnos_scope=\"$member\" | ikhnos_scope=\"\" or ikhnos_member=~\"$member\" [$__interval]))",
+          "expr": "60 * sum by (ikhnos_cluster_id, ikhnos_cluster_label, k8s_namespace_name, k8s_pod_name) (rate({k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\"} | ikhnos_cluster_id=~\"$cluster\" | label_format ikhnos_member=\"{{.service_name}}/{{.k8s_namespace_name}}/{{.ikhnos_cluster_id}}\", ikhnos_scope=\"$member\", ikhnos_cluster_label=\"{{ default .ikhnos_cluster_id .k8s_cluster_name }}\" | ikhnos_scope=\"\" or ikhnos_member=~\"$member\" [$__interval]))",
           "datasource": {
             "type": "loki",
             "uid": "fusion-logs"
           },
-          "legendFormat": "{{ikhnos_cluster_id}}/{{k8s_namespace_name}}/{{k8s_pod_name}}"
+          "legendFormat": "{{ikhnos_cluster_label}}/{{k8s_namespace_name}}/{{k8s_pod_name}}"
         }
       ],
       "description": "How much each pod writes.",
@@ -1075,12 +1080,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "60 * sum by (ikhnos_cluster_id, k8s_namespace_name, k8s_pod_name) (rate({k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\"} |~ \"(?i)(error|exception|fatal|panic)\" | ikhnos_cluster_id=~\"$cluster\" | label_format ikhnos_member=\"{{.service_name}}/{{.k8s_namespace_name}}/{{.ikhnos_cluster_id}}\", ikhnos_scope=\"$member\" | ikhnos_scope=\"\" or ikhnos_member=~\"$member\" [$__interval]))",
+          "expr": "60 * sum by (ikhnos_cluster_id, ikhnos_cluster_label, k8s_namespace_name, k8s_pod_name) (rate({k8s_namespace_name=~\"$namespace\", k8s_deployment_name=~\"$workload\"} |~ \"(?i)(error|exception|fatal|panic)\" | ikhnos_cluster_id=~\"$cluster\" | label_format ikhnos_member=\"{{.service_name}}/{{.k8s_namespace_name}}/{{.ikhnos_cluster_id}}\", ikhnos_scope=\"$member\", ikhnos_cluster_label=\"{{ default .ikhnos_cluster_id .k8s_cluster_name }}\" | ikhnos_scope=\"\" or ikhnos_member=~\"$member\" [$__interval]))",
           "datasource": {
             "type": "loki",
             "uid": "fusion-logs"
           },
-          "legendFormat": "{{ikhnos_cluster_id}}/{{k8s_namespace_name}}/{{k8s_pod_name}}"
+          "legendFormat": "{{ikhnos_cluster_label}}/{{k8s_namespace_name}}/{{k8s_pod_name}}"
         }
       ],
       "description": "Lines that contain the words error, exception, fatal or panic. A text match, not a severity level.",

@@ -1353,7 +1353,8 @@
               "__name__": true,
               "ikhnos_operator_id": true,
               "ikhnos_org_id": true,
-              "ikhnos_cluster_id": true
+              "ikhnos_cluster_id": true,
+              "ikhnos_operator_name": true
             },
             "renameByName": {
               "k8s_namespace_name": "Namespace",

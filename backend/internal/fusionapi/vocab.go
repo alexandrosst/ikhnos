@@ -52,7 +52,7 @@ var Vocabulary = []Label{
 	{Attr: "ikhnos.intent.id", By: "agent"},
 	{Attr: "ikhnos.scope", By: "agent"},
 	{Attr: "ikhnos.operator.id", Promote: true, By: "operator"},
-	{Attr: "ikhnos.operator.name", By: "operator"},
+	{Attr: "ikhnos.operator.name", Promote: true, By: "operator"},
 	{Attr: "ikhnos.category", By: "gateway"},
 }
 

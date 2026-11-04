@@ -57,10 +57,10 @@
           "uid": "fusion-metrics"
         },
         "query": {
-          "query": "label_values(ikhnos_operator_id)",
+          "query": "label_values(ikhnos_operator_name)",
           "refId": "v-operator"
         },
-        "definition": "label_values(ikhnos_operator_id)",
+        "definition": "label_values(ikhnos_operator_name)",
         "refresh": 2,
         "sort": 1,
         "multi": true,
@@ -75,7 +75,7 @@
             "$__all"
           ]
         },
-        "description": "The regional operators the data came through. Narrows the table of data age and the series arriving by operator."
+        "description": "The regional operators the data came through, by name. Narrows the table of data age and the series arriving by operator; All includes data from an operator that sent no name."
       }
     ]
   },
@@ -414,7 +414,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "((time() - (max by (ikhnos_cluster_id, ikhnos_operator_id) (timestamp({ikhnos_operator_id=~\"$operator\", ikhnos_cluster_id=~\"$cluster\", ikhnos_cluster_id!=\"\", __name__!~\"ikhnos_application_info|ikhnos_agent_self_.*\"})) or max by (ikhnos_cluster_id, ikhnos_operator_id) (max_over_time(timestamp({ikhnos_operator_id=~\"$operator\", ikhnos_cluster_id=~\"$cluster\", ikhnos_cluster_id!=\"\", __name__!~\"ikhnos_application_info|ikhnos_agent_self_.*\"})[1d:5m])))) * on (ikhnos_cluster_id) group_left (cluster_name) label_replace(topk by (cluster) (1, ikhnos_cluster_info), \"ikhnos_cluster_id\", \"$1\", \"cluster\", \"(.+)\") or ignoring (cluster_name) label_replace((time() - (max by (ikhnos_cluster_id, ikhnos_operator_id) (timestamp({ikhnos_operator_id=~\"$operator\", ikhnos_cluster_id=~\"$cluster\", ikhnos_cluster_id!=\"\", __name__!~\"ikhnos_application_info|ikhnos_agent_self_.*\"})) or max by (ikhnos_cluster_id, ikhnos_operator_id) (max_over_time(timestamp({ikhnos_operator_id=~\"$operator\", ikhnos_cluster_id=~\"$cluster\", ikhnos_cluster_id!=\"\", __name__!~\"ikhnos_application_info|ikhnos_agent_self_.*\"})[1d:5m])))), \"cluster_name\", \"$1\", \"ikhnos_cluster_id\", \"(.+)\")) * on (ikhnos_cluster_id) group_left (cluster_name) label_replace(topk by (cluster) (1, ikhnos_cluster_info), \"ikhnos_cluster_id\", \"$1\", \"cluster\", \"(.+)\") or ignoring (cluster_name) label_replace(((time() - (max by (ikhnos_cluster_id, ikhnos_operator_id) (timestamp({ikhnos_operator_id=~\"$operator\", ikhnos_cluster_id=~\"$cluster\", ikhnos_cluster_id!=\"\", __name__!~\"ikhnos_application_info|ikhnos_agent_self_.*\"})) or max by (ikhnos_cluster_id, ikhnos_operator_id) (max_over_time(timestamp({ikhnos_operator_id=~\"$operator\", ikhnos_cluster_id=~\"$cluster\", ikhnos_cluster_id!=\"\", __name__!~\"ikhnos_application_info|ikhnos_agent_self_.*\"})[1d:5m])))) * on (ikhnos_cluster_id) group_left (cluster_name) label_replace(topk by (cluster) (1, ikhnos_cluster_info), \"ikhnos_cluster_id\", \"$1\", \"cluster\", \"(.+)\") or ignoring (cluster_name) label_replace((time() - (max by (ikhnos_cluster_id, ikhnos_operator_id) (timestamp({ikhnos_operator_id=~\"$operator\", ikhnos_cluster_id=~\"$cluster\", ikhnos_cluster_id!=\"\", __name__!~\"ikhnos_application_info|ikhnos_agent_self_.*\"})) or max by (ikhnos_cluster_id, ikhnos_operator_id) (max_over_time(timestamp({ikhnos_operator_id=~\"$operator\", ikhnos_cluster_id=~\"$cluster\", ikhnos_cluster_id!=\"\", __name__!~\"ikhnos_application_info|ikhnos_agent_self_.*\"})[1d:5m])))), \"cluster_name\", \"$1\", \"ikhnos_cluster_id\", \"(.+)\")), \"cluster_name\", \"$1\", \"ikhnos_cluster_id\", \"(.+)\")",
+          "expr": "label_replace(label_replace((time() - (max by (ikhnos_cluster_id, ikhnos_operator_id, ikhnos_operator_name) (timestamp({ikhnos_operator_name=~\"$operator\", ikhnos_cluster_id=~\"$cluster\", ikhnos_cluster_id!=\"\", __name__!~\"ikhnos_application_info|ikhnos_agent_self_.*\"})) or max by (ikhnos_cluster_id, ikhnos_operator_id, ikhnos_operator_name) (max_over_time(timestamp({ikhnos_operator_name=~\"$operator\", ikhnos_cluster_id=~\"$cluster\", ikhnos_cluster_id!=\"\", __name__!~\"ikhnos_application_info|ikhnos_agent_self_.*\"})[1d:5m])))) * on (ikhnos_cluster_id) group_left (cluster_name) label_replace(topk by (cluster) (1, ikhnos_cluster_info), \"ikhnos_cluster_id\", \"$1\", \"cluster\", \"(.+)\") or ignoring (cluster_name) label_replace((time() - (max by (ikhnos_cluster_id, ikhnos_operator_id, ikhnos_operator_name) (timestamp({ikhnos_operator_name=~\"$operator\", ikhnos_cluster_id=~\"$cluster\", ikhnos_cluster_id!=\"\", __name__!~\"ikhnos_application_info|ikhnos_agent_self_.*\"})) or max by (ikhnos_cluster_id, ikhnos_operator_id, ikhnos_operator_name) (max_over_time(timestamp({ikhnos_operator_name=~\"$operator\", ikhnos_cluster_id=~\"$cluster\", ikhnos_cluster_id!=\"\", __name__!~\"ikhnos_application_info|ikhnos_agent_self_.*\"})[1d:5m])))), \"cluster_name\", \"$1\", \"ikhnos_cluster_id\", \"(.+)\"), \"operator\", \"$1\", \"ikhnos_operator_id\", \"(.+)\"), \"operator\", \"$1\", \"ikhnos_operator_name\", \"(.+)\")",
           "datasource": {
             "type": "prometheus",
             "uid": "fusion-metrics"
@@ -478,15 +478,18 @@
           "options": {
             "excludeByName": {
               "Time": true,
-              "ikhnos_cluster_id": true
+              "ikhnos_cluster_id": true,
+              "ikhnos_operator_id": true,
+              "ikhnos_operator_name": true
             },
             "renameByName": {
-              "ikhnos_operator_id": "Operator",
               "Value": "Seconds since data",
-              "cluster_name": "Cluster"
+              "cluster_name": "Cluster",
+              "operator": "Operator"
             },
             "indexByName": {
-              "cluster_name": 0
+              "cluster_name": 0,
+              "operator": 1
             }
           }
         },
@@ -579,12 +582,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count by (ikhnos_operator_id) ({ikhnos_operator_id=~\".+\", ikhnos_operator_id=~\"$operator\"})",
+          "expr": "label_replace(label_replace(count by (ikhnos_operator_id, ikhnos_operator_name) ({ikhnos_operator_id=~\".+\", ikhnos_operator_name=~\"$operator\"}), \"operator\", \"$1\", \"ikhnos_operator_id\", \"(.+)\"), \"operator\", \"$1\", \"ikhnos_operator_name\", \"(.+)\")",
           "datasource": {
             "type": "prometheus",
             "uid": "fusion-metrics"
           },
-          "legendFormat": "{{ikhnos_operator_id}}",
+          "legendFormat": "{{operator}}",
           "interval": "5m"
         }
       ],
@@ -701,7 +704,8 @@
               "ikhnos_org_id": true,
               "node": true,
               "service_name": true,
-              "ikhnos_cluster_id": true
+              "ikhnos_cluster_id": true,
+              "ikhnos_operator_name": true
             },
             "renameByName": {
               "job": "Target",

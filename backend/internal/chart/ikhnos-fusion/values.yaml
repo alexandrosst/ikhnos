@@ -167,6 +167,7 @@ prometheus:
     - ikhnos.org.id
     - ikhnos.cluster.id
     - ikhnos.operator.id
+    - ikhnos.operator.name
     # Which extractor produced the series (hostmetrics, kubeletstats, kepler, cluster-links, link-prober, k8s-cluster, ...), set by the
     # local operator's collectors; see docs-site/docs/architecture/telemetry-intent.md.
     - ikhnos.source

@@ -240,7 +240,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "ikhnos_application_info{application=${application:doublequote}}",
+          "expr": "(ikhnos_application_info{application=${application:doublequote}}) * on (ikhnos_cluster_id) group_left (cluster_name) label_replace(topk by (cluster) (1, ikhnos_cluster_info), \"ikhnos_cluster_id\", \"$1\", \"cluster\", \"(.+)\") or ignoring (cluster_name) label_replace((ikhnos_application_info{application=${application:doublequote}}), \"cluster_name\", \"$1\", \"ikhnos_cluster_id\", \"(.+)\")",
           "datasource": {
             "type": "prometheus",
             "uid": "fusion-metrics"
@@ -271,14 +271,15 @@
             "excludeByName": {
               "Time": true,
               "Value": true,
-              "__name__": true
+              "__name__": true,
+              "ikhnos_cluster_id": true
             },
             "renameByName": {
               "application": "Application",
               "application_id": "Application id",
               "service_name": "Service",
               "k8s_namespace_name": "Namespace",
-              "ikhnos_cluster_id": "Cluster"
+              "cluster_name": "Cluster"
             }
           }
         }

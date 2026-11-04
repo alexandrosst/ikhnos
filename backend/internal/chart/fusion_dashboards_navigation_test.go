@@ -295,3 +295,60 @@ func TestFusionLinkQualityMatrix(t *testing.T) {
 		t.Errorf("%d matrices, want loss, delay, jitter, connect time, throughput and freshness", matrices)
 	}
 }
+
+// An operator, like a cluster, is shown by its name where the series carry an id as well: the picker offers names, no legend is its
+// id, and the tables that used to show the cluster's id show its name (a cluster or an operator that has no name is shown by its
+// id, which the queries do in PromQL, so a cluster the server does not know is not left out).
+func TestFusionDashboardsShowOperatorsAndTableClustersByName(t *testing.T) {
+	r := fusionRender(t, "f")
+	for _, n := range allDashboardNames {
+		d := loadAny(t, r, n)
+		for _, p := range d.Panels {
+			for _, tg := range p.Targets {
+				if strings.Contains(tg.Legend, "{{ikhnos_operator_id}}") || strings.Contains(tg.Legend, "{{ikhnos_cluster_id}}") {
+					t.Errorf("%s / %s: the legend %q is an id", n, p.Title, tg.Legend)
+				}
+			}
+		}
+		for _, v := range d.Templating.List {
+			if v.Name == "operator" && !strings.Contains(v.Definition, "ikhnos_operator_name") {
+				t.Errorf("%s: the operator picker %q offers ids", n, v.Definition)
+			}
+		}
+	}
+	raw := r.configs["f-fusion-grafana-dashboards"].Data
+	for file, title := range map[string]string{"applications.json": "What Ikhnos has in this application", "workloads.json": "Pods"} {
+		var d struct {
+			Panels []struct {
+				Title           string `json:"title"`
+				Transformations []struct {
+					Options struct {
+						Exclude map[string]bool   `json:"excludeByName"`
+						Rename  map[string]string `json:"renameByName"`
+					} `json:"options"`
+				} `json:"transformations"`
+			} `json:"panels"`
+		}
+		if err := json.Unmarshal([]byte(raw[file]), &d); err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, p := range d.Panels {
+			if p.Title != title {
+				continue
+			}
+			found = true
+			for _, tr := range p.Transformations {
+				if _, ok := tr.Options.Rename["ikhnos_cluster_id"]; ok {
+					t.Errorf("%s / %s: the id of the cluster is the column called Cluster", file, title)
+				}
+				if tr.Options.Rename != nil && tr.Options.Rename["cluster_name"] != "Cluster" {
+					t.Errorf("%s / %s: the cluster's name is not the column called Cluster: %v", file, title, tr.Options.Rename)
+				}
+			}
+		}
+		if !found {
+			t.Errorf("%s has no panel %q", file, title)
+		}
+	}
+}
