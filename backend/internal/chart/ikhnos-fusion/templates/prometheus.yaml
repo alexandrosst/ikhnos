@@ -74,6 +74,12 @@ spec:
             {{- end }}
             # The receiver a regional operator's OTLP/HTTP exporter writes to: /api/v1/otlp/v1/metrics.
             - --web.enable-otlp-receiver
+            # "Time since last data" is timestamp() over every series of a cluster, whatever its name. timestamp() (like rate() and most
+            # functions) drops the metric name, and two series that differ only by it (k8s_deployment_available and k8s_deployment_desired
+            # of the same deployment) then have the same labels: Prometheus refuses the query with "vector cannot contain metrics with the
+            # same labelset", though the aggregation around it would have merged them. With the name removed at the end of the expression
+            # instead, such a query works and every other gives the same answer (an older Prometheus that does not know the flag ignores it).
+            - --enable-feature=promql-delayed-name-removal
           {{- $gml := include "fusion.gomemlimit" $p.resources }}
           {{- if or .Values.switch.managed $gml }}
           env:

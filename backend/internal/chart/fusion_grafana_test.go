@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -168,6 +169,15 @@ func TestFusionPrometheusKnowsItsPrefix(t *testing.T) {
 	args = fusionRender(t, "f", "--set", "prometheus.webPrefix=").sets["f-fusion-prometheus"].Spec.Template.Spec.Containers[0].Args
 	if strings.Contains(strings.Join(args, " "), "web.external-url") {
 		t.Errorf("an empty webPrefix still sets an external url: %v", args)
+	}
+}
+
+// The dashboards' "time since last data" panels take timestamp() of every series of a cluster, which only works when Prometheus removes the
+// metric name at the end of the expression (see the comment in the template).
+func TestFusionPrometheusRemovesMetricNamesAtTheEndOfAQuery(t *testing.T) {
+	args := fusionRender(t, "f").sets["f-fusion-prometheus"].Spec.Template.Spec.Containers[0].Args
+	if !slices.Contains(args, "--enable-feature=promql-delayed-name-removal") {
+		t.Errorf("args = %v", args)
 	}
 }
 
