@@ -1,6 +1,7 @@
 package fusionapi
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -116,7 +117,7 @@ func TestTheTopologyOfAnApplicationSaysWhatItCutAndWhatItDoesNotKnow(t *testing.
 	v.Services, v.Links = v.Services[:2], nil
 	for i := 0; i < maxAppExternals+1; i++ {
 		x := fmt.Sprintf("x%d", i)
-		v.Links = append(v.Links, TopoLink{ID: "l" + x, From: "s-cart", To: x, FromKind: "service", ToKind: "external"})
+		v.Links = append(v.Links, TopoLink{ID: "a" + x, From: "s-cart", To: x, FromKind: "service", ToKind: "external"}) // (ids that sort first: equal traffic is ordered by id)
 	}
 	for i := 0; i < maxAppLinks-maxAppExternals; i++ { // one link more than an answer carries
 		id := fmt.Sprintf("n%d", i)
@@ -153,5 +154,82 @@ func TestTheTopologyOfAnApplicationSaysWhatItCutAndWhatItDoesNotKnow(t *testing.
 	}
 	if h := BuildAppTopology(g, v, AllSignals(), false).Health; h.Status != "down" {
 		t.Fatalf("%+v", h)
+	}
+}
+
+// Two services of different kinds can share a key, so two links can read the same; the id of the dependency tells them apart and
+// is what the changes name, and the order does not depend on the order the links were read in.
+func TestTheLinksOfAnApplicationCarryTheirIdAndComeInTheSameOrder(t *testing.T) {
+	g, v := shopTopology()
+	got := BuildAppTopology(g, v, AllSignals(), false)
+	for _, l := range got.Links {
+		if l.ID == "" {
+			t.Fatalf("a link with no id: %+v", l)
+		}
+	}
+	rev := *v
+	rev.Links = append([]TopoLink(nil), v.Links...)
+	for i, j := 0, len(rev.Links)-1; i < j; i, j = i+1, j-1 {
+		rev.Links[i], rev.Links[j] = rev.Links[j], rev.Links[i]
+	}
+	again := BuildAppTopology(g, &rev, AllSignals(), false)
+	a, _ := json.Marshal(got.Links)
+	b, _ := json.Marshal(again.Links)
+	if string(a) != string(b) {
+		t.Fatalf("the order depends on how the links were read:\n%s\n%s", a, b)
+	}
+}
+
+// The node-link form is the same topology as a graph other tools read as it is: every link points at nodes that exist, the ids tell a
+// service from an address outside the clusters, a limited caller's graph holds only what its topology does, and it marshals as the
+// node-link shape (nodes with an id, links with source, target and key).
+func TestTheTopologyAsANodeLinkGraphHoldsWhatTheTopologyDoes(t *testing.T) {
+	g, v := shopTopology()
+	for name, scope := range map[string]Scope{"no limit": AllSignals(), "shop only": {Signals: Signals, Namespaces: []string{"shop"}}} {
+		topo := BuildAppTopology(g, v, scope, false)
+		ng := topo.NodeLink()
+		ids := map[string]bool{}
+		for _, n := range ng.Nodes {
+			if ids[n.ID] {
+				t.Errorf("%s: node %s twice", name, n.ID)
+			}
+			ids[n.ID] = true
+		}
+		if !ng.Directed || !ng.Multigraph || len(ng.Links) != len(topo.Links) {
+			t.Fatalf("%s: %+v", name, ng)
+		}
+		for _, l := range ng.Links {
+			if !ids[l.Source] || !ids[l.Target] || l.Key == "" {
+				t.Errorf("%s: a link points at nothing or has no key: %+v", name, l)
+			}
+		}
+		for _, s := range topo.Services {
+			if !ids["service:"+s.Key] {
+				t.Errorf("%s: service %s is not a node", name, s.Key)
+			}
+		}
+		if name == "shop only" {
+			for id := range ids {
+				if strings.Contains(id, "pay") || strings.Contains(id, "ledger") || strings.HasPrefix(id, "external:") {
+					t.Errorf("a limited caller's graph holds %s", id)
+				}
+			}
+		} else if !ids["external:x-1"] || !ids["service:pay/pay/cl-2"] {
+			t.Errorf("an unrestricted graph lacks the external or the neighbour: %v", ids)
+		}
+	}
+	raw, _ := json.Marshal(func() NodeLinkGraph {
+		a, b := shopTopology()
+		return BuildAppTopology(a, b, AllSignals(), false).NodeLink()
+	}())
+	var shape struct {
+		Nodes []map[string]any `json:"nodes"`
+		Links []map[string]any `json:"links"`
+	}
+	if err := json.Unmarshal(raw, &shape); err != nil || len(shape.Nodes) == 0 || shape.Links[0]["source"] == nil || shape.Links[0]["target"] == nil || shape.Nodes[0]["id"] == nil {
+		t.Fatalf("not node-link: %s %v", raw, err)
+	}
+	if _, err := ParseFormat("graphml"); err == nil {
+		t.Error("an unknown format is accepted")
 	}
 }

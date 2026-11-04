@@ -135,6 +135,10 @@ func (g *Guard) AppTopology(w http.ResponseWriter, r *http.Request, c *fusionapi
 	if err == nil {
 		noise, err = fusionapi.ParseBool("noise", q.Get("noise"), false)
 	}
+	var format string
+	if err == nil {
+		format, err = fusionapi.ParseFormat(q.Get("format"))
+	}
 	var at time.Time
 	if err == nil && q.Has("at") {
 		if at, err = time.Parse(time.RFC3339, q.Get("at")); err != nil {
@@ -185,13 +189,17 @@ func (g *Guard) AppTopology(w http.ResponseWriter, r *http.Request, c *fusionapi
 		t.Source, t.AsOf, t.SnapshotAt = "history", at, &snap
 	}
 	// A caller who may see no service or link of the application is asked nothing: a store reads an empty list of targets as every event.
-	if ids := t.TargetsFor(who.Scope); len(ids) > 0 {
+	if ids := t.TargetsFor(who.Scope); len(ids) > 0 && format != fusionapi.FormatNodeLink { // (the graph carries no changes)
 		evs, err := ex.Changes(r.Context(), until.Add(-window), until, nil, ids, fusionapi.MaxAppChanges+1)
 		if err != nil {
 			g.Err(w, err)
 			return
 		}
 		t.AddChanges(evs)
+	}
+	if format == fusionapi.FormatNodeLink {
+		httpkit.WriteJSON(w, 200, t.NodeLink())
+		return
 	}
 	httpkit.WriteJSON(w, 200, t)
 }

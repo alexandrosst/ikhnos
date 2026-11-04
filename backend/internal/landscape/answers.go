@@ -56,6 +56,9 @@ type graphWalkDoc struct {
 	ID      string          `json:"id"`
 	Kind    string          `json:"kind"`
 	Reached []graph.Reached `json:"reached"`
+	// Truncated says the walk stopped at the most entities it reports (the same few on every call: the walk takes them in order of kind
+	// and id), so there is more than it lists.
+	Truncated bool `json:"truncated"`
 }
 
 // graphDiffDoc answers GET /graph/diff: how the landscape differs between two moments.

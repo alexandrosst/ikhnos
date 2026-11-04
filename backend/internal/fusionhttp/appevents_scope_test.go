@@ -141,3 +141,34 @@ func TestACallerWhoMaySeeNoServiceOfTheApplicationIsToldNoEvents(t *testing.T) {
 		}
 	}
 }
+
+func TestTheTopologyIsAskedForAsANodeLinkGraphOrRefusedAnUnknownFormat(t *testing.T) {
+	g := newGuard(fakeAccounts{}, fakeTokens{})
+	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	g.Now = func() time.Time { return now }
+	ex := extrasWith{
+		groups: []fusionapi.AppGroup{{ID: "app-1", Name: "Shop", Members: []fusionapi.AppMember{{ID: "sv-web", Name: "web", Namespace: "a", Cluster: "cl-1"}}}},
+		topo:   &fusionapi.TopologyView{At: now, Services: []fusionapi.TopoService{{ID: "sv-web", Name: "web", Namespace: "a", Cluster: "cl-1", Replicas: 1, Ready: 1}}},
+	}
+	g.Extras = func() fusionapi.Extras { return ex }
+	get := func(q string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("GET", "/x?"+q, nil)
+		r.SetPathValue("name", "app-1")
+		w := httptest.NewRecorder()
+		g.AppTopology(w, r, &fusionapi.Client{}, Caller{Kind: "token", ID: "t", Scope: fusionapi.AllSignals()})
+		return w
+	}
+	var ng struct {
+		Directed bool             `json:"directed"`
+		Nodes    []map[string]any `json:"nodes"`
+	}
+	if w := get("format=nodelink"); w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &ng) != nil || !ng.Directed || len(ng.Nodes) != 1 || ng.Nodes[0]["id"] != "service:web/a/cl-1" {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if w := get("format=json"); w.Code != 200 || !strings.Contains(w.Body.String(), `"services"`) {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if w := get("format=graphml"); w.Code != 400 {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+}

@@ -105,6 +105,9 @@ type AppTelemetryKey struct {
 // AppTopoLink is traffic seen between two things, one at least a service of the application. A service is named by its key;
 // an address outside the clusters by its id in `externals`.
 type AppTopoLink struct {
+	// ID is the id of the dependency, which the changes (kind dependency) and the other routes name it by. From and To are keys, and two
+	// services of different kinds can share one, so two links can look the same without it.
+	ID           string      `json:"id,omitempty"`
 	From         string      `json:"from"`
 	FromKind     string      `json:"fromKind"` // service | external
 	To           string      `json:"to"`
@@ -222,7 +225,7 @@ func BuildAppTopology(g *AppGroup, v *TopologyView, s Scope, noise bool) *AppTop
 		_, fromIn := member[l.From]
 		_, toIn := member[l.To]
 		fromIn, toIn = fromIn && l.FromKind != "external", toIn && l.ToKind != "external"
-		c := cand{AppTopoLink: AppTopoLink{From: keyOf(l.From), FromKind: l.FromKind, To: keyOf(l.To), ToKind: l.ToKind, Direction: "internal", Port: l.Port, Protocol: l.Protocol,
+		c := cand{AppTopoLink: AppTopoLink{ID: l.ID, From: keyOf(l.From), FromKind: l.FromKind, To: keyOf(l.To), ToKind: l.ToKind, Direction: "internal", Port: l.Port, Protocol: l.Protocol,
 			Confidence: l.Confidence, Stale: l.Stale, CrossCluster: l.CrossCluster, Traffic: l.Traffic}}
 		switch {
 		case fromIn && toIn:
@@ -244,7 +247,10 @@ func BuildAppTopology(g *AppGroup, v *TopologyView, s Scope, noise bool) *AppTop
 		if cands[i].Stale != cands[j].Stale {
 			return !cands[i].Stale
 		}
-		return cands[i].Traffic.Bytes > cands[j].Traffic.Bytes
+		if cands[i].Traffic.Bytes != cands[j].Traffic.Bytes {
+			return cands[i].Traffic.Bytes > cands[j].Traffic.Bytes
+		}
+		return cands[i].ID < cands[j].ID // the same answer every time, whatever order the links were read in
 	})
 	if t.Truncated.Links = len(cands) > maxAppLinks; t.Truncated.Links {
 		cands = cands[:maxAppLinks]

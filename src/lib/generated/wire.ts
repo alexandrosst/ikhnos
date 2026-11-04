@@ -272,6 +272,7 @@ export interface AppTopoExt {
 }
 
 export interface AppTopoLink {
+  id?: string
   from: string
   fromKind: string
   to: string
@@ -1357,6 +1358,7 @@ export interface GraphWalkDoc {
   id: string
   kind: string
   reached: Reached[]
+  truncated: boolean
 }
 
 export type HealthState = 'unknown' | 'online' | 'offline' | 'waiting' | 'starting' | 'off' | 'attention'

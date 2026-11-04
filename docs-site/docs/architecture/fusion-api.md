@@ -278,6 +278,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "$ADDR/api/v1/fusion/applications/Shop
 | `at` | Read the topology as of this time instead of now ([history](#history)). |
 | `window` | How far back traffic is counted. Default 24 hours, at most 7 days. |
 | `noise` | Whether links classed as noise are shown. |
+| `format` | `json` (the default) or `nodelink`: the same services and links as a directed multigraph in the node-link form that NetworkX (`nx.node_link_graph(d, edges="links")`), D3 and `jq` read as it is. Nodes are `service:<key>` and `external:<id>`, each link has a `source` (the client), a `target` (the server) and a `key` that is the id of the dependency, so two parallel links are two links. It holds what the JSON holds for that caller, and none of the telemetry pointers or changes. |
 
 - It follows the token's scope like `/applications`: a limited token sees only the part of the application, and the links and neighbours, in its namespaces and clusters. An application none of whose services it can see answers `404`.
 - The answer is capped at 2000 links, 200 neighbours, 50 external addresses and 100 changes. When something was cut, the response says so.

@@ -40,7 +40,7 @@ func TestAnswersThatWereMapsAreWrittenAsTheyWere(t *testing.T) {
 			map[string]any{"backend": "neo4j", "enabled": true, "connected": true, "ready": true, "buffering": false, "error": ""}},
 		{"graph snapshot", graphSnapshotDoc{At: "t", Entities: []graph.EntitySnapshot{}}, map[string]any{"at": "t", "entities": []graph.EntitySnapshot{}}},
 		{"graph walk", graphWalkDoc{At: "t", Kind: "service", ID: "s", Hops: 3, Reached: []graph.Reached{}},
-			map[string]any{"at": "t", "kind": "service", "id": "s", "hops": 3, "reached": []graph.Reached{}}},
+			map[string]any{"at": "t", "kind": "service", "id": "s", "hops": 3, "reached": []graph.Reached{}, "truncated": false}},
 		{"graph diff", graphDiffDoc{From: "f", To: "t"}, map[string]any{"from": "f", "to": "t", "added": []graph.EntitySnapshot(nil), "removed": []graph.EntitySnapshot(nil), "changed": []graph.EntityDiff(nil)}},
 		{"timeline", timelineDoc{Kind: "k", ID: "i", Events: []eventDoc{}, Audit: []graph.AuditRow{}},
 			map[string]any{"kind": "k", "id": "i", "versions": []graph.TimelineVersion(nil), "events": []eventDoc{}, "audit": []graph.AuditRow{}}},

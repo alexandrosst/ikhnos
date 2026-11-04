@@ -96,6 +96,9 @@ func parseWalkParams(r *http.Request) (kind, id string, at time.Time, hops int, 
 	if hops <= 0 {
 		hops = 3
 	}
+	if hops > graph.MaxWalkHops {
+		hops = graph.MaxWalkHops // what is answered is what is walked
+	}
 	return kind, id, at, hops, nil
 }
 
@@ -122,7 +125,7 @@ func (h *API) graphDependents(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	httpkit.WriteJSON(w, 200, graphWalkDoc{At: kernel.RFC(sat), Kind: kind, ID: id, Hops: hops, Reached: reached})
+	httpkit.WriteJSON(w, 200, graphWalkDoc{At: kernel.RFC(sat), Kind: kind, ID: id, Hops: hops, Reached: reached, Truncated: len(reached) >= graph.MaxWalkResults-1})
 }
 
 // GET /graph/dependencies?kind=&id=&at=&hops=: everything this entity itself relies on at that moment -
@@ -148,7 +151,7 @@ func (h *API) graphDependencies(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	httpkit.WriteJSON(w, 200, graphWalkDoc{At: kernel.RFC(sat), Kind: kind, ID: id, Hops: hops, Reached: reached})
+	httpkit.WriteJSON(w, 200, graphWalkDoc{At: kernel.RFC(sat), Kind: kind, ID: id, Hops: hops, Reached: reached, Truncated: len(reached) >= graph.MaxWalkResults-1})
 }
 
 // GET /graph/diff?from=&to=: what changed structurally across the whole landscape between two moments -

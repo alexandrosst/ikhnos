@@ -163,6 +163,7 @@ var ParamDefs = map[string]Param{
 	"at":     {Type: "string", Example: "2026-10-05T11:30:00Z", Desc: "An RFC 3339 time: answer as the landscape was then instead of now: the services, links and traffic of the newest recording at or before it (`snapshotAt`), and the services the application had at that moment. Needs the graph database."},
 	"window": {Type: "string", Default: "24h", Example: "6h", Desc: "How far before now (or before `at`) to look for what changed, at most 7d."},
 	"noise":  {Type: "boolean", Default: "false", Desc: "Include the machinery links (DNS, system) that are left out by default."},
+	"format": {Type: "string", Default: "json", Example: "nodelink", Desc: "`json` (the answer described here) or `nodelink`: the same services and links as a directed multigraph in the node-link form that NetworkX (`node_link_graph`), D3 and jq read as it is (`nodes` with an `id`, `links` with `source`, `target` and `key`, the key being the id of the dependency). Nodes are `service:<key>` and `external:<id>`; a link points from the client to the server. It carries what the answer carries and nothing the caller may not see; the telemetry pointers and the changes stay in the JSON."},
 
 	// shared filters
 	"limit":       {Type: "integer", Example: "50", Desc: "The most results to return. Larger values are cut to the route's maximum, which each route states."},

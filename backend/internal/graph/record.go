@@ -988,10 +988,37 @@ RETURN v.kind, v.id, v.name, v.status, v.cluster, v.doc`, map[string]any{"at": t
 			Name:    str(row[2]),
 			Status:  str(row[3]),
 			Cluster: str(row[4]),
-			Doc:     json.RawMessage(str(row[5])),
+			Doc:     rawDoc(str(row[5])),
 		})
 	}
-	return at, out, nil
+	return at, tidyEntities(out), nil
+}
+
+// rawDoc is a stored document as JSON: null for one that has none, as an empty string is not JSON and would fail the whole answer.
+func rawDoc(s string) json.RawMessage {
+	if strings.TrimSpace(s) == "" {
+		return json.RawMessage("null")
+	}
+	return json.RawMessage(s)
+}
+
+// tidyEntities puts the entities in order (kind, id) and keeps each once. The read is two statements (the versions still open, and those
+// closed after the moment) in one query, and a write that lands between them can show one version in both.
+func tidyEntities(l []EntitySnapshot) []EntitySnapshot {
+	sort.SliceStable(l, func(i, j int) bool {
+		if l[i].Kind != l[j].Kind {
+			return l[i].Kind < l[j].Kind
+		}
+		return l[i].ID < l[j].ID
+	})
+	out := l[:0]
+	for i, e := range l {
+		if i > 0 && e.Kind == l[i-1].Kind && e.ID == l[i-1].ID {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out
 }
 
 // AsOf reconstructs the landscape as of the newest recorded moment at or before `at`, as the typed
@@ -1104,6 +1131,13 @@ const maxWalkHops = 8
 // exists to answer "what's connected", not to enumerate an entire landscape.
 const maxWalkResults = 4000
 
+// MaxWalkResults and MaxWalkHops are the bounds of a walk, for an answer to say what was applied. A walk that reports MaxWalkResults-1
+// entities (the start does not count) was cut by the bound.
+const (
+	MaxWalkResults = maxWalkResults
+	MaxWalkHops    = maxWalkHops
+)
+
 // Reached is one entity a graph walk found, alongside how many hops away it was. An entity reachable
 // by more than one path through the landscape is reported once, at its shortest distance.
 type Reached struct {
@@ -1193,20 +1227,20 @@ func (d *DB) walk(ctx context.Context, org string, at time.Time, kind, id string
 MATCH (f:Entity {org:$org, kind:fr.kind, id:fr.id})<-[rel:%s]-(n:Entity {org:$org})
 USING INDEX SEEK f:Entity(org, kind, id)
 WHERE rel.validFrom <= datetime($at) AND (rel.validTo IS NULL OR rel.validTo > datetime($at))
-RETURN DISTINCT n.kind AS kind, n.id AS id`, strings.Join(relTypes, "|"))
+RETURN DISTINCT n.kind AS kind, n.id AS id ORDER BY kind, id`, strings.Join(relTypes, "|"))
 	if forward {
 		step = fmt.Sprintf(`UNWIND $frontier AS fr
 MATCH (f:Entity {org:$org, kind:fr.kind, id:fr.id})-[rel:%s]->(n:Entity {org:$org})
 USING INDEX SEEK f:Entity(org, kind, id)
 WHERE rel.validFrom <= datetime($at) AND (rel.validTo IS NULL OR rel.validTo > datetime($at))
-RETURN DISTINCT n.kind AS kind, n.id AS id`, strings.Join(relTypes, "|"))
+RETURN DISTINCT n.kind AS kind, n.id AS id ORDER BY kind, id`, strings.Join(relTypes, "|"))
 	}
 
 	visited := map[string]int{vkey(kind, id): 0} // hop distance of everything already placed; the start is hop 0 and never reported
 	frontier := []vk{{Kind: kind, ID: id}}
 	var order []vk // discovery order: hop order first, which is what the final sort needs to be stable against
 
-	for h := 1; h <= hops && len(frontier) > 0 && len(visited) <= maxWalkResults; h++ {
+	for h := 1; h <= hops && len(frontier) > 0 && len(visited) < maxWalkResults; h++ {
 		fr := make([]map[string]any, len(frontier))
 		for i, f := range frontier {
 			fr[i] = map[string]any{"kind": f.Kind, "id": f.ID}
@@ -1253,7 +1287,7 @@ RETURN v.kind, v.id, v.name, v.status, v.cluster, v.doc`, map[string]any{"pairs"
 	for _, row := range res[0].Rows {
 		k, i := str(row[0]), str(row[1])
 		out = append(out, Reached{
-			EntitySnapshot: EntitySnapshot{Kind: k, ID: i, Name: str(row[2]), Status: str(row[3]), Cluster: str(row[4]), Doc: json.RawMessage(str(row[5]))},
+			EntitySnapshot: EntitySnapshot{Kind: k, ID: i, Name: str(row[2]), Status: str(row[3]), Cluster: str(row[4]), Doc: rawDoc(str(row[5]))},
 			Hops:           visited[vkey(k, i)],
 		})
 	}
