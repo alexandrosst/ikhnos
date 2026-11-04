@@ -21,7 +21,8 @@ import (
 // Ready is true while the agent is waiting for approval (that is normal, not a fault), while its stream to the server is
 // up, and for ReadyGrace after the stream last dropped, so a short server outage or a certificate renewal does not flap.
 // It is false before the agent has first reached the server, after ReadyGrace without a connection, and once the server
-// has revoked the agent. Ready also decides whether the receiver Service (probe and flow reports) has this pod behind it.
+// has revoked the agent. Ready is what Kubernetes sees (a rollout waits for it); the receiver Service (probe and flow reports) keeps the pod
+// whether or not it is Ready, so a cluster cut off from the server still has its reports taken and held.
 //
 // Every method is safe on a nil *Health, so callers need not check whether health reporting is switched on.
 type Health struct {

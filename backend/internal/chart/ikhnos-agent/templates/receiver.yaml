@@ -14,6 +14,10 @@ metadata:
   labels: {{- include "agent.labels" . | nindent 4 }}
 spec:
   type: ClusterIP
+  # The reports are signed and the agent keeps what it cannot deliver while the server is away (traffic up to a limit, and says so in
+  # its Diagnostics), so the Service keeps the pod even while the pod is not Ready: an agent without the server for ten minutes turns
+  # unready, and the node collectors must not lose their way to it for that.
+  publishNotReadyAddresses: true
   selector: {app.kubernetes.io/name: ikhnos-agent, app.kubernetes.io/instance: {{ .Release.Name }}}
   ports:
     - {name: probe, port: 8081, targetPort: probe, protocol: TCP}

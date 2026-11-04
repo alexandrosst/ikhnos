@@ -518,3 +518,28 @@ func TestFlowTimingIsAChartValue(t *testing.T) {
 	check("defaults", nil, "10s", "15s")
 	check("set", []string{"--set", "flowObserver.interval=5s", "--set", "flowObserver.window=30s"}, "5s", "30s")
 }
+
+// The Service the node collectors send their flow and probe reports to keeps the agent's pod while the pod is not Ready (an agent
+// without the server for ten minutes is not), so a cluster cut off from the server still has its reports taken and held.
+func TestTheReceiverServiceKeepsTheAgentWhileItIsNotReady(t *testing.T) {
+	out, err := helmTemplate(t, "--set", "flowObserver.enabled=true")
+	if err != nil {
+		t.Fatalf("helm template: %v\n%s", err, out)
+	}
+	dec := yaml.NewYAMLOrJSONDecoder(strings.NewReader(out), 4096)
+	for {
+		var svc corev1.Service
+		if err := dec.Decode(&svc); err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		if svc.Kind == "Service" && svc.Name == "ikhnos-agent-probe" {
+			if !svc.Spec.PublishNotReadyAddresses {
+				t.Error("the receiver Service drops the agent pod as soon as the agent is unready")
+			}
+			return
+		}
+	}
+	t.Fatal("no Service ikhnos-agent-probe in the rendered chart")
+}
