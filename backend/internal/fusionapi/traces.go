@@ -322,12 +322,16 @@ func buildTrace(id string, rss []otlpResourceSpans, s Scope) *Trace {
 	for _, sp := range tr.Spans {
 		byID[sp.SpanID] = sp
 	}
-	for i, sp := range tr.Spans {
-		if i == 0 || sp.Start.Before(tr.Start) {
-			tr.Start = sp.Start
-		}
-		if sp.End.After(tr.End) {
-			tr.End = sp.End
+	for _, sp := range tr.Spans {
+		// A span with no start time (a sender that left it out) would put the start of the trace in the year 1 and stretch its length,
+		// and with it the window of every other signal read around the trace.
+		if !sp.Start.IsZero() {
+			if tr.Start.IsZero() || sp.Start.Before(tr.Start) {
+				tr.Start = sp.Start
+			}
+			if sp.End.After(tr.End) {
+				tr.End = sp.End
+			}
 		}
 		if sp.Status == "error" {
 			tr.ErrorCount++
@@ -397,12 +401,13 @@ type TraceSummary struct {
 // TraceFilter picks traces. Every field is optional and combines with AND; the conditions are about spans, so a trace
 // matches when some span of it does.
 type TraceFilter struct {
-	Service     string        `json:"service,omitempty"`
-	Namespace   string        `json:"namespace,omitempty"`
-	Cluster     string        `json:"cluster,omitempty"`
-	Categories  []string      `json:"categories,omitempty"` // kubernetes or application, by namespace (see traceCategoryCond)
-	Name        string        `json:"name,omitempty"`       // span name
-	Status      string        `json:"status,omitempty"`     // error | ok | unset
+	Service    string   `json:"service,omitempty"`
+	Namespace  string   `json:"namespace,omitempty"`
+	Cluster    string   `json:"cluster,omitempty"`
+	Categories []string `json:"categories,omitempty"` // kubernetes or application, by namespace (see traceCategoryCond)
+	Name       string   `json:"name,omitempty"`       // span name
+	Status     string   `json:"status,omitempty"`     // error | ok | unset
+	// MinDuration and MaxDuration bound the length of the trace; for a caller whose Scope is limited, of a span the caller may see.
 	MinDuration time.Duration `json:"minDuration,omitempty"`
 	MaxDuration time.Duration `json:"maxDuration,omitempty"`
 }
@@ -422,11 +427,17 @@ func (f TraceFilter) traceQL(s Scope) (string, error) {
 	default:
 		return "", badRequest("status must be error, ok or unset")
 	}
+	// The length of a whole trace covers spans a limited caller may not see, and a threshold moved up and down would measure them.
+	// A limited caller's threshold is on the spans it may see (a span at least this long), which is also all it is told the extent of.
+	dur := "traceDuration"
+	if !s.Unrestricted() {
+		dur = "duration"
+	}
 	if f.MinDuration > 0 {
-		c = append(c, "traceDuration >= "+f.MinDuration.String())
+		c = append(c, dur+" >= "+f.MinDuration.String())
 	}
 	if f.MaxDuration > 0 {
-		c = append(c, "traceDuration <= "+f.MaxDuration.String())
+		c = append(c, dur+" <= "+f.MaxDuration.String())
 	}
 	cat, err := traceCategoryCond("resource."+attrNamespace, f.Categories)
 	if err != nil {
@@ -513,6 +524,7 @@ func (c *Client) tempoSearch(ctx context.Context, s Scope, q string, tr TimeRang
 	var res tempoSearch
 	if err := c.get(ctx, storeTempo, c.Tempo, "/api/search", url.Values{
 		"q": {q}, "start": {unixSec(tr.From)}, "end": {unixSec(tr.To)}, "limit": {strconv.Itoa(limit + 1)}, "spss": {"20"}, // (one more: see MetricNames)
+		"most_recent": {"true"}, // else the limit takes an arbitrary part of the range, and "newest first" is only the order of what it took
 	}, nil, &res); err != nil {
 		return nil, false, err
 	}
@@ -564,6 +576,14 @@ func (c *Client) tempoSearch(ctx context.Context, s Scope, q string, tr TimeRang
 		}
 		out = append(out, sum)
 	}
+	// Tempo does not promise an order: the newest come first here, the ones whose start is not known (a limited caller's trace with no
+	// matched span) last.
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Start.IsZero() != out[j].Start.IsZero() {
+			return !out[i].Start.IsZero()
+		}
+		return out[i].Start.After(out[j].Start)
+	})
 	return out, truncated, nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Params that only the fused read takes. They are parsed from a query string, and the batch route builds the same
@@ -152,10 +153,10 @@ func ParseFuseOptions(q url.Values) (opts FuseOptions, err error) {
 			return opts, badRequest("include takes logs, context_logs, system_logs, metrics, topology, changes, all or none")
 		}
 	}
-	if opts.Pad, err = DurationParam(q.Get(ParamPad)); err != nil {
+	if opts.Pad, err = padParam(q, ParamPad); err != nil {
 		return opts, err
 	}
-	if opts.SpanPad, err = DurationParam(q.Get(ParamSpanPad)); err != nil {
+	if opts.SpanPad, err = padParam(q, ParamSpanPad); err != nil {
 		return opts, err
 	}
 	if opts.Spans.MinDuration, err = DurationParam(q.Get(ParamSpanMinDuration)); err != nil {
@@ -176,7 +177,7 @@ func ParseFuseOptions(q url.Values) (opts FuseOptions, err error) {
 	if opts.PromQLPad, err = DurationParam(q.Get(ParamPromQLPad)); err != nil {
 		return opts, err
 	}
-	if opts.ChangesBefore, err = DurationParam(q.Get(ParamChangesBefore)); err != nil {
+	if opts.ChangesBefore, err = padParam(q, ParamChangesBefore); err != nil {
 		return opts, err
 	}
 	opts.PromQLServices = splitList(q.Get(ParamPromQLServices))
@@ -222,4 +223,17 @@ func ParseFuseOptions(q url.Values) (opts FuseOptions, err error) {
 		}
 	}
 	return opts, nil
+}
+
+// zeroPad stands for a pad that was asked for and is none: the options read a zero as "not given" and put the default in its place,
+// and the nanosecond is as good as nothing as a margin around a time.
+const zeroPad = time.Nanosecond
+
+// padParam reads a margin. Asking for 0 is asking for no margin, which is not the same as not asking.
+func padParam(q url.Values, name string) (time.Duration, error) {
+	d, err := DurationParam(q.Get(name))
+	if err == nil && d == 0 && q.Get(name) != "" {
+		return zeroPad, nil
+	}
+	return d, err
 }

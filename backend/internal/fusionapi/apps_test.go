@@ -216,3 +216,20 @@ func TestAnApplicationWithOnlyUnresolvedMembersSaysWhy(t *testing.T) {
 		t.Fatalf("%+v", v)
 	}
 }
+
+// How many members of an application have no place in the topology is not for a caller who is limited to know: they have no
+// namespace or cluster to be checked against.
+func TestALimitedCallerIsNotToldHowManyMembersAreUnresolved(t *testing.T) {
+	groups := []AppGroup{{ID: "app-1", Name: "Shop", Unresolved: 5, Members: []AppMember{{ID: "s1", Name: "web", Namespace: "a", Cluster: "cl-1"}}}}
+	if got := VisibleGroups(groups, Scope{Namespaces: []string{"a"}}); len(got) != 1 || got[0].Unresolved != 0 {
+		t.Fatalf("a limited caller: %+v", got)
+	}
+	if got := VisibleGroups(groups, Scope{}); got[0].Unresolved != 5 {
+		t.Fatalf("an unrestricted caller: %+v", got)
+	}
+	// and what a limited caller can see of nothing is an empty list, never a nil one (nil asks for every event)
+	topo := &AppTopology{}
+	if got := topo.TargetsFor(Scope{Namespaces: []string{"a"}}); got == nil || len(got) != 0 {
+		t.Fatalf("TargetsFor = %#v", got)
+	}
+}

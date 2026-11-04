@@ -286,10 +286,28 @@ func ChooseStep(tr TimeRange, requested time.Duration, target int) (time.Duratio
 // any limit, so a range read with only a category or a cluster to go by costs the whole TSDB. A metric name, a name pattern,
 // a service, namespace, pod or node, or an application (the Scope's focus) is enough.
 func (f MetricFilter) NeedSelective(s Scope) error {
-	if f.Name != "" || f.NameRegex != "" || f.Service != "" || f.Namespace != "" || f.Pod != "" || f.Node != "" || len(s.FocusServices) > 0 {
+	if f.Name != "" || (f.NameRegex != "" && !matchesAnyName(f.NameRegex)) || f.Service != "" || f.Namespace != "" || f.Pod != "" || f.Node != "" || len(s.FocusServices) > 0 {
 		return nil
 	}
-	return badRequest("a range read needs a filter: name, metric, service, namespace, pod, node or application")
+	return badRequest("a range read needs a filter: name, metric (a pattern that picks some names, not all), service, namespace, pod, node or application")
+}
+
+// matchesAnyName says whether a metric name pattern lets every name through (.+, .*, .) or the empty one: it then selects what no
+// pattern does, and costs what no filter does. Prometheus anchors the pattern, as RE2 here is told to.
+func matchesAnyName(pattern string) bool {
+	re, err := regexp.Compile("^(?:" + pattern + ")$")
+	if err != nil {
+		return false // refused where it is used
+	}
+	if re.MatchString("") {
+		return true
+	}
+	for _, probe := range []string{"a", "z_9", "k8s_pod_cpu_time", "http_server_request_duration_seconds_bucket", "up", "0"} {
+		if !re.MatchString(probe) {
+			return false
+		}
+	}
+	return true
 }
 
 // MetricRange returns the values of every series matching the filter over the range, at most maxSeries of them (the

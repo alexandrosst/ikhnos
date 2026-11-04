@@ -106,6 +106,7 @@ func VisibleGroups(groups []AppGroup, s Scope) []AppGroup {
 	for _, g := range groups {
 		kept := g
 		kept.Members = nil
+		kept.Unresolved = 0 // members the topology has no place for have no namespace or cluster to be checked against; their number is not the caller's to know
 		for _, m := range g.Members {
 			if s.NamespaceVisible(m.Namespace) && s.ClusterVisible(m.Cluster) {
 				kept.Members = append(kept.Members, m)

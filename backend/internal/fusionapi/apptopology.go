@@ -329,8 +329,14 @@ func (t *AppTopology) Targets() []string { return t.ids }
 // TargetsFor are the ids to read events about for a caller with Scope s. The application's own events say which services it
 // gained and lost, by id and by name, and an application holds services a limited caller may not see (another namespace, another
 // cluster), so a limited caller is given the events about the services and links it can see, and not the application's.
+//
+// The answer is never nil: a nil list asks the events for every target, an empty one for none, and a limited caller who can see no
+// service or link of the application must be given none.
 func (t *AppTopology) TargetsFor(s Scope) []string {
-	if s.Unrestricted() || len(t.ids) == 0 {
+	switch {
+	case len(t.ids) == 0:
+		return []string{}
+	case s.Unrestricted():
 		return t.ids
 	}
 	return t.ids[1:] // ids[0] is the application itself (BuildAppTopology)

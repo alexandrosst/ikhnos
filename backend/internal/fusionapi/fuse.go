@@ -346,6 +346,20 @@ func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOpt
 		}
 		looked = append(looked, r)
 	}
+	if opts.Metrics || opts.ContextLogs {
+		// A resource that does not say which cluster it is from cannot be pinned to one: the series and lines of the same service or pod
+		// in every cluster are read for it (a pod called web-0 exists in each), and the answer must say so.
+		var unpinned []string
+		for _, r := range looked {
+			if r.Cluster == "" {
+				unpinned = append(unpinned, r.Key)
+			}
+		}
+		if len(unpinned) > 0 {
+			sort.Strings(unpinned)
+			note("%d resource(s) carry no cluster id (ikhnos.cluster.id), so their metrics and context logs may include those of a service or pod of the same name in another cluster: %s", len(unpinned), names(unpinned))
+		}
+	}
 
 	switch {
 	case !opts.Logs:
@@ -529,6 +543,7 @@ func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOpt
 
 // shape applies the options that only narrow the answer: the span filter and the attributes and events left out.
 func shape(f *Fused, opts FuseOptions) {
+	f.Warnings = uniqueInOrder(f.Warnings) // a store that is down is found down once for each of the trace's resources
 	if opts.Spans.active() {
 		kept := f.Spans[:0:0]
 		for _, sp := range f.Spans {
@@ -734,6 +749,7 @@ func resourceMetrics(ctx context.Context, r *Resource, opts FuseOptions, reads *
 		filters = append(filters, MetricFilter{NameRegex: opts.MetricRegex, Node: r.Node, Cluster: r.Cluster, NoPod: true})
 	}
 	var out []MetricSeries
+	var perView [][]MetricSeries
 	seen := map[string]bool{}
 	truncated := false
 	for _, f := range filters {
@@ -742,16 +758,33 @@ func resourceMetrics(ctx context.Context, r *Resource, opts FuseOptions, reads *
 			return nil, false, err
 		}
 		truncated = truncated || trunc
+		var own []MetricSeries
 		for _, m := range series {
 			k := m.Name + "{" + labelKey(m.Labels) + "}"
 			if !seen[k] {
 				seen[k] = true
+				own = append(own, m)
 				out = append(out, m)
 			}
 		}
+		perView = append(perView, own)
 	}
 	if len(out) > opts.MaxSeries {
-		out, truncated = out[:opts.MaxSeries], true
+		// Cut by taking one series of each view in turn, so that a service with many series of its own does not leave the pod's
+		// (its CPU, its memory, its restarts) out of the answer for good.
+		out = out[:0]
+		for i := 0; len(out) < opts.MaxSeries; i++ {
+			more := false
+			for _, v := range perView {
+				if i < len(v) && len(out) < opts.MaxSeries {
+					out, more = append(out, v[i]), true
+				}
+			}
+			if !more {
+				break
+			}
+		}
+		truncated = true
 	}
 	return out, truncated, nil
 }
@@ -982,4 +1015,20 @@ func (c *Client) overview(ctx context.Context, s Scope, name, label string, tr T
 		return nil, errf(http.StatusNotFound, "no telemetry for %q in this range", label)
 	}
 	return o, nil
+}
+
+// uniqueInOrder is the strings with the repeats left out, the first of each where it was.
+func uniqueInOrder(l []string) []string {
+	if len(l) < 2 {
+		return l
+	}
+	seen := make(map[string]bool, len(l))
+	out := l[:0:0]
+	for _, v := range l {
+		if !seen[v] {
+			seen[v] = true
+			out = append(out, v)
+		}
+	}
+	return out
 }

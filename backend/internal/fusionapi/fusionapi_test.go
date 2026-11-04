@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -378,11 +379,14 @@ func TestTraceSearchBuildsScopedTraceQLAndHidesTheRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	q := f.last("/api/search").Get("q")
-	for _, want := range []string{`resource.service.name = "cart"`, `name = "GET /cart"`, `status = error`, `traceDuration >= 250ms`,
+	for _, want := range []string{`resource.service.name = "cart"`, `name = "GET /cart"`, `status = error`, `duration >= 250ms`,
 		`(resource.k8s.namespace.name = "shop" || resource.k8s.namespace.name = "pay")`, `(resource.ikhnos.cluster.id = "cl-1")`} {
 		if !strings.Contains(q, want) {
 			t.Fatalf("TraceQL %s lacks %s", q, want)
 		}
+	}
+	if strings.Contains(q, "traceDuration") {
+		t.Fatalf("a limited scope's threshold is on the whole trace, which reaches spans it may not see, so it can be used to measure them: %s", q)
 	}
 	if len(got) != 1 || got[0].RootService != "" || got[0].RootName != "" || got[0].MatchedSpans != 2 || !reflect.DeepEqual(got[0].Services, []string{"cart"}) || got[0].TraceID != traceHex {
 		t.Fatalf("a limited scope's summary = %+v", got)
@@ -850,5 +854,195 @@ func TestSpanMetricsStayWithinAPointBudget(t *testing.T) {
 	}
 	if points > maxSpanPoints || summaryOnly == 0 {
 		t.Fatalf("points = %d (budget %d), summary-only spans = %d", points, maxSpanPoints, summaryOnly)
+	}
+}
+
+// The length of a trace covers every span, including those a limited caller may not see, so a threshold on it moved up and down would
+// measure them. A caller with no limit still bounds the trace; a limited one bounds the spans it can see.
+func TestAThresholdOnDurationIsOnTheWholeTraceOnlyForACallerWithNoLimit(t *testing.T) {
+	f := newFake(t)
+	f.tempo = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, map[string]any{"traces": []any{}}) }
+	c := f.client()
+	if _, _, err := c.SearchTraces(context.Background(), AllSignals(), TraceFilter{MinDuration: time.Second, MaxDuration: time.Minute}, rangeAll, 20); err != nil {
+		t.Fatal(err)
+	}
+	if q := f.last("/api/search").Get("q"); q != "{ traceDuration >= 1s && traceDuration <= 1m0s }" {
+		t.Fatalf("no limit: %s", q)
+	}
+	if _, _, err := c.SearchTraces(context.Background(), limited, TraceFilter{MinDuration: time.Second, MaxDuration: time.Minute}, rangeAll, 20); err != nil {
+		t.Fatal(err)
+	}
+	if q := f.last("/api/search").Get("q"); strings.Contains(q, "traceDuration") || !strings.Contains(q, "duration >= 1s && duration <= 1m0s") {
+		t.Fatalf("a limit: %s", q)
+	}
+}
+
+// One span with no start time must not put the start of the trace in the year 1, which would stretch its length to millennia and,
+// clipped, make every other signal read around the trace read a month or more.
+func TestASpanWithNoStartDoesNotStretchTheTrace(t *testing.T) {
+	f := newFake(t)
+	tt := tempoTrace()
+	spans := tt["trace"].(map[string]any)["resourceSpans"].([]any)[0].(map[string]any)["scopeSpans"].([]any)[0].(map[string]any)["spans"].([]any)
+	spans = append(spans, map[string]any{"traceId": traceHex, "spanId": "00000000000000bb", "parentSpanId": "00f067aa0ba902b7", "name": "no clock",
+		"kind": "SPAN_KIND_INTERNAL", "startTimeUnixNano": json.Number("0"), "endTimeUnixNano": json.Number("0"), "status": map[string]any{"code": "STATUS_CODE_UNSET"}})
+	tt["trace"].(map[string]any)["resourceSpans"].([]any)[0].(map[string]any)["scopeSpans"].([]any)[0].(map[string]any)["spans"] = spans
+	f.tempo = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, tt) }
+	got, err := f.client().Trace(context.Background(), AllSignals(), traceHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SpanCount != 4 || got.Start.Year() != 2026 || got.DurationMs > 1000 {
+		t.Fatalf("start %v length %v ms with %d spans", got.Start, got.DurationMs, got.SpanCount)
+	}
+}
+
+// A margin of 0 is no margin, not the default one; leaving the parameter out is the default.
+func TestAMarginOfZeroIsNoMarginAndNotTheDefault(t *testing.T) {
+	read := func(q string) FuseOptions {
+		v, _ := url.ParseQuery(q)
+		o, err := ParseFuseOptions(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := o.defaults(); err != nil {
+			t.Fatal(err)
+		}
+		return o
+	}
+	if o := read(""); o.Pad != defaultPad || o.SpanPad != defaultSpanPad || o.ChangesBefore != defaultChangesBefore {
+		t.Fatalf("no parameters: %+v", o)
+	}
+	o := read("pad=0&span_pad=0&changes_before=0")
+	if o.Pad > time.Millisecond || o.SpanPad > time.Millisecond || o.ChangesBefore > time.Millisecond {
+		t.Fatalf("zero margins: pad %v, span_pad %v, changes_before %v", o.Pad, o.SpanPad, o.ChangesBefore)
+	}
+}
+
+func TestTheSameWarningIsGivenOnce(t *testing.T) {
+	f := &Fused{Trace: &Trace{}, Warnings: []string{"metrics: down", "logs: slow", "metrics: down", "metrics: down"}}
+	shape(f, FuseOptions{})
+	if !reflect.DeepEqual(f.Warnings, []string{"metrics: down", "logs: slow"}) {
+		t.Fatalf("%v", f.Warnings)
+	}
+}
+
+// A service with many series of its own must not leave its pod's out of a cut answer: the two views share the room in turn.
+func TestAResourcesTwoMetricViewsShareTheRoomWhenTheAnswerIsCut(t *testing.T) {
+	f := newFake(t)
+	f.tempo = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, tempoTrace()) }
+	f.prom = func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query().Get("query")
+		var res []any
+		if strings.Contains(q, "k8s_pod_name=") {
+			for _, n := range []string{"pod_cpu", "pod_memory", "pod_restarts"} {
+				res = append(res, map[string]any{"metric": map[string]string{"__name__": n, "k8s_namespace_name": "shop"}, "values": [][]any{{1791200000.0, "1"}}})
+			}
+		} else {
+			for i := 0; i < 30; i++ {
+				res = append(res, map[string]any{"metric": map[string]string{"__name__": fmt.Sprintf("app_%02d", i), "k8s_namespace_name": "shop"}, "values": [][]any{{1791200000.0, "1"}}})
+			}
+		}
+		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": res}})
+	}
+	got, err := f.client().FuseTrace(context.Background(), AllSignals(), traceHex, FuseOptions{Metrics: true, MetricRegex: "app.*|pod.*", MaxSeries: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range got.Resources {
+		if r.Service != "cart" {
+			continue
+		}
+		var app, pod int
+		for _, m := range r.Metrics {
+			if strings.HasPrefix(m.Name, "pod_") {
+				pod++
+			} else {
+				app++
+			}
+		}
+		if len(r.Metrics) != 10 || pod != 3 || app != 7 || !r.MetricsTruncated {
+			t.Fatalf("cart has %d series (%d of the service, %d of the pod), truncated %v", len(r.Metrics), app, pod, r.MetricsTruncated)
+		}
+		return
+	}
+	t.Fatal("no cart resource")
+}
+
+func TestAMetricPatternThatPicksEveryNameIsNoFilter(t *testing.T) {
+	for _, p := range []string{".+", ".*", "(.*)", "|", "a?.*"} {
+		if err := (MetricFilter{NameRegex: p}).NeedSelective(AllSignals()); err == nil {
+			t.Errorf("%q is accepted as a filter", p)
+		}
+	}
+	for _, p := range []string{"cpu.*", "k8s_pod_.+", "up|down", "http_.*_bucket"} {
+		if err := (MetricFilter{NameRegex: p}).NeedSelective(AllSignals()); err != nil {
+			t.Errorf("%q is refused: %v", p, err)
+		}
+	}
+	if err := (MetricFilter{NameRegex: ".+", Namespace: "shop"}).NeedSelective(AllSignals()); err != nil {
+		t.Errorf("a namespace is enough: %v", err)
+	}
+}
+
+// A resource that names no cluster is read across clusters, and the answer says so; one that names its cluster is not mentioned.
+func TestAResourceWithNoClusterIsSaidToBeReadAcrossClusters(t *testing.T) {
+	run := func(withCluster bool) *Fused {
+		f := newFake(t)
+		tt := tempoTrace()
+		if !withCluster {
+			res := tt["trace"].(map[string]any)["resourceSpans"].([]any)[0].(map[string]any)["resource"].(map[string]any)
+			res["attributes"] = []any{kv("service.name", "cart"), kv("k8s.namespace.name", "shop"), kv("k8s.pod.name", "cart-1")}
+		}
+		f.tempo = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, tt) }
+		f.prom = func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{}}})
+		}
+		got, err := f.client().FuseTrace(context.Background(), AllSignals(), traceHex, FuseOptions{Metrics: true, MetricRegex: "cpu.*"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	said := func(f *Fused) bool {
+		for _, w := range f.Warnings {
+			if strings.Contains(w, "carry no cluster id") {
+				return true
+			}
+		}
+		return false
+	}
+	if !said(run(false)) {
+		t.Fatalf("a resource with no cluster went unsaid: %v", run(false).Warnings)
+	}
+	if said(run(true)) {
+		t.Fatalf("a trace whose resources all name their cluster was warned: %v", run(true).Warnings)
+	}
+}
+
+// Traces come back newest first whatever order the store answers in, and the store is asked for the newest when the limit cuts.
+func TestTracesAreListedNewestFirstAndTheStoreIsAskedForTheNewest(t *testing.T) {
+	f := newFake(t)
+	f.tempo = func(w http.ResponseWriter, r *http.Request) {
+		one := func(id, start string) map[string]any {
+			return map[string]any{"traceID": id, "rootServiceName": "gateway", "rootTraceName": "GET /", "startTimeUnixNano": start, "durationMs": 10}
+		}
+		writeJSON(w, map[string]any{"traces": []any{
+			one("00000000000000000000000000000001", "1791200000000000000"),
+			one("00000000000000000000000000000003", "1791200300000000000"),
+			one("00000000000000000000000000000002", "1791200100000000000")}})
+	}
+	got, _, err := f.client().SearchTraces(context.Background(), AllSignals(), TraceFilter{}, rangeAll, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, g := range got {
+		ids = append(ids, g.TraceID[len(g.TraceID)-1:])
+	}
+	if strings.Join(ids, "") != "321" {
+		t.Fatalf("order %v", ids)
+	}
+	if f.last("/api/search").Get("most_recent") != "true" {
+		t.Fatalf("the store was not asked for the newest: %v", f.last("/api/search"))
 	}
 }

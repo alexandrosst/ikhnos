@@ -275,6 +275,16 @@ func topologyView(doc landscape.StateDoc) *fusionapi.TopologyView {
 }
 
 func (e fusionExtras) Changes(ctx context.Context, since, until time.Time, clusters, targetIDs []string, limit int) ([]fusionapi.ChangeEvent, error) {
+	// A nil list of targets asks for the events of every target; an empty one asks for none. The store reads an empty list as no filter,
+	// so it must not be passed on: a caller who may see none of an application's services would be handed the whole organisation's events.
+	if targetIDs != nil && len(targetIDs) == 0 {
+		return []fusionapi.ChangeEvent{}, nil
+	}
+	if len(targetIDs) > 0 {
+		// The targets already say what is asked about. A cluster filter on top would drop the events about an application (they carry
+		// no cluster) and a dependency seen from the other side (they carry the cluster of the caller only).
+		clusters = nil
+	}
 	t, err := e.tenant(ctx)
 	if err != nil {
 		return nil, err

@@ -57,11 +57,19 @@ func (c *Client) now() time.Time {
 	return time.Now()
 }
 
+// storeTransport is shared by the clients that were given none. The default transport keeps two idle connections to a host, and a fused
+// read asks one store from several places at once, so each read beyond the second would open a new connection.
+var storeTransport = func() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.MaxIdleConnsPerHost = 16
+	return t
+}()
+
 func (c *Client) http() *http.Client {
 	if c.HTTP != nil {
 		return c.HTTP
 	}
-	return &http.Client{Timeout: 30 * time.Second}
+	return &http.Client{Timeout: 30 * time.Second, Transport: storeTransport}
 }
 
 func (c *Client) storeTimeout() time.Duration {

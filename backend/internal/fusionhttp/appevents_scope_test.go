@@ -98,3 +98,46 @@ func TestAppTopologyEventsOfAnUnrestrictedCallerIncludeTheApplicationsOwn(t *tes
 		t.Fatalf("an unrestricted caller should see both events, got %v", changes)
 	}
 }
+
+// everything answers Changes the way the store does when it is given no filter: with every event. A handler that passes it an empty
+// list of targets because the caller may see none of the application's services would hand all of them over.
+type everything struct {
+	extrasWith
+	asked [][]string
+}
+
+func (f *everything) Changes(ctx context.Context, since, until time.Time, clusters, ids []string, limit int) ([]fusionapi.ChangeEvent, error) {
+	f.asked = append(f.asked, ids)
+	if len(ids) == 0 {
+		return f.evs, nil
+	}
+	return f.extrasWith.Changes(ctx, since, until, clusters, ids, limit)
+}
+
+func TestACallerWhoMaySeeNoServiceOfTheApplicationIsToldNoEvents(t *testing.T) {
+	g := newGuard(fakeAccounts{}, fakeTokens{})
+	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	g.Now = func() time.Time { return now }
+	// the application's visible member is declared but not in the live topology, so the topology holds nothing of it to ask about
+	ex := &everything{extrasWith: extrasWith{
+		groups: []fusionapi.AppGroup{{ID: "app-1", Name: "Shop", Members: []fusionapi.AppMember{
+			{ID: "sv-declared", Name: "web", Namespace: "a", Cluster: "cl-1"}}}},
+		topo: &fusionapi.TopologyView{At: now, Services: []fusionapi.TopoService{
+			{ID: "sv-payroll", Name: "payroll", Namespace: "secret", Cluster: "cl-2", Replicas: 1, Ready: 1}}},
+		evs: []fusionapi.ChangeEvent{{Time: now.Add(-time.Hour), Kind: "service-scaled", TargetKind: "service", TargetID: "sv-payroll",
+			Name: "payroll", Cluster: "cl-2", ClusterName: "finance-prod", Detail: "replicas 1 to 9"}},
+	}}
+	g.Extras = func() fusionapi.Extras { return ex }
+	r := httptest.NewRequest("GET", "/x", nil)
+	r.SetPathValue("name", "app-1")
+	w := httptest.NewRecorder()
+	g.AppTopology(w, r, &fusionapi.Client{}, Caller{Kind: "token", ID: "t", Scope: fusionapi.Scope{Signals: fusionapi.Signals, Namespaces: []string{"a"}}})
+	if body := w.Body.String(); strings.Contains(body, "payroll") || strings.Contains(body, "finance-prod") {
+		t.Fatalf("a token for namespace a was told about namespace secret: %s", body)
+	}
+	for _, ids := range ex.asked {
+		if len(ids) == 0 {
+			t.Fatalf("the events were asked for with no targets, which a store reads as every target")
+		}
+	}
+}

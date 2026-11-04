@@ -229,3 +229,30 @@ func TestTheTopologyUsesTheReusedApplications(t *testing.T) {
 		t.Fatal("a second topology within the TTL worked the applications out again")
 	}
 }
+
+// An empty list of targets asks for the events of none; the store reads it as no filter, which would hand a caller who may see none
+// of an application's services every event of the organisation. And a cluster filter must not hide the events about an application,
+// which carry no cluster, from a question that names the application.
+func TestAnEmptyListOfTargetsIsNoEventsAndTheTargetsNeedNoClusterFilter(t *testing.T) {
+	a := newAdminRig(t)
+	at := time.Date(2026, 10, 5, 11, 0, 0, 0, time.UTC)
+	if err := a.st.AddEvents(a.ctx, "org-1", []store.Event{
+		{At: at, Kind: "application-membership", TargetKind: "application", TargetID: "app-1", Name: "Shop"},
+		{At: at, Kind: "service-scaled", TargetKind: "service", TargetID: "sv-1", Name: "web", ClusterID: "cl-1"},
+		{At: at, Kind: "service-scaled", TargetKind: "service", TargetID: "sv-2", Name: "payroll", ClusterID: "cl-2"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ex := a.a.fusionExtras()
+	since, until := at.Add(-time.Hour), at.Add(time.Hour)
+	if got, err := ex.Changes(context.Background(), since, until, nil, []string{}, 100); err != nil || len(got) != 0 {
+		t.Fatalf("an empty list of targets returned %+v, %v", got, err)
+	}
+	if got, _ := ex.Changes(context.Background(), since, until, nil, nil, 100); len(got) != 3 {
+		t.Fatalf("a nil list of targets is every target: %+v", got)
+	}
+	got, err := ex.Changes(context.Background(), since, until, []string{"cl-1"}, []string{"sv-1", "app-1"}, 100)
+	if err != nil || len(got) != 2 {
+		t.Fatalf("the service and the application it is in, asked with the cluster of the trace: %+v, %v", got, err)
+	}
+}

@@ -184,12 +184,15 @@ func (g *Guard) AppTopology(w http.ResponseWriter, r *http.Request, c *fusionapi
 		snap := v.At
 		t.Source, t.AsOf, t.SnapshotAt = "history", at, &snap
 	}
-	evs, err := ex.Changes(r.Context(), until.Add(-window), until, nil, t.TargetsFor(who.Scope), fusionapi.MaxAppChanges+1)
-	if err != nil {
-		g.Err(w, err)
-		return
+	// A caller who may see no service or link of the application is asked nothing: a store reads an empty list of targets as every event.
+	if ids := t.TargetsFor(who.Scope); len(ids) > 0 {
+		evs, err := ex.Changes(r.Context(), until.Add(-window), until, nil, ids, fusionapi.MaxAppChanges+1)
+		if err != nil {
+			g.Err(w, err)
+			return
+		}
+		t.AddChanges(evs)
 	}
-	t.AddChanges(evs)
 	httpkit.WriteJSON(w, 200, t)
 }
 

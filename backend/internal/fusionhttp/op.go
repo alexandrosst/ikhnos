@@ -190,8 +190,8 @@ var ParamDefs = map[string]Param{
 	"order":        {Type: "string", Enum: []string{"newest", "oldest"}, Default: "newest", Desc: "Which end of the range the `limit` keeps."},
 	"q":            {Type: "string", Example: `{ resource.service.name = "checkout" && status = error }`, Desc: "A TraceQL query as written. Only a caller whose access is not limited may send one; the filters below are ignored when it is given."},
 	"status":       {Type: "string", Enum: []string{"error", "ok", "unset"}, Desc: "Only traces with a span of this status."},
-	"min_duration": {Type: "string", Example: "500ms", Desc: "Only traces at least this long: a duration (`500ms`, `2s`) or plain seconds."},
-	"max_duration": {Type: "string", Example: "10s", Desc: "Only traces at most this long."},
+	"min_duration": {Type: "string", Example: "500ms", Desc: "Only traces at least this long: a duration (`500ms`, `2s`) or plain seconds. For a token limited to certain namespaces or clusters it is the length of a span the token may see (a trace can reach spans it may not, and its length would measure them)."},
+	"max_duration": {Type: "string", Example: "10s", Desc: "Only traces at most this long (a span, for a token with a limit, as `min_duration` says)."},
 
 	// the fused read
 	fusionapi.ParamFused:            {Type: "boolean", Default: "false", Example: "true", Desc: "Return the fused object: each trace with the logs and metrics saved around it, joined to its spans. Without `include`, it carries `logs` and `metrics`."},
