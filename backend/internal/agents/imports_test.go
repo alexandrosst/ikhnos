@@ -13,7 +13,7 @@ import (
 // The agents stand on the kernel, the store, the PKI and the approval and access vocabularies, and on the modules below them: accounts
 // (the names the server acts under), observed (what an address leads to) and telemetry (the intents that end with an agent). They do not
 // import the operators, who renew the certificate on the stream through a port the agents own (TelemetryCerts), nor the decision loop,
-// which asks them about a change to access through a port of its own (decisionloop.Access) and which the estate answers; nor the server,
+// which asks them about a change to access through a port of its own (decisionloop.Access) and which the landscape answers; nor the server,
 // so not the hub that keeps the live picture of them, and not connectivity, which stands on them.
 var allowedRepoImports = map[string]bool{
 	"ikhnos/gen/ikhnosv1":       true,

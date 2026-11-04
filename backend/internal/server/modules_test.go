@@ -45,13 +45,13 @@ const (
 )
 
 var moduleNames = map[string]bool{
-	"kernel": true, "shell": true, "accounts": true, "agents": true, "estate": true,
+	"kernel": true, "shell": true, "accounts": true, "agents": true, "landscape": true,
 	"telemetry": true, "operators": true, "connectivity": true, "fusion": true, "advice": true, "observed": true,
 }
 
 // movedOut are the modules that are packages of their own now. They keep their name here for the lists, but no file of this package is
 // theirs: a file assigned to one of them is a file that should have moved with it.
-var movedOut = map[string]bool{"estate": true, "connectivity": true, "agents": true, "observed": true, "accounts": true, "advice": true, "operators": true, "telemetry": true, "fusion": true}
+var movedOut = map[string]bool{"landscape": true, "connectivity": true, "agents": true, "observed": true, "accounts": true, "advice": true, "operators": true, "telemetry": true, "fusion": true}
 
 // moduleOfFile reads testdata/modules.txt: one line per file, the file name and then its module.
 func moduleOfFile(t *testing.T) map[string]string {
@@ -453,7 +453,7 @@ func compareList(t *testing.T, golden, header, newThing string, got []string, ex
 func TestModulesReachIntoEachOtherOnlyWhereTheListSays(t *testing.T) {
 	uses, _ := typedServer(t)
 	lines, example := edgeLines(uses)
-	// With every module but the estate a package of its own, the compiler holds almost everything and this list may be empty; the store
+	// With every module but the landscape a package of its own, the compiler holds almost everything and this list may be empty; the store
 	// list below still shows that the reading works.
 	compareList(t, moduleEdgesFile, edgesHeader, "use(s) across a module boundary", lines, example)
 }
@@ -470,7 +470,7 @@ func TestModulesShareStoreMethodsOnlyWhereTheListSays(t *testing.T) {
 var movedPackages = map[string]string{
 	"accounts": "ikhnos/internal/accounts", "advice": "ikhnos/internal/decisionloop", "operators": "ikhnos/internal/operators",
 	"telemetry": "ikhnos/internal/telemetry", "fusion": "ikhnos/internal/fusion", "observed": "ikhnos/internal/observed",
-	"agents": "ikhnos/internal/agents", "connectivity": "ikhnos/internal/connectivity", "estate": "ikhnos/internal/estate",
+	"agents": "ikhnos/internal/agents", "connectivity": "ikhnos/internal/connectivity", "landscape": "ikhnos/internal/landscape",
 }
 
 // readStoreUses reads which store methods a module that is a package of its own calls.

@@ -12,8 +12,8 @@ import (
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
 	"ikhnos/internal/accounts"
 	"ikhnos/internal/decisionloop"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/facts"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/twin"
 )
 
@@ -36,7 +36,7 @@ func TestSameNamesInTwoClustersAndTwoOrganisationsNeverCollide(t *testing.T) {
 	t1.Hub.ApplySync(a2, same(fpB), false)
 	t2.Hub.ApplySync(b1, same(fpC), false)
 	seen := map[string]string{}
-	for label, h := range map[string]*estate.Hub{"org1": t1.Hub, "org2": t2.Hub} {
+	for label, h := range map[string]*landscape.Hub{"org1": t1.Hub, "org2": t2.Hub} {
 		doc, _ := h.State(a.ctx)
 		add := func(kind, id string) {
 			if prev, dup := seen[kind+id]; dup {
@@ -165,7 +165,7 @@ func TestModelAPIContractETagAndTenancy(t *testing.T) {
 		t.Fatalf("bob's model: %d", r.Code)
 	}
 	// The version survives a restart and never goes backwards.
-	h2 := estate.NewHub(h.C)
+	h2 := landscape.NewHub(h.C)
 	m2, _, _ := h2.Model(a.ctx)
 	if m2.ModelVersion < int64(v2) {
 		t.Fatalf("version went backwards after a restart: %d < %v", m2.ModelVersion, v2)
@@ -309,7 +309,7 @@ var _ = facts.New
 // ---- tombstone retention ----
 
 // twinAgent approves an agent for a cluster in the hub's organisation and gives it an empty picture, connected.
-func twinAgent(t *testing.T, e *env, h *estate.Hub, cluster string) store.Agent {
+func twinAgent(t *testing.T, e *env, h *landscape.Hub, cluster string) store.Agent {
 	t.Helper()
 	id, _, _ := e.approvedAgent(t, cluster)
 	a, err := e.st.GetAgent(e.ctx, e.core.OrgID, id)
@@ -317,7 +317,7 @@ func twinAgent(t *testing.T, e *env, h *estate.Hub, cluster string) store.Agent 
 		t.Fatal(err)
 	}
 	h.Mu.Lock()
-	v := estate.NewView()
+	v := landscape.NewView()
 	v.Connected = true
 	v.LastBeat = h.C.Now()
 	h.Views[id] = v

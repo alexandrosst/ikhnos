@@ -56,7 +56,7 @@ type API struct {
 }
 
 // SenderHub is what the operators' routes ask the hub about a sending agent: how its address was last tested from its own cluster, and
-// how its exporters fare. *estate.Hub is one.
+// how its exporters fare. *landscape.Hub is one.
 type SenderHub interface {
 	ReachOf(agentID, address string, now time.Time) *connectivity.AddressReachDoc
 	ExportHealthOf(agentID string) (connected bool, export *agents.ExportHealthDoc)

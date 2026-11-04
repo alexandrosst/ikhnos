@@ -13,7 +13,7 @@ import (
 // The operators' routes stand on the operators themselves and the vocabulary they are written in (the store's records, the kernel), on the
 // install package and the chart that the commands are written with, on the agents' vocabulary (what an exporter reports) and the connectivity
 // documents, on the telemetry intents that name an operator, and on the HTTP kit. They do not import the server (the shell mounts them), FUSION (the
-// central operator is the port operators.Central) or the estate (the hub is the port SenderHub, and which release an agent runs as is handed over).
+// central operator is the port operators.Central) or the landscape (the hub is the port SenderHub, and which release an agent runs as is handed over).
 var allowedRepoImports = map[string]bool{
 	"ikhnos/internal/agents":       true,
 	"ikhnos/internal/chart":        true,

@@ -12,7 +12,7 @@ import (
 )
 
 // World is what a test server stands on: a SQLite file, a CA, a clock the test moves, and the kernel Core over them. The server and the
-// estate each wrap Base in their own Core, since each has its own idea of what a Core carries.
+// landscape each wrap Base in their own Core, since each has its own idea of what a Core carries.
 type World struct {
 	Base *kernel.Core
 	// Store is the database behind Base, and DBPath the file it is in, for tests that must look at what is really stored.

@@ -1,6 +1,6 @@
 # The twin: declared and observed, kept apart
 
-Ikhnos's model of an estate has two authors. **People** say what should be true: sites, devices, links they
+Ikhnos's model of a landscape has two authors. **People** say what should be true: sites, devices, links they
 know about, policies, the applications they accepted, values they corrected. **Agents** report what is true
 right now: clusters, nodes, namespaces, workloads. The twin is the rule that keeps these apart, combines them
 on request, and never lets one pass for the other.
@@ -144,7 +144,7 @@ restart from 1 after a restart, and clients that compare versions never see it g
   deleted and recreated under one name is the same service.
 * **Revoked pictures are not purged.** After the retention window they stop being shown; the rows are not
   deleted, and the audit log is untouched.
-* **Neo4j history is unchanged.** Snapshots of the observed estate over time are observation, and history is
+* **Neo4j history is unchanged.** Snapshots of the observed landscape over time are observation, and history is
   their purpose. Only *workspace revisions* had to become declared-only.
 * **The browser's local cache still holds discovered records** (so the first paint after a reload is not empty).
   It is per browser, never exported, never saved to the server, and replaced by the next poll.

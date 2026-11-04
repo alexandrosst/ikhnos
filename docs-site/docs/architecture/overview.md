@@ -27,7 +27,7 @@ Three tiers govern what actually gets reported, always checked in this order: th
 
 ## Clusters and tiers
 
-Every connected cluster is labeled <span className="tier-chip tier-chip--cloud">cloud</span>, <span className="tier-chip tier-chip--edge">edge</span> or <span className="tier-chip tier-chip--far">far-edge</span> — this is what the placement engine's cost function and the topology views group by. There's nothing structurally different about how an agent behaves in each tier; the distinction is about the estate you're modeling, not the software.
+Every connected cluster is labeled <span className="tier-chip tier-chip--cloud">cloud</span>, <span className="tier-chip tier-chip--edge">edge</span> or <span className="tier-chip tier-chip--far">far-edge</span> — this is what the placement engine's cost function and the topology views group by. There's nothing structurally different about how an agent behaves in each tier; the distinction is about the landscape you're modeling, not the software.
 
 ## Images and charts
 

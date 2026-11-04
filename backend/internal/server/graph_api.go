@@ -1,8 +1,8 @@
 package server
 
-import "ikhnos/internal/estate"
+import "ikhnos/internal/landscape"
 
-func (a *Admin) graphAPI() estate.GraphAPI {
-	g, _ := a.C.Store.(estate.GraphAPI)
+func (a *Admin) graphAPI() landscape.GraphAPI {
+	g, _ := a.C.Store.(landscape.GraphAPI)
 	return g
 }

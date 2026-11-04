@@ -1030,34 +1030,6 @@ export interface ErrorDoc {
   error: string
 }
 
-export interface EstateCreateTokenRequest {
-  name: string
-  tier: number
-  expectedCluster: string
-  collectors: Collectors
-  scope: Scope
-  purgeIdentity: boolean
-  controllerTelemetry: boolean | null
-}
-
-export interface EstateCreatedTokenDoc {
-  controller: ControllerDoc
-  install: string
-  meta: EstateTokenDoc
-  token: string
-}
-
-export interface EstateTokenDoc {
-  id: string
-  name: string
-  tier: number
-  createdAt: string
-  expiresAt: string
-  used: boolean
-  usedBy?: string
-  expectedCluster?: string
-}
-
 export interface EventDoc {
   id: string
   at: string
@@ -1551,6 +1523,34 @@ export interface IssuedCertDoc {
 export interface LabelDoc {
   key: string
   value: string
+}
+
+export interface LandscapeCreateTokenRequest {
+  name: string
+  tier: number
+  expectedCluster: string
+  collectors: Collectors
+  scope: Scope
+  purgeIdentity: boolean
+  controllerTelemetry: boolean | null
+}
+
+export interface LandscapeCreatedTokenDoc {
+  controller: ControllerDoc
+  install: string
+  meta: LandscapeTokenDoc
+  token: string
+}
+
+export interface LandscapeTokenDoc {
+  id: string
+  name: string
+  tier: number
+  createdAt: string
+  expiresAt: string
+  used: boolean
+  usedBy?: string
+  expectedCluster?: string
 }
 
 export interface LinkDoc {

@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"ikhnos/internal/accounts"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/installcfg"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/store"
 )
 
@@ -38,7 +38,7 @@ func adminRigOn(t *testing.T, e *env) *adminRig {
 }
 
 // hub is organisation org-1's live hub.
-func (a *adminRig) hub() *estate.Hub {
+func (a *adminRig) hub() *landscape.Hub {
 	t, err := a.a.P.Tenant(a.ctx, "org-1")
 	if err != nil {
 		panic(err)
@@ -478,7 +478,7 @@ func TestWorkspaceRevisionsAndConflicts(t *testing.T) {
 			t.Errorf("%s accepted: %d", name, r.Code)
 		}
 	}
-	huge := []byte(`{"schemaVersion":3,"x":"` + strings.Repeat("a", estate.MaxWorkspaceBytes) + `"}`)
+	huge := []byte(`{"schemaVersion":3,"x":"` + strings.Repeat("a", landscape.MaxWorkspaceBytes) + `"}`)
 	if r := put("2", huge); r.Code != 400 && r.Code != 413 {
 		t.Errorf("oversized workspace: %d", r.Code)
 	}

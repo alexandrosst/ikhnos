@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"time"
 
-	"ikhnos/internal/estate"
 	"ikhnos/internal/fusionapi"
+	"ikhnos/internal/landscape"
 )
 
 // selfMetricsEvery is how often the self series (fusionapi.SelfMetrics) are written into FUSION's Prometheus. The server's
@@ -40,8 +40,8 @@ func (e fusionExtras) SelfMetrics(ctx context.Context) (fusionapi.SelfMetrics, e
 }
 
 // selfMetricsOf turns the hub's newest samples into the series to write (see SelfMetrics).
-func selfMetricsOf(srv *estate.SelfReading, agents []estate.SelfReading, now time.Time) fusionapi.SelfMetrics {
-	fresh := func(r estate.SelfReading) bool { return !r.At.IsZero() && now.Sub(r.At) <= selfFreshFor }
+func selfMetricsOf(srv *landscape.SelfReading, agents []landscape.SelfReading, now time.Time) fusionapi.SelfMetrics {
+	fresh := func(r landscape.SelfReading) bool { return !r.At.IsZero() && now.Sub(r.At) <= selfFreshFor }
 	var out fusionapi.SelfMetrics
 	if srv != nil && fresh(*srv) {
 		s := fusionapi.SelfSample{RSSBytes: srv.Sample.RSSBytes, Goroutines: srv.Sample.Goroutines, CPUPercent: srv.Sample.CPUPct,
@@ -49,7 +49,7 @@ func selfMetricsOf(srv *estate.SelfReading, agents []estate.SelfReading, now tim
 			ModelCacheHitPercent: srv.Sample.ModelCacheHitPct, GCPauseMsPerSec: srv.Sample.GCPauseMsPerSec}
 		out.Server = &s
 	}
-	newest := map[string]estate.SelfReading{}
+	newest := map[string]landscape.SelfReading{}
 	for _, a := range agents {
 		if a.ClusterID == "" || !fresh(a) {
 			continue

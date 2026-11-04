@@ -12,9 +12,9 @@ description: Open Placement, read a recommendation and the evidence under it, tr
 
 ## What you will see first
 
-On a new estate, the first thing Placement says is often that it cannot recommend anything yet. That is not a failure. It is the point of the design.
+On a new landscape, the first thing Placement says is often that it cannot recommend anything yet. That is not a failure. It is the point of the design.
 
-<Shot src="readme/ui-placement" alt="A placement recommendation that says there is not enough evidence to recommend, listing which inputs are guesses and what could not be checked" caption="Here Ikhnos declines to recommend a move, because five of ten inputs are guesses and two are unknown, and it says which. The sample estate is made up." />
+<Shot src="readme/ui-placement" alt="A placement recommendation that says there is not enough evidence to recommend, listing which inputs are guesses and what could not be checked" caption="Here Ikhnos declines to recommend a move, because five of ten inputs are guesses and two are unknown, and it says which. The sample landscape is made up." />
 
 A recommendation is only as good as the facts under it. Ikhnos keeps, for every input, where it came from and how sure it is, and it takes the confidence of an answer from its **weakest deciding fact**, never an average. So an answer that rests on one guess is called a guess, and when too many inputs are missing, it says "not enough evidence to recommend" and names what is missing.
 
@@ -38,7 +38,7 @@ The **What-if** tab lets you build a scenario: pick a service and a destination,
 
 ## Compare deciders
 
-The **Deciders** tab scores several ways of choosing moves on the same estate, with the same checks and one scoring function. Two are built in, a **Baseline** and **Follow the heaviest talker**. If you run your own placement logic, you can plug it in as a webhook and see it scored beside them. This is what makes Ikhnos useful as a testbed for placement research, not only as a tool.
+The **Deciders** tab scores several ways of choosing moves on the same landscape, with the same checks and one scoring function. Two are built in, a **Baseline** and **Follow the heaviest talker**. If you run your own placement logic, you can plug it in as a webhook and see it scored beside them. This is what makes Ikhnos useful as a testbed for placement research, not only as a tool.
 
 ## Getting better advice
 

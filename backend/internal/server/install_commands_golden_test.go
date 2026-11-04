@@ -10,9 +10,9 @@ import (
 
 	"ikhnos/internal/agents"
 	"ikhnos/internal/chart"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/install"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/operators"
 	"ikhnos/internal/operatorsapi"
 	"ikhnos/internal/store"
@@ -235,8 +235,8 @@ func (p *pinRig) operatorCommands() {
 	p.add(a, "operator/client-secret", "", p.ok(operatorsapi.ClientSecretCommand(mtls(ext), pinBundle.Senders[0].CertPEM, pinBundle.Senders[0].KeyPEM, pinBundle.CACertPEM, "apps-team", false)))
 	p.add(a, "operator/restart", "", p.ok(operatorsapi.RestartCommand(mtls(ext))))
 	p.add(a, "operator/uninstall", "", p.ok(operatorsapi.UninstallCommand("athens")))
-	p.add(a, "operator/expose/nodeport", "", p.ok(estate.ExposeCommand("ikhnos-system", "athens-regional-operator", install.NodePort)))
-	p.add(a, "operator/expose/loadbalancer", "", p.ok(estate.ExposeCommand("ikhnos-system", "athens-regional-operator", install.LoadBalancer)))
+	p.add(a, "operator/expose/nodeport", "", p.ok(landscape.ExposeCommand("ikhnos-system", "athens-regional-operator", install.NodePort)))
+	p.add(a, "operator/expose/loadbalancer", "", p.ok(landscape.ExposeCommand("ikhnos-system", "athens-regional-operator", install.LoadBalancer)))
 
 	// The heartbeat: the upgrade that turns it on, the Secret that carries its token and, for a private CA, the Secret for that.
 	hbURL := "https://ikhnos.example.com/api/v1/operator-heartbeat"

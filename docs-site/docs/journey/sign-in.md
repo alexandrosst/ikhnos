@@ -40,7 +40,7 @@ Your browser will warn you that the certificate is not trusted. That is expected
 
 ## The sign-in page
 
-<Shot src="journey/signin" alt="The Ikhnos sign-in page with a username and password field" caption="The sign-in page. Type admin and the password from the log. 'Use this browser without a server' runs the interface on a built-in sample estate, which is a good way to look around without connecting anything." />
+<Shot src="journey/signin" alt="The Ikhnos sign-in page with a username and password field" caption="The sign-in page. Type admin and the password from the log. 'Use this browser without a server' runs the interface on a built-in sample landscape, which is a good way to look around without connecting anything." />
 
 Type `admin` and the password, and press **Sign in**.
 
@@ -50,7 +50,7 @@ Type `admin` and the password, and press **Sign in**.
 
 The rules are listed on the page as you type: 12 to 128 characters, not the same as your username, not one character repeated, and at least one number and one symbol. A few random words with a number and a symbol work well, and are easy to remember.
 
-## Your empty estate
+## Your empty landscape
 
 <Shot src="journey/first-run" alt="The empty Topology page with a Getting started checklist showing four steps, none done" caption="The empty state. The checklist is worked out from what the server holds, never from what anyone clicked, so it is true after a reload, from another browser, and when a colleague did a step." />
 

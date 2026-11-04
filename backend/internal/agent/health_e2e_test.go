@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"ikhnos/internal/agent"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/pki"
 	"ikhnos/internal/server"
 	"ikhnos/internal/store"
@@ -30,7 +30,7 @@ func TestHealthFollowsTheAgentThroughEnrollmentAndRevocation(t *testing.T) {
 	ca, _ := pki.LoadOrCreate(t.TempDir())
 	core := server.NewCore(st, ca, "org", nil)
 	core.EnrollRL = kernel.NewLimiter(6000, 1000)
-	hub := estate.NewHub(core.Estate)
+	hub := landscape.NewHub(core.Landscape)
 	srv := core.Agents.NewGRPC(pki.NewServerCerts(ca, []string{"127.0.0.1"}), hub)
 	l, _ := net.Listen("tcp", "127.0.0.1:0")
 	go srv.Serve(l)
@@ -53,7 +53,7 @@ func TestHealthFollowsTheAgentThroughEnrollmentAndRevocation(t *testing.T) {
 		done <- agent.Run(ctx, agent.Config{Server: l.Addr().String(), CAPin: ca.Pin(), Token: token, Tier: 1, Kube: kube, Identity: ids, Version: "test", Debounce: 100 * time.Millisecond, Health: h})
 	}()
 
-	state := func() estate.StateDoc { d, _ := hub.State(context.Background()); return d }
+	state := func() landscape.StateDoc { d, _ := hub.State(context.Background()); return d }
 	waitFor(t, "pending agent", 10*time.Second, func() bool { a := state().Agents; return len(a) == 1 && a[0].Status == "pending" })
 	waitFor(t, "ready while waiting for approval", 10*time.Second, h.Ready)
 	if ok, why := h.Status(); !ok {

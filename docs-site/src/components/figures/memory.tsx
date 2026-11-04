@@ -52,7 +52,7 @@ export function EntityVersions() {
 export function BoundedWalk() {
   const f = 'walk';
   return (
-    <Fig id={f} height={388} label="A breadth-first walk from one service: hop one reaches callers, a cap of four thousand results stops the walk, hop two is never queried, and the whole call has a time limit" title="What depends on what, with three bounds" subtitle="Level by level, over only what the last level reached. The estate cannot make one request run away.">
+    <Fig id={f} height={388} label="A breadth-first walk from one service: hop one reaches callers, a cap of four thousand results stops the walk, hop two is never queried, and the whole call has a time limit" title="What depends on what, with three bounds" subtitle="Level by level, over only what the last level reached. The landscape cannot make one request run away.">
       <g transform="translate(0 14)">
       <Box x={24} y={64} w={152} h={60} hi />
       <T x={100} y={90} anchor="middle" bold>service · hub</T>

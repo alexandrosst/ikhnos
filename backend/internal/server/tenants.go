@@ -7,8 +7,8 @@ import (
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
 	"ikhnos/internal/agents"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/store"
 
 	"google.golang.org/grpc/codes"
@@ -21,7 +21,7 @@ import (
 type Tenant struct {
 	ID   string
 	C    *Core
-	Hub  *estate.Hub
+	Hub  *landscape.Hub
 	stop context.CancelFunc
 }
 
@@ -32,7 +32,7 @@ type Platform struct {
 	Base                     *Core
 	Geo                      *agents.Geo
 	// Tune, when set, is applied to each new tenant's hub (tests use it to shorten intervals).
-	Tune func(*estate.Hub)
+	Tune func(*landscape.Hub)
 
 	mu      sync.Mutex
 	tenants map[string]*Tenant
@@ -132,7 +132,7 @@ func (p *Platform) build(ctx, runCtx context.Context, id string) (*Tenant, error
 	c := p.Base.ForOrg(id)
 	c.OnOrgDeleted = p.drop
 	c.LoadSettings(ctx)
-	h := estate.NewHub(c.Estate)
+	h := landscape.NewHub(c.Landscape)
 	h.Geo = p.Geo
 	if p.Tune != nil {
 		p.Tune(h)
@@ -149,7 +149,7 @@ func (p *Platform) build(ctx, runCtx context.Context, id string) (*Tenant, error
 // It is deliberately not part of drop: a deleted organisation's data is gone and must not be written back.
 func (p *Platform) FlushAll(ctx context.Context) {
 	p.mu.Lock()
-	hubs := make([]*estate.Hub, 0, len(p.tenants))
+	hubs := make([]*landscape.Hub, 0, len(p.tenants))
 	for _, t := range p.tenants {
 		hubs = append(hubs, t.Hub)
 	}

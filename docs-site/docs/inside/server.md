@@ -22,7 +22,7 @@ The result is a set of layers. Reading the figure from the bottom:
 
 **Who is calling** is `accounts` (people, organisations, roles, sessions, tokens, passkeys) and `httpkit`, the router that records what each route asks of its caller. A route says what role it needs when it is mounted, so the requirement can be listed and checked rather than discovered by reading handlers.
 
-**Domain modules** are where the product is. The *hub cluster* is `estate` (the hub, the twin, history and the applications graph), `agents` (enrolled agents, the stream, consent and tiers, conditions), `connectivity` (paths, links and the config an agent is told) and `observed` (pure: what flows say about edges). *Telemetry* is `telemetry`, `operators` and `fusion`. *Advice* is `decisionloop`.
+**Domain modules** are where the product is. The *hub cluster* is `landscape` (the hub, the twin, history and the applications graph), `agents` (enrolled agents, the stream, consent and tiers, conditions), `connectivity` (paths, links and the config an agent is told) and `observed` (pure: what flows say about edges). *Telemetry* is `telemetry`, `operators` and `fusion`. *Advice* is `decisionloop`.
 
 **API packages** are the routes of a module, mounted through the router. They are given what they need as functions and small interfaces, not by importing a neighbour's internals.
 
@@ -33,7 +33,7 @@ The result is a set of layers. Reading the figure from the bottom:
 When a module needs something from a neighbour that sits above or beside it, the module declares a small interface and the neighbour satisfies it. A few examples show the pattern:
 
 - `fusion` calls the central operator through `operators.Central`, so `operators` does not need to know that `fusion` exists.
-- The decision loop owns two ports, `Access` (answered by the agents' side) and `Load` (answered by the estate), and imports neither.
+- The decision loop owns two ports, `Access` (answered by the agents' side) and `Load` (answered by the landscape), and imports neither.
 - `agents` renews an agent's telemetry certificate through its own `TelemetryCerts` interface.
 
 The point is that dependency arrows go one way. When you find yourself wanting to import a package above yours, the answer is almost always to add a port.
@@ -68,4 +68,4 @@ If a change needs a new import between packages, add it to the list in the same 
 
 ## Where to start reading
 
-To follow one request, start at the router in `httpkit`, find the route in its API package, and follow the call into the module. To follow one agent message, start at `internal/agents` and follow the sync into `estate`. The next pages show both paths: the [agent](agent.md) and [from facts to what you see](data-flow.md).
+To follow one request, start at the router in `httpkit`, find the route in its API package, and follow the call into the module. To follow one agent message, start at `internal/agents` and follow the sync into `landscape`. The next pages show both paths: the [agent](agent.md) and [from facts to what you see](data-flow.md).

@@ -44,7 +44,7 @@ export function ServerLayers() {
       {row(226, 176, 'Domain modules', 'internal/…')}
       <Box x={190} y={242} w={262} h={150} frame />
       <T x={202} y={260} small bold>The hub cluster</T>
-      <Chip x={202} y={270} w={238} hi>estate</Chip>
+      <Chip x={202} y={270} w={238} hi>landscape</Chip>
       <Chip x={202} y={302} w={115}>agents</Chip>
       <Chip x={325} y={302} w={115}>connectivity</Chip>
       <Chip x={202} y={334} w={238}>observed</Chip>

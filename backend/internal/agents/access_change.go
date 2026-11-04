@@ -14,7 +14,7 @@ import (
 
 // AccessChange is a change to one agent's access as the agents understand it: exactly one of a new approved tier, or additions and
 // removals on the agent's overrides (so they apply to what the agent has when the change is made, not to what it had when it was asked
-// for). The decision loop has its own record of what it proposed and the estate converts it; this package does not know the loop.
+// for). The decision loop has its own record of what it proposed and the landscape converts it; this package does not know the loop.
 type AccessChange struct {
 	Tier    *int
 	Pause   []string

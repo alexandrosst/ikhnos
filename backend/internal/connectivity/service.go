@@ -3,7 +3,7 @@
 // answer, and the config an agent is told (its compile and its digest).
 //
 // It stands on the agents (the consent that limits what is measured) and on what the flows say. The hub, which keeps the live picture
-// and decides when to push, is the estate's and stands on this package: the network part of the view is NetView here.
+// and decides when to push, is the landscape's and stands on this package: the network part of the view is NetView here.
 package connectivity
 
 import "ikhnos/internal/kernel"

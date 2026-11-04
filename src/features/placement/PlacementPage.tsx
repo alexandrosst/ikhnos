@@ -58,7 +58,7 @@ export default function PlacementPage() {
       {shownAt && (
         <p className="mb-4 flex items-start gap-2 rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-sm text-warn" role="status">
           <Info size={ICON_SM} className="mt-0.5 shrink-0" aria-hidden />
-          You are looking at the estate as it was {ageOf(shownAt)}. The advice below is computed for that moment, which is useful for asking “what would I have been told then?”, not for deciding today.
+          You are looking at the landscape as it was {ageOf(shownAt)}. The advice below is computed for that moment, which is useful for asking “what would I have been told then?”, not for deciding today.
         </p>
       )}
 

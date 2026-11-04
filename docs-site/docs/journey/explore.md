@@ -8,7 +8,7 @@ description: "A tour of what your first connected cluster gives you: Topology, C
 
 # Explore
 
-Your cluster is in. This page is a short, guided look at what you now have. The screenshots here use the built-in sample estate (made-up clusters), so that the pictures show a populated interface; yours will show your own cluster.
+Your cluster is in. This page is a short, guided look at what you now have. The screenshots here use the built-in sample landscape (made-up clusters), so that the pictures show a populated interface; yours will show your own cluster.
 
 ## Topology: one model, shown four ways
 
@@ -26,7 +26,7 @@ With only one cluster connected the picture will be small. That is correct: Ikhn
 
 ## Clusters, and the tables
 
-**Clusters** lists every cluster with its tier, status and how long ago it last reported. Nodes, Namespaces, Services and Devices are the same model as tables, and every table can be searched, sorted and filtered. Press <kbd>Ctrl</kbd> + <kbd>K</kbd> from anywhere to search the whole estate.
+**Clusters** lists every cluster with its tier, status and how long ago it last reported. Nodes, Namespaces, Services and Devices are the same model as tables, and every table can be searched, sorted and filtered. Press <kbd>Ctrl</kbd> + <kbd>K</kbd> from anywhere to search the whole landscape.
 
 A cluster has a **tier**: cloud, edge or far edge. Ikhnos guesses a sensible one; you can correct it. The tier groups the views and shapes the cost of moving a service, so it is worth a quick check.
 

@@ -42,7 +42,7 @@ The plan followed a single change through seven stops, to find the seams where a
 
 <Figure name="PlanePlan" caption="Eight modules plug into one engine. Each channel was to have its own receipt, so 'sent' and 'in force' are never the same word." />
 
-**What became of it.** The eight modules are real packages today (accounts, agents, estate, telemetry, operators, connectivity, fusion, advice). The *engine* beneath them was the most ambitious part of the plan and is the part not built as drawn. What is built is the kernel, the router and one set of policy functions that every module shares. A common engine with channels and receipts is deferred until a feature needs it.
+**What became of it.** The eight modules are real packages today (accounts, agents, landscape, telemetry, operators, connectivity, fusion, advice). The *engine* beneath them was the most ambitious part of the plan and is the part not built as drawn. What is built is the kernel, the router and one set of policy functions that every module shares. A common engine with channels and receipts is deferred until a feature needs it.
 
 ## Applying a change through Kubernetes
 

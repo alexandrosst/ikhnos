@@ -6,7 +6,7 @@ import (
 	"time"
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
-	"ikhnos/internal/estate"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/store"
 	"ikhnos/internal/testkit"
 )
@@ -31,7 +31,7 @@ func (s *holdingStore) GetAgent(ctx context.Context, org, id string) (store.Agen
 	return a, err
 }
 
-func pushRig(t *testing.T) (*adminRig, *estate.Hub, string, chan *ikhnosv1.ServerMessage) {
+func pushRig(t *testing.T) (*adminRig, *landscape.Hub, string, chan *ikhnosv1.ServerMessage) {
 	t.Helper()
 	a := newAdminRig(t)
 	agentID := a.approvedAgentID(t, testkit.FP)
@@ -39,7 +39,7 @@ func pushRig(t *testing.T) (*adminRig, *estate.Hub, string, chan *ikhnosv1.Serve
 	h := a.hub()
 	h.Mu.Lock()
 	h.Views[agentID] = liveView(*a.now, "n1")
-	h.Sessions[agentID] = &estate.Session{Push: push, Cancel: func(estate.EndReason) {}}
+	h.Sessions[agentID] = &landscape.Session{Push: push, Cancel: func(landscape.EndReason) {}}
 	h.Mu.Unlock()
 	return a, h, agentID, push
 }

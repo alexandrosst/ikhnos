@@ -1,4 +1,4 @@
-// Package testkit is what the server's tests and the estate's tests build their worlds from: the fingerprints of the clusters they enrol,
+// Package testkit is what the server's tests and the landscape's tests build their worlds from: the fingerprints of the clusters they enrol,
 // a certificate request and its approval code, the facts, flows and workloads they feed a hub, the twin's inputs, and the stubs that
 // make a store or a history fail on purpose. It is a library for tests; nothing outside a test imports it.
 package testkit

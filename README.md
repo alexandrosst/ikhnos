@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-<h3 align="center">See your Kubernetes estate from cloud to far edge, and get placement advice you can check.</h3>
+<h3 align="center">See your Kubernetes landscape from cloud to far edge, and get placement advice you can check.</h3>
 
 <p align="center">
   <a href="https://github.com/alexandrosst/ikhnos/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alexandrosst/ikhnos/actions/workflows/ci.yml/badge.svg"></a>
@@ -30,7 +30,7 @@
     <img alt="The Ikhnos topology view: a cloud cluster, a regional edge cluster and two far-edge clusters with their services and the dependencies between them" src="docs-site/static/img/readme/ui-topology-light.png" width="920">
   </picture>
   <br>
-  <sub>The Application view, on the built-in sample estate (made-up clusters, not real infrastructure).</sub>
+  <sub>The Application view, on the built-in sample landscape (made-up clusters, not real infrastructure).</sub>
 </p>
 
 ## What it is
@@ -50,10 +50,10 @@ It is built on four commitments:
 
 ## Features
 
-- **Topology.** Application, Infrastructure, Map and Telemetry views of the same estate, with clusters tiered cloud, edge or far edge. Plus Clusters, Applications, Sites, Nodes, Namespaces, Services and Devices as tables.
+- **Topology.** Application, Infrastructure, Map and Telemetry views of the same landscape, with clusters tiered cloud, edge or far edge. Plus Clusters, Applications, Sites, Nodes, Namespaces, Services and Devices as tables.
 - **Discovery that asks first.** Connect a cluster from the UI: it prints the exact `helm install`, and an approval code that only the cluster's own pod log shows turns "someone had a token" into "this is the agent I meant".
 - **History.** Every change to anything is a new version with a reason attached. Ask what a cluster looked like an hour ago, or what depends on a service.
-- **Placement advice.** Hard constraints first (volumes, pinning, data residency, trust zones, capacity), then a cost in points where 1 point is 1 ms of round trip. A *What-if* tab lets you try a move on paper, and pluggable **deciders** are compared on the same estate.
+- **Placement advice.** Hard constraints first (volumes, pinning, data residency, trust zones, capacity), then a cost in points where 1 point is 1 ms of round trip. A *What-if* tab lets you try a move on paper, and pluggable **deciders** are compared on the same landscape.
 - **Telemetry and FUSION.** Opt-in collectors, regional operators and a bundled Prometheus, Loki, Tempo and Grafana stack with nine dashboards (fleet, clusters, workloads, links, delivery and Ikhnos' own health), opened through the server so nothing is exposed.
 - **Cluster links.** Loss, delay and jitter between clusters you choose to pair, from real traffic and active measurement.
 - **Diagnose.** One button per agent explains what is wrong with it, worst first, with the `kubectl` command for each finding.
@@ -78,7 +78,7 @@ Most placement tools give you an answer. Ikhnos gives you the answer, how much t
   </picture>
 </p>
 
-The advisor is **pluggable**. Any HTTP service that speaks the [decider webhook](backend/docs/decider-webhook.openapi.yaml) is scored against the built-in *Baseline* and *Follow the heaviest talker* on the same estate, which makes Ikhnos a testbed for your own placement policy, heuristic or learned. The cost function's exact formulas are in [`backend/docs/advice.md`](backend/docs/advice.md); what is still missing for research use is on the [roadmap](https://alexandrosst.github.io/ikhnos/docs/project/roadmap).
+The advisor is **pluggable**. Any HTTP service that speaks the [decider webhook](backend/docs/decider-webhook.openapi.yaml) is scored against the built-in *Baseline* and *Follow the heaviest talker* on the same landscape, which makes Ikhnos a testbed for your own placement policy, heuristic or learned. The cost function's exact formulas are in [`backend/docs/advice.md`](backend/docs/advice.md); what is still missing for research use is on the [roadmap](https://alexandrosst.github.io/ikhnos/docs/project/roadmap).
 
 ## How it works
 
@@ -126,7 +126,7 @@ kubectl -n ikhnos port-forward service/ikhnos-server 8080:8080   # https://local
 
 Sign in as `admin`, choose a real password, then use **Connect a cluster**: it prints the `helm install` for the agent with its token and the server's CA pin already filled in. Copy the sealing key the chart made out of the cluster (the install notes print the command); it protects the secrets stored in the server's database. The full walk-through, including a load balancer or Gateway for real use, is in the [quickstart](https://alexandrosst.github.io/ikhnos/docs/getting-started/quickstart) and the [production guide](https://alexandrosst.github.io/ikhnos/docs/installation/production-cluster).
 
-**Just want to look around?** The UI runs on its own, with a made-up cloud, edge and far-edge estate and no server:
+**Just want to look around?** The UI runs on its own, with a made-up cloud, edge and far-edge landscape and no server:
 
 ```bash
 git clone https://github.com/alexandrosst/ikhnos.git && cd ikhnos

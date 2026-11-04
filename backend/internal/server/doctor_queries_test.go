@@ -15,9 +15,9 @@ import (
 
 	"google.golang.org/protobuf/encoding/protowire"
 
-	"ikhnos/internal/estate"
 	"ikhnos/internal/fusionapi"
 	"ikhnos/internal/fusionhttp"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/model"
 )
 
@@ -212,7 +212,7 @@ func doctorQueries(t *testing.T) {
 	// included. The pushed series are what the dashboards join on.
 	var pushed []map[string]string
 	t.Run("the graph, the API and the info series have the same members, accepted hints included", func(t *testing.T) {
-		doc := estate.StateDoc{Topology: model.Topology{Services: []model.Service{
+		doc := landscape.StateDoc{Topology: model.Topology{Services: []model.Service{
 			{ID: "sv-ref", Name: "ref", Namespace: "shop", ClusterID: "cl-1"},
 			{ID: "sv-inline", Name: "inline", Namespace: "shop", ClusterID: "cl-1"},
 			{ID: "sv-hint", Name: "hint", Namespace: "shop", ClusterID: "cl-1", ApplicationHint: "app-1"},
@@ -221,7 +221,7 @@ func doctorQueries(t *testing.T) {
 			"refs":{"sv-ref":{"kind":"service","applicationId":"app-1"}},
 			"services":[{"id":"sv-inline","source":"manual","applicationId":"app-1","name":"inline"}]}`)
 		groups := appGroups(ws, doc)
-		apps, err := estate.ApplicationsIn(ws, estate.HintsOf(doc))
+		apps, err := landscape.ApplicationsIn(ws, landscape.HintsOf(doc))
 		if err != nil || len(apps) != 1 || len(groups) != 1 {
 			t.Fatalf("apps %v groups %v err %v", apps, groups, err)
 		}

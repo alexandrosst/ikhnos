@@ -8,9 +8,9 @@ import (
 	"time"
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/flow"
 	"ikhnos/internal/flow/wire"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/observed"
 	"ikhnos/internal/testkit"
 )
@@ -99,7 +99,7 @@ func TestWhatTheAgentCanSendIsAcceptedOrCountedAsDropped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if back, err := estate.LoadFlowTable(data); err != nil || len(back.Edges) != wantKept {
+	if back, err := landscape.LoadFlowTable(data); err != nil || len(back.Edges) != wantKept {
 		t.Fatalf("the stored table does not load again: %v", err)
 	}
 }

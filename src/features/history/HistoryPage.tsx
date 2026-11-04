@@ -37,7 +37,7 @@ export default function HistoryPage() {
         <PageHeader title="History" description="What changed, when, and what it looked like." />
         <EmptyState
           title="History is recorded by an Ikhnos server"
-          description="Connect to a server and it records the estate as it changes: every scaling, migration, node joining or leaving and image change, with a snapshot you can scrub back through. This browser alone cannot see what happened while it was closed."
+          description="Connect to a server and it records the landscape as it changes: every scaling, migration, node joining or leaving and image change, with a snapshot you can scrub back through. This browser alone cannot see what happened while it was closed."
         />
       </>
     )
@@ -87,7 +87,7 @@ function Connected({ conn, admin }: { conn: Conn; admin: boolean }) {
     <>
       <PageHeader
         title="History"
-        description="Every change Ikhnos noticed, with its likely cause, and a recording of the estate you can go back to. For who made a change, see Activity; for changes still waiting on a decision, see Discovery."
+        description="Every change Ikhnos noticed, with its likely cause, and a recording of the landscape you can go back to. For who made a change, see Activity; for changes still waiting on a decision, see Discovery."
         actions={admin ? <RecordNow onDone={() => { void load(); setTick((t) => t + 1) }} conn={conn} /> : undefined}
       />
       {error && <ErrorBanner className="mb-4">{error}</ErrorBanner>}
@@ -145,7 +145,7 @@ function RecordNow({ conn, onDone }: { conn: Conn; onDone: () => void }) {
   )
 }
 
-/* ---------- the timeline: pick a moment, see the estate then ---------- */
+/* ---------- the timeline: pick a moment, see the landscape then ---------- */
 
 function Timeline({ hours, setHours, index, events }: { hours: number; setHours: (h: number) => void; index: HistoryIndex | null; events: ChangeEvent[] }) {
   const conn = useConn()
@@ -226,7 +226,7 @@ function Timeline({ hours, setHours, index, events }: { hours: number; setHours:
               </div>
             </div>
             <Button variant="primary" disabled={!point || loading} onClick={() => point && open(point.at)} data-testid="view-moment">
-              View the estate then
+              View the landscape then
             </Button>
           </div>
           <form
@@ -247,7 +247,7 @@ function Timeline({ hours, setHours, index, events }: { hours: number; setHours:
                 data-testid="exact-moment"
               />
             </label>
-            <Button type="submit" disabled={!exact || loading} data-testid="view-exact">View the estate then</Button>
+            <Button type="submit" disabled={!exact || loading} data-testid="view-exact">View the landscape then</Button>
             <span className="min-w-0 flex-1 basis-48 text-xs text-nb-500">You get the newest recording at or before that time; the banner says exactly which.</span>
           </form>
           {viewError && <p className="mt-2 text-sm text-bad" role="alert">{viewError}</p>}
@@ -337,7 +337,7 @@ function Events({ events, hours }: { events: ChangeEvent[] | null; hours: number
               {e.cause && <div className="mt-0.5 text-xs italic text-nb-500">Likely cause: {e.cause}</div>}
             </Td>
             <Td>
-              <Button size="sm" onClick={async () => (await view(conn, e.at)) && navigate('/topology')} title="Show the estate at the moment of this change">
+              <Button size="sm" onClick={async () => (await view(conn, e.at)) && navigate('/topology')} title="Show the landscape at the moment of this change">
                 View then
               </Button>
             </Td>
@@ -512,7 +512,7 @@ function Traffic({ conn }: { conn: Conn }) {
 /* ---------- what is recorded and how often (administrators) ---------- */
 
 const FIELDS: { key: keyof Pick<AppSettings, 'snapshotMinutes' | 'retentionDays' | 'maxHistoryMb' | 'tombstoneRetentionDays' | 'consistencyMinutes' | 'staleAfterBeats'>; label: string; unit: string; min: number; max: number; hint: string }[] = [
-  { key: 'snapshotMinutes', label: 'Recording interval', unit: 'minutes', min: 1, max: 1440, hint: 'How often the estate is recorded. It is also recorded right after a change, and only when something differs (or once an hour).' },
+  { key: 'snapshotMinutes', label: 'Recording interval', unit: 'minutes', min: 1, max: 1440, hint: 'How often the landscape is recorded. It is also recorded right after a change, and only when something differs (or once an hour).' },
   { key: 'retentionDays', label: 'Keep history for', unit: 'days', min: 1, max: 365, hint: 'Every recording is kept for a day, then one per hour for a week, then one per day.' },
   { key: 'maxHistoryMb', label: 'History size limit', unit: 'MB', min: 16, max: 8192, hint: 'When the recordings grow past this, the oldest go first. The newest is always kept.' },
   { key: 'tombstoneRetentionDays', label: 'Keep removed records visible for', unit: 'days', min: 1, max: 90, hint: "Records that disappear from an agent's report are still shown as gone for this long, then removed." },

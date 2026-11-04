@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"ikhnos/internal/estate"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/store"
 )
 
@@ -21,7 +21,7 @@ func TestAnOrganisationLoadingDoesNotHoldUpAnother(t *testing.T) {
 	started, release := make(chan struct{}), make(chan struct{})
 	var built atomic.Int32
 	var once sync.Once
-	p.Tune = func(h *estate.Hub) {
+	p.Tune = func(h *landscape.Hub) {
 		if h.C.OrgID == "org-1" {
 			built.Add(1)
 			once.Do(func() { close(started) })

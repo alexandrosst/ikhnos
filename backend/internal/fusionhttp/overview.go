@@ -120,7 +120,7 @@ type topologyAter interface {
 	TopologyAt(ctx context.Context, appID string, at time.Time) (*fusionapi.TopologyView, []fusionapi.AppMember, error)
 }
 
-// AppTopology is one application's services and the traffic between them and the rest of the estate, now or (at=) as of a
+// AppTopology is one application's services and the traffic between them and the rest of the landscape, now or (at=) as of a
 // past moment, with what changed around them in the window before it.
 func (g *Guard) AppTopology(w http.ResponseWriter, r *http.Request, c *fusionapi.Client, who Caller) {
 	q := r.URL.Query()

@@ -3,7 +3,7 @@ import { api, type Conn } from '@/lib/api'
 import type { HistoricAgent, HistoryPoint, SnapshotTopology } from '@/lib/history'
 
 /**
- * "The estate as it was": while a recorded moment is chosen, every page reads that moment instead of now.
+ * "The landscape as it was": while a recorded moment is chosen, every page reads that moment instead of now.
  * It lives in memory only (nothing about it is saved or shared), and while it is active the topology store
  * refuses edits, so a change can never be made to a picture of the past by mistake.
  */

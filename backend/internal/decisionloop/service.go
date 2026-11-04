@@ -3,7 +3,7 @@
 //
 // It owns the loop and nothing the loop acts on. It proposes a change to an agent's access and asks the agents' side whether the
 // change is well formed and whether it widens what the agent shares (Access); it reads an agent's own load and which Config the agent
-// has confirmed from the estate's side (Load). It knows neither what a tier is nor what a view is.
+// has confirmed from the landscape's side (Load). It knows neither what a tier is nor what a view is.
 package decisionloop
 
 import (

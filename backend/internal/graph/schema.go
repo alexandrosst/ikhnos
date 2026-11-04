@@ -32,7 +32,7 @@ const SchemaVersion = 4
 //	   (an application's member services) is written only through LinkEntities, the moment a workspace
 //	   save says an application's membership changed - Record's own sweep leaves any edge whose source
 //	   kind it does not poll (kinds.Polled == false) alone entirely, so the two never fight over it.
-//	(:Snapshot {org, at, fp, bytes, traffic, paths})   the moments the estate was recorded, plus the
+//	(:Snapshot {org, at, fp, bytes, traffic, paths})   the moments the landscape was recorded, plus the
 //	   volatile counters (traffic, path quality) that are not versioned
 //	(:Event {org, id, at, kind, targetKind, targetId, ...})  what changed, in words
 //	   -[:EXPLAINS]-> (:Version)   when the change was one that also produced a new version of its

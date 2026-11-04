@@ -18,7 +18,7 @@ import (
 )
 
 // Compact drops what a snapshot does not need (evidence strings, labels of nodes and services, open
-// suggestions) so a record of a large estate stays small. Cluster labels are kept: they are where
+// suggestions) so a record of a large landscape stays small. Cluster labels are kept: they are where
 // region and provider hints come from.
 func Compact(t model.Topology) model.Topology {
 	out := model.Topology{
@@ -68,7 +68,7 @@ func Compact(t model.Topology) model.Topology {
 
 // Encode compresses a snapshot for storage and returns a fingerprint of its content. The
 // fingerprint ignores volatile fields (last-seen stamps and per-window rates) so that an unchanged
-// estate is recognised as unchanged.
+// landscape is recognised as unchanged.
 func Encode(t model.Topology) (data []byte, fingerprint string, err error) {
 	raw, err := json.Marshal(t)
 	if err != nil {
@@ -85,7 +85,7 @@ func Encode(t model.Topology) (data []byte, fingerprint string, err error) {
 	return buf.Bytes(), Fingerprint(t), nil
 }
 
-// Fingerprint hashes what makes two snapshots "the same estate": records and their state, without
+// Fingerprint hashes what makes two snapshots "the same landscape": records and their state, without
 // timestamps, revisions or traffic rates.
 func Fingerprint(t model.Topology) string {
 	h := sha256.New()

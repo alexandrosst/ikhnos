@@ -8,7 +8,7 @@ import (
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
 	"ikhnos/internal/agentcaps"
-	"ikhnos/internal/estate"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/testkit"
 )
 
@@ -135,7 +135,7 @@ func TestTheDocumentOfAnAgentNeverSeenSinceTheServerStartedHasAnEmptyList(t *tes
 }
 
 // agentDoc is the document the API serves for one agent, as the hub builds it.
-func (r *hubRig) agentDoc(t *testing.T, id string) estate.AgentDoc {
+func (r *hubRig) agentDoc(t *testing.T, id string) landscape.AgentDoc {
 	t.Helper()
 	s, err := r.hub.State(context.Background())
 	if err != nil {
@@ -147,5 +147,5 @@ func (r *hubRig) agentDoc(t *testing.T, id string) estate.AgentDoc {
 		}
 	}
 	t.Fatalf("agent %s is not in the state", id)
-	return estate.AgentDoc{}
+	return landscape.AgentDoc{}
 }

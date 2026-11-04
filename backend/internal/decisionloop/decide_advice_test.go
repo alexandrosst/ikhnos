@@ -48,7 +48,7 @@ func advCluster(id string, st twin.State, attrs map[string]twin.Attr) twin.Entit
 	return e
 }
 
-// adviceModel is a small estate with one cluster of every interesting kind.
+// adviceModel is a small landscape with one cluster of every interesting kind.
 func adviceModel() twin.Model {
 	known := map[string]twin.Attr{"cpuAllocatable": advNum(1, "cores", twin.Reported, advFresh)}
 	blind := map[string]twin.Attr{"cpuAllocatable": advUnk("cores", twin.WhyNodesNotRead), "cpuRequested": advUnk("cores", twin.WhyNodesNotRead)}

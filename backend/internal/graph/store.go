@@ -162,7 +162,7 @@ func (s *Store) GetHistory(ctx context.Context, org string, at time.Time) (store
 	return store.HistoryPoint{At: snap.At, Bytes: len(data)}, data, nil
 }
 
-// AsOfEntities is the schema-agnostic view of the estate as of a moment: every entity's Version
+// AsOfEntities is the schema-agnostic view of the landscape as of a moment: every entity's Version
 // doc, whatever kind it is, with no projection into model.Topology. Unlike GetHistory, there is no
 // SQLite-buffered fallback for this -- it is a graph-native read (an external API, or an LLM walking
 // the graph), so when the graph is away it says so rather than answering from a narrower buffer.
@@ -699,7 +699,7 @@ func (s *Store) Dependencies(ctx context.Context, org string, at time.Time, kind
 	return s.DB.Dependencies(ctx, org, at, kind, id, hops)
 }
 
-// DiffEntities compares the estate at two moments, entity by entity (see DB.DiffEntities).
+// DiffEntities compares the landscape at two moments, entity by entity (see DB.DiffEntities).
 func (s *Store) DiffEntities(ctx context.Context, org string, from, to time.Time) (StructuralDiff, error) {
 	if !s.ready.Load() {
 		return StructuralDiff{}, ErrUnavailable

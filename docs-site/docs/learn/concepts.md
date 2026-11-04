@@ -20,7 +20,7 @@ Ikhnos has a small vocabulary and uses it consistently. This page is the one pla
 | **FUSION** | The optional bundled stack that stores telemetry (Prometheus, Loki, Tempo) and shows it (Grafana), released together with the server. | [The FUSION API](../architecture/fusion-api.md) |
 | **Decider** | A program of yours, reached by webhook, that answers placement questions so it can be compared with the built-in ones. | [Mobility and placement](../user-guide/mobility-and-placement.md#pluggable-deciders) |
 
-## The estate
+## The landscape
 
 | Term | In plain words | More |
 |---|---|---|

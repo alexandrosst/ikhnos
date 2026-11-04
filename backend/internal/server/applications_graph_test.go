@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"ikhnos/internal/estate"
 	"ikhnos/internal/history"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/model"
 )
 
@@ -20,7 +20,7 @@ func TestTheGraphHoldsTheMembersTheAPIShows(t *testing.T) {
 	hub := a.core.ForOrg(aOrg)
 	hints := map[string]string{"sv-hint": "app-1", "sv-hint-old": "app-gone"}
 	hub.AppHints = func(context.Context) map[string]string { return hints }
-	doc := estate.StateDoc{Topology: model.Topology{Services: []model.Service{
+	doc := landscape.StateDoc{Topology: model.Topology{Services: []model.Service{
 		{ID: "sv-ref", Name: "ref"}, {ID: "sv-inline", Name: "inline"}, {ID: "sv-hint", Name: "hint", ApplicationHint: "app-1"}, {ID: "sv-hint-old", Name: "hint-old", ApplicationHint: "app-gone"}}}}
 	// every service is in the graph, as a topology poll would have put it there
 	tp := doc.Topology
@@ -64,7 +64,7 @@ func TestTheGraphHoldsTheMembersTheAPIShows(t *testing.T) {
 	save := func(rev int64, data string) {
 		t.Helper()
 		*a.now = a.now.Add(time.Minute)
-		if _, err := hub.Estate.SaveWorkspace(a.ctx, "ann", rev, []byte(data)); err != nil {
+		if _, err := hub.Landscape.SaveWorkspace(a.ctx, "ann", rev, []byte(data)); err != nil {
 			t.Fatal(err)
 		}
 	}

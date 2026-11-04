@@ -27,7 +27,7 @@ export interface WorldInput {
   asOf?: number
 }
 
-/** A snapshot of the estate to reason about. Immutable: what-ifs make a new one with `withMoves`. */
+/** A snapshot of the landscape to reason about. Immutable: what-ifs make a new one with `withMoves`. */
 export interface World {
   clusters: Cluster[]
   nodes: MachineNode[]

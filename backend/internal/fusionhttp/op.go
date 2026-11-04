@@ -160,7 +160,7 @@ var ParamDefs = map[string]Param{
 	"to":   {Type: "string", Default: "now", Example: "now", Desc: "End of the range, in the same forms as `from`. The range can be at most 31 days, but a trace search reads at most 7 days and a log read at most 30 days at a time."},
 
 	// the topology of an application
-	"at":     {Type: "string", Example: "2026-10-05T11:30:00Z", Desc: "An RFC 3339 time: answer as the estate was then instead of now: the services, links and traffic of the newest recording at or before it (`snapshotAt`), and the services the application had at that moment. Needs the graph database."},
+	"at":     {Type: "string", Example: "2026-10-05T11:30:00Z", Desc: "An RFC 3339 time: answer as the landscape was then instead of now: the services, links and traffic of the newest recording at or before it (`snapshotAt`), and the services the application had at that moment. Needs the graph database."},
 	"window": {Type: "string", Default: "24h", Example: "6h", Desc: "How far before now (or before `at`) to look for what changed, at most 7d."},
 	"noise":  {Type: "boolean", Default: "false", Desc: "Include the machinery links (DNS, system) that are left out by default."},
 

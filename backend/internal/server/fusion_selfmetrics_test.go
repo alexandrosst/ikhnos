@@ -12,21 +12,21 @@ import (
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
 	"ikhnos/internal/agents"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/fusionapi"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/testkit"
 )
 
-func reading(agent, cluster string, at time.Time, rss uint64) estate.SelfReading {
-	return estate.SelfReading{AgentID: agent, ClusterID: cluster, At: at, Sample: estate.SelfTelemetrySample{RSSBytes: rss, Goroutines: 7, CPUPct: ptr(3.5)}}
+func reading(agent, cluster string, at time.Time, rss uint64) landscape.SelfReading {
+	return landscape.SelfReading{AgentID: agent, ClusterID: cluster, At: at, Sample: landscape.SelfTelemetrySample{RSSBytes: rss, Goroutines: 7, CPUPct: ptr(3.5)}}
 }
 
 // What is written is the newest figure of each process, and only one that is still how things are.
 func TestSelfMetricsAreTheFreshNewestSampleOfEachCluster(t *testing.T) {
 	now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
-	srv := estate.SelfReading{At: now.Add(-20 * time.Second), Sample: estate.SelfTelemetrySample{RSSBytes: 1 << 30, Goroutines: 90, ConnectedAgents: ptr(4),
+	srv := landscape.SelfReading{At: now.Add(-20 * time.Second), Sample: landscape.SelfTelemetrySample{RSSBytes: 1 << 30, Goroutines: 90, ConnectedAgents: ptr(4),
 		FlowIngestBytesPerSec: ptr(1000.0), ModelCacheHitPct: ptr(88.0), GCPauseMsPerSec: ptr(0.2)}}
-	got := selfMetricsOf(&srv, []estate.SelfReading{
+	got := selfMetricsOf(&srv, []landscape.SelfReading{
 		reading("ag-old", "cl-1", now.Add(-time.Minute), 100),
 		reading("ag-new", "cl-1", now.Add(-10*time.Second), 200), // the cluster's agent was replaced
 		reading("ag-quiet", "cl-2", now.Add(-selfFreshFor-time.Second), 300),

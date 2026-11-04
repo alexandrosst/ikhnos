@@ -80,7 +80,7 @@ export interface HistoryIndex {
   retentionDays: number
 }
 
-/** The recorded estate at one moment. It holds what the server derived (base values, no human edits). */
+/** The recorded landscape at one moment. It holds what the server derived (base values, no human edits). */
 export interface SnapshotTopology {
   clusters: Cluster[]
   nodes: MachineNode[]
@@ -191,7 +191,7 @@ export const EVENT_KINDS: { value: string; label: string; group: 'cluster' | 'no
 
 export const kindLabel = (k: string) => EVENT_KINDS.find((x) => x.value === k)?.label ?? k.replace(/-/g, ' ')
 
-/* ---------- the estate as it was ---------- */
+/* ---------- the landscape as it was ---------- */
 
 type Rec = { id: string; overrides?: Record<string, unknown>; source?: string; siteId?: string; applicationId?: string }
 

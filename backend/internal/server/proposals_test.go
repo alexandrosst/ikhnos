@@ -12,15 +12,15 @@ import (
 	"ikhnos/internal/accounts"
 	"ikhnos/internal/agents"
 	"ikhnos/internal/decisionloop"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/store"
 	"ikhnos/internal/testkit"
 )
 
 type propRig struct {
 	*adminRig
-	h  *estate.Hub
+	h  *landscape.Hub
 	id string
 }
 

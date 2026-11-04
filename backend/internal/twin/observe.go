@@ -1,4 +1,4 @@
-// Package twin is the server's model of the estate: what was declared by people, what was observed by agents, and
+// Package twin is the server's model of the landscape: what was declared by people, what was observed by agents, and
 // the effective model that combines them with explicit precedence and per-attribute provenance.
 //
 // The principles it enforces:

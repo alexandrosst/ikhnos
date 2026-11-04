@@ -14,7 +14,7 @@ This page walks one cluster through Ikhnos from the day it is connected to the d
 
 There are only three things you must have.
 
-The **server** is one program with one database. It has two doors that have almost nothing in common. Port 8443 is for agents, over mutual TLS. Port 8080 is for you: the web interface and the JSON API behind it. The server holds the model of your estate, its history, the accounts of the people who use it, and the certificate authority that issues agents their identity.
+The **server** is one program with one database. It has two doors that have almost nothing in common. Port 8443 is for agents, over mutual TLS. Port 8080 is for you: the web interface and the JSON API behind it. The server holds the model of your landscape, its history, the accounts of the people who use it, and the certificate authority that issues agents their identity.
 
 The **agent** is one small pod in each cluster. It can read the cluster and nothing else. It starts a connection to the server and keeps it open.
 
@@ -70,7 +70,7 @@ Deeper: [Mobility and placement](../user-guide/mobility-and-placement.md) and [H
 
 ## Where telemetry goes
 
-If you want more than a picture of the estate, Ikhnos can also carry the metrics, logs and traces of your clusters.
+If you want more than a picture of the landscape, Ikhnos can also carry the metrics, logs and traces of your clusters.
 
 <Figure name="TelemetryFlow" caption="The server grants permission and reads results back. The data itself never passes through it." />
 

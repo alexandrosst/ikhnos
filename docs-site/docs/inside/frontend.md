@@ -6,7 +6,7 @@ description: How the single-page application is organised into feature layers, w
 
 # The web UI
 
-The interface is a single-page application in `src/`: React, TypeScript and Tailwind, built with Vite. It reads the server's JSON API and, with no server at all, a built-in sample estate, which is how the screenshots and most component tests run.
+The interface is a single-page application in `src/`: React, TypeScript and Tailwind, built with Vite. It reads the server's JSON API and, with no server at all, a built-in sample landscape, which is how the screenshots and most component tests run.
 
 <Figure name="FrontendLayers" caption="A feature uses shared code and the layers below it, never one beside it or above. A test holds that." />
 
@@ -49,7 +49,7 @@ If you change a Go type that the API writes, run the wire test, commit the regen
 
 ## The model and the pages
 
-The UI works from an in-browser model of the estate (`src/lib`). Placement and movability rules live there too and mirror the server's, so the UI can give advice with no server and the two agree. They are tested against the same table of cases. The rest of the state (what is selected, which tab is open) lives in `zustand` stores in `src/store` and in each feature's `store/` folder.
+The UI works from an in-browser model of the landscape (`src/lib`). Placement and movability rules live there too and mirror the server's, so the UI can give advice with no server and the two agree. They are tested against the same table of cases. The rest of the state (what is selected, which tab is open) lives in `zustand` stores in `src/store` and in each feature's `store/` folder.
 
 The map itself is built on React Flow (`@xyflow/react`). Its nodes and edges are computed in `src/features/topology/lib/graph.ts`, which is plain TypeScript and tested without a browser.
 

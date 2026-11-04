@@ -19,7 +19,7 @@ export function useJudgedAt(): number {
   return tick + skewMs
 }
 
-/** The estate as the UI shows it (with measured paths), ready for the placement engine. */
+/** The landscape as the UI shows it (with measured paths), ready for the placement engine. */
 export function useWorld(): World {
   const t = useTopology()
   const paths = usePaths()
@@ -32,7 +32,7 @@ export function useWorld(): World {
   )
 }
 
-/** Recommendations for the whole estate under this browser's policy. Never applies anything. */
+/** Recommendations for the whole landscape under this browser's policy. Never applies anything. */
 export function usePlan(): { world: World; plan: Plan; policy: Policy } {
   const world = useWorld()
   const policy = usePolicy((s) => s.policy)
@@ -44,7 +44,7 @@ const NONE = new Map<string, string>()
 
 /**
  * Where the plan would move services, for the canvas markers, worked out once the browser is idle: the plan is
- * the one heavy step of a state poll (seconds on a large estate), and the edges must not wait behind it. The
+ * the one heavy step of a state poll (seconds on a large landscape), and the edges must not wait behind it. The
  * markers follow the same plan `usePlan` gives, a moment later.
  */
 export function usePlanHints(): Map<string, string> {

@@ -19,7 +19,6 @@ import (
 	"ikhnos/internal/accountsapi"
 	"ikhnos/internal/chart"
 	"ikhnos/internal/decisionloop"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/fusion"
 	"ikhnos/internal/fusionapi"
 	"ikhnos/internal/fusionhttp"
@@ -28,6 +27,7 @@ import (
 	"ikhnos/internal/install"
 	"ikhnos/internal/installcfg"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/linksapi"
 	"ikhnos/internal/operators"
 	"ikhnos/internal/operatorsapi"
@@ -195,7 +195,7 @@ func (a *Admin) Handler() http.Handler {
 		Model: func(r *http.Request) (twin.Model, error) { m, _, err := a.tn(r).Hub.Model(r.Context()); return m, err }}.Mount(routes)
 	(&settingsapi.API{For: func(r *http.Request) *kernel.Core { return a.core(r).Core }, ImageDefaults: func() kernel.ImageConfig { return a.ImageDefaults() }}).Mount(routes)
 	telemetry.API{For: func(r *http.Request) *telemetry.Service { return a.core(r).Telemetry }}.Mount(routes)
-	(&estate.API{For: func(r *http.Request) *estate.Hub { return a.tn(r).Hub }, Settings: &a.Settings, CAPin: a.C.CA.SPKIPin,
+	(&landscape.API{For: func(r *http.Request) *landscape.Hub { return a.tn(r).Hub }, Settings: &a.Settings, CAPin: a.C.CA.SPKIPin,
 		Operators: func(r *http.Request) *operators.Service { return a.core(r).Operators }, Central: a.central, ServerNodes: a.selfProbeNodes}).Mount(routes)
 
 	a.operatorsAPI().Mount(routes)
@@ -454,7 +454,7 @@ func (a *Admin) guard(n httpkit.Need, next http.HandlerFunc) http.Handler {
 		limit := int64(64 << 10)
 		switch {
 		case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/workspace"):
-			limit = estate.MaxWorkspaceBytes + 4<<10
+			limit = landscape.MaxWorkspaceBytes + 4<<10
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/decisions"):
 			// A run can compare several deciders at once, each with up to MAX_MOVES proposals
 			// (see maxDecisionMovesTotal's own comment) - comfortably more than the default limit.

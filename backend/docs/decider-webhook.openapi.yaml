@@ -5,7 +5,7 @@ info:
   description: |
     The contract between an Ikhnos server and an external placement **decider**: an HTTP service an
     administrator points the server at (Settings → Deciders → Address), which the server calls with the
-    estate's current shape and which answers with where services should move.
+    landscape's current shape and which answers with where services should move.
 
     Ikhnos makes this call outward; a decider never calls in. That is why it is documented as a
     **webhook** rather than an ordinary path: the one operation below (`decide`) is something *this API's

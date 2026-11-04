@@ -14,8 +14,8 @@ import (
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
 	"ikhnos/internal/connectivity"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/observed"
 	"ikhnos/internal/pki"
 	"ikhnos/internal/store"
@@ -46,7 +46,7 @@ func newCredRig(t *testing.T) *credRig {
 			t.Fatal(err)
 		}
 		r.hub.Mu.Lock()
-		r.hub.Views[a.ID] = &estate.View{EstView: estate.EstView{State: testkit.NodeState("10.0." + strings.TrimPrefix(f[len(f)-2:], "0") + ".1"), Flows: observed.NewFlowTable()}, NetView: connectivity.NetView{Paths: map[string]*connectivity.PathTrack{}, Targets: map[string]connectivity.IssuedTarget{}}}
+		r.hub.Views[a.ID] = &landscape.View{EstView: landscape.EstView{State: testkit.NodeState("10.0." + strings.TrimPrefix(f[len(f)-2:], "0") + ".1"), Flows: observed.NewFlowTable()}, NetView: connectivity.NetView{Paths: map[string]*connectivity.PathTrack{}, Targets: map[string]connectivity.IssuedTarget{}}}
 		r.hub.Mu.Unlock()
 		ags = append(ags, a)
 	}

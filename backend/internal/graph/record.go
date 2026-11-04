@@ -35,7 +35,7 @@ var kinds = []struct {
 	// of every one of them against what is open every time it runs, so anything of that kind it does not
 	// see any more is gone and its edges close. A kind recorded only through RecordEntity (agent today)
 	// never hands Record such a full picture - RecordEntity versions one entity because its owner told it
-	// to, not because a poll swept the whole estate - so Record's edge sweep must leave its edges alone
+	// to, not because a poll swept the whole landscape - so Record's edge sweep must leave its edges alone
 	// entirely, in every relationship type, or it would close them again the moment it next runs.
 	Polled bool
 }{
@@ -262,9 +262,9 @@ func (d *DB) lock(org string) func() {
 	return m.Unlock
 }
 
-// Record makes the graph describe the estate as it is at `at`: entities and links that appeared are
+// Record makes the graph describe the landscape as it is at `at`: entities and links that appeared are
 // opened, ones that changed get a new version, ones that went away are closed. Only differences are
-// written, so an unchanged estate costs one snapshot row. `at` must not be older than the newest
+// written, so an unchanged landscape costs one snapshot row. `at` must not be older than the newest
 // recorded moment (an equal one is a harmless repeat).
 func (d *DB) Record(ctx context.Context, org string, at time.Time, t model.Topology, fp string, size int) error {
 	at = at.UTC().Truncate(time.Second)
@@ -920,7 +920,7 @@ func parseEdgeKey(k string) (edge, bool) {
 
 // ---- reading the past ----
 
-// Snapshot is the estate as it was at one recorded moment.
+// Snapshot is the landscape as it was at one recorded moment.
 type Snapshot struct {
 	At       time.Time
 	Bytes    int
@@ -994,7 +994,7 @@ RETURN v.kind, v.id, v.name, v.status, v.cluster, v.doc`, map[string]any{"at": t
 	return at, out, nil
 }
 
-// AsOf reconstructs the estate as of the newest recorded moment at or before `at`, as the typed
+// AsOf reconstructs the landscape as of the newest recorded moment at or before `at`, as the typed
 // model.Topology the UI and the existing history API already know. It is a projection of
 // AsOfEntities: the kinds it understands are unmarshaled into their model type, and anything else
 // (an "agent" version, or a future kind this function has not been taught about) is left out here --
@@ -1101,11 +1101,11 @@ const maxWalkHops = 8
 // maxWalkResults bounds how many entities a single walk will ever report. Past this many, the walk
 // stops opening further hops and returns what it already found: a hub node (a shared cluster, a
 // heavily-called service) can otherwise turn a handful of hops into an unbounded fan-out, and a walk
-// exists to answer "what's connected", not to enumerate an entire estate.
+// exists to answer "what's connected", not to enumerate an entire landscape.
 const maxWalkResults = 4000
 
 // Reached is one entity a graph walk found, alongside how many hops away it was. An entity reachable
-// by more than one path through the estate is reported once, at its shortest distance.
+// by more than one path through the landscape is reported once, at its shortest distance.
 type Reached struct {
 	EntitySnapshot
 	Hops int `json:"hops"`
@@ -1152,7 +1152,7 @@ type vk struct {
 // reached and not already visited, costs work proportional to the frontier's actual size instead - the
 // trade is up to `hops` round trips to the database instead of one, which is cheap next to a query that
 // might not return. maxWalkResults is the second, independent backstop: even a frontier that keeps
-// growing every level stops being followed once the estate found gets implausibly large for one answer.
+// growing every level stops being followed once the landscape found gets implausibly large for one answer.
 // walkTimeout bounds the whole of one Dependents/Dependencies call, across every one of the up to
 // maxWalkHops+2 round trips it now makes to Neo4j (see walk's own doc comment for why there are several).
 // Each individual call to the client is already bounded on its own (Client's http.Client carries its own
@@ -1282,7 +1282,7 @@ type EntityDiff struct {
 	Changes []Change `json:"changes"`
 }
 
-// StructuralDiff is what changed across the whole estate between two moments: entities that came into
+// StructuralDiff is what changed across the whole landscape between two moments: entities that came into
 // existence, entities that were retired, and entities present at both moments but that looked
 // different by the second one - down to which fields moved. Built from two AsOfEntities reads rather
 // than the event log, so it still answers precisely even across a span the event log has since pruned,
@@ -1295,7 +1295,7 @@ type StructuralDiff struct {
 	Changed []EntityDiff     `json:"changed"`
 }
 
-// DiffEntities compares the estate as of `from` against the estate as of `to`, entity by entity. One
+// DiffEntities compares the landscape as of `from` against the landscape as of `to`, entity by entity. One
 // absent at `from` and present at `to` is Added; the reverse is Removed; one present at both, with a
 // doc that reads differently, is Changed, down to which fields moved. Neither moment needs anything to
 // have been recorded yet - an org with no history before `from` simply reports everything at `to` as

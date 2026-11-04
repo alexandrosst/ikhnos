@@ -134,7 +134,7 @@ export default function Deciders({ world, policy }: { world: World; policy: Poli
 
           <Card title="Service by service" aside={<span className="text-xs text-nb-500">Where deciders disagree comes first.</span>}>
             {comparison.rows.length === 0 ? (
-              <p className="text-sm text-nb-400">No decider proposed a move. Either the estate is already well placed under this policy, or there is not yet enough traffic and path evidence to say otherwise.</p>
+              <p className="text-sm text-nb-400">No decider proposed a move. Either the landscape is already well placed under this policy, or there is not yet enough traffic and path evidence to say otherwise.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
@@ -258,7 +258,7 @@ function ExternalConfig({ admin, connected, conn }: { admin: boolean; connected:
       ) : (
         <>
           <p className="mb-4 max-w-2xl text-sm text-nb-400">
-            Any HTTP service that accepts a JSON POST of the estate and answers with recommendations: a scheduler, an optimiser, a learned policy, a script. The server calls it, refuses redirects and internal addresses it should not reach, and every answer is checked like the built-in ones. The full contract - what is sent, what to answer with, and how to check a signed request - is in the{' '}
+            Any HTTP service that accepts a JSON POST of the landscape and answers with recommendations: a scheduler, an optimiser, a learned policy, a script. The server calls it, refuses redirects and internal addresses it should not reach, and every answer is checked like the built-in ones. The full contract - what is sent, what to answer with, and how to check a signed request - is in the{' '}
             <a className="text-accent hover:underline" href="https://github.com/alexandrosst/ikhnos/blob/main/backend/docs/decider-webhook.openapi.yaml" target="_blank" rel="noreferrer">
               decider webhook spec
             </a>.

@@ -1,6 +1,6 @@
 # The effective model API
 
-`GET /api/v1/orgs/{org}/model` returns what Ikhnos currently believes about an organisation's estate: what
+`GET /api/v1/orgs/{org}/model` returns what Ikhnos currently believes about an organisation's landscape: what
 agents observe and what people declared, combined by explicit rules, with the provenance of every value. It is
 the one place a consumer (an external decider, a script, a dashboard) can read "what is true, and how sure are
 we" without re-implementing discovery.
@@ -43,7 +43,7 @@ fine.
 * `warnings` are things the server noticed that a person may want to look at (two clusters with one name; two
   records claiming one id). They never block anything. Empty is `[]`, never `null`.
 * `entities` are ordered by kind (site, cluster, node, namespace, application, service, device, external, path,
-  dependency) and then by id, so the same estate always produces the same document.
+  dependency) and then by id, so the same landscape always produces the same document.
 
 ### Entity
 
@@ -152,7 +152,7 @@ organisations can never share an id.
 
 ## Example
 
-Abbreviated from a real response (a single-cluster k3s estate whose agent was later revoked, plus one declared
+Abbreviated from a real response (a single-cluster k3s landscape whose agent was later revoked, plus one declared
 cluster). Attribute lists are cut to a few entries.
 
 ```json

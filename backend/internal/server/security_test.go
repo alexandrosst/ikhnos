@@ -10,8 +10,8 @@ import (
 	"time"
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/pki"
 	"ikhnos/internal/testkit"
 
@@ -201,7 +201,7 @@ func TestTapCutsOffUnauthenticatedCallersBeforeTheBodyIsRead(t *testing.T) {
 
 type hubRig struct {
 	*rig
-	hub  *estate.Hub
+	hub  *landscape.Hub
 	plat *Platform
 }
 

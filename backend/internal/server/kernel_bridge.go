@@ -8,9 +8,9 @@ import (
 	"ikhnos/internal/agents"
 	"ikhnos/internal/connectivity"
 	"ikhnos/internal/decisionloop"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/fusion"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/operators"
 	"ikhnos/internal/pki"
 	"ikhnos/internal/store"
@@ -32,8 +32,8 @@ type Core struct {
 	// Operators and Telemetry are the regional operators and the telemetry intents that may point at them.
 	Operators *operators.Service
 	Telemetry *telemetry.Service
-	// Estate is the hub's side of the Core: what the Hub does with it and the saved workspace.
-	Estate *estate.Service
+	// Landscape is the hub's side of the Core: what the Hub does with it and the saved workspace.
+	Landscape *landscape.Service
 	// Fusion is what the FUSION control stands on: the Core and the operators the central operator is one of.
 	Fusion *fusion.Service
 }
@@ -42,7 +42,7 @@ func wrap(k *kernel.Core) *Core {
 	ops := operators.NewService(k)
 	tel := telemetry.NewService(k, ops)
 	ag, conn, loop := agents.NewService(k, ops, tel), connectivity.NewService(k), decisionloop.NewService(k)
-	return &Core{Core: k, Accounts: accounts.NewService(k), Agents: ag, Connectivity: conn, Loop: loop, Operators: ops, Telemetry: tel, Estate: estate.NewService(k, ag, conn, loop), Fusion: fusion.NewService(k, ops)}
+	return &Core{Core: k, Accounts: accounts.NewService(k), Agents: ag, Connectivity: conn, Loop: loop, Operators: ops, Telemetry: tel, Landscape: landscape.NewService(k, ag, conn, loop), Fusion: fusion.NewService(k, ops)}
 }
 
 // NewCore returns a Core scoped to org (see kernel.NewCore).

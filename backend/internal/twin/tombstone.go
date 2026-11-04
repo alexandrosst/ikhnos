@@ -12,7 +12,7 @@ import (
 )
 
 // DefaultRetention is how long a tombstone is kept: long enough to explain a change after a weekend, short
-// enough that the estate does not fill with the ghosts of every pod-sized workload that ever ran.
+// enough that the landscape does not fill with the ghosts of every pod-sized workload that ever ran.
 const DefaultRetention = 7 * 24 * time.Hour
 
 // MaxTombstones bounds the tombstones of one organisation. The oldest go first.

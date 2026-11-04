@@ -14,9 +14,9 @@ import (
 	"ikhnos/internal/agent"
 	"ikhnos/internal/agent/collect"
 	"ikhnos/internal/agents"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/flow"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/link"
 	"ikhnos/internal/linkhub"
 	"ikhnos/internal/server"
@@ -103,7 +103,7 @@ type e2eHub struct {
 }
 
 // newE2EHub starts the hub. Secrets given turn on what the prober and the responder may ask the hub for (nil: nothing).
-func newE2EHub(t *testing.T, install link.Install, iperf bool, peersSecret, iperfSecret []byte) (*e2eHub, func(c *agent.Config, _ *server.Core, _ *estate.Hub)) {
+func newE2EHub(t *testing.T, install link.Install, iperf bool, peersSecret, iperfSecret []byte) (*e2eHub, func(c *agent.Config, _ *server.Core, _ *landscape.Hub)) {
 	t.Helper()
 	meter := link.NewMeter(link.NewPeers())
 	if peersSecret != nil {
@@ -118,7 +118,7 @@ func newE2EHub(t *testing.T, install link.Install, iperf bool, peersSecret, iper
 	fwd := linkhub.NewForwarder(srv.URL, hubSecret, nil, nil)
 	h := &e2eHub{meter: meter, pipe: flow.NewPipeline([]byte("secret-secret-secret-secret-1234"), func() *collect.Index { return nil }, nil)}
 	h.pipe.Links = fwd
-	return h, func(c *agent.Config, _ *server.Core, _ *estate.Hub) {
+	return h, func(c *agent.Config, _ *server.Core, _ *landscape.Hub) {
 		c.Flows, c.LinkHub = h.pipe, &agent.LinkHub{Forwarder: fwd, Install: install, Iperf: iperf}
 	}
 }

@@ -216,7 +216,7 @@ export function WorkingPlan() {
 export function PlanePlan() {
   const chip = (x: number, y: number, hi: boolean) => <rect x={x} y={y} width="100" height="40" rx="8" fill={hi ? accent : 'none'} fillOpacity={hi ? 0.12 : 1} stroke={hi ? accent : edge} strokeWidth={hi ? 2 : 1.25} />;
   const dbox = (y: number) => <rect x="536" y={y} width="184" height="72" rx="8" fill="none" stroke={edge} strokeWidth="1.25" />;
-  const modules = ['Accounts', 'Agents', 'Estate', 'Telemetry', 'Operators', 'Connectivity', 'Fusion', 'Advice'];
+  const modules = ['Accounts', 'Agents', 'Landscape', 'Telemetry', 'Operators', 'Connectivity', 'Fusion', 'Advice'];
   const engine: [string, boolean][] = [['Intent kit', true], ['Compiler', false], ['Delivery', false], ['Observation', false], ['Status', true], ['Advisors', false], ['Memory', true], ['Policy', true]];
   return (
     <svg viewBox="0 0 760 520" role="img" aria-label="Eight modules plug into one engine; each channel has its own receipt" fontSize="13" className="ikh-fig">

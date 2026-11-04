@@ -9,7 +9,7 @@ import (
 
 	"ikhnos/internal/accounts"
 	"ikhnos/internal/connectivity"
-	"ikhnos/internal/estate"
+	"ikhnos/internal/landscape"
 )
 
 // driftRig is an operator with one sender that chose an address, the sender connected and able to time connections.
@@ -32,7 +32,7 @@ func driftRig(t *testing.T) (a *adminRig, cookie, opID, agentID string, push cha
 	v.Connected = true
 	a.hub().Mu.Lock()
 	a.hub().Views[agentID] = v
-	a.hub().Sessions[agentID] = &estate.Session{Push: push, Cancel: func(estate.EndReason) {}}
+	a.hub().Sessions[agentID] = &landscape.Session{Push: push, Cancel: func(landscape.EndReason) {}}
 	a.hub().Mu.Unlock()
 	return a, cookie, opID, agentID, push
 }

@@ -549,7 +549,7 @@ type AuditEvent struct {
 // next to the other SQLite-only logs (audit, events) rather than in the graph.
 //
 // Schema/ClusterCount/ServiceCount/PolicyJSON summarise what the decider was given rather than storing it
-// in full: the estate (every service, flow and cluster) is already kept elsewhere (the live topology, and
+// in full: the landscape (every service, flow and cluster) is already kept elsewhere (the live topology, and
 // its own history), so storing it again on every row of every run would multiply without adding anything
 // a later lookup could not already answer, and - the same "no secrets, no environment values" rule the
 // decision input itself already follows (see Deciders.tsx) - none of it is or carries a secret.

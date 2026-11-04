@@ -15,10 +15,10 @@ import (
 	"ikhnos/internal/accounts"
 	"ikhnos/internal/agents"
 	"ikhnos/internal/connectivity"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/facts"
 	"ikhnos/internal/history"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/model"
 	"ikhnos/internal/observed"
 	"ikhnos/internal/store"
@@ -390,13 +390,13 @@ func TestOnboardedClusterAddressesAreNeverSuspicious(t *testing.T) {
 
 // ---- recording ----
 
-func liveView(now time.Time, nodes ...string) *estate.View {
+func liveView(now time.Time, nodes ...string) *landscape.View {
 	st := facts.New()
 	st.Cluster = &ikhnosv1.ClusterFacts{Uid: testkit.FP}
 	for _, n := range nodes {
 		st.Nodes[n] = &ikhnosv1.NodeFacts{Key: n, Name: n, Ready: true}
 	}
-	return &estate.View{EstView: estate.EstView{State: st, LastSync: now, LastBeat: now, Flows: observed.NewFlowTable()}, NetView: connectivity.NetView{Paths: map[string]*connectivity.PathTrack{}, Targets: map[string]connectivity.IssuedTarget{}}}
+	return &landscape.View{EstView: landscape.EstView{State: st, LastSync: now, LastBeat: now, Flows: observed.NewFlowTable()}, NetView: connectivity.NetView{Paths: map[string]*connectivity.PathTrack{}, Targets: map[string]connectivity.IssuedTarget{}}}
 }
 
 // ---- admin endpoints ----

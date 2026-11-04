@@ -3,10 +3,10 @@ package server
 import (
 	"ikhnos/internal/accountsapi"
 	"ikhnos/internal/decisionloop"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/fusion"
 	"ikhnos/internal/fusionhttp"
 	"ikhnos/internal/httpkit"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/linksapi"
 	"ikhnos/internal/operatorsapi"
 	"ikhnos/internal/settingsapi"
@@ -32,7 +32,7 @@ func WireTypes() []wire.Root {
 func wireRoots() []wire.Root {
 	var roots []wire.Root
 	for _, r := range [][]wire.Root{
-		accountsapi.WireTypes(), decisionloop.WireTypes(), estate.WireTypes(), fusion.WireTypes(), fusionhttp.WireTypes(),
+		accountsapi.WireTypes(), decisionloop.WireTypes(), landscape.WireTypes(), fusion.WireTypes(), fusionhttp.WireTypes(),
 		linksapi.WireTypes(), operatorsapi.WireTypes(), settingsapi.WireTypes(), telemetry.WireTypes(), WireTypes(),
 	} {
 		roots = append(roots, r...)

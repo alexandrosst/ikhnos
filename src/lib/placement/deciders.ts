@@ -7,7 +7,7 @@ import type { Evaluation, Move, Policy } from './types'
 import { clusterOfService, clusterStatus, freeCapacity, moveModel, rtt, siteOfCluster, storageKnown, type World } from './world'
 
 /**
- * Deciders. Something that looks at the estate and proposes where services should run. The built-in ones run in
+ * Deciders. Something that looks at the landscape and proposes where services should run. The built-in ones run in
  * the browser; an external one is any HTTP service an administrator configured, reached through the server.
  * Whatever proposes a move, the same checks apply afterwards: a proposal is only kept when the hard constraints
  * allow it, and every kept proposal is scored by the same function, so deciders can be compared fairly.
@@ -298,7 +298,7 @@ export function externalDecider(name: string, call: (input: DecisionInput) => Pr
   return {
     id,
     name,
-    description: 'Configured by an administrator. It receives the estate described above and answers with recommendations; every answer is checked against the same constraints.',
+    description: 'Configured by an administrator. It receives the landscape described above and answers with recommendations; every answer is checked against the same constraints.',
     kind: 'external',
     propose: async (input) => parseDecisionOutput((await call(input)).result),
   }
@@ -374,7 +374,7 @@ export interface DecisionLogMove {
   migrationCost: number
 }
 
-/** What a decider was given, summarised rather than stored in full: the estate (every service, flow and
+/** What a decider was given, summarised rather than stored in full: the landscape (every service, flow and
  *  cluster) is already kept elsewhere - the live topology and its own history - so repeating it on every
  *  logged run would multiply without a later lookup gaining anything it could not already answer. Policy
  *  is the one input worth keeping in full: it is small, carries no secret (the same "no secrets, no

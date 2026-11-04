@@ -1,7 +1,7 @@
 package server
 
 import (
-	"ikhnos/internal/estate"
+	"ikhnos/internal/landscape"
 	"net/netip"
 	"sort"
 	"time"
@@ -19,7 +19,7 @@ const selfProbeSilent = 3
 
 // selfProbeNodes lists the nodes whose probes have reported lately, with the addresses they read from their interfaces.
 // Nil when the server has no such probes or none has reported.
-func (a *Admin) selfProbeNodes() []estate.HostNode {
+func (a *Admin) selfProbeNodes() []landscape.HostNode {
 	if a.SelfProbe == nil {
 		return nil
 	}
@@ -33,16 +33,16 @@ func (a *Admin) selfProbeNodes() []estate.HostNode {
 		names = append(names, n)
 	}
 	sort.Strings(names)
-	var out []estate.HostNode
+	var out []landscape.HostNode
 	for _, name := range names {
 		// A probe that reports is running on that node, which is the most this says about it being usable.
-		n := estate.HostNode{Name: name, Ready: true}
+		n := landscape.HostNode{Name: name, Ready: true}
 		for _, ha := range reports[name].GetHostAddresses() {
 			if len(n.Interfaces) >= 32 { // the probe sends at most 16; a larger list is not believed
 				break
 			}
 			if p, err := netip.ParsePrefix(ha.Address); err == nil {
-				n.Interfaces = append(n.Interfaces, estate.HostAddr{Interface: ha.Interface, Kind: ha.Kind, IP: p.Addr().String()})
+				n.Interfaces = append(n.Interfaces, landscape.HostAddr{Interface: ha.Interface, Kind: ha.Kind, IP: p.Addr().String()})
 			}
 		}
 		out = append(out, n)

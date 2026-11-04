@@ -64,7 +64,7 @@ func orgN(t *testing.T, db *DB) string {
 	return org
 }
 
-func estate() model.Topology {
+func landscape() model.Topology {
 	return model.Topology{
 		Clusters: []model.Cluster{
 			{Provenance: model.Provenance{OrgID: "x", LastSeen: "2026-01-01T00:00:00Z", Revision: 4}, ID: "c-1", Name: "edge-a", Tier: "edge", Status: "connected", Region: "eu-north"},
@@ -145,20 +145,20 @@ func TestEveryStatementInThePackageIsTenantScopedOrDeliberatelyGlobal(t *testing
 	}
 }
 
-func TestTheEstateComesBackExactlyAsItWasAtEveryMoment(t *testing.T) {
+func TestTheLandscapeComesBackExactlyAsItWasAtEveryMoment(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate())
+	record(t, db, org, t0, landscape())
 
 	// t1: web is scaled to 5; traffic counters move.
-	e1 := estate()
+	e1 := landscape()
 	e1.Services[0].Replicas, e1.Services[0].ReadyReplicas = 5, 3
 	e1.Dependencies[0].Bytes = 5000
 	record(t, db, org, t0.Add(time.Hour), e1)
 
 	// t2: the db service and its dependency vanish; a node goes not-ready.
-	e2 := estate()
+	e2 := landscape()
 	e2.Services = e2.Services[:1]
 	e2.Dependencies = e2.Dependencies[1:]
 	e2.Nodes[0].Status = "not-ready"
@@ -176,7 +176,7 @@ func TestTheEstateComesBackExactlyAsItWasAtEveryMoment(t *testing.T) {
 	if !s0.At.Equal(t0) {
 		t.Errorf("at %v, want the snapshot at %v", s0.At, t0)
 	}
-	want0 := history.Compact(estate())
+	want0 := history.Compact(landscape())
 	if len(s0.Topology.Clusters) != 2 || len(s0.Topology.Nodes) != 2 || len(s0.Topology.Services) != 2 || len(s0.Topology.Dependencies) != 2 || len(s0.Topology.ExternalEndpoints) != 1 || len(s0.Topology.Paths) != 1 {
 		t.Fatalf("t0 is missing records: %+v", s0.Topology)
 	}
@@ -239,8 +239,8 @@ func TestLinksAreTemporalToo(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate())
-	e := estate()
+	record(t, db, org, t0, landscape())
+	e := landscape()
 	e.Services[0].NodeIDs = []string{"n-2"} // web moves to the other node
 	record(t, db, org, t0.Add(time.Hour), e)
 
@@ -273,7 +273,7 @@ func TestRecordEntityVersionsSomethingOutsideThePolledTopology(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate()) // clusters c-1/c-2 exist, so the entity's IN_CLUSTER edge has somewhere to land
+	record(t, db, org, t0, landscape()) // clusters c-1/c-2 exist, so the entity's IN_CLUSTER edge has somewhere to land
 
 	type doc struct {
 		AccessTier int      `json:"accessTier"`
@@ -333,7 +333,7 @@ func TestRecordEntitiesMatchesRecordEntityOneByOne(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate()) // clusters c-1/c-2 exist
+	record(t, db, org, t0, landscape()) // clusters c-1/c-2 exist
 
 	type doc struct {
 		AccessTier int `json:"accessTier"`
@@ -398,7 +398,7 @@ func TestAsOfEntitiesSeesEverythingAsOfProjectsOnlyWhatItKnows(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate()) // the only full-topology poll: clusters/services/etc. as of t0
+	record(t, db, org, t0, landscape()) // the only full-topology poll: clusters/services/etc. as of t0
 
 	type doc struct {
 		AccessTier int `json:"accessTier"`
@@ -456,7 +456,7 @@ func TestAsOfEntitiesSaysWhenItHasNoMemoryThatFarBack(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate())
+	record(t, db, org, t0, landscape())
 
 	if _, _, err := db.AsOfEntities(ctx, org, t0.Add(-time.Hour)); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("expected ErrNotFound before anything was recorded, got %v", err)
@@ -478,7 +478,7 @@ func TestRecordDoesNotTouchAnEdgeItDidNotWrite(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	e := estate() // clusters c-1/c-2, services/nodes attached to them via their own IN_CLUSTER edges
+	e := landscape() // clusters c-1/c-2, services/nodes attached to them via their own IN_CLUSTER edges
 	record(t, db, org, t0, e)
 	if err := db.RecordEntity(ctx, org, t0.Add(time.Minute), "agent", "ag-1", "edge-collector", "approved", "c-1", map[string]any{"x": 1}); err != nil {
 		t.Fatal(err)
@@ -509,10 +509,10 @@ func TestRecordDoesNotTouchAnEdgeItDidNotWrite(t *testing.T) {
 	}
 }
 
-// volatileEstate is estate() with the live readings a tier-2 agent and the flow collector attach filled in;
+// volatileLandscape is landscape() with the live readings a tier-2 agent and the flow collector attach filled in;
 // bump moves every one of them, the way the next window would.
-func volatileEstate(bump float64) model.Topology {
-	e := estate()
+func volatileLandscape(bump float64) model.Topology {
+	e := landscape()
 	f := func(v float64) *float64 { x := v + bump; return &x }
 	u := func(v uint32) *uint32 { x := v + uint32(bump); return &x }
 	n := int32(3 + bump)
@@ -539,8 +539,8 @@ func volatileEstate(bump float64) model.Topology {
 // recording) nor be stored in its document; the two a history reader draws (round-trip time, loss) ride on
 // the snapshot with the other counters.
 func TestVolatileReadingsAreNotVersioned(t *testing.T) {
-	a, _, tra, _ := extract(volatileEstate(0))
-	b, _, trb, _ := extract(volatileEstate(10))
+	a, _, tra, _ := extract(volatileLandscape(0))
+	b, _, trb, _ := extract(volatileLandscape(10))
 	if len(a) == 0 || len(a) != len(b) {
 		t.Fatalf("extract found %d and %d entities", len(a), len(b))
 	}
@@ -553,14 +553,14 @@ func TestVolatileReadingsAreNotVersioned(t *testing.T) {
 		t.Errorf("rtt and loss should ride on the snapshot counters: %+v / %+v", tra["d-1"], trb["d-1"])
 	}
 	// A real change to the same service still counts.
-	e := volatileEstate(0)
+	e := volatileLandscape(0)
 	e.Services[0].Pods[0].Ready = false
 	c, _, _, _ := extract(e)
 	if c[vkey("service", "s-1")].Hash == a[vkey("service", "s-1")].Hash {
 		t.Error("a pod going not-ready is a fact and must make a new version")
 	}
 	// extract must not edit the topology it was given (the live hub's state shares these slices).
-	e = volatileEstate(0)
+	e = volatileLandscape(0)
 	extract(e)
 	if len(e.Services[0].Pods[0].Traffic) != 1 || e.Dependencies[0].RttMs != 5 {
 		t.Errorf("extract wrote into its input: %+v", e.Services[0].Pods[0])
@@ -573,12 +573,12 @@ func TestRecordingOnlyLiveReadingsWritesNoNewVersions(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, volatileEstate(0))
+	record(t, db, org, t0, volatileLandscape(0))
 	before, err := db.Stats(ctx, org)
 	if err != nil {
 		t.Fatal(err)
 	}
-	record(t, db, org, t0.Add(time.Hour), volatileEstate(10))
+	record(t, db, org, t0.Add(time.Hour), volatileLandscape(10))
 	after, err := db.Stats(ctx, org)
 	if err != nil {
 		t.Fatal(err)
@@ -626,14 +626,14 @@ func TestEveryWritePathKeepsTheOpenFlagInStepWithValidTo(t *testing.T) {
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
 	at := func(m int) time.Time { return t0.Add(time.Duration(m) * time.Minute) }
 
-	record(t, db, org, at(0), estate())
-	e1 := estate()
+	record(t, db, org, at(0), landscape())
+	e1 := landscape()
 	e1.Services[0].Replicas = 9 // a new version
 	e1.Dependencies = e1.Dependencies[1:]
 	e1.Paths = nil // links and entities close
 	record(t, db, org, at(10), e1)
 	record(t, db, org, at(10), e1) // the same instant again replaces rather than breaks
-	if _, _, err := db.RecordCatchUp(ctx, org, []CatchUpPoint{{At: at(20), Topo: estate(), FP: "x", Size: 1}, {At: at(30), Topo: e1, FP: "y", Size: 1}}); err != nil {
+	if _, _, err := db.RecordCatchUp(ctx, org, []CatchUpPoint{{At: at(20), Topo: landscape(), FP: "x", Size: 1}, {At: at(30), Topo: e1, FP: "y", Size: 1}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -680,13 +680,13 @@ func TestEveryWritePathKeepsTheOpenFlagInStepWithValidTo(t *testing.T) {
 }
 
 // TestEnsureFlagsWhatWasOpenBeforeTheFlagExisted: a graph written by schema 2 has no open flag; Ensure
-// must set it on exactly the current versions and links, or Record would see an empty estate and write
+// must set it on exactly the current versions and links, or Record would see an empty landscape and write
 // every entity a second time.
 func TestEnsureFlagsWhatWasOpenBeforeTheFlagExisted(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	e := estate()
+	e := landscape()
 	record(t, db, org, t0, e)
 	e.Services = e.Services[:1] // db goes: closed versions and links exist
 	e.Dependencies = e.Dependencies[1:]
@@ -714,12 +714,12 @@ func TestEnsureFlagsWhatWasOpenBeforeTheFlagExisted(t *testing.T) {
 	if n := openFlagMismatches(t, db, org); n != 0 {
 		t.Errorf("%d versions or links are still unflagged or wrongly flagged after Ensure", n)
 	}
-	// The next recording of the same estate finds nothing to write: all it adds is the snapshot.
+	// The next recording of the same landscape finds nothing to write: all it adds is the snapshot.
 	before, _ := db.Stats(ctx, org)
 	record(t, db, org, t0.Add(2*time.Hour), e)
 	after, _ := db.Stats(ctx, org)
 	if after.Versions != before.Versions {
-		t.Errorf("recording an unchanged estate after the migration wrote %d versions", after.Versions-before.Versions)
+		t.Errorf("recording an unchanged landscape after the migration wrote %d versions", after.Versions-before.Versions)
 	}
 }
 
@@ -730,7 +730,7 @@ func TestRecordLeavesAnEntityItDidNotWriteAlone(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	e := estate()
+	e := landscape()
 	record(t, db, org, t0, e)
 	if err := db.RecordEntity(ctx, org, t0.Add(time.Minute), "application", "app-1", "shop", "", "", map[string]any{"name": "shop"}); err != nil {
 		t.Fatal(err)
@@ -784,7 +784,7 @@ func TestDependentsWalksBackwardAcrossRelationshipTypes(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate()) // s-1 CALLS s-2; both IN_CLUSTER their own cluster; p-1 PATH_TO c-2
+	record(t, db, org, t0, landscape()) // s-1 CALLS s-2; both IN_CLUSTER their own cluster; p-1 PATH_TO c-2
 
 	sat, one, err := db.Dependents(ctx, org, t0, "service", "s-2", 1)
 	if err != nil {
@@ -830,7 +830,7 @@ func TestDependenciesWalksForwardTheOppositeDirection(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate())
+	record(t, db, org, t0, landscape())
 
 	_, one, err := db.Dependencies(ctx, org, t0, "service", "s-1", 1)
 	if err != nil {
@@ -867,9 +867,9 @@ func TestDependentsRespectsTheMomentAsked(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate())
+	record(t, db, org, t0, landscape())
 
-	after := estate()
+	after := landscape()
 	after.Dependencies = after.Dependencies[1:] // drop d-1 (s-1 -> s-2): s-1 no longer calls s-2
 	t1 := t0.Add(time.Hour)
 	record(t, db, org, t1, after)
@@ -893,7 +893,7 @@ func TestDependentsRespectsTheMomentAsked(t *testing.T) {
 func TestDependentsOfAnUnknownEntityIsNotFound(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
-	record(t, db, org, time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC), estate())
+	record(t, db, org, time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC), landscape())
 	if _, _, err := db.Dependents(ctx, org, time.Now(), "service", "does-not-exist", 3); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("expected ErrNotFound for an unknown entity, got %v", err)
 	}
@@ -905,7 +905,7 @@ func TestWalkHopsAreClamped(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate())
+	record(t, db, org, t0, landscape())
 	_, atMax, err := db.Dependencies(ctx, org, t0, "service", "s-1", maxWalkHops)
 	if err != nil {
 		t.Fatal(err)
@@ -923,14 +923,14 @@ func TestWalkHopsAreClamped(t *testing.T) {
 // clamp itself (record.go) claims hops < 1 becomes 1, but nothing previously proved that specific number -
 // only that a caller-supplied hops=0 or a negative value did not error. Unclamped, hops=0 would make the
 // walk's own "for h := 1; h <= hops" loop never run at all, reporting nothing; s-1 has four direct
-// forward edges in estate() across every relationship type Dependencies walks, not just CALLS - IN_CLUSTER
+// forward edges in landscape() across every relationship type Dependencies walks, not just CALLS - IN_CLUSTER
 // to c-1, RUNS_ON to n-1, and CALLS to s-2 and ext-1 - so a real clamp to 1 is visible as "found all four
 // direct neighbors," not just "found no fewer than some other call."
 func TestWalkHopsBelowOneClampToOne(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate())
+	record(t, db, org, t0, landscape())
 
 	_, atOne, err := db.Dependencies(ctx, org, t0, "service", "s-1", 1)
 	if err != nil {
@@ -951,13 +951,13 @@ func TestWalkHopsBelowOneClampToOne(t *testing.T) {
 	}
 }
 
-// topoStep1 and topoStep2 build a short, deliberately eventful history on top of estate(): a version
+// topoStep1 and topoStep2 build a short, deliberately eventful history on top of landscape(): a version
 // change (s-1 scales from 2 replicas to 3) and then an entity actually disappearing (s-2, along with the
 // dependency that pointed at it) - between them they exercise every branch diffEntities has to get right
 // when several snapshots are chained in one RecordCatchUp batch rather than applied one Record call at a
 // time: closing a version, opening a new one, marking an entity gone, and closing the edge that named it.
 func topoStep1() model.Topology {
-	t := estate()
+	t := landscape()
 	svcs := append([]model.Service{}, t.Services...)
 	svcs[0].Replicas = 3
 	t.Services = svcs
@@ -995,7 +995,7 @@ func TestRecordCatchUpMatchesSequentialRecordCalls(t *testing.T) {
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
 	t1 := t0.Add(time.Hour)
 	t2 := t1.Add(time.Hour)
-	topos := []model.Topology{estate(), topoStep1(), topoStep2()}
+	topos := []model.Topology{landscape(), topoStep1(), topoStep2()}
 	times := []time.Time{t0, t1, t2}
 
 	for i, topo := range topos {
@@ -1073,7 +1073,7 @@ func TestRecordCatchUpDropsWhatIsAlreadyOlderThanRecorded(t *testing.T) {
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
 	t1 := t0.Add(time.Hour)
 	t2 := t1.Add(time.Hour)
-	record(t, db, org, t1, estate()) // as if a live sync already recorded t1 while a backlog was building
+	record(t, db, org, t1, landscape()) // as if a live sync already recorded t1 while a backlog was building
 
 	mk := func(at time.Time, topo model.Topology) CatchUpPoint {
 		c := history.Compact(topo)
@@ -1083,7 +1083,7 @@ func TestRecordCatchUpDropsWhatIsAlreadyOlderThanRecorded(t *testing.T) {
 		}
 		return CatchUpPoint{At: at, Topo: c, FP: fp, Size: len(data)}
 	}
-	points := []CatchUpPoint{mk(t0, estate()), mk(t2, topoStep1())} // t0 is now stale; t2 is still new
+	points := []CatchUpPoint{mk(t0, landscape()), mk(t2, topoStep1())} // t0 is now stale; t2 is still new
 	applied, dropped, err := db.RecordCatchUp(ctx, org, points)
 	if err != nil {
 		t.Fatal(err)
@@ -1107,7 +1107,7 @@ func TestRecordCatchUpDropsWhatIsAlreadyOlderThanRecorded(t *testing.T) {
 // visited set instead of Cypher's *1..hops variable-length pattern: a call graph with a cycle in it
 // gives a variable-length pattern infinitely many paths to enumerate at any hop bound above the cycle's
 // own length (every trip around it is a longer, still-valid path), which is exactly the kind of
-// explosion that made the old query dangerous on a real, long-lived estate. A visited-by-entity walk
+// explosion that made the old query dangerous on a real, long-lived landscape. A visited-by-entity walk
 // instead reaches each member of the cycle exactly once, at its true shortest distance, and terminates
 // because there is nothing left to visit.
 func TestDependentsWalksACycleWithoutHangingOrDuplicating(t *testing.T) {
@@ -1211,9 +1211,9 @@ func TestDiffEntitiesReportsAddedRemovedAndChanged(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate())
+	record(t, db, org, t0, landscape())
 
-	after := estate()
+	after := landscape()
 	after.Services[0].Replicas = 3                                                                                  // s-1 changed
 	after.ExternalEndpoints = nil                                                                                   // ext-1 removed
 	after.Dependencies = after.Dependencies[:1]                                                                     // d-2 (s-1 -> ext-1) removed along with it
@@ -1277,7 +1277,7 @@ func TestLinkEntitiesKeepsExactlyTheGivenMembersOpen(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate()) // s-1, s-2 exist as services for the application to point at
+	record(t, db, org, t0, landscape()) // s-1, s-2 exist as services for the application to point at
 
 	if err := db.RecordEntity(ctx, org, t0.Add(time.Minute), "application", "app-1", "Shop", "", "", map[string]any{"name": "Shop"}); err != nil {
 		t.Fatal(err)
@@ -1343,7 +1343,7 @@ func TestLinkEntitiesBatchKeepsExactlyTheGivenMembersOpenForEachEntity(t *testin
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate()) // s-1, s-2 exist as services
+	record(t, db, org, t0, landscape()) // s-1, s-2 exist as services
 
 	for _, id := range []string{"app-1", "app-2"} {
 		if err := db.RecordEntity(ctx, org, t0.Add(time.Minute), "application", id, id, "", "", map[string]any{"name": id}); err != nil {
@@ -1508,9 +1508,9 @@ func TestEventsExplainTheVersionTheyProduced(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate())
+	record(t, db, org, t0, landscape())
 
-	e := estate()
+	e := landscape()
 	e.Services[0].Replicas = 5 // s-1: 2 -> 5
 	scaled := store.Event{At: t0.Add(time.Hour).Add(137 * time.Millisecond), Kind: "service-scaled", TargetKind: "service", TargetID: "s-1", Detail: "2 -> 5", Cause: "autoscaler (1-6)"}
 	unrelated := store.Event{At: t0.Add(time.Hour), Kind: "cluster-status", TargetKind: "cluster", TargetID: "c-2", Detail: "reachable -> unreachable"} // no version for c-2 changed
@@ -1551,8 +1551,8 @@ func TestRecordingTheSameInstantTwiceReplacesRatherThanBreaks(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate())
-	e := estate()
+	record(t, db, org, t0, landscape())
+	e := landscape()
 	e.Services[0].Replicas = 9
 	record(t, db, org, t0, e) // same second, different content
 	s, err := db.AsOf(ctx, org, t0)
@@ -1567,8 +1567,8 @@ func TestRecordingTheSameInstantTwiceReplacesRatherThanBreaks(t *testing.T) {
 func TestThePastCannotBeWrittenAfterTheFact(t *testing.T) {
 	db, org := testDB(t)
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate())
-	c := history.Compact(estate())
+	record(t, db, org, t0, landscape())
+	c := history.Compact(landscape())
 	if err := db.Record(context.Background(), org, t0.Add(-time.Hour), c, "x", 1); !errors.Is(err, ErrOutOfOrder) {
 		t.Errorf("got %v", err)
 	}
@@ -1581,7 +1581,7 @@ func TestTenantsNeverSeeEachOthersHistoryEventsOrAudit(t *testing.T) {
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
 
 	// The same ids in both tenants, different contents: the collision a shared database invites.
-	ea, eb := estate(), estate()
+	ea, eb := landscape(), landscape()
 	ea.Services[0].Name = "web-of-A"
 	eb.Services[0].Name = "web-of-B"
 	eb.Clusters = eb.Clusters[:1]
@@ -1643,8 +1643,8 @@ func TestTimelineShowsWhatChangedAndWhoDidIt(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate())
-	e := estate()
+	record(t, db, org, t0, landscape())
+	e := landscape()
 	e.Services[0].Replicas = 5
 	e.Services[0].Image = "web:2"
 	record(t, db, org, t0.Add(time.Hour), e)
@@ -1802,7 +1802,7 @@ func TestThinningSnapshotsKeepsEveryStillRememberedMomentAnswerable(t *testing.T
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
 	for i := 0; i < 4; i++ {
-		e := estate()
+		e := landscape()
 		e.Services[0].Replicas = int32(i + 1)
 		record(t, db, org, t0.Add(time.Duration(i)*time.Hour), e)
 	}
@@ -1907,7 +1907,7 @@ func TestHistoryAnEarlierVersionKeptInSQLiteMovesIntoTheGraph(t *testing.T) {
 	}
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
 	for i := 0; i < 3; i++ {
-		e := estate()
+		e := landscape()
 		e.Services[0].Replicas = int32(i + 1)
 		if err := sq.AddHistory(ctx, org, t0.Add(time.Duration(i)*time.Hour), encoded(t, e)); err != nil {
 			t.Fatal(err)
@@ -1947,7 +1947,7 @@ func TestHistoryAnEarlierVersionKeptInSQLiteMovesIntoTheGraph(t *testing.T) {
 	}
 
 	// New history goes straight to the graph now, in order after the old.
-	if err := st.AddHistory(ctx, org, t0.Add(5*time.Hour), encoded(t, estate())); err != nil {
+	if err := st.AddHistory(ctx, org, t0.Add(5*time.Hour), encoded(t, landscape())); err != nil {
 		t.Fatal(err)
 	}
 	if left, _ := sq.ListHistory(ctx, org, time.Time{}, time.Time{}); len(left) != 0 {
@@ -1969,14 +1969,14 @@ func TestWhileTheGraphIsAwayNothingIsLostAndItCatchesUp(t *testing.T) {
 
 	st := Wrap(sq, db, slog.Default())
 	st.Sync(ctx)
-	if err := st.AddHistory(ctx, org, t0, encoded(t, estate())); err != nil {
+	if err := st.AddHistory(ctx, org, t0, encoded(t, landscape())); err != nil {
 		t.Fatal(err)
 	}
 	// Take the database away: point the client at nothing.
 	real := db.C
 	dead, _ := NewClient(Config{URL: "http://127.0.0.1:1", Timeout: time.Second})
 	db.C = dead
-	e := estate()
+	e := landscape()
 	e.Services[0].Replicas = 7
 	if err := st.AddHistory(ctx, org, t0.Add(time.Hour), encoded(t, e)); err != nil {
 		t.Fatalf("a snapshot taken while the graph is away must still be kept: %v", err)
@@ -2098,7 +2098,7 @@ func TestAServerWithNoOrganisationsCannotWipeTheMemory(t *testing.T) {
 	db, _ := testDB(t)
 	org := orgN(t, db)
 	ctx := context.Background()
-	record(t, db, org, time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC), estate())
+	record(t, db, org, time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC), landscape())
 	if err := db.SyncTenant(ctx, TenantInfo{ID: org, Name: "Old", CreatedAt: time.Now()}, nil, time.Now()); err != nil {
 		t.Fatal(err)
 	}
@@ -2257,7 +2257,7 @@ func TestWalkTimeoutBoundsTheWholeOperation(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	record(t, db, org, t0, estate())
+	record(t, db, org, t0, landscape())
 
 	old := walkTimeout
 	walkTimeout = time.Nanosecond
@@ -2289,7 +2289,7 @@ RETURN e.id, e.key, e.ns, v.key, v.ns`, nil))
 func TestServicesCarryTheirKeyAndNamespace(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
-	e := estate()
+	e := landscape()
 	e.Services[0].Namespace = "shop"
 	record(t, db, org, time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC), e)
 
@@ -2320,7 +2320,7 @@ func TestEnsureGivesTheCurrentServicesTheirKey(t *testing.T) {
 	db, org := testDB(t)
 	ctx := context.Background()
 	t0 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	e := estate()
+	e := landscape()
 	e.Services[0].Namespace = "shop"
 	record(t, db, org, t0, e)
 
@@ -2339,10 +2339,10 @@ func TestEnsureGivesTheCurrentServicesTheirKey(t *testing.T) {
 	if got := serviceKeyRows(t, db, org); got["s-1"] != [4]string{"web/shop/c-1", "shop", "web/shop/c-1", "shop"} || got["s-2"][0] != "db//c-2" {
 		t.Errorf("after Ensure: %v", got)
 	}
-	// And nothing else was versioned for it: the next recording of the same estate writes no version.
+	// And nothing else was versioned for it: the next recording of the same landscape writes no version.
 	before, _ := db.Stats(ctx, org)
 	record(t, db, org, t0.Add(time.Hour), e)
 	if after, _ := db.Stats(ctx, org); after.Versions != before.Versions {
-		t.Errorf("recording an unchanged estate after the migration wrote %d versions", after.Versions-before.Versions)
+		t.Errorf("recording an unchanged landscape after the migration wrote %d versions", after.Versions-before.Versions)
 	}
 }

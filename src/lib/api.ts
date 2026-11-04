@@ -221,7 +221,7 @@ export type ReachedEntity = W.Reached
 /** How one entity looked different between two moments a structural diff compared. */
 export type EntityDiff = W.EntityDiff
 
-/** What changed across the whole estate between two moments: entities added, entities removed, and
+/** What changed across the whole landscape between two moments: entities added, entities removed, and
  * entities present at both that looked different by the second one. */
 export type StructuralDiff = W.GraphDiffDoc
 

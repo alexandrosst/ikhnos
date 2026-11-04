@@ -10,9 +10,9 @@ import (
 
 	"ikhnos/internal/accounts"
 	"ikhnos/internal/agents"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/graph"
 	"ikhnos/internal/history"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/model"
 	"ikhnos/internal/store"
 	"ikhnos/internal/testkit"
@@ -77,7 +77,7 @@ func TestHistoryTimelineAndAuditThroughTheAPIStayInsideTheirOrganisation(t *test
 	}
 	gs.Sync(a.ctx) // projects the audit trail (organisation creation, sign-ups)
 
-	// A moment in the past, chosen by the person: the estate as it was then.
+	// A moment in the past, chosen by the person: the landscape as it was then.
 	at := t0.Add(90 * time.Minute).UTC().Format(time.RFC3339)
 	r := a.do("GET", org(aOrg, "history/snapshot?at="+at), nil, withCookie(alice))
 	if r.Code != 200 {
@@ -573,7 +573,7 @@ func TestWithoutTheGraphTheSameRoutesSayWhatIsMissing(t *testing.T) {
 // without Neo4j.
 type timelineGraph struct {
 	store.Store
-	estate.GraphAPI
+	landscape.GraphAPI
 }
 
 func (timelineGraph) Timeline(_ context.Context, _, kind, id string, _ int) (graph.Timeline, error) {

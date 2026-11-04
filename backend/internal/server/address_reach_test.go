@@ -9,7 +9,7 @@ import (
 	"ikhnos/internal/accounts"
 	"ikhnos/internal/agents"
 	"ikhnos/internal/connectivity"
-	"ikhnos/internal/estate"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/testkit"
 )
 
@@ -20,7 +20,7 @@ func connectedAgent(t *testing.T, a *adminRig) (agentID string, push chan *ikhno
 	push = make(chan *ikhnosv1.ServerMessage, 8)
 	a.hub().Mu.Lock()
 	a.hub().Views[agentID] = liveView(*a.now, "n1")
-	a.hub().Sessions[agentID] = &estate.Session{Push: push, Cancel: func(estate.EndReason) {}}
+	a.hub().Sessions[agentID] = &landscape.Session{Push: push, Cancel: func(landscape.EndReason) {}}
 	a.hub().Mu.Unlock()
 	return agentID, push
 }
@@ -168,7 +168,7 @@ func connectedAgent2(t *testing.T, a *adminRig, agentID string) (string, chan *i
 	t.Helper()
 	push := make(chan *ikhnosv1.ServerMessage, 8)
 	a.hub().Mu.Lock()
-	a.hub().Sessions[agentID] = &estate.Session{Push: push, Cancel: func(estate.EndReason) {}}
+	a.hub().Sessions[agentID] = &landscape.Session{Push: push, Cancel: func(landscape.EndReason) {}}
 	a.hub().Mu.Unlock()
 	return agentID, push
 }

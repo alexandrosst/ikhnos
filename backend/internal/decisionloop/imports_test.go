@@ -12,7 +12,7 @@ import (
 
 // The decision loop stands on the kernel, on accounts (who may decide, and the names the server acts under), on the HTTP kit its routes are written with, on the store, and on the two
 // libraries it computes with: the capacity advice and the twin it reads. It does not import the server or another module: what it needs
-// of agents and of the estate it is given as a port (Access, Load), so that the line between them is the compiler's and not a habit.
+// of agents and of the landscape it is given as a port (Access, Load), so that the line between them is the compiler's and not a habit.
 var allowedRepoImports = map[string]bool{
 	"ikhnos/internal/httpkit":  true,
 	"ikhnos/internal/kernel":   true,

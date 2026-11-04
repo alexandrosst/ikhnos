@@ -85,7 +85,7 @@ type IdentityDoc struct {
 	Note    string   `json:"note,omitempty"`
 }
 
-// Entity is one thing in the estate.
+// Entity is one thing in the landscape.
 type Entity struct {
 	// Kind: cluster | node | namespace | service | device | site | application | path | dependency | external
 	Kind      string `json:"kind"`

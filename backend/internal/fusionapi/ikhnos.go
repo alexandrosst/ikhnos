@@ -22,7 +22,7 @@ const (
 // Extras is what the server provides beyond the stores. A nil Extras means this server has none, and a fused read that
 // asks for them says "unavailable".
 type Extras interface {
-	// Topology is the estate as the server last worked it out.
+	// Topology is the landscape as the server last worked it out.
 	Topology(ctx context.Context) (*TopologyView, error)
 	// Applications are the Ikhnos applications of the organisation (groups of services a person or discovery made) and the
 	// services in each, as of the last saved workspace.
@@ -33,7 +33,7 @@ type Extras interface {
 	Changes(ctx context.Context, since, until time.Time, clusters, targetIDs []string, limit int) ([]ChangeEvent, error)
 }
 
-// TopologyView is the part of the estate the fused read joins: services and the traffic seen between them.
+// TopologyView is the part of the landscape the fused read joins: services and the traffic seen between them.
 type TopologyView struct {
 	At       time.Time
 	Services []TopoService
@@ -162,7 +162,7 @@ type LinkTraffic struct {
 	RetransmitsPerMin float64 `json:"retransmitsPerMin"`
 }
 
-// ChangeEvent is something that happened to part of the estate.
+// ChangeEvent is something that happened to part of the landscape.
 type ChangeEvent struct {
 	Time        time.Time `json:"time"`
 	Kind        string    `json:"kind"`       // service-scaled, node-status, cluster-added ...

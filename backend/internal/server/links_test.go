@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"ikhnos/internal/estate"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/linksapi"
 	"ikhnos/internal/store"
 	"ikhnos/internal/testkit"
@@ -29,7 +29,7 @@ func TestSettingsNormalizeTheirLinks(t *testing.T) {
 	}
 }
 
-func linkHub(views map[string]*estate.View) *estate.Hub { return &estate.Hub{Views: views} }
+func linkHub(views map[string]*landscape.View) *landscape.Hub { return &landscape.Hub{Views: views} }
 
 func TestEachPairKeepsItsOwnChoicesAndTheLastEntryOfAPairStands(t *testing.T) {
 	got, err := kernel.NormalizeLinks([]kernel.LinkSetting{
@@ -86,14 +86,14 @@ func TestPairChoicesAreSavedWithTheSettingsUnderTheNamesTheUIUses(t *testing.T) 
 func TestAPeerWithOnlyPrivateAddressesGetsAHint(t *testing.T) {
 	a, b := testkit.Agent("ag-a", "cl-a", "alpha", "", 2), testkit.Agent("ag-b", "cl-b", "beta", "", 2)
 	links := []kernel.LinkSetting{{A: "cl-a", B: "cl-b"}}
-	h := linkHub(map[string]*estate.View{"ag-a": {EstView: estate.EstView{State: testkit.NodeState("10.0.0.1")}}, "ag-b": {EstView: estate.EstView{State: testkit.NodeState("10.1.0.1", "100.64.0.45")}}})
+	h := linkHub(map[string]*landscape.View{"ag-a": {EstView: landscape.EstView{State: testkit.NodeState("10.0.0.1")}}, "ag-b": {EstView: landscape.EstView{State: testkit.NodeState("10.1.0.1", "100.64.0.45")}}})
 	got := h.LinkNotes(links, []store.Agent{a, b}, nil)
 	if len(got) != 2 || got[0].Code != "private-range" || got[0].Cluster != "cl-a" || got[0].Peer != "cl-b" ||
 		!strings.Contains(got[0].Text, "mesh (100.64.0.0/10) and private") || !strings.Contains(got[0].Text, "100.64.0.45") {
 		t.Fatalf("%+v", got)
 	}
 	// a public address of one of the peer's nodes is a way across that needs no shared network
-	hPub := linkHub(map[string]*estate.View{"ag-a": {EstView: estate.EstView{State: testkit.NodeState("10.0.0.1")}}, "ag-b": {EstView: estate.EstView{State: testkit.NodeState("10.1.0.1", "198.51.100.9")}}})
+	hPub := linkHub(map[string]*landscape.View{"ag-a": {EstView: landscape.EstView{State: testkit.NodeState("10.0.0.1")}}, "ag-b": {EstView: landscape.EstView{State: testkit.NodeState("10.1.0.1", "198.51.100.9")}}})
 	for _, n := range hPub.LinkNotes(links, []store.Agent{a, b}, nil) {
 		if n.Code == "private-range" && n.Cluster == "cl-a" {
 			t.Errorf("a peer with a public node address: %+v", n)

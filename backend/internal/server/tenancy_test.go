@@ -10,8 +10,8 @@ import (
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
 	"ikhnos/internal/accounts"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/pki"
 	"ikhnos/internal/store"
 	"ikhnos/internal/testkit"
@@ -471,7 +471,7 @@ func TestDeletingAnOrganisationErasesItsDataAndEndsItsAgents(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = a.st.SaveSnapshot(a.ctx, resp.AgentId, []byte("{}"), *a.now)
-	_ = a.st.SaveSnapshot(a.ctx, estate.FlowsKey(resp.AgentId), []byte("{}"), *a.now)
+	_ = a.st.SaveSnapshot(a.ctx, landscape.FlowsKey(resp.AgentId), []byte("{}"), *a.now)
 	if c := a.do("POST", org(aOrg, "delete"), map[string]string{"confirm": "wrong"}, withCookie(alice)).Code; c != 400 {
 		t.Errorf("deleted without confirming the name: %d", c)
 	}
@@ -484,7 +484,7 @@ func TestDeletingAnOrganisationErasesItsDataAndEndsItsAgents(t *testing.T) {
 	if _, err := a.st.FindAgent(a.ctx, resp.AgentId); err == nil {
 		t.Error("the organisation's agent survived")
 	}
-	for _, k := range []string{resp.AgentId, estate.FlowsKey(resp.AgentId)} {
+	for _, k := range []string{resp.AgentId, landscape.FlowsKey(resp.AgentId)} {
 		if _, _, err := a.st.LoadSnapshot(a.ctx, k); err == nil {
 			t.Errorf("snapshot %s survived the organisation", k)
 		}

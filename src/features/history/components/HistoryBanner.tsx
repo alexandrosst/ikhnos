@@ -34,7 +34,7 @@ export default function HistoryBanner() {
     <div role="status" className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-warn/30 bg-warn/10 px-4 py-2.5 text-sm text-nb-300 sm:px-6" data-testid="history-banner">
       <History size={ICON_SM} className="shrink-0 text-warn" aria-hidden />
       <span className="min-w-[55%] flex-1 basis-64">
-        <strong className="font-medium text-nb-300">The estate as it was on {when(at)}</strong> <span className="text-nb-400">({ageOf(at)})</span>. Read-only: clusters, nodes, services and traffic are from that moment;
+        <strong className="font-medium text-nb-300">The landscape as it was on {when(at)}</strong> <span className="text-nb-400">({ageOf(at)})</span>. Read-only: clusters, nodes, services and traffic are from that moment;
         names, sites, applications and policy you set are as they are now.
         {flash && <span className="ml-2 font-medium text-warn" data-testid="history-refused">Nothing was changed: return to now to edit.</span>}
         {error && <span className="ml-2 text-bad">{error}</span>}

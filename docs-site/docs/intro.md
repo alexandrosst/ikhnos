@@ -9,7 +9,7 @@ description: Documentation for Ikhnos, a read-only, agent-observed model of your
 
 Ikhnos shows you your clusters as one picture: where things run, how healthy each place is, what talks to what, and how far apart your sites really are. A small read-only agent in each cluster keeps the picture current. A Placement page then recommends where a service would run better and shows the evidence and the confidence behind it. **Nothing moves until a person approves it.**
 
-<Figure name="ContinuumOverview" caption="An estate is wider than any one cluster. Ikhnos is for the part where the places differ and the links between them are weak." />
+<Figure name="ContinuumOverview" caption="A landscape is wider than any one cluster. Ikhnos is for the part where the places differ and the links between them are weak." />
 
 ## Start where you are
 

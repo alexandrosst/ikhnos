@@ -33,12 +33,12 @@ const features: [string, string][] = [
 export default function Home() {
   const logo = useBaseUrl('/img/logo.svg');
   return (
-    <Layout title="Ikhnos" description="See your Kubernetes estate from cloud to far edge, and get placement advice you can check.">
+    <Layout title="Ikhnos" description="See your Kubernetes landscape from cloud to far edge, and get placement advice you can check.">
       <header className={styles.hero}>
         <div className={styles.heroInner}>
           <div className={styles.heroText}>
             <img src={logo} alt="" className={styles.mark} />
-            <h1>See your whole estate.<br />Change nothing.</h1>
+            <h1>See your whole landscape.<br />Change nothing.</h1>
             <p className={styles.lede}>
               Ikhnos models your Kubernetes clusters from the cloud to the far edge, keeps a history of every change, and gives
               placement advice you can check: where a service would run better, how sure it is, and the evidence.

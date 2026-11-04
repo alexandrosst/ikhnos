@@ -4,7 +4,7 @@
  */
 import {Arrow, Box, Fig, Lines, Pill, Step, T, accent, cloud, edgeTier, far, rule} from './kit';
 
-/** The problem: an estate that spreads from a cloud region to far-edge sites. */
+/** The problem: a landscape that spreads from a cloud region to far-edge sites. */
 export function ContinuumOverview() {
   const f = 'continuum';
   const cols: {x: number; tier: string; color: string; name: string; lines: string[]}[] = [
@@ -14,7 +14,7 @@ export function ContinuumOverview() {
   ];
   const questions = ['Where is everything?', 'Is it healthy?', 'What talks to what?', 'Where should it run?'];
   return (
-    <Fig id={f} height={392} label="An estate spreads from the cloud to the edge to far-edge sites, and four questions get harder as it does" title="An estate is wider than any one cluster" subtitle="From a cloud region to a far-edge site: more places, weaker links, less certainty.">
+    <Fig id={f} height={392} label="A landscape spreads from the cloud to the edge to far-edge sites, and four questions get harder as it does" title="A landscape is wider than any one cluster" subtitle="From a cloud region to a far-edge site: more places, weaker links, less certainty.">
       {cols.map((c) => (
         <g key={c.tier}>
           <Box x={c.x} y={68} w={224} h={150} color={c.color} />
@@ -238,7 +238,7 @@ export function PlacementPipeline() {
   return (
     <Fig id={f} height={548} label="Facts go through hard constraints, a three-valued fit, a cost in points, a confidence taken from the weakest fact, and evidence; a person decides" title="How a recommendation is made" subtitle="Read-only. Every step keeps the source, the confidence and the age of what it used.">
       <Box x={24} y={64} w={712} h={50} band />
-      <T x={40} y={86} bold>The estate</T>
+      <T x={40} y={86} bold>The landscape</T>
       <T x={40} y={103} small muted>services and what they need, clusters and what is free, links and their round trips, each fact with its source, class and age</T>
 
       <Box x={24} y={140} w={220} h={112} />
@@ -282,7 +282,7 @@ export function PlacementPipeline() {
 
       <Box x={24} y={420} w={712} h={50} frame dashed />
       <T x={40} y={442} bold>Deciders, side by side</T>
-      <T x={40} y={460} small muted>Baseline, Follow the heaviest talker, and your own webhook all see the same estate and are scored on the same answer.</T>
+      <T x={40} y={460} small muted>Baseline, Follow the heaviest talker, and your own webhook all see the same landscape and are scored on the same answer.</T>
       <Arrow fig={f} dashed d="M560 420V396" />
 
       <Box x={24} y={490} w={712} h={40} hi />

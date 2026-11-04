@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"ikhnos/internal/estate"
 	"ikhnos/internal/fusionapi"
 	"ikhnos/internal/history"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/model"
 	"ikhnos/internal/store"
 	"ikhnos/internal/workspace"
@@ -75,7 +75,7 @@ func (e fusionExtras) ClusterNames(ctx context.Context) ([]fusionapi.ClusterName
 	return out, nil
 }
 
-// TopologyAt is the estate as the graph remembered it at a moment, and the services that were in the application then: the topology
+// TopologyAt is the landscape as the graph remembered it at a moment, and the services that were in the application then: the topology
 // of the newest recording at or before the moment, and the application's members as of the moment itself (so a service that
 // joined after that recording is a member the topology does not have). Only a store with a graph
 // database remembers membership, so without one this says history is not enabled.
@@ -88,7 +88,7 @@ func (e fusionExtras) TopologyAt(ctx context.Context, appID string, at time.Time
 }
 
 func topologyAt(ctx context.Context, c *Core, appID string, at time.Time) (*fusionapi.TopologyView, []fusionapi.AppMember, error) {
-	g, ok := c.Store.(estate.GraphAPI)
+	g, ok := c.Store.(landscape.GraphAPI)
 	if !ok {
 		return nil, nil, &fusionapi.Error{Status: 404, Msg: "history is not enabled on this server: it needs the graph database"}
 	}
@@ -100,7 +100,7 @@ func topologyAt(ctx context.Context, c *Core, appID string, at time.Time) (*fusi
 	if err != nil || derr != nil {
 		return nil, nil, &fusionapi.Error{Status: 503, Msg: "the recorded topology is not available"}
 	}
-	_, reached, err := g.Dependencies(ctx, c.OrgID, at, "application", appID, 1) // what it CONTAINS, at the very moment: it changes when a person saves, not when the estate is recorded
+	_, reached, err := g.Dependencies(ctx, c.OrgID, at, "application", appID, 1) // what it CONTAINS, at the very moment: it changes when a person saves, not when the landscape is recorded
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, nil, &fusionapi.Error{Status: 503, Msg: "the recorded applications are not available"}
 	}
@@ -111,7 +111,7 @@ func topologyAt(ctx context.Context, c *Core, appID string, at time.Time) (*fusi
 			members = append(members, fusionapi.AppMember{ID: r.ID, Name: s.Name, Namespace: s.Namespace, Cluster: s.ClusterID, Kind: string(s.Kind)})
 		}
 	}
-	return topologyView(estate.StateDoc{GeneratedAt: p.At.UTC().Format(time.RFC3339), Topology: topo}), members, nil
+	return topologyView(landscape.StateDoc{GeneratedAt: p.At.UTC().Format(time.RFC3339), Topology: topo}), members, nil
 }
 
 // appGroupTTL is how long the applications are reused: an application edited in Ikhnos shows in the API within this.
@@ -164,7 +164,7 @@ func (e fusionExtras) applications(ctx context.Context) ([]fusionapi.AppGroup, e
 // groups of services by the identity telemetry carries. A member is a topology service the workspace names by id; one the
 // topology does not (or no longer) have is left out, since there is nothing to match telemetry with. The aliases are the
 // app labels a service's telemetry often takes as its service.name instead of the workload name.
-func appGroups(data []byte, doc estate.StateDoc) []fusionapi.AppGroup {
+func appGroups(data []byte, doc landscape.StateDoc) []fusionapi.AppGroup {
 	if len(data) == 0 {
 		return nil
 	}
@@ -187,7 +187,7 @@ func appGroups(data []byte, doc estate.StateDoc) []fusionapi.AppGroup {
 		}
 	}
 	str := func(r map[string]any, k string) string { v, _ := r[k].(string); return v }
-	apps := workspace.Applications(d, estate.HintsOf(doc))
+	apps := workspace.Applications(d, landscape.HintsOf(doc))
 	out := make([]fusionapi.AppGroup, 0, len(apps))
 	for _, a := range apps {
 		g := fusionapi.AppGroup{ID: a.ID, Name: a.Name, Description: a.Description, Origin: a.Origin, Confidence: a.Confidence, Members: []fusionapi.AppMember{}}
@@ -239,7 +239,7 @@ func annotateApplications(v *fusionapi.TopologyView, groups []fusionapi.AppGroup
 }
 
 // topologyView is the part of the state a fused read joins.
-func topologyView(doc estate.StateDoc) *fusionapi.TopologyView {
+func topologyView(doc landscape.StateDoc) *fusionapi.TopologyView {
 	topo := doc.Topology
 	v := &fusionapi.TopologyView{Externals: map[string]string{}}
 	if at, err := time.Parse(time.RFC3339, doc.GeneratedAt); err == nil {

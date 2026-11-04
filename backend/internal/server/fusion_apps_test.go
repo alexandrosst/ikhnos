@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"ikhnos/internal/estate"
 	"ikhnos/internal/fusionapi"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/model"
 )
 
@@ -225,7 +225,7 @@ func TestACookieDoesNotBeatTheTokenYouTyped(t *testing.T) {
 }
 
 func TestApplicationGroupsAreBuiltFromTheWorkspaceAndTheTopology(t *testing.T) {
-	doc := estate.StateDoc{Topology: model.Topology{Services: []model.Service{
+	doc := landscape.StateDoc{Topology: model.Topology{Services: []model.Service{
 		{ID: "sv-1", Name: "cart-deploy", Namespace: "shop", ClusterID: "cl-1", Kind: "Deployment", Labels: map[string]string{"app": "cart", "app.kubernetes.io/name": "cart"}},
 		{ID: "sv-2", Name: "other", Namespace: "x", ClusterID: "cl-1"},
 	}}}
@@ -316,7 +316,7 @@ func TestTheApplicationSeriesAreWrittenOnlyWhileFusionRuns(t *testing.T) {
 // own labels pointed at it (the hint), which is not stored as a membership. A service a person put somewhere else is not
 // taken, a deleted application is not an application, and a hint at an application that does not exist is nothing.
 func TestAServiceBelongsToTheApplicationItsLabelsSuggestOnceThatApplicationExists(t *testing.T) {
-	doc := estate.StateDoc{Topology: model.Topology{Services: []model.Service{
+	doc := landscape.StateDoc{Topology: model.Topology{Services: []model.Service{
 		{ID: "sv-a", Name: "api", Namespace: "core", ClusterID: "cl-1", ApplicationHint: "app-core"},
 		{ID: "sv-b", Name: "db", Namespace: "core", ClusterID: "cl-1", ApplicationHint: "app-core"},
 		{ID: "sv-c", Name: "moved", Namespace: "core", ClusterID: "cl-1", ApplicationHint: "app-core"},

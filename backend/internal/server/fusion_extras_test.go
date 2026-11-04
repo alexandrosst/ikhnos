@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"ikhnos/internal/estate"
 	"ikhnos/internal/fusionapi"
 	"ikhnos/internal/fusionhttp"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/model"
 	"ikhnos/internal/store"
 )
@@ -111,7 +111,7 @@ func anyStrings(v any) []string {
 }
 
 func TestTheTopologyViewCarriesWhatTheFusedReadJoins(t *testing.T) {
-	doc := estate.StateDoc{GeneratedAt: "2026-10-05T12:00:00Z", Topology: model.Topology{
+	doc := landscape.StateDoc{GeneratedAt: "2026-10-05T12:00:00Z", Topology: model.Topology{
 		Services: []model.Service{{ID: "s1", Name: "cart", Namespace: "shop", ClusterID: "cl-1", Kind: "Deployment", Replicas: 3, ReadyReplicas: 2, Restarts: 5, Labels: map[string]string{"app": "cart"}}},
 		Nodes:    []model.Node{{ID: "n1", Name: "node-a", ClusterID: "cl-1"}},
 		Dependencies: []model.Dependency{{ID: "d1", From: "s1", FromKind: "service", To: "x1", ToKind: "external", Protocol: "tcp", Port: 443, Confidence: "high", Noise: ""},

@@ -16,7 +16,7 @@ import (
 // guard put in the request, and the handlers know nothing of how.
 type API struct {
 	For func(r *http.Request) *Service
-	// Model is the effective model of the organisation a request is for (the estate builds it), which a request to the external
+	// Model is the effective model of the organisation a request is for (the landscape builds it), which a request to the external
 	// decider is checked against; Version is the server's, which the decider is told it is talking to.
 	Model   func(r *http.Request) (twin.Model, error)
 	Version string
@@ -45,7 +45,7 @@ type decisionMoveDoc struct {
 }
 
 // decisionInputDoc is the "meaningful summary" of DecisionInput (deciders.ts) that is worth keeping per
-// run - see store.DecisionLog's own doc comment for why the full estate is not repeated here.
+// run - see store.DecisionLog's own doc comment for why the full landscape is not repeated here.
 type decisionInputDoc struct {
 	Schema       int             `json:"schema"`
 	ClusterCount int             `json:"clusterCount"`

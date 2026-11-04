@@ -18,7 +18,7 @@ runs**.
 
 Because what agents observe is kept apart from what people declare (see
 [twin-design.md](../backend/docs/twin-design.md)), a backup is small, and a restored server does not bring back
-a stale picture of the estate: it shows the last-known tombstones and the declared workspace, and the live state
+a stale picture of the landscape: it shows the last-known tombstones and the declared workspace, and the live state
 returns within a heartbeat or two of the agents reconnecting.
 
 ## Take a backup

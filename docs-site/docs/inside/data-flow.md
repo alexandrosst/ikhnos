@@ -6,7 +6,7 @@ description: How what agents observe and what people declare are kept apart, com
 
 # From facts to what you see
 
-Ikhnos's model of an estate has two authors. **Agents** report what is true now: clusters, nodes, namespaces, workloads, flows. **People** say what should be true: sites, devices, links they know about, policies, and corrections to something observed. The twin is the rule that keeps those two apart, combines them when something asks, and never lets one pass for the other.
+Ikhnos's model of a landscape has two authors. **Agents** report what is true now: clusters, nodes, namespaces, workloads, flows. **People** say what should be true: sites, devices, links they know about, policies, and corrections to something observed. The twin is the rule that keeps those two apart, combines them when something asks, and never lets one pass for the other.
 
 <Figure name="FactsToViews" caption="Two inputs, one combination step, four readers. Everything below the combination is read-only." />
 
@@ -52,7 +52,7 @@ History is kept in SQLite (snapshots and events). If you run Neo4j, a temporal g
 
 <Figure name="BoundedWalk" caption="A walk over dependents is bounded three ways, so one request cannot take down the service." />
 
-Such a walk is bounded on purpose. The hop count is clamped to 8, results stop growing at 4,000 entities, and the whole call has one deadline. An estate cannot make a request run away. [System memory](../architecture/system-memory.md) has the details, including how it works without Neo4j.
+Such a walk is bounded on purpose. The hop count is clamped to 8, results stop growing at 4,000 entities, and the whole call has one deadline. A landscape cannot make a request run away. [System memory](../architecture/system-memory.md) has the details, including how it works without Neo4j.
 
 ## Where to look
 
@@ -60,5 +60,5 @@ Such a walk is bounded on purpose. The hop count is clamped to 8, results stop g
 |---|---|
 | How raw facts become records | `backend/internal/interpret` |
 | How declared and observed combine | `backend/internal/twin` and `twin-design.md` |
-| What the hub holds | `backend/internal/estate` |
+| What the hub holds | `backend/internal/landscape` |
 | The wire shape of the effective model | `model-api.md` |

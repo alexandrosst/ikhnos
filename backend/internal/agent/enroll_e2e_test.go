@@ -17,8 +17,8 @@ import (
 
 	"ikhnos/internal/agent"
 	agentcli "ikhnos/internal/cli/agent"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/pki"
 	"ikhnos/internal/server"
 	"ikhnos/internal/store"
@@ -34,7 +34,7 @@ import (
 type erig struct {
 	t    *testing.T
 	core *server.Core
-	hub  *estate.Hub
+	hub  *landscape.Hub
 	st   *store.SQLite
 	ca   *pki.CA
 	addr string
@@ -74,7 +74,7 @@ func newERig(t *testing.T, tune func(*server.Core)) *erig {
 	if tune != nil {
 		tune(core)
 	}
-	hub := estate.NewHub(core.Estate)
+	hub := landscape.NewHub(core.Landscape)
 	srv := core.Agents.NewGRPC(pki.NewServerCerts(ca, []string{"127.0.0.1"}), hub)
 	l, _ := net.Listen("tcp", "127.0.0.1:0")
 	go srv.Serve(l)
@@ -124,7 +124,10 @@ func (r *erig) start(cfg agent.Config) (stop func(), done <-chan error) {
 	return cancel, ch
 }
 
-func (r *erig) agents() []estate.AgentDoc { d, _ := r.hub.State(context.Background()); return d.Agents }
+func (r *erig) agents() []landscape.AgentDoc {
+	d, _ := r.hub.State(context.Background())
+	return d.Agents
+}
 
 func (r *erig) token(name string) string {
 	tok, _, err := r.core.Agents.CreateToken(context.Background(), "test", name, 2)

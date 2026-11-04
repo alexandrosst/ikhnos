@@ -155,7 +155,7 @@
     {
       "id": 1,
       "type": "row",
-      "title": "The estate at a glance",
+      "title": "The landscape at a glance",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -1852,7 +1852,7 @@
           "sort": "desc"
         }
       },
-      "description": "Pods in the Running phase in each cluster, stacked, so the top line is the estate."
+      "description": "Pods in the Running phase in each cluster, stacked, so the top line is the landscape."
     },
     {
       "id": 20,

@@ -11,7 +11,7 @@ import (
 )
 
 // The test kit may stand on the modules that hold the types the tests build (agents, connectivity, the store, the kernel) and on the
-// vocabularies, but not on the estate or the server: both import it from their tests, so it would be a cycle.
+// vocabularies, but not on the landscape or the server: both import it from their tests, so it would be a cycle.
 var allowedRepoImports = map[string]bool{
 	"ikhnos/gen/ikhnosv1":          true,
 	"ikhnos/internal/accounts":     true,
@@ -26,7 +26,7 @@ var allowedRepoImports = map[string]bool{
 	"ikhnos/internal/store":        true,
 }
 
-func TestTestkitImportsNothingOfTheEstateOrTheServer(t *testing.T) {
+func TestTestkitImportsNothingOfTheLandscapeOrTheServer(t *testing.T) {
 	files, _ := filepath.Glob("*.go")
 	for _, f := range files {
 		if strings.HasSuffix(f, "_test.go") {

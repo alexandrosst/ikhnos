@@ -13,9 +13,9 @@ import (
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
 	"ikhnos/internal/accounts"
 	"ikhnos/internal/agents"
-	"ikhnos/internal/estate"
 	"ikhnos/internal/installcfg"
 	"ikhnos/internal/kernel"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/pki"
 	"ikhnos/internal/testkit"
 
@@ -25,13 +25,13 @@ import (
 
 // ---- tier changes ----
 
-func agentDoc(t *testing.T, a *adminRig, cookie, id string) estate.AgentDoc {
+func agentDoc(t *testing.T, a *adminRig, cookie, id string) landscape.AgentDoc {
 	t.Helper()
 	r := a.do("GET", "/api/v1/state", nil, withCookie(cookie))
 	if r.Code != 200 {
 		t.Fatalf("state: %d %s", r.Code, r.Body.String())
 	}
-	var doc estate.StateDoc
+	var doc landscape.StateDoc
 	if err := json.Unmarshal(r.Body.Bytes(), &doc); err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func agentDoc(t *testing.T, a *adminRig, cookie, id string) estate.AgentDoc {
 		}
 	}
 	t.Fatalf("agent %s not in the state document", id)
-	return estate.AgentDoc{}
+	return landscape.AgentDoc{}
 }
 
 func TestTierChangeStaysWithinTheInstalledCeilingAndIsAudited(t *testing.T) {

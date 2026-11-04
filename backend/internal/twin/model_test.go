@@ -388,7 +388,7 @@ func TestCollidingIdsAreReportedNotSilentlyMerged(t *testing.T) {
 	}
 }
 
-func TestFingerprintIgnoresTheClockButNotTheEstate(t *testing.T) {
+func TestFingerprintIgnoresTheClockButNotTheLandscape(t *testing.T) {
 	in, _ := fixture(t, "cl-1", "ag-1", 2)
 	base := Fingerprint(Build(in))
 	// Time passing while the agent stays live changes ages and observation times, not the model.
