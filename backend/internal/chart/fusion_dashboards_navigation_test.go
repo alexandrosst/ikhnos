@@ -352,3 +352,55 @@ func TestFusionDashboardsShowOperatorsAndTableClustersByName(t *testing.T) {
 		}
 	}
 }
+
+// A panel says what its numbers are in, and a graph reads the same way on every dashboard: the axis starts at zero, a legend that is a
+// table is in an order, and what is counted in cores or in lines a minute says so, instead of showing a bare number (a share of what
+// can be allocated is a percentage, and says so).
+func TestFusionDashboardsSayWhatTheirNumbersAreAndReadTheSameEverywhere(t *testing.T) {
+	r := fusionRender(t, "f")
+	for _, n := range allDashboardNames {
+		var d struct {
+			Panels []map[string]any `json:"panels"`
+		}
+		if err := json.Unmarshal([]byte(r.configs["f-fusion-grafana-dashboards"].Data[n+".json"]), &d); err != nil {
+			t.Fatal(err)
+		}
+		for _, p := range d.Panels {
+			typ, _ := p["type"].(string)
+			title, _ := p["title"].(string)
+			fc, _ := p["fieldConfig"].(map[string]any)
+			df, _ := fc["defaults"].(map[string]any)
+			custom, _ := df["custom"].(map[string]any)
+			unit, _ := df["unit"].(string)
+			var exprs string
+			targets, _ := p["targets"].([]any)
+			for _, tg := range targets {
+				if m, ok := tg.(map[string]any); ok {
+					e, _ := m["expr"].(string)
+					exprs += e + "\n"
+				}
+			}
+			if typ == "timeseries" {
+				_, hasMin := df["min"]
+				_, hasSoft := custom["axisSoftMin"]
+				if !hasMin && !hasSoft {
+					t.Errorf("%s / %s: the axis may start anywhere, which makes a small change look large", n, title)
+				}
+				opts, _ := p["options"].(map[string]any)
+				lg, _ := opts["legend"].(map[string]any)
+				if lg["displayMode"] == "table" && lg["sortBy"] == nil {
+					t.Errorf("%s / %s: the legend is a table in no order", n, title)
+				}
+			}
+			if typ != "timeseries" && typ != "stat" {
+				continue
+			}
+			if (strings.Contains(exprs, "k8s_pod_cpu_usage{") || strings.Contains(exprs, "k8s_node_cpu_usage{")) && unit != "suffix: cores" && unit != "percent" {
+				t.Errorf("%s / %s: it counts cores and its unit is %q", n, title, unit)
+			}
+			if strings.HasPrefix(strings.TrimSpace(exprs), "60 * sum") && unit != "suffix: lines/min" {
+				t.Errorf("%s / %s: it counts log lines a minute and its unit is %q", n, title, unit)
+			}
+		}
+	}
+}

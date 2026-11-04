@@ -590,15 +590,17 @@
       "description": "CPU cores in use by each node, against what Kubernetes can allocate on it.",
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "suffix: cores",
           "custom": {
             "lineWidth": 1,
             "fillOpacity": 12,
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
-          }
+            },
+            "axisSoftMin": 0
+          },
+          "decimals": 2
         },
         "overrides": [
           {
@@ -688,7 +690,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           }
         },
         "overrides": [
@@ -769,7 +772,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           }
         },
         "overrides": []
@@ -828,7 +832,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           }
         },
         "overrides": []
@@ -888,7 +893,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           }
         },
         "overrides": []
@@ -946,7 +952,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           }
         },
         "overrides": []
@@ -1040,8 +1047,11 @@
             "showPoints": "never",
             "stacking": {
               "mode": "normal"
-            }
-          }
+            },
+            "axisSoftMin": 0
+          },
+          "unit": "none",
+          "decimals": 0
         },
         "overrides": [
           {
@@ -1338,11 +1348,48 @@
       "description": "Empty means every deployment has all its replicas available.",
       "fieldConfig": {
         "defaults": {},
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Missing replicas"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "showHeader": true,
-        "cellHeight": "sm"
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Missing replicas",
+            "desc": true
+          }
+        ]
       },
       "transformations": [
         {

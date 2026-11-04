@@ -477,7 +477,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "suffix: cores",
           "noValue": "0",
           "thresholds": {
             "mode": "absolute",
@@ -487,7 +487,8 @@
                 "value": null
               }
             ]
-          }
+          },
+          "decimals": 2
         },
         "overrides": []
       },
@@ -585,15 +586,17 @@
       "description": "Cores in use.",
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "suffix: cores",
           "custom": {
             "lineWidth": 1,
             "fillOpacity": 12,
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
-          }
+            },
+            "axisSoftMin": 0
+          },
+          "decimals": 2
         },
         "overrides": []
       },
@@ -651,7 +654,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           }
         },
         "overrides": []
@@ -709,7 +713,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           }
         },
         "overrides": []
@@ -776,8 +781,11 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
-          }
+            },
+            "axisSoftMin": 0
+          },
+          "unit": "none",
+          "decimals": 0
         },
         "overrides": [
           {
@@ -955,12 +963,60 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Restarts (1h)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 10
+                    }
+                  ]
+                }
+              }
+            ]
           }
         ]
       },
       "options": {
         "showHeader": true,
-        "cellHeight": "sm"
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Restarts (1h)",
+            "desc": true
+          }
+        ]
       },
       "transformations": [
         {
@@ -1039,8 +1095,10 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
-          }
+            },
+            "axisSoftMin": 0
+          },
+          "unit": "suffix: lines/min"
         },
         "overrides": []
       },
@@ -1098,8 +1156,10 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
-          }
+            },
+            "axisSoftMin": 0
+          },
+          "unit": "suffix: lines/min"
         },
         "overrides": []
       },

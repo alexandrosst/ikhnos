@@ -1150,7 +1150,8 @@
               "mode": "none"
             },
             "spanNulls": false,
-            "drawStyle": "bars"
+            "drawStyle": "bars",
+            "axisSoftMin": 0
           },
           "unit": "short",
           "noValue": "No probe failures in this range (or no probe is running)",
@@ -1269,7 +1270,8 @@
               "mode": "none"
             },
             "spanNulls": false,
-            "drawStyle": "bars"
+            "drawStyle": "bars",
+            "axisSoftMin": 0
           },
           "unit": "short",
           "noValue": "No duplicates in this range (or no probe is running)",
@@ -1642,7 +1644,8 @@
               "mode": "none"
             },
             "spanNulls": false,
-            "drawStyle": "bars"
+            "drawStyle": "bars",
+            "axisSoftMin": 0
           },
           "unit": "short",
           "noValue": "No connect failures in this range (or connect timing is off)",
@@ -2100,7 +2103,8 @@
               "mode": "none"
             },
             "spanNulls": false,
-            "drawStyle": "bars"
+            "drawStyle": "bars",
+            "axisSoftMin": 0
           },
           "unit": "short",
           "noValue": "No failed connections in this range (or no link traffic is being observed)",
@@ -2529,7 +2533,8 @@
               "mode": "none"
             },
             "spanNulls": false,
-            "drawStyle": "bars"
+            "drawStyle": "bars",
+            "axisSoftMin": 0
           },
           "unit": "short",
           "decimals": 0

@@ -1402,7 +1402,9 @@
             "lastNotNull",
             "mean",
             "max"
-          ]
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -1460,7 +1462,9 @@
             "lastNotNull",
             "mean",
             "max"
-          ]
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -1519,7 +1523,9 @@
             "lastNotNull",
             "mean",
             "max"
-          ]
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -1578,7 +1584,9 @@
             "lastNotNull",
             "mean",
             "max"
-          ]
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -1624,7 +1632,7 @@
             "drawStyle": "line",
             "lineInterpolation": "stepAfter"
           },
-          "unit": "short",
+          "unit": "none",
           "min": 0,
           "decimals": 0
         },
@@ -1639,7 +1647,9 @@
             "lastNotNull",
             "mean",
             "max"
-          ]
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -1697,7 +1707,9 @@
             "lastNotNull",
             "mean",
             "max"
-          ]
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -1757,7 +1769,9 @@
             "lastNotNull",
             "mean",
             "max"
-          ]
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -1828,7 +1842,9 @@
             "lastNotNull",
             "mean",
             "max"
-          ]
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -1887,7 +1903,9 @@
             "lastNotNull",
             "mean",
             "max"
-          ]
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -1945,7 +1963,9 @@
             "lastNotNull",
             "mean",
             "max"
-          ]
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -2004,7 +2024,9 @@
             "lastNotNull",
             "mean",
             "max"
-          ]
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -2063,7 +2085,9 @@
             "lastNotNull",
             "mean",
             "max"
-          ]
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -2150,7 +2174,9 @@
             "lastNotNull",
             "mean",
             "max"
-          ]
+          ],
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",

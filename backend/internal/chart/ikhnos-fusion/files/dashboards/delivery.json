@@ -541,7 +541,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           }
         },
         "overrides": []
@@ -599,7 +600,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           }
         },
         "overrides": []
@@ -756,7 +758,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           }
         },
         "overrides": []
@@ -807,15 +810,17 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "suffix: cores",
           "custom": {
             "lineWidth": 1,
             "fillOpacity": 12,
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
-          }
+            },
+            "axisSoftMin": 0
+          },
+          "decimals": 2
         },
         "overrides": []
       },
@@ -873,8 +878,10 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
-          }
+            },
+            "axisSoftMin": 0
+          },
+          "unit": "suffix: lines/min"
         },
         "overrides": []
       },
@@ -933,8 +940,10 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
-          }
+            },
+            "axisSoftMin": 0
+          },
+          "unit": "suffix: spans/s"
         },
         "overrides": []
       },
@@ -1131,7 +1140,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           }
         },
         "overrides": []

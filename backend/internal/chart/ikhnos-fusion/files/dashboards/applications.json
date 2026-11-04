@@ -580,7 +580,9 @@
                 "value": null
               }
             ]
-          }
+          },
+          "unit": "suffix: cores",
+          "decimals": 2
         },
         "overrides": []
       },
@@ -683,9 +685,11 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
-          "unit": "short"
+          "unit": "suffix: cores",
+          "decimals": 2
         },
         "overrides": []
       },
@@ -742,7 +746,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
           "unit": "bytes"
         },
@@ -868,9 +873,11 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
-          "noValue": "No traces have arrived yet"
+          "noValue": "No traces have arrived yet",
+          "unit": "suffix: spans/s"
         },
         "overrides": []
       },
@@ -928,9 +935,11 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
-          "noValue": "No failing spans"
+          "noValue": "No failing spans",
+          "unit": "suffix: spans/s"
         },
         "overrides": []
       },
@@ -1023,9 +1032,11 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
-          "noValue": "none"
+          "noValue": "none",
+          "unit": "suffix: lines/min"
         },
         "overrides": []
       },
@@ -1082,9 +1093,11 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
-          "noValue": "none"
+          "noValue": "none",
+          "unit": "suffix: lines/min"
         },
         "overrides": []
       },

@@ -421,7 +421,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
           "unit": "percent"
         },
@@ -480,7 +481,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
           "unit": "bytes"
         },
@@ -539,7 +541,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
           "unit": "s"
         },
@@ -598,9 +601,11 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
-          "noValue": "none"
+          "noValue": "none",
+          "unit": "suffix: lines/min"
         },
         "overrides": []
       },
@@ -983,8 +988,11 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
-          }
+            },
+            "axisSoftMin": 0
+          },
+          "unit": "suffix: cores",
+          "decimals": 2
         },
         "overrides": []
       },
@@ -1041,7 +1049,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
           "unit": "bytes"
         },
@@ -1100,7 +1109,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           }
         },
         "overrides": []
@@ -1158,9 +1168,11 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
-          "noValue": "none"
+          "noValue": "none",
+          "unit": "suffix: lines/min"
         },
         "overrides": []
       },
@@ -1423,7 +1435,8 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           }
         },
         "overrides": []
@@ -1481,9 +1494,11 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
-          "noValue": "none"
+          "noValue": "none",
+          "unit": "suffix: lines/min"
         },
         "overrides": []
       },
@@ -1540,9 +1555,11 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
-          "noValue": "none"
+          "noValue": "none",
+          "unit": "suffix: lines/min"
         },
         "overrides": []
       },
@@ -1601,9 +1618,11 @@
             "showPoints": "never",
             "stacking": {
               "mode": "none"
-            }
+            },
+            "axisSoftMin": 0
           },
-          "noValue": "none"
+          "noValue": "none",
+          "unit": "suffix: spans/s"
         },
         "overrides": []
       },
