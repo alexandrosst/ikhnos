@@ -1582,3 +1582,17 @@ func TestKeplerListensOnThePortItDeclaresAndIsNotReadyUntilItDoes(t *testing.T) 
 		t.Error("Kepler has no readiness probe on its metrics port, so a pod that is not serving looks healthy")
 	}
 }
+
+// The agent is told which cluster id its telemetry carries, so it can say when the server has named the cluster and the telemetry does not
+// carry the name (Diagnostics, telemetry_without_cluster_id).
+func TestTheAgentIsToldTheClusterIdItsTelemetryCarries(t *testing.T) {
+	r := render(t, "--set", "telemetry.export.otlp.endpoint=x:4317", "--set", "telemetry.resourceUsage.metrics.enabled=true",
+		"--set", "telemetry.resource.clusterId=cluster-1")
+	if v, ok := env(r.deployments["ikhnos-agent"].Spec.Template.Spec.Containers[0], "IKHNOS_TELEMETRY_CLUSTER_ID"); !ok || v != "cluster-1" {
+		t.Errorf("IKHNOS_TELEMETRY_CLUSTER_ID = %q, ok=%v, want cluster-1", v, ok)
+	}
+	r2 := render(t, "--set", "telemetry.export.otlp.endpoint=x:4317", "--set", "telemetry.resourceUsage.metrics.enabled=true")
+	if v, _ := env(r2.deployments["ikhnos-agent"].Spec.Template.Spec.Containers[0], "IKHNOS_TELEMETRY_CLUSTER_ID"); v != "" {
+		t.Errorf("IKHNOS_TELEMETRY_CLUSTER_ID = %q without a cluster id", v)
+	}
+}

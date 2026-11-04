@@ -70,6 +70,9 @@ type identityState struct {
 	reported relay.Identity
 	retryAt  time.Time
 	wake     chan struct{}
+	// seen is the cluster id the server last named and since when it has been named, whatever keeps the agent installed (diag.go reads it).
+	seen      string
+	seenSince time.Time
 }
 
 func newIdentityState() *identityState { return &identityState{wake: make(chan struct{}, 1)} }
@@ -77,6 +80,7 @@ func newIdentityState() *identityState { return &identityState{wake: make(chan s
 // noteIdentity takes the ids of a Config the agent applied. Nothing is done unless the agent has somewhere to write them and they are new; an
 // id that is empty (the server does not know it yet) leaves what is known.
 func (r *runner) noteIdentity(c *ikhnosv1.Config) {
+	r.noteClusterSeen(c.GetClusterId())
 	if r.cfg.ReportIdentity == nil || (c.GetClusterId() == "" && c.GetOrgId() == "") {
 		return
 	}
@@ -138,4 +142,26 @@ func (r *runner) identityStep(ctx context.Context) {
 	}
 	st.reported = want
 	r.log.Info("told the controller which cluster this is", "cluster", want.ClusterID, "org", want.OrgID)
+}
+
+// noteClusterSeen remembers the cluster id the server named, and from when; a new id starts the count again.
+func (r *runner) noteClusterSeen(id string) {
+	if r.ident == nil || id == "" {
+		return
+	}
+	r.ident.mu.Lock()
+	defer r.ident.mu.Unlock()
+	if r.ident.seen != id {
+		r.ident.seen, r.ident.seenSince = id, time.Now()
+	}
+}
+
+// clusterSeen is the cluster id the server named and since when, "" when it has not.
+func (r *runner) clusterSeen() (string, time.Time) {
+	if r.ident == nil {
+		return "", time.Time{}
+	}
+	r.ident.mu.Lock()
+	defer r.ident.mu.Unlock()
+	return r.ident.seen, r.ident.seenSince
 }

@@ -119,6 +119,9 @@ type Config struct {
 	// what the chart was told to install, so the UI can show real state instead of a blind guess. Nil outside
 	// the chart, or when no telemetry signal is enabled.
 	TelemetrySignals []string
+	// TelemetryClusterID is the cluster id this install stamps on its telemetry (telemetry.resource.clusterId), "" when none. With
+	// TelemetrySignals it lets Diagnostics say that the server has named this cluster and its telemetry does not carry the name.
+	TelemetryClusterID string
 	// TelemetryConfig is the effective configuration behind TelemetrySignals above - not just which signals
 	// are on, but how each is actually configured (the chart computes and injects it as a handful of sibling
 	// IKHNOS_TELEMETRY_* env vars, read in cli/agent/agent.go). Reported in Diagnostics as

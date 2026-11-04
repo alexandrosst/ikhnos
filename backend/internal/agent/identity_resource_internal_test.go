@@ -214,3 +214,74 @@ func TestTheIdentityPatchCarriesBothIdsAndChecksBothWereKept(t *testing.T) {
 		t.Errorf("a dropped organisation was taken for success: %v", err)
 	}
 }
+
+func problemCoded(d *ikhnosv1.Diagnostics, code string) *ikhnosv1.Problem {
+	for _, p := range d.Problems {
+		if p.Code == code {
+			return p
+		}
+	}
+	return nil
+}
+
+// Telemetry that carries no cluster id while the server has named the cluster is a problem, but only once the server has named it for a while
+// (the controller needs a few minutes to stamp it), only when the install sends telemetry, and never when the install already stamps the id.
+func TestTelemetryWithoutTheClusterIdIsAProblemOnceTheGraceHasPassed(t *testing.T) {
+	build := func(signals []string, stamped string, namedFor time.Duration, named string) *ikhnosv1.Problem {
+		r := newTestRunner()
+		r.ident = newIdentityState()
+		r.cfg.TelemetrySignals = signals
+		r.cfg.TelemetryClusterID = stamped
+		if named != "" {
+			r.noteClusterSeen(named)
+			r.ident.seenSince = time.Now().Add(-namedFor)
+		}
+		return problemCoded(r.diagnostics(), CodeTelemetryNoClusterID)
+	}
+	sig := []string{"resource_usage"}
+
+	p := build(sig, "", time.Hour, "cl-1")
+	if p == nil || p.Severity != ikhnosv1.Problem_WARN || !strings.Contains(p.Message, "cl-1") || !strings.Contains(p.Message, "DefinitionCurrent") {
+		t.Fatalf("an hour without the id: %+v", p)
+	}
+	if build(sig, "", time.Minute, "cl-1") != nil {
+		t.Fatal("the problem is raised before the controller has had time to stamp the id")
+	}
+	if build(sig, "cl-1", time.Hour, "cl-1") != nil {
+		t.Fatal("the problem is raised though the telemetry carries the id")
+	}
+	if build(nil, "", time.Hour, "cl-1") != nil {
+		t.Fatal("the problem is raised though the install sends no telemetry")
+	}
+	if build(sig, "", time.Hour, "") != nil {
+		t.Fatal("the problem is raised though the server has not named the cluster")
+	}
+
+	// the message does not change from one build to the next, so it stays one problem with one `since`
+	r := newTestRunner()
+	r.ident = newIdentityState()
+	r.cfg.TelemetrySignals = sig
+	r.noteClusterSeen("cl-1")
+	r.ident.seenSince = time.Now().Add(-time.Hour)
+	a, b := problemCoded(r.diagnostics(), CodeTelemetryNoClusterID), problemCoded(r.diagnostics(), CodeTelemetryNoClusterID)
+	if a == nil || b == nil || a.Message != b.Message {
+		t.Fatalf("the message changes between builds: %+v / %+v", a, b)
+	}
+
+	// the count starts again for a new id, and a repeat of the same id does not restart it
+	r.noteClusterSeen("cl-1")
+	if _, since := r.clusterSeen(); time.Since(since) < 59*time.Minute {
+		t.Fatal("hearing the same id again restarted the count")
+	}
+	r.noteClusterSeen("cl-2")
+	if id, since := r.clusterSeen(); id != "cl-2" || time.Since(since) > time.Minute {
+		t.Fatalf("a new id: %q since %v", id, since)
+	}
+
+	// a runner that cannot keep the id (no state) does not fail
+	var bare runner
+	bare.noteClusterSeen("x")
+	if id, _ := bare.clusterSeen(); id != "" {
+		t.Fatalf("a bare runner knows %q", id)
+	}
+}

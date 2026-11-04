@@ -78,6 +78,9 @@ spec:
             # Service name per collector, resolved to every pod. Absent: the agent reports no export health.
             - {name: IKHNOS_TELEMETRY_HEALTH_TARGETS, value: {{ include "agent.telemetryHealthTargets" . | quote }}}
             {{- end }}
+            # The cluster id this release stamps on everything it emits (telemetry.resource.clusterId; empty when none), so the agent can say so
+            # in Diagnostics when the server has named this cluster and the telemetry still does not carry the name.
+            - {name: IKHNOS_TELEMETRY_CLUSTER_ID, value: {{ .Values.telemetry.resource.clusterId | quote }}}
             - {name: IKHNOS_TELEMETRY_REDACTION, value: {{ include "agent.telemetryEffectiveRedactionEnabled" . | quote }}}
             - {name: IKHNOS_TELEMETRY_RESOURCE_DETECTION, value: {{ include "agent.telemetryEffectiveResourceDetectionEnabled" . | quote }}}
             # The version of each telemetry tool this release deploys (collector, and Kepler / the DCGM exporter when bundled), from the

@@ -46,7 +46,14 @@ const (
 	// CodeCertRenewalFailing: a telemetry collector's certificate towards a regional operator is close to ending and
 	// could not be renewed (see noteCertRenewal).
 	CodeCertRenewalFailing = "telemetry_cert_renewal_failing"
+	// CodeTelemetryNoClusterID: the server has named this cluster and the telemetry the install sends does not carry the name.
+	CodeTelemetryNoClusterID = "telemetry_without_cluster_id"
 )
+
+// telemetryClusterIDGrace is how long the server must have named the cluster before the telemetry lacking the name is a problem: an agent
+// kept by a controller reports the id and the controller restarts the release with it, which takes a few minutes, and an agent that has
+// just restarted has not heard it before it has been running a while.
+const telemetryClusterIDGrace = 10 * time.Minute
 
 const (
 	collectorProbes  = "probes"
@@ -337,6 +344,13 @@ func (r *runner) diagnostics() *ikhnosv1.Diagnostics {
 		r.dg.mu.Unlock()
 		if checked && ceiling > r.cfg.Tier {
 			add(CodeRBACWiderThanTier, ikhnosv1.Problem_WARN, fmt.Sprintf("The cluster still grants this agent permission to read at tier %d, wider than the tier %d this install declares (access.tier). %s", ceiling, r.cfg.Tier, rbacWiderAdvice))
+		}
+	}
+
+	// telemetry that does not say which cluster it is from
+	if len(r.cfg.TelemetrySignals) > 0 && r.cfg.TelemetryClusterID == "" {
+		if id, since := r.clusterSeen(); id != "" && now.Sub(since) > telemetryClusterIDGrace {
+			add(CodeTelemetryNoClusterID, ikhnosv1.Problem_WARN, fmt.Sprintf("The server calls this cluster %s, but the telemetry this install sends carries no cluster id (ikhnos.cluster.id), so the dashboards and queries cannot tell it from another cluster's. An agent kept by a controller reports the id and the controller adds it within minutes: if it has not, apply the controller chart's CRDs again (`helm show crds <controller chart> | kubectl apply --server-side --force-conflicts -f -`) and check the DefinitionCurrent condition of the IkhnosAgent. Otherwise set telemetry.resource.clusterId=%s (spec.telemetry.owner.clusterId in an IkhnosAgent) with `helm upgrade --reset-then-reuse-values`.", id, id))
 		}
 	}
 
