@@ -334,7 +334,7 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
                     onChange={setProbe}
                     title="Also tell virtual machines from bare metal"
                     summary="Reads CPU flags and firmware info on every node, read-only, reporting only inside the cluster."
-                    why="Kubernetes cannot say whether a node is a VM or a physical server, so Ikhnos otherwise guesses and marks the guess as uncertain. This is a small pod on every node that reads CPU flags, firmware vendor/product name, ARM board model, and which network interface kinds are up - never serial numbers, MAC addresses, disks or processes."
+                    why="Kubernetes cannot say whether a node is a virtual machine or a physical server, so Ikhnos otherwise guesses and marks the guess as uncertain. This is a small pod on every node that reads CPU flags, firmware vendor/product name, ARM board model, and which network interface kinds are up - never serial numbers, MAC addresses, disks or processes."
                   />
                   {max >= 2 && (
                     <OptionToggle

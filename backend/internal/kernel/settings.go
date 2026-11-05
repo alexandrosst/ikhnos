@@ -40,7 +40,11 @@ type Settings struct {
 	FlowStaleSeconds int `json:"flowStaleSeconds"`
 	// MeasureSeconds is how often agents that allow it time the path to the addresses they talk to.
 	MeasureSeconds int `json:"measureSeconds"`
-	// ProbeTargets are addresses an administrator asked a cluster to measure, in addition to the ones its traffic shows.
+	// MeasureObserved lets the server also have agents time the outside addresses their clusters call most, which it works out from the
+	// traffic (only at access level 2 and above, and only where the agent allows measuring). Off, the default: only the addresses an
+	// administrator asked for (ProbeTargets) and the ones being tested are measured.
+	MeasureObserved bool `json:"measureObserved"`
+	// ProbeTargets are addresses an administrator asked a cluster to measure, and, when MeasureObserved is on, the ones its traffic shows.
 	ProbeTargets []ProbeTarget `json:"probeTargets"`
 	// Links are the pairs of clusters whose link an administrator asked to watch. Only listed pairs are measured, in both
 	// directions; see LinkSetting.
@@ -575,6 +579,7 @@ func SettingsDiff(a, b Settings) string {
 	add("quiet link (s)", a.FlowStaleSeconds, b.FlowStaleSeconds)
 	add("measure every (s)", a.MeasureSeconds, b.MeasureSeconds)
 	add("measurement targets", len(a.ProbeTargets), len(b.ProbeTargets))
+	add("measure the addresses clusters call most", a.MeasureObserved, b.MeasureObserved)
 	d = append(d, linksDiff(a.Links, b.Links)...)
 	add("quick-start backends", len(a.QuickStartBackends), len(b.QuickStartBackends))
 	add("allowed backend kinds", joinKinds(a.AllowedBackendKinds), joinKinds(b.AllowedBackendKinds))

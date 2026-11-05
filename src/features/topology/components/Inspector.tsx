@@ -685,7 +685,7 @@ export default function Inspector({
             <button className="text-accent hover:underline" onClick={() => onSelect({ kind: 'cluster', id: n.clusterId })}>{clusterName(n.clusterId)}</button>
           </Row>
           <Row label="Type" badge={!!n.overrides?.kind && <Confirmed meta={n.overrideMeta?.kind} />}>
-            {n.kind === 'vm' ? 'VM' : n.kind === 'bare-metal' ? 'Bare metal' : 'Edge device'}
+            {n.kind === 'vm' ? 'Virtual machine' : n.kind === 'bare-metal' ? 'Bare metal' : 'Edge device'}
           </Row>
           {!n.overrides?.kind && n.source === 'discovered' && (n.probed ? n.evidence?.kind?.confidence === 'medium' : n.evidence?.kind?.confidence === 'low') && (
             <ProvenanceStrip

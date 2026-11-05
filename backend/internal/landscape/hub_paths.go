@@ -64,7 +64,9 @@ func (h *Hub) compileFor(a store.Agent, v *View) (*ikhnosv1.Config, []connectivi
 		}
 	}
 	facts.AddressTargets = h.addressTestTargets(v, h.C.Now())
-	facts.DerivedTargets = connectivity.DeriveTargets(v.Flows)
+	if set.MeasureObserved {
+		facts.DerivedTargets = connectivity.DeriveTargets(v.Flows)
+	}
 
 	cfg, ts := connectivity.CompileConfig(facts)
 	return cfg, ts, complete

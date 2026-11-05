@@ -45,7 +45,7 @@ The **Deciders** tab scores several ways of choosing moves on the same landscape
 Advice improves with evidence. Three things help most, and each is yours to turn on.
 
 - **Observe traffic.** Switching on the traffic observer on an agent (an extra from step 4, which you can add later with a `helm upgrade`) turns "a dependency someone declared" into "a dependency measured, with traffic".
-- **Measure the paths.** Path measurements and cluster links give real round-trip times between clusters, instead of an estimate from distance.
+- **Measure the paths.** Path measurements and cluster links give real round-trip times between clusters, instead of an estimate from distance. On the Sites page, **Measured paths** times only the addresses you add under *Addresses you asked to be measured*. A switch there, off by default, also lets the server pick the places each cluster's traffic shows most (for agents at access level 2 or above) and time them; those rows are marked *seen in traffic*. Both lists show ten rows and offer the rest.
 - **Declare what only you know.** Which site a cluster is in, which services belong to one application, a data-residency rule. Ikhnos keeps declared values apart from observed ones, and a declared value is labelled as such.
 
 [Mobility and placement](../user-guide/mobility-and-placement.md) covers the cost function and the policy weights in full, and [How a recommendation is made](../inside/placement-engine.md) draws the whole pipeline.

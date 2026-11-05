@@ -97,7 +97,7 @@ func TestNoteMeasurementsAcceptsOnlyIssuedTargetsAndSaneNumbers(t *testing.T) {
 	r.hub.NoteMeasurements("unknown-agent", &ikhnosv1.Measurements{}) // must not panic
 }
 
-func TestConfigForIssuesManualAndObservedTargetsByTier(t *testing.T) {
+func TestConfigForIssuesManualTargetsAndObservedOnesOnlyWhenAskedForAndByTier(t *testing.T) {
 	r := newHubRig(t)
 	id, _, _ := r.approvedAgent(t, testkit.FP)
 	a, _ := r.st.GetAgent(r.ctx, "org-1", id)
@@ -117,9 +117,24 @@ func TestConfigForIssuesManualAndObservedTargetsByTier(t *testing.T) {
 	}
 	a.AccessTier = 2
 	cfg = r.hub.ConfigFor(a, v)
-	if len(cfg.ProbeTargets) != 2 || cfg.ResyncSeconds != int32(15*60) {
-		t.Fatalf("tier 2 config = %+v", cfg)
+	if len(cfg.ProbeTargets) != 1 || cfg.ProbeTargets[0].Id != "mine" || cfg.ResyncSeconds != int32(15*60) {
+		t.Fatalf("the addresses the traffic shows were issued without being asked for: %+v", cfg)
 	}
+	if _, err := r.core.SaveSettings(r.ctx, "alex", kernel.Settings{MeasureSeconds: 30, MeasureObserved: true, ProbeTargets: []kernel.ProbeTarget{
+		{ID: "mine", ClusterID: a.ClusterID, Host: "203.0.113.20", Port: 8443},
+		{ID: "theirs", ClusterID: "another-cluster", Host: "203.0.113.21", Port: 8443},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	cfg = r.hub.ConfigFor(a, v)
+	if len(cfg.ProbeTargets) != 2 {
+		t.Fatalf("tier 2 config with the traffic's addresses asked for = %+v", cfg)
+	}
+	a.AccessTier = 1
+	if cfg = r.hub.ConfigFor(a, v); len(cfg.ProbeTargets) != 1 {
+		t.Fatalf("the addresses the traffic shows were issued at tier 1: %+v", cfg)
+	}
+	a.AccessTier = 2
 	if _, ok := v.Paths["stale"]; ok {
 		t.Fatal("a path for a target no longer issued was kept")
 	}

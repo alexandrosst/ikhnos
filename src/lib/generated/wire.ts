@@ -2418,6 +2418,7 @@ export interface SaveSettingsRequest {
   staleAfterBeats: number
   flowStaleSeconds: number
   measureSeconds: number
+  measureObserved: boolean
   probeTargets: ProbeTarget[]
   links: LinkSetting[]
   allowedBackendKinds: BackendKind[]
@@ -2660,6 +2661,7 @@ export interface SettingsConflictDoc {
   staleAfterBeats: number
   flowStaleSeconds: number
   measureSeconds: number
+  measureObserved: boolean
   probeTargets: ProbeTarget[]
   links: LinkSetting[]
   allowedBackendKinds: BackendKind[]
@@ -2689,6 +2691,7 @@ export interface SettingsDoc {
   staleAfterBeats: number
   flowStaleSeconds: number
   measureSeconds: number
+  measureObserved: boolean
   probeTargets: ProbeTarget[]
   links: LinkSetting[]
   allowedBackendKinds: BackendKind[]

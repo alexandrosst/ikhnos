@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, test, vi } from 'vitest'
 import MeasuredPaths from '@/features/topology/components/MeasuredPaths'
 import type { Path } from '@/lib/types'
@@ -45,5 +45,24 @@ describe('MeasuredPaths', () => {
     pathsState = [path('3', { rttMinMs: 0, rttP50Ms: 0, rttP95Ms: 0, samples: 0 })]
     render(<MeasuredPaths />)
     expect(screen.getByTestId('path-no-roundtrip')).toHaveTextContent('not measured yet')
+  })
+
+  test('shows the first ten paths and the rest when asked for', () => {
+    pathsState = Array.from({ length: 13 }, (_, i) => path(String(i + 1), { fromName: `edge-${String(i).padStart(2, '0')}` }))
+    render(<MeasuredPaths />)
+    expect(screen.getAllByTestId('path-row')).toHaveLength(10)
+    expect(screen.getByTestId('paths-more')).toHaveTextContent('Showing 10 of 13')
+    fireEvent.click(screen.getByTestId('paths-toggle'))
+    expect(screen.getAllByTestId('path-row')).toHaveLength(13)
+    expect(screen.getByTestId('paths-more')).toHaveTextContent('All 13')
+    fireEvent.click(screen.getByTestId('paths-toggle'))
+    expect(screen.getAllByTestId('path-row')).toHaveLength(10)
+  })
+
+  test('ten paths or fewer are all shown, with nothing to ask for', () => {
+    pathsState = Array.from({ length: 10 }, (_, i) => path(String(i + 1)))
+    render(<MeasuredPaths />)
+    expect(screen.getAllByTestId('path-row')).toHaveLength(10)
+    expect(screen.queryByTestId('paths-more')).toBeNull()
   })
 })

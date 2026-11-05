@@ -12,6 +12,25 @@ import { usePaths, useTopology } from '@/store/topology'
 
 const ms = (n: number) => (n < 10 ? n.toFixed(1) : Math.round(n).toString())
 
+/** How many rows a list shows before the rest is asked for. */
+const SHOWN = 10
+
+/** The first `SHOWN` of a list, and a button under it that shows all of it (or folds it back). Nothing when the list fits. */
+function useFirst<T>(list: readonly T[], what: string) {
+  const [all, setAll] = useState(false)
+  const shown = all ? list : list.slice(0, SHOWN)
+  const more =
+    list.length > SHOWN ? (
+      <div className="mt-2 flex items-center gap-3 text-xs text-nb-500" data-testid={`${what}-more`}>
+        <span>{all ? `All ${list.length}` : `Showing ${SHOWN} of ${list.length}`}</span>
+        <Button variant="ghost" size="sm" onClick={() => setAll(!all)} data-testid={`${what}-toggle`}>
+          {all ? 'Show fewer' : `Show all ${list.length}`}
+        </Button>
+      </div>
+    ) : null
+  return { shown, more }
+}
+
 /**
  * Round-trip times and loss between clusters and the places they talk to, measured by the agents (TCP connect
  * timing, opt-in, no probes beyond an address the cluster already uses or an administrator named).
@@ -28,6 +47,8 @@ export default function MeasuredPaths() {
     [paths],
   )
 
+  const { shown, more } = useFirst(ordered, 'paths')
+
   return (
     <section className="mt-10" aria-label="Measured paths" data-testid="measured-paths">
       <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -41,7 +62,7 @@ export default function MeasuredPaths() {
         )}
       </div>
       <p className="mb-4 max-w-3xl text-sm text-nb-500">
-        How long a connection takes to open from a cluster to the places it talks to, and how often it fails. The placement advice uses these instead of guesses where they exist. Measuring is off until you turn it on for an agent (in the connect wizard, or with the agent’s measurement setting); it only ever opens a connection to addresses the cluster already uses or ones you name here.
+        How long a connection takes to open from a cluster to the places it talks to, and how often it fails. The placement advice uses these instead of guesses where they exist. Measuring is off until you turn it on for an agent (in the connect wizard, or with the agent’s measurement setting). It only opens connections to the addresses you ask for below, and, if you turn that on there, to the places the clusters call most.
       </p>
 
       {ordered.length === 0 ? (
@@ -63,7 +84,7 @@ export default function MeasuredPaths() {
             </tr>
           </thead>
           <tbody>
-            {ordered.map((p) => (
+            {shown.map((p) => (
               <tr key={p.id} className={clsx(p.stale && 'opacity-60')} data-testid="path-row">
                 <Td className="font-medium text-nb-300">{p.fromName}</Td>
                 <Td>
@@ -88,6 +109,7 @@ export default function MeasuredPaths() {
           </tbody>
         </Table>
       )}
+      {more}
 
       {status === 'connected' && <Targets admin={!!admin} clusterOptions={agents.filter((a) => a.clusterId).map((a) => a.clusterId as string)} clusters={clusters} />}
     </section>
@@ -107,10 +129,12 @@ function Targets({ admin, clusterOptions, clusters }: { admin: boolean; clusterO
   const p = Number(port)
   const valid = cluster !== '' && host.trim() !== '' && Number.isInteger(p) && p >= 1 && p <= 65535
 
-  const write = async (targets: ProbeTarget[]) => {
+  const { shown: shownTargets, more: moreTargets } = useFirst(settings.probeTargets, 'targets')
+
+  const write = async (targets: ProbeTarget[], measureObserved = settings.measureObserved) => {
     setBusy(true)
     try {
-      return await save(conn, { ...settings, probeTargets: targets })
+      return await save(conn, { ...settings, probeTargets: targets, measureObserved })
     } finally {
       setBusy(false)
     }
@@ -120,11 +144,25 @@ function Targets({ admin, clusterOptions, clusters }: { admin: boolean; clusterO
     <div className="mt-6 rounded-xl border border-nb-850 bg-nb-925 p-5">
       <h3 className="mb-1 text-sm font-medium text-nb-300">Addresses you asked to be measured</h3>
       <p className="mb-3 text-xs text-nb-500">For places no cluster talks to yet, such as a site you plan to move something to. Loopback, link-local and metadata addresses are always refused.</p>
+      <label className="mb-3 flex items-start gap-2.5 text-sm">
+        <input
+          type="checkbox"
+          className="mt-0.5 size-4 accent-[var(--color-accent)]"
+          checked={settings.measureObserved}
+          disabled={!admin || busy}
+          onChange={(e) => void write(settings.probeTargets, e.target.checked)}
+          data-testid="measure-observed"
+        />
+        <span>
+          <span className="text-nb-300">Also measure the places clusters call most</span>
+          <span className="block text-xs text-nb-500">Off by default. When on, the server picks the outside addresses each cluster’s traffic shows most (for agents at access level 2 or above that allow measuring) and has the agent time them, so rows marked “seen in traffic” appear below. Only the addresses you add here are measured otherwise.</span>
+        </span>
+      </label>
       {settings.probeTargets.length === 0 ? (
         <p className="text-sm text-nb-400">None.</p>
       ) : (
         <ul className="divide-y divide-nb-850/60 text-sm" data-testid="probe-targets">
-          {settings.probeTargets.map((t) => (
+          {shownTargets.map((t) => (
             <li key={t.id} className="flex items-center gap-3 py-2">
               <span className="text-nb-300">{name(t.clusterId)}</span>
               <span className="text-nb-600">→</span>
@@ -139,6 +177,7 @@ function Targets({ admin, clusterOptions, clusters }: { admin: boolean; clusterO
           ))}
         </ul>
       )}
+      {moreTargets}
       {error && <p className="mt-3 text-sm text-bad" role="alert"><CircleAlert size={ICON_SM} className="mr-1 inline" aria-hidden />{error}</p>}
       {admin ? (
         <div className="mt-4 grid gap-3 border-t border-nb-850 pt-4 md:grid-cols-[1fr_1.4fr_6rem_1fr_auto] md:items-end">

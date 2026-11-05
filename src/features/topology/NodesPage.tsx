@@ -15,7 +15,7 @@ import { accelSummary, ageLabel, formatCpu, formatMemory, podsLabel, podsPercent
 import type { MachineNode } from '@/lib/types'
 import { matches, RowActions, SearchBox } from './shared'
 
-const KIND_LABEL = { vm: 'VM', 'bare-metal': 'Bare metal', 'edge-device': 'Edge device' } as const
+const KIND_LABEL = { vm: 'Virtual machine', 'bare-metal': 'Bare metal', 'edge-device': 'Edge device' } as const
 const KIND_ICON = { vm: Server, 'bare-metal': HardDrive, 'edge-device': Cpu } as const
 
 const NODE_COLUMNS: ColumnDef[] = [
@@ -44,7 +44,7 @@ export default function NodesPage() {
     <>
       <PageHeader
         title="Nodes"
-        description="The machines — VMs, bare-metal servers and edge devices — that make up your clusters."
+        description="The machines — virtual machines, bare-metal servers and edge devices — that make up your clusters."
         actions={
           <Button variant="primary" onClick={() => setEditing('new')} disabled={clusters.length === 0}>
             <Plus size={ICON_SM} /> Add node

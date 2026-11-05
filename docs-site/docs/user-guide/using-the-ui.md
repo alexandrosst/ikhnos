@@ -13,7 +13,7 @@ This assumes you have a server running and at least one cluster connected (see [
 Everything you see is a projection of a single shared model, kept live by your connected agents:
 
 - **Application view** — your services, grouped by the cluster they run in, with dependencies drawn as edges between them. IoT devices sit in a row per site below the clusters they connect to; anything a service calls that isn't part of your own landscape shows up as an external endpoint.
-- **Infrastructure view** — the nodes underneath (VMs, bare metal, edge devices), grouped by cluster, with an optional overlay of which services are scheduled on which node.
+- **Infrastructure view** — the nodes underneath (virtual machines, bare metal, edge devices), grouped by cluster, with an optional overlay of which services are scheduled on which node.
 
 Edit something in one place — rename a service, correct a cluster's tier — and it updates everywhere, because there's only one underlying document.
 

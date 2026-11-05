@@ -60,7 +60,7 @@ export function NodeForm({ initial, onClose, defaultClusterId }: { initial: Mach
       open
       onClose={onClose}
       title={initial ? 'Edit node' : 'Add node'}
-      description="A machine (VM, bare-metal server or edge device) that is part of a cluster."
+      description="A machine (virtual machine, bare-metal server or edge device) that is part of a cluster."
       footer={
         <FormFooter
           isNew={!initial}
@@ -104,7 +104,7 @@ export function NodeForm({ initial, onClose, defaultClusterId }: { initial: Mach
         </Field>
         <Field label="Machine type" adornment={chip('kind')}>
           <Select value={f.kind} onChange={(e) => set('kind', e.target.value as MachineNode['kind'])}>
-            <option value="vm">VM</option>
+            <option value="vm">Virtual machine</option>
             <option value="bare-metal">Bare metal</option>
             <option value="edge-device">Edge device</option>
           </Select>

@@ -36,6 +36,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   staleAfterBeats: 4,
   flowStaleSeconds: 300,
   measureSeconds: 120,
+  measureObserved: false,
   probeTargets: [],
   links: [],
   allowedBackendKinds: [],
