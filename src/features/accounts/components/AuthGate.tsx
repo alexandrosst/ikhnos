@@ -10,9 +10,9 @@ function Shell({ title, description, children }: { title: string; description: s
   return (
     <div className="grid min-h-full place-items-center bg-nb-900 px-4 py-10">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-2.5">
-          <BrandMark className="h-9" />
-          <div className="text-base font-semibold tracking-tight text-nb-300">Ikhnos</div>
+        <div className="mb-8 flex flex-col items-center gap-3" data-testid="auth-brand">
+          <BrandMark className="h-16" />
+          <div className="text-2xl font-semibold tracking-tight text-nb-300">Ikhnos</div>
         </div>
         <div className="rounded-xl border border-nb-850 bg-nb-920 p-6 shadow-2xl">
           <h1 className="text-lg font-medium text-nb-300">{title}</h1>
@@ -77,7 +77,7 @@ function InviteNote() {
 }
 
 function SignInScreen({ onRegister }: { onRegister: () => void }) {
-  const { url, error, signIn, disconnect, registration, invite } = useServer()
+  const { url, error, signIn, registration, invite } = useServer()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -91,7 +91,7 @@ function SignInScreen({ onRegister }: { onRegister: () => void }) {
   }
 
   return (
-    <Shell title="Sign in" description={`Server: ${url || window.location.origin}`}>
+    <Shell title="Sign in" description="See your clusters, from cloud to far edge.">
       <InviteNote />
       <form
         className="space-y-4"
@@ -116,10 +116,9 @@ function SignInScreen({ onRegister }: { onRegister: () => void }) {
           Create an account
         </button>
       )}
-      {registration === 'invite' && !canRegister && <p className="mt-4 text-center text-xs text-nb-500">New accounts on this server are by invitation. Open the invitation link you were given.</p>}
-      <button onClick={disconnect} className="mt-4 w-full text-center text-xs text-nb-500 hover:text-nb-300">
-        Use this browser without a server
-      </button>
+      {registration === 'invite' && !canRegister && <p className="mt-4 text-center text-xs text-nb-500" data-testid="invite-only">No account yet? Ask an administrator for an invitation link.</p>}
+      {/* Said only when the page talks to another server than the one it came from: otherwise the address is the one in the address bar. */}
+      {url && url !== window.location.origin && <p className="mt-4 text-center text-xs text-nb-600" data-testid="auth-server">Server: {url}</p>}
     </Shell>
   )
 }

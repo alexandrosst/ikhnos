@@ -40,7 +40,7 @@ Your browser will warn you that the certificate is not trusted. That is expected
 
 ## The sign-in page
 
-<Shot src="journey/signin" alt="The Ikhnos sign-in page with a username and password field" caption="The sign-in page. Type admin and the password from the log. 'Use this browser without a server' runs the interface on a built-in sample landscape, which is a good way to look around without connecting anything." />
+<Shot src="journey/signin" alt="The Ikhnos sign-in page with a username and password field" caption="The sign-in page. Type admin and the password from the log." />
 
 Type `admin` and the password, and press **Sign in**.
 
