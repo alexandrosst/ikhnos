@@ -344,7 +344,7 @@ export default function AgentsPage() {
                         <tr>
                           <Td colSpan={7} className="bg-nb-930/40 py-4">
                             <div className="detail-in">
-                              <AgentDetail agent={a} extras={extrasOf(rawAgents, a.id)} canConsent={canConsent} onRevoke={canAdminister && connected && a.status === 'approved' ? () => setRevoking(a) : undefined} />
+                              <AgentDetail agent={a} extras={extrasOf(rawAgents, a.id)} canConsent={canConsent} onSetUpTelemetry={() => telemetry.start(a.id)} onRevoke={canAdminister && connected && a.status === 'approved' ? () => setRevoking(a) : undefined} />
                             </div>
                           </Td>
                         </tr>
@@ -365,7 +365,7 @@ export default function AgentsPage() {
                 <h2 className="text-sm font-medium text-nb-300">{openAgent.name}</h2>
                 <button className="text-xs text-nb-500 hover:text-nb-300" onClick={() => setOpen(null)}>Close</button>
               </div>
-              <AgentDetail agent={openAgent} extras={extrasOf(rawAgents, openAgent.id)} canConsent={canConsent} onRevoke={canAdminister && connected && openAgent.status === 'approved' ? () => setRevoking(openAgent) : undefined} />
+              <AgentDetail agent={openAgent} extras={extrasOf(rawAgents, openAgent.id)} canConsent={canConsent} onSetUpTelemetry={() => telemetry.start(openAgent.id)} onRevoke={canAdminister && connected && openAgent.status === 'approved' ? () => setRevoking(openAgent) : undefined} />
             </div>
           )}
         </>
@@ -398,14 +398,15 @@ export default function AgentsPage() {
 }
 
 /** Everything the server knows about one agent that does not fit in a row. */
-function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent; extras: AgentExtras; canConsent: boolean; onRevoke?: () => void }) {
+function AgentDetail({ agent: a, extras, canConsent, onSetUpTelemetry, onRevoke }: { agent: Agent; extras: AgentExtras; canConsent: boolean; onSetUpTelemetry?: () => void; onRevoke?: () => void }) {
   const l = a.link
   const certLeft = msUntil(a.certExpiresAt)
   const ip = a.connectingIp
   const publicIpFallbackOn = useServer((s) => s.info?.geoip?.publicIpFallback)
   const install = useServer((s) => s.info?.install)
   // An agent whose telemetry is running has a local operator on the Pipeline page, and that is where it is changed: the signals it sends,
-  // where to, how often. Here the installed ones are only shown. An agent with none yet is set up here, in the full form.
+  // where to, how often. Here the installed ones are only shown. An agent with none yet is set up in the guided dialog, the same one the page's own
+  // "Set up telemetry" button opens, with this agent already chosen: nothing is changed in this row, so there is one place for each thing.
   const hasCollector = (extras.diagnostics?.installedTelemetry ?? []).length > 0
   const changeInPipeline = (
     <span className="text-nb-500">
@@ -415,6 +416,14 @@ function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent;
       </Link>
       .
     </span>
+  )
+  const setUp = (
+    <div className="flex flex-wrap items-center gap-3 text-nb-500">
+      <Button onClick={onSetUpTelemetry} data-testid={`setup-telemetry-${a.id}`}>
+        <Radio size={ICON_SM} /> Set up telemetry
+      </Button>
+      <span>A short guided setup for this agent&apos;s cluster. It is changed afterwards from its collector on the Pipeline page.</span>
+    </div>
   )
   return (
     <div className="grid gap-x-10 gap-y-5 text-sm md:grid-cols-2 xl:grid-cols-3">
@@ -442,7 +451,7 @@ function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent;
               // Its own full-width row: the form walks through four steps, and a request's state line reads in sentences.
               <div id={`telemetry-${a.id}`} className="md:col-span-2 xl:col-span-3">
                 <Heading>Telemetry</Heading>
-                <TelemetryPanel diagnostics={extras.diagnostics} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} changeElsewhere={hasCollector ? changeInPipeline : undefined} />
+                <TelemetryPanel diagnostics={extras.diagnostics} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} changeElsewhere={hasCollector ? changeInPipeline : setUp} />
               </div>
             )}
           </div>
@@ -456,7 +465,7 @@ function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent;
           </div>
           <div id={`telemetry-${a.id}`} className="md:col-span-2">
             <Heading>Telemetry</Heading>
-            <TelemetryPanel diagnostics={undefined} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} />
+            <TelemetryPanel diagnostics={undefined} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} changeElsewhere={setUp} />
           </div>
         </div>
       )}
