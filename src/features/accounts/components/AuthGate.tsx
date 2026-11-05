@@ -101,7 +101,7 @@ function SignInScreen({ onRegister }: { onRegister: () => void }) {
   }
 
   return (
-    <Shell title="Sign in to your account" description="See your clusters, from cloud to far edge." tagline>
+    <Shell title="Welcome" description="See your clusters, from cloud to far edge." tagline>
       <InviteNote />
       <form
         className="space-y-4"

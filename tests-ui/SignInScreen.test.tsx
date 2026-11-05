@@ -26,7 +26,7 @@ describe('the sign-in page', () => {
     const tagline = screen.getByTestId('auth-tagline')
     expect(tagline).toHaveTextContent('See your clusters, from cloud to far edge.')
     expect(screen.getByTestId('auth-brand')).toContainElement(tagline)
-    const title = screen.getByRole('heading', { name: 'Sign in to your account' })
+    const title = screen.getByRole('heading', { name: 'Welcome' })
     expect(title).not.toHaveClass('sr-only')
     expect(title.closest('.auth-card')).not.toBeNull()
     expect(screen.queryByText('Welcome back')).toBeNull()
