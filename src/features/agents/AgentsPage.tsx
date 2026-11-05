@@ -404,6 +404,18 @@ function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent;
   const ip = a.connectingIp
   const publicIpFallbackOn = useServer((s) => s.info?.geoip?.publicIpFallback)
   const install = useServer((s) => s.info?.install)
+  // An agent whose telemetry is running has a local operator on the Pipeline page, and that is where it is changed: the signals it sends,
+  // where to, how often. Here the installed ones are only shown. An agent with none yet is set up here, in the full form.
+  const hasCollector = (extras.diagnostics?.installedTelemetry ?? []).length > 0
+  const changeInPipeline = (
+    <span className="text-nb-500">
+      To change what it sends or where to, use{' '}
+      <Link to={`/pipeline?open=${encodeURIComponent(a.id)}`} className="text-accent hover:underline" data-testid={`change-in-pipeline-${a.id}`}>
+        Pipeline → {a.name} collector
+      </Link>
+      .
+    </span>
+  )
   return (
     <div className="grid gap-x-10 gap-y-5 text-sm md:grid-cols-2 xl:grid-cols-3">
       {a.status === 'approved' && extras.diagnostics && (
@@ -430,7 +442,7 @@ function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent;
               // Its own full-width row: the form walks through four steps, and a request's state line reads in sentences.
               <div id={`telemetry-${a.id}`} className="md:col-span-2 xl:col-span-3">
                 <Heading>Telemetry</Heading>
-                <TelemetryPanel diagnostics={extras.diagnostics} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} />
+                <TelemetryPanel diagnostics={extras.diagnostics} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} changeElsewhere={hasCollector ? changeInPipeline : undefined} />
               </div>
             )}
           </div>

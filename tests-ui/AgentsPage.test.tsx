@@ -24,7 +24,9 @@ vi.mock('@/store/server', () => ({
 // The consent form and the telemetry panel have their own tests and stores; this page test is about where the page puts the Telemetry section.
 vi.mock('@/features/agents/components/AgentInsight', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/features/agents/components/AgentInsight')>()), ConsentPanel: () => null }))
 vi.mock('@/features/pipeline/components/telemetry/TelemetryPanel', () => ({
-  TelemetryPanel: ({ agentId }: { agentId?: string }) => <div data-testid="telemetry-stub" data-agent={agentId} />,
+  TelemetryPanel: ({ agentId, changeElsewhere }: { agentId?: string; changeElsewhere?: import('react').ReactNode }) => (
+    <div data-testid="telemetry-stub" data-agent={agentId} data-form={changeElsewhere ? 'link' : 'full'}>{changeElsewhere}</div>
+  ),
 }))
 vi.mock('@/features/discovery/components/ConnectFlow', () => ({
   useConnectFlow: () => ({ start: vi.fn(), dialogs: null, canStart: false, wizardOpen: false }),
@@ -99,5 +101,22 @@ describe('AgentsPage', () => {
     fireEvent.click(row)
     expect(screen.getByTestId('agent-row').querySelector('.chevron-turn')).toHaveAttribute('data-open', 'false')
     expect(screen.queryByTestId('telemetry-stub')).toBeNull()
+  })
+
+  test('an agent whose telemetry is running is changed from its collector on the Pipeline page, one with none is set up here', () => {
+    const base = { reportedAt: new Date().toISOString(), agentVersion: '1', uptimeSeconds: 1, installedTier: 2, approvedTier: 2, effectiveTier: 2, pausedCollectors: [], excludedNamespaces: 0, collectors: [], informers: [], problems: [] }
+    topologyState = { agents: [ag({ connected: true })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
+    serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }), diagnostics: { ...base, installedTelemetry: ['resourceUsage'] } } as unknown as Agent] } }
+    const first = renderPage('/agents?open=a1')
+    expect(screen.getByTestId('telemetry-stub')).toHaveAttribute('data-form', 'link')
+    const link = screen.getByTestId('change-in-pipeline-a1')
+    expect(link).toHaveAttribute('href', '/pipeline?open=a1')
+    expect(link).toHaveTextContent(/Pipeline → .* collector/)
+    first.unmount()
+
+    serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }), diagnostics: { ...base, installedTelemetry: [] } } as unknown as Agent] } }
+    renderPage('/agents?open=a1')
+    expect(screen.getByTestId('telemetry-stub')).toHaveAttribute('data-form', 'full')
+    expect(screen.queryByTestId('change-in-pipeline-a1')).toBeNull()
   })
 })

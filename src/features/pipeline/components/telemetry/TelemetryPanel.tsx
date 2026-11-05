@@ -1,6 +1,6 @@
 import { Tabs } from '@/components/ui/Tabs'
 import { ChevronRight, Loader2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Button, ICON_SM, RunStep } from '@/components/ui/primitives'
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import { ServerCommand } from '@/components/ui/ServerCommand'
@@ -53,6 +53,7 @@ function TelemetryPanelBody({
   onBackToCluster,
   onDone,
   testIdPrefix = 'telemetry-panel',
+  changeElsewhere,
 }: {
   diagnostics?: AgentDiagnostics
   install?: InstallInfo
@@ -81,6 +82,9 @@ function TelemetryPanelBody({
    * testIdPrefix. Needed because an expanded Agents-page row and the standalone wizard can both be mounted
    * for the same agent at once - without a distinguishing prefix they'd share every nested testid. */
   testIdPrefix?: string
+  /** Inline mode only: shown in place of the "Change telemetry" form, for a caller that has somewhere better to change it (the agent's
+   *  local operator, on the Pipeline page). The installed signals above it stay, read-only. */
+  changeElsewhere?: ReactNode
 }) {
   const installed = d?.installedTelemetry ?? []
   // The commands below name the chart version and registry this server currently resolves: read them again now, so a tab that has been open
@@ -491,6 +495,8 @@ function TelemetryPanelBody({
 
       {standalone ? (
         <div className={restored ? 'mt-3' : undefined}>{form}</div>
+      ) : changeElsewhere ? (
+        <div className="mt-3 text-xs" data-testid={`${testIdPrefix}-change-elsewhere`}>{changeElsewhere}</div>
       ) : (
         <details className="group mt-3" open={open} onToggle={(e) => setOpen(e.currentTarget.open)} data-testid={`${testIdPrefix}-change`}>
           <summary className="flex cursor-pointer select-none items-center gap-1 text-xs font-medium text-nb-400 hover:text-nb-300 marker:content-none">

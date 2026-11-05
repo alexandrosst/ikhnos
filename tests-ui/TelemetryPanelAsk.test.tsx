@@ -151,6 +151,14 @@ describe('TelemetryPanel: asking the cluster', () => {
     expect(note).toHaveTextContent('start from what is installed now')
   })
 
+  test('a caller that changes telemetry somewhere else gets the installed signals and its own line, with no form to open', () => {
+    render(<MemoryRouter><TelemetryPanel testIdPrefix="tp" agentId="a1" clusterId="cl-1" diagnostics={INSTALLED} changeElsewhere={<a href="/pipeline?open=a1">Pipeline</a>} /></MemoryRouter>)
+    expect(screen.getByTestId('telemetry-installed')).toHaveTextContent('Resource usage')
+    expect(screen.getByTestId('tp-change-elsewhere')).toHaveTextContent('Pipeline')
+    expect(screen.queryByTestId('tp-change')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('telemetry-installed-note')).not.toBeInTheDocument()
+  })
+
   test('lists what the form changes that a request does not carry, so it is not taken for sent', async () => {
     const user = userEvent.setup()
     render(tree())
