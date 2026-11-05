@@ -22,11 +22,14 @@ describe('the sign-in page', () => {
     show()
     expect(screen.getByTestId('auth-brand')).toHaveClass('flex-col', 'items-center')
     expect(screen.getByTestId('brand-mark')).toHaveClass('h-16')
-    // The tagline is under the name, outside the card; the card is the form, and its heading is for screen readers.
+    // The tagline is under the name, outside the card; the card has its own title and the form.
     const tagline = screen.getByTestId('auth-tagline')
     expect(tagline).toHaveTextContent('See your clusters, from cloud to far edge.')
     expect(screen.getByTestId('auth-brand')).toContainElement(tagline)
-    expect(screen.getByRole('heading', { name: 'Sign in' })).toHaveClass('sr-only')
+    const title = screen.getByRole('heading', { name: 'Sign in to your account' })
+    expect(title).not.toHaveClass('sr-only')
+    expect(title.closest('.auth-card')).not.toBeNull()
+    expect(screen.queryByText('Welcome back')).toBeNull()
     expect(screen.queryByText(/^Server:/)).toBeNull()
     expect(screen.queryByText(/without a server/i)).toBeNull()
   })

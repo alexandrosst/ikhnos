@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Check, KeyRound, Minus, X } from 'lucide-react'
+import { Check, KeyRound, Lock, Minus, User, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import AuthBackdrop from '@/features/accounts/components/AuthBackdrop'
 import { BrandMark, Copyright } from '@/components/ui/brand'
@@ -8,7 +8,7 @@ import { ROLE_LABEL } from '@/lib/api'
 import { useServer } from '@/store/server'
 
 /** The frame of every screen before the app: the mark and the name, a card, and the credits at the foot of the page. On the sign-in page the
- *  description goes under the name (`tagline`), so the card is the form alone and its title is only for screen readers. */
+ *  description goes under the name (`tagline`), so the card holds its title and the form alone. */
 function Shell({ title, description, tagline = false, children }: { title: string; description: string; tagline?: boolean; children: ReactNode }) {
   return (
     <div className="relative flex min-h-full flex-col items-center overflow-hidden bg-nb-900 px-4">
@@ -18,10 +18,10 @@ function Shell({ title, description, tagline = false, children }: { title: strin
           <div className={clsx('flex flex-col items-center gap-3', tagline ? 'mb-7' : 'mb-8')} data-testid="auth-brand">
             <BrandMark className="h-16" />
             <div className="text-2xl font-semibold tracking-tight text-nb-300">Ikhnos</div>
-            {tagline && <p className="-mt-1 text-center text-sm text-nb-500" data-testid="auth-tagline">{description}</p>}
+            {tagline && <p className="-mt-1 text-center text-base text-nb-500" data-testid="auth-tagline">{description}</p>}
           </div>
-          <div className="auth-card rounded-xl border border-nb-850 bg-nb-920 p-6 shadow-2xl">
-            <h1 className={tagline ? 'sr-only' : 'text-lg font-medium text-nb-300'}>{title}</h1>
+          <div className="auth-card rounded-xl border border-nb-850 bg-nb-920 p-7 shadow-2xl">
+            <h1 className={tagline ? 'mb-5 text-xl font-semibold tracking-tight text-nb-300' : 'text-lg font-medium text-nb-300'}>{title}</h1>
             {!tagline && <p className="mt-1 text-sm text-nb-500">{description}</p>}
             <div className={tagline ? undefined : 'mt-5'}>{children}</div>
           </div>
@@ -101,7 +101,7 @@ function SignInScreen({ onRegister }: { onRegister: () => void }) {
   }
 
   return (
-    <Shell title="Sign in" description="See your clusters, from cloud to far edge." tagline>
+    <Shell title="Sign in to your account" description="See your clusters, from cloud to far edge." tagline>
       <InviteNote />
       <form
         className="space-y-4"
@@ -111,13 +111,19 @@ function SignInScreen({ onRegister }: { onRegister: () => void }) {
         }}
       >
         <Field label="Username">
-          <Input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoFocus spellCheck={false} autoCapitalize="none" />
+          <div className="relative">
+            <User size={ICON_SM} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-nb-500" aria-hidden />
+            <Input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoFocus spellCheck={false} autoCapitalize="none" className="h-11 pl-9 text-[15px]" />
+          </div>
         </Field>
         <Field label="Password">
-          <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          <div className="relative [&_input]:h-11 [&_input]:pl-9 [&_input]:text-[15px]">
+            <Lock size={ICON_SM} className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-nb-500" aria-hidden />
+            <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          </div>
         </Field>
         <ErrorLine text={error} />
-        <Button type="submit" variant="primary" className="w-full" disabled={busy || !username.trim() || !password}>
+        <Button type="submit" variant="primary" className="h-11 w-full text-[15px]" disabled={busy || !username.trim() || !password}>
           {busy ? 'Signing in…' : 'Sign in'}
         </Button>
       </form>

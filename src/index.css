@@ -73,6 +73,7 @@
   --auth-glow: 10%;
   --auth-line: 0.2;
   --auth-node: 0.38;
+  --auth-shadow: 0.12;
   --color-lab-ink: #323660;
   --color-nb-900: #ffffff;
   --color-nb-910: #f7f8f9;
@@ -309,7 +310,9 @@ body {
 .chevron-turn { transition: transform var(--dur-fast) var(--ease-out); }
 .chevron-turn[data-open='true'] { transform: rotate(90deg); }
 /* The card of a sign-in screen settles in as the page opens. */
-.auth-card { animation: detail-in var(--dur-base) var(--ease-out); }
+.auth-card { position: relative; animation: detail-in var(--dur-base) var(--ease-out); box-shadow: 0 25px 50px -12px rgb(0 0 0 / var(--auth-shadow, 0.45)), 0 0 0 1px color-mix(in srgb, var(--color-accent) 6%, transparent); }
+/* A thin line of the accent along the top edge, fading out at both ends. */
+.auth-card::before { content: ''; position: absolute; left: 1.5rem; right: 1.5rem; top: -1px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--color-accent), transparent); opacity: 0.7; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .auth-card { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .detail-in { animation: none; } .chevron-turn { transition: none; } }
 
