@@ -14,7 +14,7 @@ function Shell({ title, description, tagline = false, children }: { title: strin
     <div className="relative flex min-h-full flex-col items-center overflow-hidden bg-nb-900 px-4">
       <AuthBackdrop />
       <div className="relative grid w-full flex-1 place-items-center py-10">
-        <div className="-mt-[4vh] w-full max-w-sm">
+        <div className="-mt-[4vh] w-full max-w-[22rem]">
           <div className={clsx('flex flex-col items-center gap-3', tagline ? 'mb-7' : 'mb-8')} data-testid="auth-brand">
             <BrandMark className="h-16" />
             <div className="text-2xl font-semibold tracking-tight text-nb-300">Ikhnos</div>
@@ -27,7 +27,10 @@ function Shell({ title, description, tagline = false, children }: { title: strin
           </div>
         </div>
       </div>
-      <Copyright className="relative pb-5 text-center" />
+      {/* The page's colour fades in under the credits, so a line of the backdrop is never read through them. */}
+      <div className="relative w-full bg-gradient-to-t from-nb-900 via-nb-900/80 to-transparent pb-5 pt-12">
+        <Copyright className="text-center" />
+      </div>
     </div>
   )
 }

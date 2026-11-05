@@ -47,7 +47,8 @@ function network() {
 
 const NETWORK = network()
 
-const FADE = 'radial-gradient(75% 75% at 50% 45%, #000 25%, transparent 100%)'
+// Clear where the mark, the name and the tagline are, so no line runs through them; faint toward the corners, so none is read against the form.
+const FADE = 'radial-gradient(75% 75% at 50% 45%, transparent 22%, #000 42%, transparent 100%)'
 
 export default function AuthBackdrop() {
   return (
