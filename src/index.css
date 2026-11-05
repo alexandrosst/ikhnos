@@ -308,6 +308,9 @@ body {
 .detail-in { animation: detail-in var(--dur-base) var(--ease-out); }
 .chevron-turn { transition: transform var(--dur-fast) var(--ease-out); }
 .chevron-turn[data-open='true'] { transform: rotate(90deg); }
+/* The card of a sign-in screen settles in as the page opens. */
+.auth-card { animation: detail-in var(--dur-base) var(--ease-out); }
+@media (prefers-reduced-motion: reduce) { .auth-card { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .detail-in { animation: none; } .chevron-turn { transition: none; } }
 
 /* A table row lifts a little under the pointer and its status cell holds still. */

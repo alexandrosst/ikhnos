@@ -7,22 +7,27 @@ import { Button, ErrorBanner, Field, ICON_SM, Input, PasswordInput } from '@/com
 import { ROLE_LABEL } from '@/lib/api'
 import { useServer } from '@/store/server'
 
-function Shell({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+/** The frame of every screen before the app: the mark and the name, a card, and the credits at the foot of the page. On the sign-in page the
+ *  description goes under the name (`tagline`), so the card is the form alone and its title is only for screen readers. */
+function Shell({ title, description, tagline = false, children }: { title: string; description: string; tagline?: boolean; children: ReactNode }) {
   return (
-    <div className="relative grid min-h-full place-items-center overflow-hidden bg-nb-900 px-4 py-10">
+    <div className="relative flex min-h-full flex-col items-center overflow-hidden bg-nb-900 px-4">
       <AuthBackdrop />
-      <div className="relative w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-3" data-testid="auth-brand">
-          <BrandMark className="h-16" />
-          <div className="text-2xl font-semibold tracking-tight text-nb-300">Ikhnos</div>
+      <div className="relative grid w-full flex-1 place-items-center py-10">
+        <div className="-mt-[4vh] w-full max-w-sm">
+          <div className={clsx('flex flex-col items-center gap-3', tagline ? 'mb-7' : 'mb-8')} data-testid="auth-brand">
+            <BrandMark className="h-16" />
+            <div className="text-2xl font-semibold tracking-tight text-nb-300">Ikhnos</div>
+            {tagline && <p className="-mt-1 text-center text-sm text-nb-500" data-testid="auth-tagline">{description}</p>}
+          </div>
+          <div className="auth-card rounded-xl border border-nb-850 bg-nb-920 p-6 shadow-2xl">
+            <h1 className={tagline ? 'sr-only' : 'text-lg font-medium text-nb-300'}>{title}</h1>
+            {!tagline && <p className="mt-1 text-sm text-nb-500">{description}</p>}
+            <div className={tagline ? undefined : 'mt-5'}>{children}</div>
+          </div>
         </div>
-        <div className="rounded-xl border border-nb-850 bg-nb-920 p-6 shadow-2xl">
-          <h1 className="text-lg font-medium text-nb-300">{title}</h1>
-          <p className="mt-1 text-sm text-nb-500">{description}</p>
-          <div className="mt-5">{children}</div>
-        </div>
-        <Copyright className="mt-6 text-center" />
       </div>
+      <Copyright className="relative pb-5 text-center" />
     </div>
   )
 }
@@ -93,7 +98,7 @@ function SignInScreen({ onRegister }: { onRegister: () => void }) {
   }
 
   return (
-    <Shell title="Sign in" description="See your clusters, from cloud to far edge.">
+    <Shell title="Sign in" description="See your clusters, from cloud to far edge." tagline>
       <InviteNote />
       <form
         className="space-y-4"

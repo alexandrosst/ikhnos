@@ -22,7 +22,11 @@ describe('the sign-in page', () => {
     show()
     expect(screen.getByTestId('auth-brand')).toHaveClass('flex-col', 'items-center')
     expect(screen.getByTestId('brand-mark')).toHaveClass('h-16')
-    expect(screen.getByText('See your clusters, from cloud to far edge.')).toBeInTheDocument()
+    // The tagline is under the name, outside the card; the card is the form, and its heading is for screen readers.
+    const tagline = screen.getByTestId('auth-tagline')
+    expect(tagline).toHaveTextContent('See your clusters, from cloud to far edge.')
+    expect(screen.getByTestId('auth-brand')).toContainElement(tagline)
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toHaveClass('sr-only')
     expect(screen.queryByText(/^Server:/)).toBeNull()
     expect(screen.queryByText(/without a server/i)).toBeNull()
   })
@@ -55,5 +59,15 @@ describe('the sign-in page', () => {
     first.unmount()
     show()
     expect(screen.getByTestId('auth-backdrop').innerHTML).toBe(drawn)
+  })
+
+  test('the credits are at the foot of the page, outside the card, on the sign-in page and on the other screens', () => {
+    const first = show()
+    const copyright = screen.getByTestId('copyright')
+    expect(copyright.closest('.auth-card')).toBeNull()
+    expect(screen.getByTestId('auth-brand').closest('.auth-card')).toBeNull()
+    first.unmount()
+    show({ registration: 'open', status: 'twofactor', pendingMethods: ['totp'] })
+    expect(screen.getByTestId('copyright').closest('.auth-card')).toBeNull()
   })
 })
