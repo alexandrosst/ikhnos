@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { Check, KeyRound, Minus, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
+import AuthBackdrop from '@/features/accounts/components/AuthBackdrop'
 import { BrandMark, Copyright } from '@/components/ui/brand'
 import { Button, ErrorBanner, Field, ICON_SM, Input, PasswordInput } from '@/components/ui/primitives'
 import { ROLE_LABEL } from '@/lib/api'
@@ -8,8 +9,9 @@ import { useServer } from '@/store/server'
 
 function Shell({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
-    <div className="grid min-h-full place-items-center bg-nb-900 px-4 py-10">
-      <div className="w-full max-w-sm">
+    <div className="relative grid min-h-full place-items-center overflow-hidden bg-nb-900 px-4 py-10">
+      <AuthBackdrop />
+      <div className="relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3" data-testid="auth-brand">
           <BrandMark className="h-16" />
           <div className="text-2xl font-semibold tracking-tight text-nb-300">Ikhnos</div>

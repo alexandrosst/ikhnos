@@ -42,4 +42,18 @@ describe('the sign-in page', () => {
     expect(screen.getByTestId('to-register')).toBeInTheDocument()
     expect(screen.queryByTestId('invite-only')).toBeNull()
   })
+
+  test('a faint network sits behind the form, drawn the same way every time and from the theme\'s accent', () => {
+    const first = show()
+    const backdrop = screen.getByTestId('auth-backdrop')
+    expect(backdrop).toHaveAttribute('aria-hidden', 'true')
+    expect(backdrop).toHaveClass('pointer-events-none')
+    expect(backdrop.querySelectorAll('circle').length).toBeGreaterThan(30)
+    expect(backdrop.querySelectorAll('line').length).toBeGreaterThan(30)
+    expect(backdrop.innerHTML).not.toMatch(/#[0-9a-f]{3,6}/i)
+    const drawn = backdrop.innerHTML
+    first.unmount()
+    show()
+    expect(screen.getByTestId('auth-backdrop').innerHTML).toBe(drawn)
+  })
 })

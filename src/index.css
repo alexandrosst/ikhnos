@@ -69,6 +69,10 @@
  * resolved once in JS instead (see theme.ts) and data-theme is always set explicitly from then on.
  */
 :root[data-theme='light'] {
+  /* The sign-in backdrop (AuthBackdrop): fainter glow on white, a little stronger lines so they still read. */
+  --auth-glow: 10%;
+  --auth-line: 0.2;
+  --auth-node: 0.38;
   --color-lab-ink: #323660;
   --color-nb-900: #ffffff;
   --color-nb-910: #f7f8f9;
