@@ -14,6 +14,14 @@ const agent = (clusterId: string, accessTier = 2) => ({
   observer: { lastReport: '', collectors: [{ node: 'n', method: 'ebpf', bytesKnown: true }], lost: 0 },
 })
 
+
+// What the controller reports of an agent's release: the link prober, and whether its pod template says it runs throughput tests.
+const withProber = (clusterId: string, features: string) => ({
+  ...agent(clusterId),
+  diagnostics: { workloads: [{ name: 'ikhnos-link-prober', kind: 'Deployment', component: 'link-prober', wanted: 1, ready: 1, features }] },
+})
+const seedAgents = (...agents: unknown[]) => useRawTopology.setState({ clusters: [cluster('c-eu', 'cloud-eu'), cluster('c-us', 'cloud-us'), cluster('c-gr', 'edge-athens')], agents } as never)
+
 let saved: LinkPair[] | undefined
 const save = vi.fn(async (_c: unknown, s: { links?: LinkPair[] }) => {
   saved = s.links
@@ -80,6 +88,65 @@ describe('ClusterLinks', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit cloud-eu and cloud-us' }))
     expect(screen.getByRole('button', { name: 'Standard' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryByTestId('tp-own')).toBeNull()
+  })
+
+  describe('throughput tests when adding a pair', () => {
+    it('ticks them, with the lightest amount, for two clusters that both have them turned on', async () => {
+      render(<ClusterLinks />)
+      seedAgents(withProber('c-eu', 'probe,throughput'), withProber('c-us', 'probe,throughput'))
+      fireEvent.click(screen.getByTestId('add-pair'))
+      pick('First cluster', 'cloud-eu')
+      pick('Second cluster', 'cloud-us')
+      expect(screen.getByTestId('throughput-options')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Light' })).toHaveAttribute('aria-pressed', 'true')
+      fireEvent.click(screen.getByTestId('confirm-add-pair'))
+      await vi.waitFor(() => expect(saved).toEqual([{ a: 'c-eu', b: 'c-us', throughput: { budgetMB: 1024 } }]))
+    })
+
+    it('uses the amount a person picks, and leaves them off when unticked', async () => {
+      render(<ClusterLinks />)
+      seedAgents(withProber('c-eu', 'probe,throughput'), withProber('c-us', 'probe,throughput'))
+      fireEvent.click(screen.getByTestId('add-pair'))
+      pick('First cluster', 'cloud-eu')
+      pick('Second cluster', 'cloud-us')
+      fireEvent.click(screen.getByRole('button', { name: 'Heavy' }))
+      fireEvent.click(screen.getByTestId('confirm-add-pair'))
+      await vi.waitFor(() => expect(saved).toEqual([{ a: 'c-eu', b: 'c-us', throughput: { budgetMB: 20480 } }]))
+    })
+
+    it('leaves them off for the pair when a person unticks them', async () => {
+      render(<ClusterLinks />)
+      seedAgents(withProber('c-eu', 'probe,throughput'), withProber('c-us', 'probe,throughput'))
+      fireEvent.click(screen.getByTestId('add-pair'))
+      pick('First cluster', 'cloud-eu')
+      pick('Second cluster', 'cloud-us')
+      fireEvent.click(screen.getByRole('switch', { name: /Throughput tests/ }))
+      expect(screen.queryByTestId('throughput-options')).toBeNull()
+      fireEvent.click(screen.getByTestId('confirm-add-pair'))
+      await vi.waitFor(() => expect(saved).toEqual([{ a: 'c-eu', b: 'c-us' }]))
+    })
+
+    it('leaves them off when one of the clusters does not have them, or the server cannot tell', async () => {
+      render(<ClusterLinks />)
+      seedAgents(withProber('c-eu', 'probe,throughput'), withProber('c-us', 'probe'))
+      fireEvent.click(screen.getByTestId('add-pair'))
+      pick('First cluster', 'cloud-eu')
+      pick('Second cluster', 'cloud-us')
+      expect(screen.queryByTestId('throughput-options')).toBeNull()
+      fireEvent.click(screen.getByTestId('confirm-add-pair'))
+      await vi.waitFor(() => expect(saved).toEqual([{ a: 'c-eu', b: 'c-us' }]))
+    })
+
+    it('says which cluster is not set up when a pair is asked for tests it cannot run', () => {
+      render(<ClusterLinks />)
+      seedAgents(withProber('c-eu', 'probe,throughput'), withProber('c-us', 'probe'))
+      fireEvent.click(screen.getByTestId('add-pair'))
+      pick('First cluster', 'cloud-eu')
+      pick('Second cluster', 'cloud-us')
+      fireEvent.click(screen.getByRole('switch', { name: /Throughput tests/ }))
+      expect(screen.getByTestId('link-checks')).toHaveTextContent('cloud-us is not set up for throughput tests')
+      expect(screen.getByTestId('link-checks')).not.toHaveTextContent('cloud-eu is not set up')
+    })
   })
 
   it('adds a pair with probing on and throughput off, ids in order', async () => {

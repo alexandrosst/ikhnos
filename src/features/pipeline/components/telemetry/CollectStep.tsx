@@ -104,7 +104,7 @@ export function ClusterLinksFields({ value, onChange, testIdPrefix }: { value: T
           <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" ref={undetermined(optionsKept && !value.clusterLinksRunning)} checked={value.clusterLinksThroughput} onChange={(e) => set('clusterLinksThroughput', e.target.checked)} data-testid={`${testIdPrefix}-links-throughput`} />
           <span>
             <span className="text-nb-300">Throughput tests</span>
-            <span className="block text-xs text-nb-500">Lets this cluster run and answer iperf3 tests, which fill the link for a few seconds. They run only on the pairs you turn them on for, within a daily budget, and wait while the link is busy.</span>
+            <span className="block text-xs text-nb-500">Lets this cluster run and answer iperf3 tests, which fill the link for a few seconds. They run only on the pairs that ask for them (on Sites, adding a pair between two clusters that both have this ticked offers them ticked), within a daily budget, and wait while the link is busy.</span>
           </span>
         </label>
       )}

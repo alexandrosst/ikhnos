@@ -5,7 +5,7 @@ import { ConfirmModal } from '@/components/forms/ConfirmModal'
 import { Button, ErrorBanner, Field, ICON_MD, ICON_SM, Modal, Pill, Select, SkeletonLines, Table, Td, Th } from '@/components/ui/primitives'
 import { api, atLeast } from '@/lib/api'
 import {
-  LINK_REQUIREMENT, PRESETS, STEP_MARK, VIA_HINT, VIA_OPTIONS, clockWords, clusterChecks, costLine, firstLines, hasPair, latestView, newPair, pairKey, presetOf, probeRecent, removePair, replacePair, runnerOf, runsFromWords, setupSummary, throughputFor, throughputSummary, uncoveredChecks, uncoveredNotes,
+  LINK_REQUIREMENT, PRESETS, STEP_MARK, VIA_HINT, VIA_OPTIONS, clockWords, clusterChecks, costLine, firstLines, hasPair, latestView, newPair, pairKey, presetOf, probeRecent, removePair, replacePair, runnerOf, runsFromWords, setupSummary, throughputChecks, throughputFor, throughputOn, throughputSummary, uncoveredChecks, uncoveredNotes,
   type Check, type LinkPairLatest, type LinksLatest, type PairSetup, type PresetId, type SetupState, type SetupStep, type Via,
 } from '@/lib/clusterLinks'
 import type { LinkPair } from '@/lib/history'
@@ -383,6 +383,35 @@ function useSaveLinks(onDone: () => void) {
   return { links: settings.links, busy, error, run }
 }
 
+/** The amount of throughput testing a pair may use in a day, with what it costs and which cluster runs it. Shared by adding a pair and editing one. */
+function ThroughputOptions({ choice, onChoice, own, cost, runner, answerer }: { choice: PresetId | 'own'; onChoice: (c: PresetId) => void; own?: LinkPair['throughput']; cost?: LinkPair['throughput']; runner?: string; answerer?: string }) {
+  return (
+    <div className="space-y-4" data-testid="throughput-options">
+      <div>
+        <div className="mb-1.5 text-sm font-medium text-nb-300">How much</div>
+        <div className="flex gap-2" role="group" aria-label="How much">
+          {(Object.keys(PRESETS) as PresetId[]).map((id) => (
+            <button
+              key={id}
+              aria-pressed={choice === id}
+              onClick={() => onChoice(id)}
+              className={clsx('h-9 flex-1 rounded-lg border text-sm font-medium', choice === id ? 'border-accent bg-accent-soft text-nb-300' : 'border-nb-850 text-nb-400 hover:bg-nb-940')}
+            >
+              {PRESETS[id].label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1.5 text-xs text-nb-500">What the tests may use in a day: Light 1 GB, Standard 5 GB, Heavy 20 GB. They run at full speed, as often as that pays for, so you do not choose a schedule.</p>
+        {choice === 'own' && own && (
+          <p className="mt-1.5 text-xs text-nb-400" data-testid="tp-own">This pair has its own schedule ({throughputSummary(own).when}, {throughputSummary(own).budget}), set through the API. It is kept until you pick one of these.</p>
+        )}
+      </div>
+      {cost && <p className="rounded-lg border border-nb-850 bg-nb-900 px-3.5 py-3 text-sm text-nb-400" data-testid="tp-cost">{costLine(cost)}</p>}
+      {runner && answerer && <p className="text-xs text-nb-500">Tests run from {runner} (its id sorts first); {answerer} only answers. Nothing to choose.</p>}
+    </div>
+  )
+}
+
 function EditPair({ pair, agents, name, onClose }: { pair: LinkPair; agents: Agent[]; name: (id: string) => string; onClose: () => void }) {
   const { busy, error, run } = useSaveLinks(onClose)
   const [probe, setProbe] = useState(!pair.noProbe)
@@ -395,7 +424,7 @@ function EditPair({ pair, agents, name, onClose }: { pair: LinkPair; agents: Age
   const [confirmRemove, setConfirmRemove] = useState(false)
 
   const throughput = !tpOn ? undefined : choice === 'own' ? pair.throughput : throughputFor(choice)
-  const checks = [...clusterChecks(pair.a, name(pair.a), agents), ...clusterChecks(pair.b, name(pair.b), agents)]
+  const checks = [...clusterChecks(pair.a, name(pair.a), agents), ...clusterChecks(pair.b, name(pair.b), agents), ...(tpOn ? [...throughputChecks(pair.a, name(pair.a), agents), ...throughputChecks(pair.b, name(pair.b), agents)] : [])]
 
   const submit = () => {
     const next: LinkPair = { a: pair.a, b: pair.b, ...(probe ? {} : { noProbe: true }), ...(via ? { via } : {}), ...(throughput ? { throughput } : {}) }
@@ -427,31 +456,7 @@ function EditPair({ pair, agents, name, onClose }: { pair: LinkPair; agents: Age
           <hr className="border-nb-850" />
           <Choice label="Throughput tests" text="Fills the link for a few seconds to see how much it can carry, how many packets it drops when pushed, and how far it can go before it does." on={tpOn} onChange={setTpOn} />
 
-          {tpOn && (
-            <div className="space-y-4" data-testid="throughput-options">
-              <div>
-                <div className="mb-1.5 text-sm font-medium text-nb-300">How much</div>
-                <div className="flex gap-2" role="group" aria-label="How much">
-                  {(Object.keys(PRESETS) as PresetId[]).map((id) => (
-                    <button
-                      key={id}
-                      aria-pressed={choice === id}
-                      onClick={() => setChoice(id)}
-                      className={clsx('h-9 flex-1 rounded-lg border text-sm font-medium', choice === id ? 'border-accent bg-accent-soft text-nb-300' : 'border-nb-850 text-nb-400 hover:bg-nb-940')}
-                    >
-                      {PRESETS[id].label}
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-1.5 text-xs text-nb-500">What the tests may use in a day: Light 1 GB, Standard 5 GB, Heavy 20 GB. They run at full speed, as often as that pays for, so you do not choose a schedule.</p>
-                {choice === 'own' && pair.throughput && (
-                  <p className="mt-1.5 text-xs text-nb-400" data-testid="tp-own">This pair has its own schedule ({throughputSummary(pair.throughput).when}, {throughputSummary(pair.throughput).budget}), set through the API. It is kept until you pick one of these.</p>
-                )}
-              </div>
-              {throughput && <p className="rounded-lg border border-nb-850 bg-nb-900 px-3.5 py-3 text-sm text-nb-400" data-testid="tp-cost">{costLine(throughput)}</p>}
-              <p className="text-xs text-nb-500">Tests run from {name(runnerOf(pair))} (its id sorts first); {name(runnerOf(pair) === pair.a ? pair.b : pair.a)} only answers. Nothing to choose.</p>
-            </div>
-          )}
+          {tpOn && <ThroughputOptions choice={choice} onChoice={setChoice} own={pair.throughput} cost={throughput} runner={name(runnerOf(pair))} answerer={name(runnerOf(pair) === pair.a ? pair.b : pair.a)} />}
 
           <hr className="border-nb-850" />
           <ViaSelect value={via} onChange={setVia} />
@@ -486,12 +491,19 @@ function AddPair({ clusters, agents, name, onClose }: { clusters: { id: string; 
   const [y, setY] = useState('')
   const [probe, setProbe] = useState(true)
   const [via, setVia] = useState<Via | ''>('')
+  // Throughput tests are ticked for a pair of clusters that both have them turned on in their install (that was a choice already made, and
+  // the amount is shown and chosen here), and left off for any other pair, or when the server cannot tell. A person's own tick is kept.
+  const [tp, setTp] = useState<boolean | undefined>(undefined)
+  const [amount, setAmount] = useState<PresetId>('light')
   const withAgent = new Set(agents.filter((a) => a.status === 'approved' && a.clusterId).map((a) => a.clusterId as string))
   const options = clusters.filter((c) => withAgent.has(c.id))
   const duplicate = x !== '' && y !== '' && x !== y && hasPair(links, x, y)
   const problem = x !== '' && x === y ? 'Choose two different clusters.' : duplicate ? 'This pair is already listed. Edit it from the table.' : ''
   const ready = x !== '' && y !== '' && !problem
-  const checks = ready ? [...clusterChecks(x, name(x), agents), ...clusterChecks(y, name(y), agents)] : []
+  const bothCan = ready && throughputOn(x, agents) === true && throughputOn(y, agents) === true
+  const tpOn = tp ?? bothCan
+  const throughput = tpOn ? throughputFor(amount) : undefined
+  const checks = ready ? [...clusterChecks(x, name(x), agents), ...clusterChecks(y, name(y), agents), ...(tpOn ? [...throughputChecks(x, name(x), agents), ...throughputChecks(y, name(y), agents)] : [])] : []
 
   return (
     <Modal
@@ -504,7 +516,7 @@ function AddPair({ clusters, agents, name, onClose }: { clusters: { id: string; 
       footer={
         <>
           <Button disabled={busy} onClick={onClose}>Cancel</Button>
-          <Button variant="primary" disabled={!ready || busy} onClick={() => void run((cur) => [...cur, { ...newPair(x, y), ...(probe ? {} : { noProbe: true }), ...(via ? { via } : {}) }])} data-testid="confirm-add-pair">
+          <Button variant="primary" disabled={!ready || busy} onClick={() => void run((cur) => [...cur, { ...newPair(x, y), ...(probe ? {} : { noProbe: true }), ...(via ? { via } : {}), ...(throughput ? { throughput } : {}) }])} data-testid="confirm-add-pair">
             Add pair
           </Button>
         </>
@@ -535,7 +547,8 @@ function AddPair({ clusters, agents, name, onClose }: { clusters: { id: string; 
               <Choice label="Real traffic" text="Always on for a listed pair." on fixed />
               <Choice label="Probing" text="Delay, jitter and loss per direction, packet size and route. Tiny traffic." on={probe} onChange={setProbe} />
               <ViaSelect value={via} onChange={setVia} />
-              <p className="flex items-start gap-2 text-xs text-nb-500"><CheckIcon size={ICON_SM} className="mt-px shrink-0" aria-hidden />Throughput tests start off. Turn them on from the pair’s settings, with a budget you choose, so nothing heavy runs by surprise.</p>
+              <Choice label="Throughput tests" text={bothCan ? 'Fills the link for a few seconds to see how much it can carry. Both clusters have them turned on in their install, so they are ticked here: untick to leave them off for this pair.' : 'Fills the link for a few seconds to see how much it can carry. Off unless you tick it, so nothing heavy runs by surprise; the clusters must also have them turned on in their telemetry settings.'} on={tpOn} onChange={setTp} />
+              {tpOn && <ThroughputOptions choice={amount} onChoice={setAmount} cost={throughput} />}
             </div>
 
             {checks.length > 0 && (

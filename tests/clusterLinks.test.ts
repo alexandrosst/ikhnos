@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  LINK_REQUIREMENT, testsHeldWords, PRESETS, VIA_OPTIONS, clusterChecks, firstLines, normalizeSetup, setupSummary, uncoveredChecks, uncoveredNotes, costLine, delayWords, everyWords, clockWords, hasPair, latestView, lossWords, newPair, normalizeLinksLatest, normalizeProbe, probeRecent, rateWords, presetOf, removePair, replacePair, runnerOf, runsFromWords, throughputFor, throughputSummary, viaWords,
+  LINK_REQUIREMENT, testsHeldWords, PRESETS, VIA_OPTIONS, clusterChecks, firstLines, normalizeSetup, setupSummary, uncoveredChecks, uncoveredNotes, costLine, delayWords, everyWords, clockWords, hasPair, latestView, lossWords, newPair, normalizeLinksLatest, normalizeProbe, probeRecent, rateWords, presetOf, removePair, replacePair, runnerOf, runsFromWords, throughputChecks, throughputFor, throughputOn, throughputSummary, viaWords,
 } from '../src/lib/clusterLinks'
 import type { LinkNote, LinkPairLatest, PairSetup, SetupStep } from '../src/lib/clusterLinks'
 import { PROBE_STALE_AFTER_MS } from '../src/lib/status'
@@ -379,4 +379,28 @@ test('only the three named amounts are offered, and each is a daily amount with 
   // The prober needs room for one whole test of the fastest link it can be asked about to learn anything; below that it caps.
   assert.ok(amounts[0] >= 1024)
   assert.equal(presetOf({ intervalMinutes: 10, budgetMB: 5120 }), 'custom')
+})
+
+const proberAgent = (clusterId: string, features?: string): Agent =>
+  agent({ id: `ag-${clusterId}`, clusterId, ...(features === undefined ? {} : ({ diagnostics: { workloads: [{ name: 'p', kind: 'Deployment', component: 'link-prober', wanted: 1, ready: 1, features }] } } as object)) })
+
+test('throughput tests are on in a cluster when the controller says the link prober runs them', () => {
+  assert.equal(throughputOn('a', [proberAgent('a', 'probe,throughput')]), true)
+  assert.equal(throughputOn('a', [proberAgent('a', 'probe')]), false)
+})
+
+test('when the server cannot tell whether a cluster runs throughput tests, it says nothing about it', () => {
+  assert.equal(throughputOn('a', [proberAgent('a')]), undefined)
+  assert.equal(throughputOn('missing', [proberAgent('a', 'probe,throughput')]), undefined)
+  assert.deepEqual(throughputChecks('a', 'cloud-a', [proberAgent('a')]), [])
+})
+
+test('a pair that asks for tests names the cluster that is not set up for them, and the setting that turns them on', () => {
+  const [c] = throughputChecks('a', 'cloud-a', [proberAgent('a', 'probe')])
+  assert.equal(c.ok, false)
+  assert.equal(c.code, 'throughput')
+  assert.equal(c.cluster, 'a')
+  assert.equal(c.text, 'cloud-a is not set up for throughput tests')
+  assert.ok(c.fix?.includes('Throughput tests'))
+  assert.equal(throughputChecks('a', 'cloud-a', [proberAgent('a', 'probe,throughput')])[0].ok, true)
 })

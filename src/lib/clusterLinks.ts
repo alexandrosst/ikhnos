@@ -1,5 +1,6 @@
 import type * as W from './generated/wire'
 import type { LinkPair } from './history'
+import { extrasOf, linkOptionsRunning } from './consent'
 import { isWord } from './narrow'
 import { ago } from './observed'
 import type { Agent } from './types'
@@ -94,7 +95,7 @@ export function costLine(t: Throughput): string {
 }
 
 /** `code` says what the check is about, so the row can leave out the ones the server's own checklist already says (see `uncoveredChecks`). */
-export type Check = { ok: boolean; text: string; fix?: string; code?: 'agent' | 'connected' | 'tier' | 'flow'; cluster?: string }
+export type Check = { ok: boolean; text: string; fix?: string; code?: 'agent' | 'connected' | 'tier' | 'flow' | 'throughput'; cluster?: string }
 
 /** What a cluster needs for the active measurements, from what the server already knows about its agent. */
 export function clusterChecks(clusterId: string, name: string, agents: Agent[]): Check[] {
@@ -105,6 +106,28 @@ export function clusterChecks(clusterId: string, name: string, agents: Agent[]):
   out.push(agent.accessTier >= 2 ? { ok: true, code: 'tier', text: `${name} is at access level ${agent.accessTier}` } : { ok: false, code: 'tier', cluster: clusterId, text: `${name} is at access level ${agent.accessTier}: probing needs level 2`, fix: 'Raise it in Agents' })
   out.push((agent.observer?.collectors.length ?? 0) > 0 ? { ok: true, code: 'flow', text: `${name} runs the flow collector` } : { ok: false, code: 'flow', cluster: clusterId, text: `${name} is not running the flow collector`, fix: 'Turn it on in the agent’s install' })
   return out
+}
+
+/**
+ * Whether a cluster's install lets it run and answer throughput tests, as its controller reports the link prober: true or false, and undefined
+ * when that is not known (no approved agent, nothing keeps the agent installed, or an older controller). A pair's tests need it in both clusters:
+ * one runs them and the other answers.
+ */
+export function throughputOn(clusterId: string, agents: Agent[]): boolean | undefined {
+  const agent = agents.find((a) => a.clusterId === clusterId && a.status === 'approved')
+  if (!agent) return undefined
+  return linkOptionsRunning(extrasOf(agents, agent.id).diagnostics?.workloads)?.throughput
+}
+
+/** What a pair that asks for throughput tests needs of a cluster's install, when the server can tell (nothing when it cannot). */
+export function throughputChecks(clusterId: string, name: string, agents: Agent[]): Check[] {
+  const on = throughputOn(clusterId, agents)
+  if (on === undefined) return []
+  return [
+    on
+      ? { ok: true, code: 'throughput', text: `${name} can run throughput tests` }
+      : { ok: false, code: 'throughput', cluster: clusterId, text: `${name} is not set up for throughput tests`, fix: 'Turn on “Throughput tests” under Cluster links in its telemetry settings; until then the tests for this pair do not run' },
+  ]
 }
 
 export type Via = NonNullable<LinkPair['via']>
