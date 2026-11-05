@@ -17,7 +17,7 @@
 
 <p align="center">
   <a href="https://alexandrosst.github.io/ikhnos/docs/getting-started/quickstart"><b>Quickstart</b></a> ·
-  <a href="https://alexandrosst.github.io/ikhnos/docs/">Documentation</a> ·
+  <a href="https://alexandrosst.github.io/ikhnos/">Documentation</a> ·
   <a href="https://alexandrosst.github.io/ikhnos/docs/journey/">Your first hour</a> ·
   <a href="https://alexandrosst.github.io/ikhnos/docs/inside/">How it is built</a> ·
   <a href="https://alexandrosst.github.io/ikhnos/docs/project/roadmap">Roadmap</a> ·
@@ -135,7 +135,7 @@ npm install && npm run dev        # http://localhost:5173
 
 ## Documentation
 
-The [documentation site](https://alexandrosst.github.io/ikhnos/docs/) is written for three readers. Its sources are in [`docs-site/docs`](docs-site/docs) and read fine on GitHub.
+The [documentation site](https://alexandrosst.github.io/ikhnos/) is written for three readers. Its sources are in [`docs-site/docs`](docs-site/docs) and read fine on GitHub.
 
 | I am... | Start with |
 |---|---|
