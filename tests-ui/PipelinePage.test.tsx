@@ -1095,8 +1095,14 @@ describe('PipelinePage - local operators', () => {
     // the chevron is left of the name, as on the Agents page, and turns down while it is open
     const row = screen.getByTestId('component-local:a1')
     expect(row.querySelector('[data-testid="local-chevron-edge-agent collector"]')?.nextElementSibling).toBe(screen.getByTestId('local-open-edge-agent collector'))
+    // the one chevron turns (it is not swapped for another), and the detail settles in with a short fade
+    const chevron = screen.getByTestId('local-chevron-edge-agent collector')
+    expect(chevron).toHaveAttribute('data-open', 'true')
+    expect(chevron).toHaveClass('chevron-turn')
+    expect(detail.parentElement).toHaveClass('detail-in')
     await user.click(screen.getByTestId('local-open-edge-agent collector'))
     expect(screen.queryByTestId('local-operator-detail')).toBeNull()
+    expect(screen.getByTestId('local-chevron-edge-agent collector')).toHaveAttribute('data-open', 'false')
     await user.click(row)
     expect(screen.getByTestId('local-operator-detail')).toBeInTheDocument()
     await user.click(row)

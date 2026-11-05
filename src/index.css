@@ -297,6 +297,15 @@ body {
 @keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .drawer-in { animation: drawer-in var(--dur-base) var(--ease-out); }
 
+/* The detail of a row in the agents and operators lists settles in with a short fade instead of appearing at once, and the chevron
+   in front of the name turns a quarter instead of swapping. Light on purpose: no height animation, so the rows below do not
+   shift while it plays and a table of many rows costs nothing. */
+@keyframes detail-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.detail-in { animation: detail-in var(--dur-base) var(--ease-out); }
+.chevron-turn { transition: transform var(--dur-fast) var(--ease-out); }
+.chevron-turn[data-open='true'] { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .detail-in { animation: none; } .chevron-turn { transition: none; } }
+
 /* A table row lifts a little under the pointer and its status cell holds still. */
 .row-hover { transition: background-color var(--dur-fast) var(--ease-out); }
 

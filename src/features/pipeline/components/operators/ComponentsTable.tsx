@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react'
+import { ChevronRight, ShieldCheck } from 'lucide-react'
 import clsx from 'clsx'
 import { Fragment, type ReactNode } from 'react'
 import { MeterBar } from '@/components/ui/MeterBar'
@@ -67,9 +67,7 @@ export default function ComponentsTable({ rows: unsorted, now, menuFor, onWhatTo
               data-testid={r.operator ? `operator-${r.operator.name}` : `component-${r.id}`} data-kind={r.kind} data-state={state}>
               <Td valign="top" className="max-md:block max-md:border-0 max-md:py-0 max-md:pr-12">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  {opens && (expandedId === r.id
-                    ? <ChevronDown size={ICON_SM} aria-hidden className="shrink-0 text-nb-500" data-testid={`local-chevron-${r.name}`} />
-                    : <ChevronRight size={ICON_SM} aria-hidden className="shrink-0 text-nb-500" data-testid={`local-chevron-${r.name}`} />)}
+                  {opens && <ChevronRight size={ICON_SM} aria-hidden className="chevron-turn shrink-0 text-nb-500" data-open={expandedId === r.id} data-testid={`local-chevron-${r.name}`} />}
                   {opens ? (
                     <button type="button" className="min-w-0 truncate text-left font-medium text-nb-300 hover:text-accent hover:underline" title={`${r.name}: what it collects and where it goes`} aria-expanded={expandedId === r.id} onClick={() => onOpen!(r)} data-testid={`local-open-${r.name}`}>{r.name}</button>
                   ) : (
@@ -109,7 +107,7 @@ export default function ComponentsTable({ rows: unsorted, now, menuFor, onWhatTo
               </Td>
             </tr>
             {renderExpanded && expandedId === r.id && (
-              <tr data-testid={`component-expanded-${r.id}`}><td colSpan={COLS.length} className="p-0 max-md:block">{renderExpanded(r)}</td></tr>
+              <tr data-testid={`component-expanded-${r.id}`}><td colSpan={COLS.length} className="p-0 max-md:block"><div className="detail-in">{renderExpanded(r)}</div></td></tr>
             )}
             </Fragment>
           )

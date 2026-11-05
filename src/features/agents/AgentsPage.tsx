@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { ChevronDown, ChevronRight, List, Network, Plug, Radio, Server } from 'lucide-react'
+import { ChevronRight, List, Network, Plug, Radio, Server } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { CanSee, ConsentPanel, DiscoveryChip, HealthChip, Problems } from '@/features/agents/components/AgentInsight'
@@ -283,7 +283,7 @@ export default function AgentsPage() {
                       >
                         <Td valign="top">
                           <div className="flex items-center gap-2 whitespace-nowrap font-medium text-nb-300">
-                            {expanded ? <ChevronDown size={ICON_SM} className="text-nb-500" aria-hidden /> : <ChevronRight size={ICON_SM} className="text-nb-500" aria-hidden />}
+                            <ChevronRight size={ICON_SM} className="chevron-turn text-nb-500" data-open={expanded} aria-hidden />
                             {a.name}
                           </div>
                           <div className="pl-[22px] text-xs text-nb-500">v{a.version}{a.kubernetesVersion ? ` · Kubernetes ${a.kubernetesVersion}` : ''}</div>
@@ -343,7 +343,9 @@ export default function AgentsPage() {
                       {expanded && (
                         <tr>
                           <Td colSpan={7} className="bg-nb-930/40 py-4">
-                            <AgentDetail agent={a} extras={extrasOf(rawAgents, a.id)} canConsent={canConsent} onRevoke={canAdminister && connected && a.status === 'approved' ? () => setRevoking(a) : undefined} />
+                            <div className="detail-in">
+                              <AgentDetail agent={a} extras={extrasOf(rawAgents, a.id)} canConsent={canConsent} onRevoke={canAdminister && connected && a.status === 'approved' ? () => setRevoking(a) : undefined} />
+                            </div>
                           </Td>
                         </tr>
                       )}

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, test, vi } from 'vitest'
 import AgentsPage from '@/features/agents/AgentsPage'
@@ -84,6 +84,20 @@ describe('AgentsPage', () => {
     topologyState = { agents: [ag({ connected: true })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
     serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }), diagnostics } as unknown as Agent] } }
     renderPage('/agents')
+    expect(screen.queryByTestId('telemetry-stub')).toBeNull()
+  })
+
+  test('an agent\'s detail settles in with a short fade and its chevron turns, instead of being swapped', () => {
+    const diagnostics = { reportedAt: new Date().toISOString(), agentVersion: '1', uptimeSeconds: 1, installedTier: 2, approvedTier: 2, effectiveTier: 2, pausedCollectors: [], excludedNamespaces: 0, collectors: [], informers: [], problems: [], installedTelemetry: ['resourceUsage'] }
+    topologyState = { agents: [ag({ connected: true })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
+    serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }), diagnostics } as unknown as Agent] } }
+    renderPage('/agents?open=a1')
+    const row = screen.getByTestId('agent-row')
+    expect(row).toHaveAttribute('aria-expanded', 'true')
+    expect(row.querySelector('.chevron-turn')).toHaveAttribute('data-open', 'true')
+    expect(screen.getByTestId('telemetry-stub').closest('.detail-in')).not.toBeNull()
+    fireEvent.click(row)
+    expect(screen.getByTestId('agent-row').querySelector('.chevron-turn')).toHaveAttribute('data-open', 'false')
     expect(screen.queryByTestId('telemetry-stub')).toBeNull()
   })
 })
