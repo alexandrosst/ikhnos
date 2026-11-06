@@ -1305,7 +1305,8 @@ export function Modal({
           )}
         </div>
         <div className={clsx('px-6 py-5', side && 'flex-1')}>{children}</div>
-        {footer && <div className="flex justify-end gap-2 border-t border-nb-850 px-6 py-4">{footer}</div>}
+        {/* Sticky, so the buttons stay in view while a long form scrolls. A centred dialog sits in 1rem of padding, which sticky does not count, hence -bottom-4: the bar reaches the screen's edge instead of leaving a strip of the form showing under it. */}
+        {footer && <div className={clsx('sticky flex justify-end gap-2 border-t border-nb-850 bg-nb-920 px-6 py-4', side ? 'bottom-0' : '-bottom-4 rounded-b-xl')}>{footer}</div>}
       </div>
     </div>,
     document.body,

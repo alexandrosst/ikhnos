@@ -14,17 +14,17 @@ A cluster joins Ikhnos by running a small agent. You do not create the agent any
 
 On the empty Topology page, press **Connect a cluster**. It is also on the **Agents** page, and it is the first step of the checklist.
 
-<Shot src="journey/connect-name" alt="The Connect a cluster dialog with a Cluster name field and a More options section" caption="Give the cluster a name as you want to see it. It can be renamed later." />
+<Shot src="journey/connect-name" alt="The Connect a cluster dialog with a Cluster name field, the Access cards and the Collect more switches below it" caption="Give the cluster a name as you want to see it. It can be renamed later." />
 
-Type a name, such as `edge-lab`. The page explains the default in one sentence: the agent installs read-only, at the recommended access level, and can never read Secrets or ConfigMaps or change anything in the cluster.
+Type a name, such as `edge-lab`. Everything the agent can be asked to do is on the same page, in three groups, with nothing folded away. The defaults are the recommended access level and nothing else switched on, so you can press **Create install command** straight away.
 
 ## Choose what the agent may read (optional)
 
-You can press **Create install command** now and come back to this later. If you want to see the choices, open **More options**.
+You can press **Create install command** now and come back to this later. The choices are these.
 
-<Shot src="journey/connect-options" alt="The More options section showing two access levels, Infrastructure and Services, and extras that can be switched on" caption="Two access levels, and extras that are separate things to install." />
+<Shot src="journey/connect-options" alt="The Access cards for Infrastructure and Services, then the Collect more switches and the namespace limit" caption="Two access levels, then what to collect on top, then what to leave out." />
 
-**What may the agent read?** There are two choices.
+**Access** is what the agent may read. It is always read-only: it can never read Secrets or ConfigMaps, or change anything in the cluster. There are two choices.
 
 - **Infrastructure** is the nodes, storage classes and ingress classes: what the cluster is made of.
 - **Services** (the default) is everything in Infrastructure plus namespaces, workloads, pods, services and ingresses: what runs on it.
@@ -33,7 +33,15 @@ This is the **ceiling**. It is enforced by Kubernetes itself, through the permis
 
 <Figure name="TrustChain" caption="The ceiling you choose here is the top of the chain. Later, an administrator can approve less, and the agent can send less, but never more." />
 
-**Extras** are independent of the access level. Each is a separate pod you are choosing to also install, and each is off until you switch it on. One tells virtual machines from bare metal on every node. One counts connections and bytes between services, using eBPF or the kernel's connection table, which is what lets Ikhnos draw real dependencies. One times TCP connections to addresses the server names, to measure the paths between clusters. You can add any of them after the install, so it is fine to start with none.
+**Collect more** is independent of the access level. Each row is a switch, off until you turn it on, and each says what it puts in the cluster: a pod on each node, or nothing extra because it runs inside the agent. You can add any of them after the install, so it is fine to start with none.
+
+- **Node hardware and network** (a pod on each node) tells virtual machines from bare metal, and reports the device model, the disks, and the uplinks and tunnels. It never reports serial numbers, MAC addresses or processes. It needs the host's `/sys` and network, so a namespace that enforces the Pod Security baseline must be labelled privileged.
+- **Traffic between services** (a pod on each node, with extra privileges) counts connections and bytes using eBPF or the kernel's connection table, which is what lets Ikhnos draw real dependencies. It asks for more than the others, so read what it is allowed to do before you switch it on.
+- **Round-trip times** (runs in the agent) times TCP connections to a few outside addresses, to measure the paths between clusters. On its own it times the addresses you add on the **Sites** page; with **Traffic between services** also on, it can offer the ones your workloads call most.
+
+The traffic and round-trip rows need the **Services** level. If you choose **Infrastructure** they stay in view, dimmed and off, with a note saying what they need.
+
+**Limit what it reports** is a narrower view, not a permission. **Only some namespaces** lets you name the namespaces to report, the ones never to report, or a label to select them by. What is left out never leaves the cluster.
 
 ## Run the command
 

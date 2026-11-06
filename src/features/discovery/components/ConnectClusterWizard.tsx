@@ -1,9 +1,9 @@
 import { Tabs } from '@/components/ui/Tabs'
-import { CheckCircle2, ChevronRight, Loader2, MapPin, Pin } from 'lucide-react'
+import { Activity, CheckCircle2, Cpu, Loader2, MapPin, Network, Pin, Timer } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Flag } from '@/components/ui/brand'
-import { Button, CopyButton, ErrorBanner, Field, ICON_SM, InfoTip, Input, Modal, TagsInput, WizardSteps } from '@/components/ui/primitives'
+import { Button, CopyButton, ErrorBanner, Field, ICON_SM, InfoTip, Input, Modal, SectionLabel, TagsInput, WizardSteps } from '@/components/ui/primitives'
 import TierLevels from '@/components/TierLevels'
 import { api, ApiError, type CreatedToken } from '@/lib/api'
 import { discoveryStatus, extrasOf } from '@/lib/consent'
@@ -116,20 +116,62 @@ function NoRegistryNotice({ onNavigate, newTab }: { onNavigate?: () => void; new
   )
 }
 
-/** One optional-module checkbox: a bold one-line label, a one-line summary, and the fuller technical
- * justification tucked behind the info tooltip instead of always taking three or four lines of the form. */
-function OptionToggle({ testId, checked, disabled, onChange, title, summary, why }: { testId: string; checked: boolean; disabled?: boolean; onChange: (v: boolean) => void; title: ReactNode; summary: string; why: string }) {
+/** A small on/off switch. A real checkbox underneath (so it is focusable, announced as a switch and has a test id), drawn as a track and a knob. */
+function Switch({ testId, checked, disabled, onChange, label }: { testId: string; checked: boolean; disabled?: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
-    <label className={`flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 ${checked ? 'border-accent/60 bg-accent-soft' : 'border-nb-850 bg-nb-925 hover:bg-nb-930'}`}>
-      <input type="checkbox" className="mt-1 accent-[var(--color-accent)]" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} data-testid={testId} />
-      <span>
-        <span className="block text-sm font-medium text-nb-300">{title}</span>
-        <span className="block text-sm text-nb-500">
-          {summary}
-          <InfoTip>{why}</InfoTip>
-        </span>
-      </span>
-    </label>
+    <span className="relative inline-flex shrink-0 items-center">
+      <input
+        type="checkbox"
+        role="switch"
+        className="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        aria-label={label}
+        data-testid={testId}
+      />
+      <span className="h-5 w-9 rounded-full bg-nb-800 transition-colors peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent/60 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-nb-920" aria-hidden />
+      <span className="pointer-events-none absolute left-0.5 h-4 w-4 rounded-full bg-nb-300 shadow transition-transform peer-checked:translate-x-4 peer-checked:bg-white" aria-hidden />
+    </span>
+  )
+}
+
+/** A small label saying what an option puts where; `warn` for the one that asks for more than the rest. */
+function Tag({ children, warn }: { children: ReactNode; warn?: boolean }) {
+  return <span className={`rounded border px-1.5 py-px text-[11px] font-normal ${warn ? 'border-warn/40 text-warn' : 'border-nb-800 text-nb-500'}`}>{children}</span>
+}
+
+/**
+ * One optional thing the agent can do, as a row: an icon, a bold title with tags saying what it installs, one line
+ * of what it does (the fuller account behind the info tooltip), and a switch. Rows that need more access than was
+ * chosen stay in view, dimmed and shown off, with a pill saying what they need - nothing is hidden behind a fold.
+ */
+function OptionRow({ testId, icon, checked, needs, onChange, title, tags, summary, why, children }: { testId: string; icon: ReactNode; checked: boolean; /** What is missing for this row, if anything. */ needs?: string; onChange: (v: boolean) => void; title: string; tags?: ReactNode; summary: string; why: string; children?: ReactNode }) {
+  const disabled = !!needs
+  const on = checked && !disabled
+  return (
+    <div className={`rounded-lg border px-4 py-3 ${disabled ? 'border-dashed border-nb-850 bg-nb-925 opacity-60' : on ? 'border-accent/60 bg-accent-soft' : 'border-nb-850 bg-nb-925'}`}>
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-nb-850 bg-nb-930 text-nb-500" aria-hidden>{icon}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-nb-300">
+            {title}
+            {tags}
+          </div>
+          <p className="text-sm text-nb-500">
+            {summary}
+            <InfoTip>{why}</InfoTip>
+          </p>
+        </div>
+        {needs ? (
+          <span className="shrink-0 self-center rounded-full border border-dashed border-nb-700 px-2.5 py-0.5 text-xs text-nb-500" data-testid={`${testId}-needs`}>{needs}</span>
+        ) : null}
+        <div className={needs ? 'sr-only' : 'self-center'}>
+          <Switch testId={testId} checked={on} disabled={disabled} onChange={onChange} label={title} />
+        </div>
+      </div>
+      {children}
+    </div>
   )
 }
 
@@ -142,7 +184,7 @@ const STEPS: { key: Phase; label: string }[] = [
 ]
 
 /** Create a token, show the install command, then follow the agent through approval to first discovery. */
-export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { open: boolean; onClose: () => void; /** Opens with the node probe on (and "More options" expanded): the central operator's card asks for it, since the probe is what reports a node's addresses. */ nodeProbe?: boolean }) {
+export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { open: boolean; onClose: () => void; /** Opens with the node probe on: the central operator's card asks for it, since the probe is what reports a node's addresses. */ nodeProbe?: boolean }) {
   const conn = useServer((s) => s.conn)
   const baseUrl = useServer((s) => s.url)
   const refresh = useServer((s) => s.refresh)
@@ -179,13 +221,6 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
   const [via, setVia] = useState<'helm' | 'controller'>('helm')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  // Whether "More options" is expanded. Seeded from whether anything non-default is already selected (so
-  // reopening the wizard with leftover choices doesn't hide why), but from then on this is the only thing
-  // that decides it - a native click toggles it via onToggle below. Deriving `open` straight from
-  // tier/probe/flows/measure/scopeOn on every render instead would fight the user's own click: picking
-  // Infrastructure then Services, say, flips that expression back to `false` (2 is the default tier, nothing
-  // else set) and slams the section shut mid-use.
-  const [moreOpen, setMoreOpen] = useState(false)
 
   // A default name so Create works the moment the wizard opens; still yours to change, and renameable later either way.
   // Deliberately keyed on `open` alone: it should fill in once per open, not re-fill while the count changes under it.
@@ -193,11 +228,9 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
     if (open) setName((n) => n || `cluster-${clusters.length + 1}`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
-  // Deliberately keyed on `open` alone too, for the same reason: seed once per open from whatever was left
-  // over from before, not on every change to the values it's seeded from (see `moreOpen` above).
+  // Deliberately keyed on `open` alone too, for the same reason: seed once per open, not on every change.
   useEffect(() => {
     if (open && nodeProbe) setProbe(true)
-    if (open) setMoreOpen((v) => v || nodeProbe === true || tier !== 2 || probe || flows || measure || scopeOn)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
@@ -229,7 +262,6 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
     setInc([])
     setExc([])
     setSel('')
-    setMoreOpen(false)
     setError('')
     onClose()
   }
@@ -306,96 +338,98 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
           <Field label="Cluster name" hint="How it appears in Ikhnos. You can rename it later.">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="edge-patras" autoFocus />
           </Field>
-          <p className="text-xs text-nb-500">Installs read-only at the recommended access level. It can never read Secrets or ConfigMaps, or change anything in the cluster — change what it may see under More options.</p>
           {max >= 1 && (
-            <details className="group rounded-lg border border-nb-850 bg-nb-925" data-testid="advanced-options" open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)}>
-              <summary className="flex cursor-pointer select-none items-center gap-1.5 px-4 py-3 text-sm font-medium text-nb-300 marker:content-none">
-                <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
-                More options <span className="font-normal text-nb-500">(access level, node probe, traffic observer, path measurements, namespace scope)</span>
-              </summary>
-              <div className="space-y-3 border-t border-nb-850 p-3">
-                <fieldset>
-                  <legend className="mb-2 text-sm font-medium text-nb-300">What may the agent read?</legend>
-                  <TierLevels
-                    tiers={([1, 2] as AccessTier[]).filter((t) => t <= max)}
-                    value={tier}
-                    onSelect={(t) => setTier(t)}
-                    layout="cards"
-                    data-testid="wizard-tier"
-                  />
-                </fieldset>
-                <fieldset className="space-y-3 border-t border-nb-850 pt-3">
-                  <legend className="mb-0.5 text-sm font-medium text-nb-300">Extras</legend>
-                  <p className="-mt-2 mb-2 text-xs text-nb-500">Independent of access level: each of these is a separate pod you're choosing to also install, not a higher tier.</p>
-                  <OptionToggle
-                    testId="node-probe-toggle"
-                    checked={probe}
-                    disabled={tier < 1}
-                    onChange={setProbe}
-                    title="Also tell virtual machines from bare metal"
-                    summary="Reads CPU flags and firmware info on every node, read-only, reporting only inside the cluster."
-                    why="Kubernetes cannot say whether a node is a virtual machine or a physical server, so Ikhnos otherwise guesses and marks the guess as uncertain. This is a small pod on every node that reads CPU flags, firmware vendor/product name, ARM board model, and which network interface kinds are up - never serial numbers, MAC addresses, disks or processes."
-                  />
-                  {max >= 2 && (
-                    <OptionToggle
-                      testId="flow-observer-toggle"
-                      checked={flows}
-                      disabled={tier < 2}
-                      onChange={setFlows}
-                      title="Also show which services talk to which"
-                      summary="Counts connections and bytes on every node, via eBPF or the kernel's connection table."
-                      why="Kubernetes does not record who calls whom. This is a pod on every node that counts connections and the bytes they carried (TCP via eBPF where the kernel supports it, TCP and UDP via the kernel's connection table otherwise) - never packets or contents. It needs extra privileges (root with CAP_BPF and CAP_PERFMON, and the host's process view for live byte totals), so read what it is allowed to do before you enable it."
-                    />
+            <section className="space-y-2" data-testid="wizard-access">
+              <SectionLabel>Access</SectionLabel>
+              <TierLevels tiers={([1, 2] as AccessTier[]).filter((t) => t <= max)} value={tier} onSelect={(t) => setTier(t)} layout="cards" data-testid="wizard-tier" />
+              <p className="text-xs text-nb-500">Always read-only: it can never read Secrets or ConfigMaps, or change anything in the cluster.</p>
+            </section>
+          )}
+          {max >= 1 && (
+            <section className="space-y-2" data-testid="wizard-collect">
+              <SectionLabel>Collect more</SectionLabel>
+              <OptionRow
+                testId="node-probe-toggle"
+                icon={<Cpu size={ICON_SM} />}
+                checked={probe}
+                needs={tier < 1 ? 'Needs Infrastructure access' : undefined}
+                onChange={setProbe}
+                title="Node hardware and network"
+                tags={<Tag>pod on each node</Tag>}
+                summary="Virtual machine or bare metal, device model, disks, uplinks and tunnels."
+                why="Kubernetes cannot say whether a node is a virtual machine or a physical server, so Ikhnos otherwise guesses and marks the guess as uncertain. A small pod on every node reads the CPU model and flags, the hypervisor, the firmware and board vendor and product, the ARM board model, the disks (capacity and type), the network interfaces including uplinks and VPN tunnels, and the node's own addresses - never serial numbers, MAC addresses or processes. It needs the host's /sys and network, so a namespace that enforces the Pod Security baseline must be labelled privileged."
+              />
+              {max >= 2 && (
+                <OptionRow
+                  testId="flow-observer-toggle"
+                  icon={<Network size={ICON_SM} />}
+                  checked={flows}
+                  needs={tier < 2 ? 'Needs Services access' : undefined}
+                  onChange={setFlows}
+                  title="Traffic between services"
+                  tags={
+                    <>
+                      <Tag>pod on each node</Tag>
+                      <Tag warn>extra privileges</Tag>
+                    </>
+                  }
+                  summary="Counts connections and bytes on every node."
+                  why="Kubernetes does not record who calls whom. A pod on every node counts connections and the bytes they carried (TCP via eBPF where the kernel supports it, TCP and UDP via the kernel's connection table otherwise) - never packets or contents. It needs extra privileges (root with CAP_BPF and CAP_PERFMON, and the host's process view for live byte totals), so read what it is allowed to do before you enable it."
+                />
+              )}
+              {max >= 2 && (
+                <OptionRow
+                  testId="measurements-toggle"
+                  icon={<Timer size={ICON_SM} />}
+                  checked={measure}
+                  needs={tier < 2 ? 'Needs Services access' : undefined}
+                  onChange={setMeasure}
+                  title="Round-trip times"
+                  tags={<Tag>runs in the agent</Tag>}
+                  summary="Times connections to a few outside addresses."
+                  why="Times how long a TCP connection takes to open, and how often it fails, for placement advice. It is part of the agent, not a separate pod. Nothing is sent over the connection; loopback, link-local and metadata addresses are always refused, and the agent refuses any address the server did not issue."
+                >
+                  {measure && !flows && tier >= 2 && (
+                    <p className="mt-2 pl-11 text-xs text-nb-500" data-testid="measurements-hint">
+                      Times the addresses you add on the Sites page. Turn on <strong className="font-medium text-nb-300">Traffic between services</strong> to also offer the ones your workloads call most.
+                    </p>
                   )}
-                  {max >= 2 && (
-                    <OptionToggle
-                      testId="measurements-toggle"
-                      checked={measure}
-                      disabled={tier < 2}
-                      onChange={setMeasure}
-                      title="Also measure round trips to other places"
-                      summary="Times connections to a few addresses the server names, for placement advice."
-                      why="Times how long a TCP connection takes to open, and how often it fails, to the busiest outside addresses this cluster already connects to plus any you add on the Sites page. Nothing is sent over the connection; loopback, link-local and metadata addresses are always refused, and the agent refuses any address the server did not issue."
-                    />
-                  )}
-                </fieldset>
-                {max >= 2 && (
-                  <fieldset className="border-t border-nb-850 pt-3">
-                    <legend className="mb-0.5 text-sm font-medium text-nb-300">Namespace scope</legend>
-                    <p className="-mt-2 mb-2 text-xs text-nb-500">Not an extra pod - a narrower view: what's left out is never installed on, only never reported.</p>
-                    <div className={`rounded-lg border px-4 py-3 ${scopeOn ? 'border-accent/60 bg-accent-soft' : 'border-nb-850 bg-nb-930'}`}>
-                      <label className="flex cursor-pointer items-start gap-3">
-                        <input type="checkbox" className="mt-1 accent-[var(--color-accent)]" checked={scopeOn} disabled={tier < 2} onChange={(e) => setScopeOn(e.target.checked)} data-testid="scope-toggle" />
-                        <span>
-                          <span className="block text-sm font-medium text-nb-300">Only look at some namespaces</span>
-                          <span className="block text-sm text-nb-500">
-                            By default the agent reports every namespace. What is left out never leaves the cluster.
-                            <InfoTip>This is a privacy boundary, not a permission: the agent's read-only access is unchanged. System namespaces are still read to recognise the cluster but never drawn. Any namespace labelled ikhnos.io/observe=false is left out whatever you choose here.</InfoTip>
-                          </span>
-                        </span>
-                      </label>
-                      {scopeOn && tier >= 2 && (
-                        <div className="mt-3 grid gap-3 pl-7 sm:grid-cols-2">
-                          <Field label="Only these namespaces" hint="Empty: all.">
-                            <TagsInput value={inc} onChange={setInc} placeholder="shop payments" data-testid="scope-include" />
-                          </Field>
-                          <Field label="Never these" hint="Wins over the other two.">
-                            <TagsInput value={exc} onChange={setExc} placeholder="hr-data" data-testid="scope-exclude" />
-                          </Field>
-                          <Field label="Or namespaces with this label" hint="key=value, on a label starting ikhnos.io/; added to the names on the left.">
-                            <Input value={sel} onChange={(e) => setSel(e.target.value)} placeholder="ikhnos.io/scope=yes" data-testid="scope-label" />
-                          </Field>
-                          <p className="self-end text-xs text-nb-500">
-                            {scopeActive(scope) ? 'The install command below will carry this scope.' : 'Nothing narrowed yet: the agent would report every namespace.'}
-                          </p>
-                          {problems.length > 0 && <p role="alert" className="text-xs text-bad sm:col-span-2">{problems.join('. ')}.</p>}
-                        </div>
-                      )}
-                    </div>
-                  </fieldset>
+                </OptionRow>
+              )}
+            </section>
+          )}
+          {max >= 2 && (
+            <section className="space-y-2" data-testid="wizard-limit">
+              <SectionLabel>Limit what it reports</SectionLabel>
+              <OptionRow
+                testId="scope-toggle"
+                icon={<Activity size={ICON_SM} />}
+                checked={scopeOn}
+                needs={tier < 2 ? 'Needs Services access' : undefined}
+                onChange={setScopeOn}
+                title="Only some namespaces"
+                summary="What is left out never leaves the cluster."
+                why="This is a privacy boundary, not a permission: the agent's read-only access is unchanged. By default it reports every namespace. System namespaces are still read to recognise the cluster but never drawn. Any namespace labelled ikhnos.io/observe=false is left out whatever you choose here."
+              >
+                {scopeOn && tier >= 2 && (
+                  <div className="mt-3 grid gap-3 pl-11 sm:grid-cols-2">
+                    <Field label="Only these namespaces" hint="Empty: all.">
+                      <TagsInput value={inc} onChange={setInc} placeholder="shop payments" data-testid="scope-include" />
+                    </Field>
+                    <Field label="Never these" hint="Wins over the other two.">
+                      <TagsInput value={exc} onChange={setExc} placeholder="hr-data" data-testid="scope-exclude" />
+                    </Field>
+                    <Field label="Or namespaces with this label" hint="key=value, on a label starting ikhnos.io/; added to the names on the left.">
+                      <Input value={sel} onChange={(e) => setSel(e.target.value)} placeholder="ikhnos.io/scope=yes" data-testid="scope-label" />
+                    </Field>
+                    <p className="self-end text-xs text-nb-500">
+                      {scopeActive(scope) ? 'The install command below will carry this scope.' : 'Nothing narrowed yet: the agent would report every namespace.'}
+                    </p>
+                    {problems.length > 0 && <p role="alert" className="text-xs text-bad sm:col-span-2">{problems.join('. ')}.</p>}
+                  </div>
                 )}
-              </div>
-            </details>
+              </OptionRow>
+            </section>
           )}
           {error && <ErrorBanner>{error}</ErrorBanner>}
         </div>

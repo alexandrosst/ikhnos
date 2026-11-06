@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
@@ -47,7 +47,6 @@ const wizard = (props: { nodeProbe?: boolean } = {}) =>
       <ConnectClusterWizard open onClose={() => undefined} {...props} />
     </MemoryRouter>,
   )
-const open = async (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByText('More options'))
 const create = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Create install command' }))
 
 describe('ConnectClusterWizard: what is sent for the command', () => {
@@ -70,7 +69,6 @@ describe('ConnectClusterWizard: what is sent for the command', () => {
   test('every collector and the scope that were chosen', async () => {
     const user = userEvent.setup()
     wizard()
-    await open(user)
     await user.click(screen.getByTestId('node-probe-toggle'))
     await user.click(screen.getByTestId('flow-observer-toggle'))
     await user.click(screen.getByTestId('measurements-toggle'))
@@ -89,7 +87,6 @@ describe('ConnectClusterWizard: what is sent for the command', () => {
   test('at the lower access level the collectors and scope that level cannot have are not asked for, whatever was ticked before', async () => {
     const user = userEvent.setup()
     wizard()
-    await open(user)
     await user.click(screen.getByTestId('node-probe-toggle'))
     await user.click(screen.getByTestId('flow-observer-toggle'))
     await user.click(screen.getByTestId('measurements-toggle'))
@@ -104,7 +101,6 @@ describe('ConnectClusterWizard: what is sent for the command', () => {
   test('the controller permissions for telemetry and the identity at uninstall are not asked about: the server\'s defaults are what everyone gets', async () => {
     const user = userEvent.setup()
     wizard()
-    await open(user)
     expect(screen.queryByTestId('controller-telemetry-toggle')).toBeNull()
     expect(screen.queryByTestId('purge-identity-toggle')).toBeNull()
     await create(user)
@@ -124,12 +120,58 @@ describe('ConnectClusterWizard: what is sent for the command', () => {
   test('a namespace that is not a name asks for nothing: Create stays off and says why', async () => {
     const user = userEvent.setup()
     wizard()
-    await open(user)
     await user.click(screen.getByTestId('scope-toggle'))
     await user.type(screen.getByTestId('scope-include'), 'Not A Name{enter}')
     expect(screen.getByRole('alert')).toHaveTextContent('is not a valid namespace name')
     expect(screen.getByRole('button', { name: 'Create install command' })).toBeDisabled()
     expect(createToken).not.toHaveBeenCalled()
+  })
+
+  test('everything that can be chosen is in view at once: no fold to open, no "extras"', () => {
+    wizard()
+    expect(screen.queryByText(/more options/i)).toBeNull()
+    expect(screen.queryByText(/extras/i)).toBeNull()
+    for (const id of ['wizard-tier', 'node-probe-toggle', 'flow-observer-toggle', 'measurements-toggle', 'scope-toggle']) expect(screen.getByTestId(id)).toBeVisible()
+    for (const t of ['Access', 'Collect more', 'Limit what it reports']) expect(screen.getByText(t)).toBeInTheDocument()
+    for (const t of ['Node hardware and network', 'Traffic between services', 'Round-trip times', 'Only some namespaces']) expect(screen.getByText(t)).toBeInTheDocument()
+  })
+
+  test('each row says in a tag what it puts in the cluster, and the one that asks for more privileges says so', () => {
+    wizard()
+    expect(within(screen.getByTestId('wizard-collect')).getAllByText('pod on each node')).toHaveLength(2)
+    expect(screen.getByText('runs in the agent')).toBeInTheDocument()
+    expect(screen.getByText('extra privileges')).toBeInTheDocument()
+  })
+
+  test('round-trip times without the traffic observer say which addresses they time; with it, the hint goes', async () => {
+    const user = userEvent.setup()
+    wizard()
+    expect(screen.queryByTestId('measurements-hint')).toBeNull()
+    await user.click(screen.getByTestId('measurements-toggle'))
+    expect(screen.getByTestId('measurements-hint')).toHaveTextContent('Times the addresses you add on the Sites page.')
+    expect(screen.getByTestId('measurements-hint')).toHaveTextContent('Turn on Traffic between services')
+    await user.click(screen.getByTestId('flow-observer-toggle'))
+    expect(screen.queryByTestId('measurements-hint')).toBeNull()
+  })
+
+  test('at the lower access level the rows that need more are still shown, off, and say what they need', async () => {
+    const user = userEvent.setup()
+    wizard()
+    await user.click(screen.getByTestId('flow-observer-toggle'))
+    await user.click(screen.getByTestId('measurements-toggle'))
+    await user.click(screen.getByTestId('wizard-tier-1'))
+    for (const id of ['flow-observer-toggle', 'measurements-toggle', 'scope-toggle']) {
+      expect(screen.getByTestId(id)).toBeDisabled()
+      expect(screen.getByTestId(id)).not.toBeChecked()
+      expect(screen.getByTestId(`${id}-needs`)).toHaveTextContent('Needs Services access')
+    }
+    expect(screen.queryByTestId('measurements-hint')).toBeNull()
+    expect(screen.getByTestId('node-probe-toggle')).toBeEnabled()
+  })
+
+  test('the buttons stay in view while the form is long: the dialog\'s footer is sticky', () => {
+    wizard()
+    expect(screen.getByRole('button', { name: 'Create install command' }).parentElement).toHaveClass('sticky', '-bottom-4')
   })
 
   test('a refusal from the server is shown and nothing is installed from it', async () => {
