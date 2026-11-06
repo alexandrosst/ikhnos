@@ -26,6 +26,8 @@ Making and revoking a token are audited, with the name and the scope and never t
 curl -H "Authorization: Bearer $TOKEN" https://ikhnos.example/api/v1/fusion/status
 ```
 
+A server that kept the chart's default certificate is self-signed, and curl refuses it (`SSL certificate problem: self-signed certificate`). To try the token, add `-k`, which skips the check (the dialog that shows a new token puts it in the command when the address is an IP or `localhost`, where a certificate from a public authority is not issued). To keep the check, save the server's certificate once (`openssl s_client -connect ikhnos.example:8080 </dev/null | openssl x509 > ikhnos.crt`) and add `--cacert ikhnos.crt`. A certificate from your own CA, or one a load balancer serves, needs neither.
+
 A browser on another origin cannot call it: the `Authorization` header is not among the headers the server's CORS policy allows, the same as for personal access tokens. It is a server-to-server API.
 
 ## What a token can see

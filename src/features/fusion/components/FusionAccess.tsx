@@ -24,11 +24,23 @@ export function fusionDocsUrl(base: string): string {
 
 const EXPIRY_DAYS = [30, 90, 180, 365]
 
+/** Whether the address is one a certificate from a public authority is not issued for: an IP address or localhost. A server reached that way is on
+ *  its own (self-signed) certificate, the chart's default, which curl refuses. */
+export function selfSignedLikely(base: string): boolean {
+  try {
+    const host = new URL(base).hostname.toLowerCase()
+    return host === 'localhost' || host.endsWith('.localhost') || /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.startsWith('[')
+  } catch {
+    return false
+  }
+}
+
 /** The curl line that tries a freshly minted token. The header keeps its double quotes while the token is plain (the usual case); anything
- *  else in it is single-quoted, so what the server hands out can never end the line early. */
+ *  else in it is single-quoted, so what the server hands out can never end the line early. At an address a certificate is not issued for (see
+ *  `selfSignedLikely`) it carries -k, since the line would otherwise fail the first time it is run. */
 export function fusionStatusCurl(token: string, base: string): string {
   const header = `Authorization: Bearer ${token}`
-  return `curl -H ${/^[A-Za-z0-9_.~+/=: -]+$/.test(header) ? `"${header}"` : shQuote(header)} ${shArg(`${base}/api/v1/fusion/status`)}`
+  return `curl ${selfSignedLikely(base) ? '-k ' : ''}-H ${/^[A-Za-z0-9_.~+/=: -]+$/.test(header) ? `"${header}"` : shQuote(header)} ${shArg(`${base}/api/v1/fusion/status`)}`
 }
 
 /** "expires in 12 days", "expires today", "expired", from the token's own expiry time. */
@@ -184,6 +196,22 @@ function NewTokenModal({ onClose, onCreated }: { onClose: () => void; onCreated:
           <div>
             <p className="text-xs text-nb-500">Try it:</p>
             <CopyCommand text={fusionStatusCurl(created.token, base)} testId="fusion-token-curl" />
+            {base.startsWith('https://') && (
+              // The default install serves a self-signed certificate, which curl refuses: the line carries -k where that is likely, and says what it does.
+              <p className="mt-1.5 text-xs leading-relaxed text-nb-500" data-testid="fusion-token-selfsigned">
+                {selfSignedLikely(base) ? (
+                  <>
+                    <code className="font-mono text-nb-400">-k</code> skips checking the server&apos;s certificate, which is self-signed unless you installed one. To check it, drop{' '}
+                    <code className="font-mono text-nb-400">-k</code> and add <code className="font-mono text-nb-400">--cacert &lt;file&gt;</code> with that certificate.
+                  </>
+                ) : (
+                  <>
+                    If curl says the certificate is self-signed (the default install), add <code className="font-mono text-nb-400">-k</code> to try it, or{' '}
+                    <code className="font-mono text-nb-400">--cacert &lt;file&gt;</code> with the server&apos;s certificate to check it.
+                  </>
+                )}
+              </p>
+            )}
           </div>
           <p className="text-xs leading-relaxed text-nb-500">
             {expiryText(created.details.expiresAt)}. Read a trace with its logs and metrics joined:{' '}

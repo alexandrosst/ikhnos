@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { StrictMode } from 'react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { expiryText, FusionAccess, fusionDocsUrl, fusionStatusCurl } from '@/features/fusion/components/FusionAccess'
+import { expiryText, FusionAccess, fusionDocsUrl, fusionStatusCurl, selfSignedLikely } from '@/features/fusion/components/FusionAccess'
 import { isReloadHeld } from '@/lib/staleBuild'
 import type { CreatedFusionAccessToken, FusionAccessToken } from '@/lib/api'
 
@@ -114,6 +114,9 @@ describe('FusionAccess', () => {
     const secret = await screen.findByTestId('fusion-token-secret')
     expect(within(secret).getByText('cnf_SECRETSECRETSECRET')).toBeInTheDocument()
     expect(screen.getByTestId('fusion-token-curl')).toHaveTextContent('curl -H "Authorization: Bearer cnf_SECRETSECRETSECRET" https://ikhnos.example/api/v1/fusion/status')
+    // The first thing a person tries fails on a default install (a self-signed certificate), so the dialog says what to add.
+    expect(screen.getByTestId('fusion-token-selfsigned')).toHaveTextContent('-k')
+    expect(screen.getByTestId('fusion-token-selfsigned')).toHaveTextContent('--cacert')
     await waitFor(() => expect(listFusionTokens).toHaveBeenCalledTimes(2)) // the list is read again
     await user.click(screen.getByRole('button', { name: 'Done' }))
     expect(screen.queryByText('cnf_SECRETSECRETSECRET')).not.toBeInTheDocument()
@@ -214,6 +217,15 @@ describe('a token that is shown once', () => {
     await user.click(await screen.findByTestId('fusion-token-new'))
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})
+
+describe('the certificate the curl line meets', () => {
+  test('an IP address or localhost is on a self-signed certificate: the line carries -k; a name does not', () => {
+    for (const base of ['https://147.102.13.108:8080', 'https://localhost:8080', 'https://[::1]:8080', 'https://ikhnos.localhost']) expect(selfSignedLikely(base)).toBe(true)
+    for (const base of ['https://ikhnos.example', 'https://ikhnos.example:8080', 'not a url', '']) expect(selfSignedLikely(base)).toBe(false)
+    expect(fusionStatusCurl('cnf_abc', 'https://147.102.13.108:8080')).toBe('curl -k -H "Authorization: Bearer cnf_abc" https://147.102.13.108:8080/api/v1/fusion/status')
+    expect(fusionStatusCurl('cnf_abc', 'https://ikhnos.example')).not.toContain('-k')
   })
 })
 
