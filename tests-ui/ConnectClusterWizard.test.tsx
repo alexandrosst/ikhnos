@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import ConnectClusterWizard from '@/features/discovery/components/ConnectClusterWizard'
 import { ApiError } from '@/lib/api'
 
@@ -181,6 +181,42 @@ describe('ConnectClusterWizard: what is sent for the command', () => {
     await create(user)
     expect(await screen.findByText('the traffic observer needs access tier 2 or higher')).toBeInTheDocument()
     expect(screen.queryByTestId('install-command')).not.toBeInTheDocument()
+  })
+})
+
+describe('ConnectClusterWizard: once the agent has connected', () => {
+  const waitingFor = (status?: string) => {
+    if (!status) return
+    const a = { id: 'a1', name: 'cluster-1', status, requestedAt: new Date(Date.now() + 1000).toISOString(), fingerprint: 'c0ffee12-3456', version: '0.9.3', installedTier: 2, tierCap: 2 }
+    ;(server as { state: unknown }).state = { agents: [a] }
+    ;(topology as { agents: unknown[] }).agents = [a]
+  }
+  afterEach(() => {
+    ;(server as { state: unknown }).state = undefined
+    ;(topology as { agents: unknown[] }).agents = []
+  })
+
+  test('the install command stays open while the agent has not connected', async () => {
+    const user = userEvent.setup()
+    wizard()
+    await create(user)
+    expect(await screen.findByTestId('install-command')).toBeVisible()
+    expect(screen.queryByTestId('install-collapsed')).toBeNull()
+  })
+
+  test('at the approval it folds down to one line, still there to read again, with the code card below it and the same steps above', async () => {
+    waitingFor('pending')
+    const user = userEvent.setup()
+    wizard()
+    await create(user)
+    const folded = await screen.findByTestId('install-collapsed')
+    expect(folded).toHaveTextContent('Install command run.')
+    expect(folded).not.toHaveAttribute('open')
+    expect(within(folded).getByTestId('install-command')).toHaveTextContent('--set enrollment.key=PIN.ikh_x')
+    expect(screen.getByTestId('approval-code')).toBeVisible()
+    expect(screen.getByTestId('wizard-steps')).toHaveTextContent('You approve it')
+    // The wizard has just asked for this access, so the card does not ask again.
+    expect(screen.queryByTestId('approval-tier')).toBeNull()
   })
 })
 

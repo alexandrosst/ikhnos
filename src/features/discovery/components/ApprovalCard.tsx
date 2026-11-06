@@ -29,7 +29,7 @@ function expiresIn(iso?: string, now = Date.now()): string | undefined {
  * An older agent shows no code: for it, the person confirms the start of the cluster fingerprint instead, and
  * the card says so.
  */
-export default function ApprovalCard({ agent, onDone }: { agent: Agent; onDone?: () => void }) {
+export default function ApprovalCard({ agent, onDone, showAccess = true }: { agent: Agent; onDone?: () => void; /** Whether to offer approving with less access than the agent asked for. The Connect wizard turns it off: the person chose the access a minute ago. */ showAccess?: boolean }) {
   const conn = useServer((s) => s.conn)
   const refresh = useServer((s) => s.refresh)
   const locked = useApprovalLocks((s) => s.locked[agent.id])
@@ -98,6 +98,34 @@ export default function ApprovalCard({ agent, onDone }: { agent: Agent; onDone?:
   const helpId = `approval-help-${agent.id}`
   const ipLabel = ipScopeLabel(ipScope(agent.connectingIp ?? ''))
 
+  const fingerprint = (
+    <>
+      <div className="text-xs text-nb-500">Cluster fingerprint reported by the agent</div>
+      <code className="mt-1 block break-all rounded-md border border-nb-850 bg-nb-950 px-3 py-2 font-mono text-xs text-nb-300" data-testid="approval-fingerprint">{agent.fingerprint}</code>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-nb-500">
+        <span>The UID of the cluster’s <code className="font-mono">kube-system</code> namespace:</span>
+        <CopyButton text={KUBECTL_UID} label="Copy kubectl command" />
+      </div>
+    </>
+  )
+  const access = (
+    <details className={legacy ? 'group mt-3' : 'group'} data-testid="approval-tier" open={tier !== max}>
+      <summary className="flex cursor-pointer select-none items-center gap-1 text-xs text-nb-500 marker:content-none">
+        <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
+        Access: <span className="text-nb-300">{ACCESS_TIERS.find((t) => t.value === tier)?.label}</span> <span className="text-nb-600">(change)</span>
+      </summary>
+      <div className="mt-2">
+        <TierLevels
+          tiers={ACCESS_TIERS.map((t) => t.value).filter((v) => v <= max) as AccessTier[]}
+          value={tier}
+          onSelect={(t) => setTier(t)}
+          size="sm"
+          data-testid="approval-tier-pick"
+        />
+      </div>
+    </details>
+  )
+
   return (
     <div className="rounded-xl border border-warn/30 bg-warn/5 px-5 py-4" data-testid="approval-card">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -106,7 +134,7 @@ export default function ApprovalCard({ agent, onDone }: { agent: Agent; onDone?:
             <ShieldCheck size={ICON_SM} className="shrink-0 text-warn" /> <span className="truncate">{agent.name}</span> wants to connect
           </div>
           <p className="mt-1 text-sm text-nb-500">
-            An agent enrolled with a valid token. It gets a certificate and can start reporting only after you approve it.
+            {legacy ? 'An agent enrolled with a valid token. It gets a certificate and can start reporting only after you approve it.' : 'Type the code it printed to let it in. It can start reporting only after you approve it.'}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-1.5 text-xs text-nb-400">
@@ -117,99 +145,79 @@ export default function ApprovalCard({ agent, onDone }: { agent: Agent; onDone?:
         </div>
       </div>
 
-      <div className="mt-4 grid gap-5 md:grid-cols-2">
-        <div>
-          <div className="text-xs text-nb-500">Cluster fingerprint reported by the agent</div>
-          <code className="mt-1 block break-all rounded-md border border-nb-850 bg-nb-950 px-3 py-2 font-mono text-xs text-nb-300" data-testid="approval-fingerprint">{agent.fingerprint}</code>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-nb-500">
-            <span>The UID of the cluster’s <code className="font-mono">kube-system</code> namespace:</span>
-            <CopyButton text={KUBECTL_UID} label="Copy kubectl command" />
+      {legacy ? (
+        <div className="mt-4 grid gap-5 md:grid-cols-2">
+          <div>
+            {fingerprint}
+            {access}
           </div>
-          <details className="group mt-3" data-testid="approval-tier" open={tier !== max}>
-            <summary className="flex cursor-pointer select-none items-center gap-1 text-xs text-nb-500 marker:content-none">
-              <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
-              Access: <span className="text-nb-300">{ACCESS_TIERS.find((t) => t.value === tier)?.label}</span> <span className="text-nb-600">(change)</span>
-            </summary>
-            <div className="mt-2">
-              <TierLevels
-                tiers={ACCESS_TIERS.map((t) => t.value).filter((v) => v <= max) as AccessTier[]}
-                value={tier}
-                onSelect={(t) => setTier(t)}
-                size="sm"
-                data-testid="approval-tier-pick"
-              />
+          <div data-testid="legacy-approval">
+            <div className="mb-1.5 flex items-center gap-2 text-sm font-medium text-nb-300">
+              Legacy enrollment <span className={`rounded-full border px-2 py-px text-[11px] font-medium ${TONE_CLASS.warn}`}>no approval code</span>
             </div>
-          </details>
+            <p className="mb-2 text-xs text-nb-500">
+              This agent is an older version and shows no approval code, so the check is weaker: type the first 8 characters of the cluster’s fingerprint, which you read from the cluster itself with the command on the left. Update the agent to get approval codes.
+            </p>
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={agent.fingerprint.slice(0, 8)}
+              spellCheck={false}
+              autoComplete="off"
+              aria-label="Fingerprint confirmation"
+              aria-invalid={!!error}
+              aria-describedby={error ? errId : undefined}
+              ref={field}
+            />
+          </div>
         </div>
-
-        <div>
-          {legacy ? (
-            <div data-testid="legacy-approval">
-              <div className="mb-1.5 flex items-center gap-2 text-sm font-medium text-nb-300">
-                Legacy enrollment <span className={`rounded-full border px-2 py-px text-[11px] font-medium ${TONE_CLASS.warn}`}>no approval code</span>
-              </div>
-              <p className="mb-2 text-xs text-nb-500">
-                This agent is an older version and shows no approval code, so the check is weaker: type the first 8 characters of the cluster’s fingerprint, which you read from the cluster itself with the command on the left. Update the agent to get approval codes.
+      ) : (
+        <div className="mt-5">
+          <div className="mx-auto max-w-sm">
+            <label htmlFor={`approval-code-${agent.id}`} className="mb-1.5 flex items-center justify-center gap-1.5 text-sm font-medium text-nb-300">
+              <KeyRound size={ICON_SM} className="text-warn" aria-hidden /> Approval code
+            </label>
+            <Input
+              id={`approval-code-${agent.id}`}
+              ref={field}
+              value={input}
+              onChange={(e) => setInput(formatCode(e.target.value))}
+              onPaste={(e) => {
+                e.preventDefault()
+                setInput(fromPaste(e.clipboardData.getData('text')))
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && ready && !busy) act((c) => api.approve(c, agent.id, cleanCode(input), tier), 'Could not approve this agent.')
+              }}
+              placeholder="K7QM-4TXD"
+              maxLength={9}
+              spellCheck={false}
+              autoComplete="off"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              inputMode="text"
+              aria-label="Approval code"
+              aria-invalid={!!error}
+              aria-describedby={`${helpId}${error ? ` ${errId}` : ''}`}
+              className="h-14 text-center font-mono text-2xl uppercase tracking-[0.3em]"
+              data-testid="approval-code"
+            />
+            {left < 5 && (
+              <p className="mt-2 text-center text-xs text-warn" data-testid="attempts-left">
+                {left} {left === 1 ? 'attempt' : 'attempts'} left. After that the request is rejected and the agent must be installed again with a new token.
               </p>
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={agent.fingerprint.slice(0, 8)}
-                spellCheck={false}
-                autoComplete="off"
-                aria-label="Fingerprint confirmation"
-                aria-invalid={!!error}
-                aria-describedby={error ? errId : undefined}
-                ref={field}
-              />
+            )}
+          </div>
+          <div id={helpId} className="mt-3 text-xs text-nb-500">
+            <p className="text-center">The agent prints it in its own log, and only there. Run this on the cluster to read it:</p>
+            <div className="mt-1.5 flex items-center gap-2">
+              <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded border border-nb-850 bg-nb-950 px-2 py-1.5 font-mono text-[11px] text-nb-300" data-testid="approval-log-command">{CODE_LOG_COMMAND}</code>
+              <CopyButton text={CODE_LOG_COMMAND} label="Copy" />
             </div>
-          ) : (
-            <div>
-              <label htmlFor={`approval-code-${agent.id}`} className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-nb-300">
-                <KeyRound size={ICON_SM} className="text-warn" aria-hidden /> Approval code
-              </label>
-              <Input
-                id={`approval-code-${agent.id}`}
-                ref={field}
-                value={input}
-                onChange={(e) => setInput(formatCode(e.target.value))}
-                onPaste={(e) => {
-                  e.preventDefault()
-                  setInput(fromPaste(e.clipboardData.getData('text')))
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && ready && !busy) act((c) => api.approve(c, agent.id, cleanCode(input), tier), 'Could not approve this agent.')
-                }}
-                placeholder="K7QM-4TXD"
-                maxLength={9}
-                spellCheck={false}
-                autoComplete="off"
-                autoCapitalize="characters"
-                autoCorrect="off"
-                inputMode="text"
-                aria-label="Approval code"
-                aria-invalid={!!error}
-                aria-describedby={`${helpId}${error ? ` ${errId}` : ''}`}
-                className="text-center font-mono text-lg uppercase tracking-[0.3em]"
-                data-testid="approval-code"
-              />
-              <p id={helpId} className="mt-2 text-xs text-nb-500">
-                The agent prints it in its own log, and only there. On the cluster, run
-                <span className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <code className="break-all rounded border border-nb-850 bg-nb-950 px-2 py-1 font-mono text-[11px] text-nb-300">{CODE_LOG_COMMAND}</code>
-                  <CopyButton text={CODE_LOG_COMMAND} label="Copy" />
-                </span>
-                <span className="mt-1.5 block">That prints just the code itself, nothing else — paste it straight in here. Typing it proves you are looking at this cluster, not another one that is waiting too.</span>
-              </p>
-              {left < 5 && (
-                <p className="mt-2 text-xs text-warn" data-testid="attempts-left">
-                  {left} {left === 1 ? 'attempt' : 'attempts'} left. After that the request is rejected and the agent must be installed again with a new token.
-                </p>
-              )}
-            </div>
-          )}
+          </div>
+          {showAccess && <div className="mt-4">{access}</div>}
         </div>
-      </div>
+      )}
 
       {error && (
         <ErrorBanner id={errId} className="mt-3" data-testid="approval-error">

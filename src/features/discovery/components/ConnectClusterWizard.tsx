@@ -1,5 +1,5 @@
 import { Tabs } from '@/components/ui/Tabs'
-import { Activity, CheckCircle2, Cpu, Loader2, MapPin, Network, Pin, Timer } from 'lucide-react'
+import { Activity, CheckCircle2, ChevronRight, Cpu, Loader2, MapPin, Network, Pin, Timer } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Flag } from '@/components/ui/brand'
@@ -172,6 +172,26 @@ function OptionRow({ testId, icon, checked, needs, onChange, title, tags, summar
       </div>
       {children}
     </div>
+  )
+}
+
+/**
+ * The install command and what goes with it. While the agent has not connected yet it is the thing to do, so it is
+ * open; once the agent has connected the command has been run, and the next thing is the approval, so it folds
+ * down to one line (still there to read again) instead of pushing the code far down the dialog.
+ */
+function AfterRun({ collapsed, children }: { collapsed: boolean; children: ReactNode }) {
+  if (!collapsed) return <div>{children}</div>
+  return (
+    <details className="group rounded-lg border border-nb-850 bg-nb-925" data-testid="install-collapsed">
+      <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-2.5 text-sm text-nb-500 marker:content-none">
+        <CheckCircle2 size={ICON_SM} className="text-ok" aria-hidden /> Install command run.
+        <span className="flex items-center gap-1 text-nb-400">
+          Show it again <ChevronRight size={ICON_SM} className="transition-transform group-open:rotate-90" aria-hidden />
+        </span>
+      </summary>
+      <div className="border-t border-nb-850 p-4">{children}</div>
+    </details>
   )
 }
 
@@ -443,7 +463,7 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
             failedIndex={phase === 'stopped' ? stoppedAt : undefined}
           />
           {(phase === 'waiting' || phase === 'approve') && (
-            <div>
+            <AfterRun collapsed={phase === 'approve'}>
               <Tabs
                 label="How to install the agent"
                 className="mb-3"
@@ -522,7 +542,7 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
                   </details>
                 </details>
               )}
-            </div>
+            </AfterRun>
           )}
 
           {phase === 'waiting' && (
@@ -530,7 +550,7 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
               <Loader2 size={ICON_SM} className="animate-spin text-accent" /> Waiting for the agent to start and connect. This can take a minute.
             </p>
           )}
-          {phase === 'approve' && mine && <ApprovalCard agent={mine} />}
+          {phase === 'approve' && mine && <ApprovalCard agent={mine} showAccess={false} />}
           {phase === 'discovering' && (
             <p className="flex items-center gap-2 text-sm text-nb-400">
               <Loader2 size={ICON_SM} className="animate-spin text-accent" />

@@ -32,9 +32,11 @@ One line with a code shaped like `K7QM-4TXD`, and nothing else.
 
 ## Type it in
 
-In Ikhnos, the checklist now says an agent is waiting and offers **Review approval**. It takes you to the **Agents** page, where an **approval card** says the agent wants to connect. The agent's row shows the status **Pending** and the connection **Waiting for approval**.
+If you are still in the Connect a cluster dialog, it moves to **You approve it** by itself, and folds the install command down to one line (**Show it again** opens it). If you left the dialog, the checklist says an agent is waiting and offers **Review approval**. It takes you to the **Agents** page, where an **approval card** says the agent wants to connect. The agent's row shows the status **Pending** and the connection **Waiting for approval**.
 
-The card shows what the agent says about itself, so you can check it against what you expect: its Kubernetes version, the address it connected from, its own version, and how long the request stays open. It also shows the **cluster fingerprint** the agent reports (the UID of the cluster's `kube-system` namespace), and the **access** it will get, which you can lower here before approving, but not raise above the ceiling.
+The card shows what the agent says about itself, so you can check it against what you expect: its Kubernetes version, the address it connected from, its own version, and how long the request stays open. What it asks of you is the code, and the command that prints it is next to the field. On the **Agents** page the card also has an **Access** line, which shows the access the agent will get and lets you lower it before approving, but not raise it above the ceiling. The Connect dialog leaves that line out, because you chose the access a minute earlier.
+
+An older agent that prints no code shows the **cluster fingerprint** it reports (the UID of the cluster's `kube-system` namespace) instead, with a command to read the real one from the cluster, and asks you to type the first eight characters.
 
 Type the code into the **Approval code** field. Case, dashes and spaces do not matter. Press **Approve**. If this is not an agent you recognise, **Reject** is next to it.
 
