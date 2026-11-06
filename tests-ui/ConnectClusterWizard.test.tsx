@@ -195,6 +195,50 @@ afterEach(() => {
   ;(topology as { agents: unknown[] }).agents = []
 })
 
+describe('ConnectClusterWizard: the five steps', () => {
+  const steps = () => screen.getByTestId('wizard-steps')
+  const current = () => within(steps()).getByText((_, el) => el?.getAttribute('aria-current') === 'step').textContent
+  const failed = () => [...steps().querySelectorAll('span.text-bad')].map((e) => e.textContent).filter((t) => t && /[a-z]/.test(t))
+
+  test('are on the first screen too, with Set up as the first of them', () => {
+    wizard()
+    expect(steps()).toHaveTextContent(/Set up.*Agent connects.*You approve it.*Discovering.*Connected/)
+    expect(current()).toBe('Set up')
+  })
+
+  test('move to Agent connects when the command is made, and show Set up as done', async () => {
+    const user = userEvent.setup()
+    wizard()
+    await create(user)
+    await screen.findByTestId('install-command')
+    expect(current()).toBe('Agent connects')
+    expect(within(steps()).getAllByText('Set up')[0].className).toContain('text-nb-400')
+  })
+
+  test('are on You approve it at the approval', async () => {
+    waitingFor('pending')
+    const user = userEvent.setup()
+    wizard()
+    await create(user)
+    await screen.findByTestId('install-collapsed')
+    expect(current()).toBe('You approve it')
+  })
+
+  test('mark the step a stopped request never got past: the approval for a rejected one, discovery for a revoked one', async () => {
+    waitingFor('rejected')
+    const user = userEvent.setup()
+    const first = wizard()
+    await create(user)
+    await waitFor(() => expect(failed()).toEqual(['You approve it']))
+    first.unmount()
+    createToken.mockClear()
+    waitingFor('revoked')
+    wizard()
+    await create(user)
+    await waitFor(() => expect(failed()).toEqual(['Discovering']))
+  })
+})
+
 describe('ConnectClusterWizard: once the agent has connected', () => {
   test('the install command stays open while the agent has not connected', async () => {
     const user = userEvent.setup()

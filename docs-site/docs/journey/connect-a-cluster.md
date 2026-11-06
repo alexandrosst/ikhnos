@@ -63,10 +63,10 @@ It contains the address the agent will dial, and one value, `enrollment.key`, th
 Copy it with **Copy command** and run it where `kubectl` and `helm` point at the cluster you are connecting. For your first try, that is the same cluster as before.
 
 <See>
-Helm reports `STATUS: deployed`. Then `kubectl -n ikhnos-system get pods` shows an `ikhnos-agent` pod that becomes `Running`. In the wizard, the first of four stages, **Agent connects**, completes, and the spinner reads that it is waiting for the agent to start and connect. Most agents connect within a minute. If yours has not after two minutes, a **Still waiting?** box appears under the spinner with the commands to check: the pod and its log for a helm install, or the `IkhnosAgent` resource the controller made (with the command that raises the controller's ceiling, if it was installed earlier with a lower one) for the controller.
+Helm reports `STATUS: deployed`. Then `kubectl -n ikhnos-system get pods` shows an `ikhnos-agent` pod that becomes `Running`. In the wizard, the second of five steps, **Agent connects**, is the one in progress, and the spinner reads that it is waiting for the agent to start and connect. Most agents connect within a minute. If yours has not after two minutes, a **Still waiting?** box appears under the spinner with the commands to check: the pod and its log for a helm install, or the `IkhnosAgent` resource the controller made (with the command that raises the controller's ceiling, if it was installed earlier with a lower one) for the controller.
 </See>
 
-The wizard has four stages: **Agent connects**, **You approve it**, **Discovering**, and **Connected**. It tracks them for you, and **Continue in background** lets you close it and come back; the checklist and the Agents page show the same progress.
+The wizard has five steps, shown in a row along the top from the first screen: **Set up** (this form), **Agent connects**, **You approve it**, **Discovering**, and **Connected**. It tracks them for you, and **Continue in background** lets you close it and come back; the checklist and the Agents page show the same progress.
 
 ## If it did not work
 

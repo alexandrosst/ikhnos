@@ -246,6 +246,7 @@ function CommandLine({ text, testId }: { text: string; testId?: string }) {
 
 type Phase = 'form' | 'waiting' | 'approve' | 'discovering' | 'done' | 'stopped'
 const STEPS: { key: Phase; label: string }[] = [
+  { key: 'form', label: 'Set up' },
   { key: 'waiting', label: 'Agent connects' },
   { key: 'approve', label: 'You approve it' },
   { key: 'discovering', label: 'Discovering' },
@@ -375,7 +376,7 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
   // Which step a stopped enrollment never got past. Rejected or expired both happen while still pending
   // approval; a revoke can only happen to something that was already approved, so it reads as having failed
   // one step further along (we don't know exactly when during discovery it was cut off, so this is our best guess).
-  const stoppedAt = agent?.status === 'revoked' ? 2 : 1
+  const stoppedAt = agent?.status === 'revoked' ? 3 : 2
 
   return (
     <Modal
@@ -410,6 +411,13 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
         )
       }
     >
+      <div className="mb-1">
+        <WizardSteps
+          steps={STEPS.map((s) => s.label)}
+          currentIndex={phase === 'stopped' ? stoppedAt : STEPS.findIndex((s) => s.key === phase)}
+          failedIndex={phase === 'stopped' ? stoppedAt : undefined}
+        />
+      </div>
       {phase === 'form' && (
         <div className="space-y-5">
           <Field label="Cluster name" hint="How it appears in Ikhnos. You can rename it later.">
@@ -514,11 +522,6 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
 
       {created && phase !== 'form' && (
         <div className="space-y-5">
-          <WizardSteps
-            steps={STEPS.map((s) => s.label)}
-            currentIndex={phase === 'stopped' ? stoppedAt : STEPS.findIndex((s) => s.key === phase)}
-            failedIndex={phase === 'stopped' ? stoppedAt : undefined}
-          />
           {(phase === 'waiting' || phase === 'approve') && (
             <AfterRun collapsed={phase === 'approve'}>
               <Tabs
