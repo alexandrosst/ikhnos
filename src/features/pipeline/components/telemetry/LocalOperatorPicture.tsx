@@ -156,7 +156,7 @@ export default function LocalOperatorPicture({ installed, diagnostics, connected
       {open && (
         <div id={body} className={bare ? 'space-y-3' : 'space-y-3 border-t border-nb-850 px-4 py-3'} data-testid={body}>
           {installed.length === 0 ? (
-            <p className="text-xs text-nb-500">No telemetry signal is enabled in this install, so there is nothing for the collectors to take in. Turn signals on under Change telemetry.</p>
+            <p className="text-xs text-nb-500">No telemetry signal is enabled in this install, so there is nothing for the collectors to take in. Turn signals on with Change what it sends.</p>
           ) : (
             <div
               className="relative grid gap-2 md:grid-cols-[minmax(0,1.5fr)_minmax(3.5rem,.5fr)_minmax(0,.9fr)_minmax(3.5rem,.5fr)_minmax(0,1.1fr)] md:gap-x-0 md:gap-y-1"

@@ -108,7 +108,7 @@ describe('LocalOperatorPicture', () => {
   test('with nothing collected there is nothing to draw, and it says how to start', () => {
     show(undefined, [])
     fireEvent.click(screen.getByTestId('operator-picture-toggle'))
-    expect(screen.getByTestId('operator-picture-body')).toHaveTextContent(/No telemetry signal is enabled/)
+    expect(screen.getByTestId('operator-picture-body')).toHaveTextContent(/No telemetry signal is enabled.*Turn signals on with Change what it sends\./)
   })
 })
 

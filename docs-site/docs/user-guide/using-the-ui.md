@@ -35,7 +35,7 @@ The **Agents** tab lists every connected cluster's agent: whether it's currently
 
 The **Suggestions** tab is where the server surfaces things it noticed but did not decide on its own: a newly discovered application grouping suggested from the traffic it has seen, or a *suspicion* (traffic from an onboarded cluster toward an address nothing has claimed, on a port only Kubernetes itself tends to use), which usually means there is another cluster worth connecting. Accept, correct or dismiss each one; nothing is applied automatically. The older `/discovery` address leads here. **Seen and gone** lists agents that have left, so a cluster that disappeared is a record and not a mystery.
 
-**Set up telemetry** (here and on the Pipeline page) starts the [telemetry wizard](#setting-up-telemetry). For an agent that is already set up, the **Change telemetry** disclosure in its details is the same wizard, starting from what is installed now.
+**Set up telemetry** (here and on the Pipeline page) starts the [telemetry wizard](#setting-up-telemetry). For an agent that is already set up, its details link to its collector on the Pipeline page, where **Change what it sends…** opens the same wizard, starting from what is installed now.
 
 ## Pipeline
 
@@ -66,7 +66,7 @@ The **Suggestions** tab is where the server surfaces things it noticed but did n
 
 ## Setting up telemetry
 
-**Set up telemetry** is a guided wizard, the only way in. It asks **Where from** (the cluster), **What to collect**, and **Where to send**, one merged list of FUSION, the operators in this system, backends it detected, presets, or another OTLP endpoint; an entry that cannot take a signal you chose says why. **Review and install** then says what changes, what does not change and what happens if you stop, and shows the command, which you run yourself. **Check that data arrives** confirms it worked. You can start it from the Pipeline and Agents pages, from **Define scope from selection** in the topology, and from **Change telemetry** in an agent's details. The design is in [Telemetry intent](../architecture/telemetry-intent.md).
+**Set up telemetry** is a guided wizard, the only way in. It asks **Where from** (the cluster), **What to collect**, and **Where to send**, one merged list of FUSION, the operators in this system, backends it detected, presets, or another OTLP endpoint; an entry that cannot take a signal you chose says why. **Review and install** then says what changes, what does not change and what happens if you stop, and shows the command, which you run yourself. **Check that data arrives** confirms it worked. You can start it from the Pipeline and Agents pages, from **Define scope from selection** in the topology, and from **Change what it sends…** in a collector's details on the Pipeline page. The design is in [Telemetry intent](../architecture/telemetry-intent.md).
 
 ## Placement
 
