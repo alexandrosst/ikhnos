@@ -34,15 +34,6 @@ export default function ControllerSteps({ c }: { c: ControllerDoc }) {
             : ' It is not given the permissions telemetry needs: turning telemetry on later will first ask for them.'}
         </p>
       </div>
-      {c.raise && (
-        <div>
-          <div className="mb-1 flex items-center justify-between text-xs text-nb-400">
-            <span>A controller that is already installed with a lower ceiling than tier {c.maxTier} refuses the agent and says so in its status. Raise it with:</span>
-            <CopyButton text={c.raise} label="Copy command" />
-          </div>
-          <pre className="whitespace-pre-wrap break-all rounded-md border border-nb-850 bg-nb-950 px-3 py-3 font-mono text-xs leading-relaxed text-nb-300" data-testid="controller-raise">{c.raise}</pre>
-        </div>
-      )}
     </div>
   )
 }

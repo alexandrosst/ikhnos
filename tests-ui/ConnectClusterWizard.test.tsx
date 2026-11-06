@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -184,18 +184,18 @@ describe('ConnectClusterWizard: what is sent for the command', () => {
   })
 })
 
-describe('ConnectClusterWizard: once the agent has connected', () => {
-  const waitingFor = (status?: string) => {
-    if (!status) return
-    const a = { id: 'a1', name: 'cluster-1', status, requestedAt: new Date(Date.now() + 1000).toISOString(), fingerprint: 'c0ffee12-3456', version: '0.9.3', installedTier: 2, tierCap: 2 }
-    ;(server as { state: unknown }).state = { agents: [a] }
-    ;(topology as { agents: unknown[] }).agents = [a]
-  }
-  afterEach(() => {
-    ;(server as { state: unknown }).state = undefined
-    ;(topology as { agents: unknown[] }).agents = []
-  })
+const waitingFor = (status?: string) => {
+  if (!status) return
+  const a = { id: 'a1', name: 'cluster-1', status, requestedAt: new Date(Date.now() + 1000).toISOString(), fingerprint: 'c0ffee12-3456', version: '0.9.3', installedTier: 2, tierCap: 2 }
+  ;(server as { state: unknown }).state = { agents: [a] }
+  ;(topology as { agents: unknown[] }).agents = [a]
+}
+afterEach(() => {
+  ;(server as { state: unknown }).state = undefined
+  ;(topology as { agents: unknown[] }).agents = []
+})
 
+describe('ConnectClusterWizard: once the agent has connected', () => {
   test('the install command stays open while the agent has not connected', async () => {
     const user = userEvent.setup()
     wizard()
@@ -247,8 +247,9 @@ describe('ConnectClusterWizard: the same install as a resource for the controlle
     expect(steps).toHaveTextContent('maxAccessTier=2')
     expect(steps).toHaveTextContent('That is all there is to do')
     expect(steps).toHaveTextContent('also given the permissions telemetry needs')
-    // The command for a ceiling that is too low is the server's, not a placeholder.
-    expect(screen.getByTestId('controller-raise').textContent).toBe(CONTROLLER.raise)
+    // Nothing about a ceiling that is too low is said up front: it is said after a wait, if the agent has not shown up (see below).
+    expect(screen.queryByTestId('controller-raise')).toBeNull()
+    expect(steps).not.toHaveTextContent('lower ceiling')
     expect(steps).not.toHaveTextContent('<chart>')
   })
 
@@ -283,7 +284,72 @@ describe('ConnectClusterWizard: the same install as a resource for the controlle
     await user.click(screen.getByTestId('install-tab-controller'))
     expect(await screen.findByTestId('controller-steps')).toHaveTextContent('access tier 1 and no more')
     expect(screen.getByTestId('controller-install')).toHaveTextContent('--set maxAccessTier=1')
+  })
+})
+
+describe('ConnectClusterWizard: when the agent is slow to show up', () => {
+  const TWO_MINUTES = 120_000
+  beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }))
+  afterEach(() => vi.useRealTimers())
+  const waitAndSee = async (via?: 'controller') => {
+    const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) })
+    wizard()
+    await create(user)
+    await screen.findByTestId('install-command')
+    if (via) await user.click(screen.getByTestId('install-tab-controller'))
+    return user
+  }
+
+  test('says nothing about what to check at first', async () => {
+    await waitAndSee()
+    act(() => void vi.advanceTimersByTime(TWO_MINUTES - 5_000))
+    expect(screen.queryByTestId('still-waiting')).toBeNull()
+  })
+
+  test('after two minutes, for a helm install, says how to see the pod and its log', async () => {
+    await waitAndSee()
+    act(() => void vi.advanceTimersByTime(TWO_MINUTES + 1_000))
+    const hint = screen.getByTestId('still-waiting')
+    expect(hint).toHaveTextContent('kubectl -n ikhnos-system get pods')
+    expect(hint).toHaveTextContent('kubectl -n ikhnos-system logs deploy/ikhnos-agent')
+    expect(screen.queryByTestId('controller-raise')).toBeNull()
+  })
+
+  test('after two minutes, for the controller, says how to see what it made, and the server\'s command to raise its ceiling', async () => {
+    await waitAndSee('controller')
+    act(() => void vi.advanceTimersByTime(TWO_MINUTES + 1_000))
+    const hint = screen.getByTestId('still-waiting')
+    expect(hint).toHaveTextContent('kubectl -n ikhnos-system get ikhnosagent')
+    expect(screen.getByTestId('controller-raise').textContent).toBe(CONTROLLER.raise)
+    expect(hint).toHaveTextContent('lower access level than tier 2')
+  })
+
+  test('names the ceiling the controller was given, in the command that raises it', async () => {
+    createToken.mockResolvedValue({
+      token: 'ikh_x', install: SERVED, meta: { id: 't1', name: 'cluster-1', tier: 1, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3_600_000).toISOString() },
+      controller: { ...CONTROLLER, maxTier: 1, install: CONTROLLER.install.replace('=2', '=1'), raise: CONTROLLER.raise.replace('=2', '=1') },
+    })
+    await waitAndSee('controller')
+    act(() => void vi.advanceTimersByTime(TWO_MINUTES + 1_000))
     expect(screen.getByTestId('controller-raise')).toHaveTextContent('--set maxAccessTier=1')
-    expect(screen.getByTestId('controller-steps')).toHaveTextContent('lower ceiling than tier 1')
+    expect(screen.getByTestId('still-waiting')).toHaveTextContent('lower access level than tier 1')
+  })
+
+  test('no command to raise anything when the server did not offer one', async () => {
+    createToken.mockResolvedValue({
+      token: 'ikh_x', install: SERVED, meta: { id: 't1', name: 'cluster-1', tier: 2, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3_600_000).toISOString() },
+      controller: { ...CONTROLLER, raise: '' },
+    })
+    await waitAndSee('controller')
+    act(() => void vi.advanceTimersByTime(TWO_MINUTES + 1_000))
+    expect(screen.getByTestId('still-waiting')).toHaveTextContent('get ikhnosagent')
+    expect(screen.queryByTestId('controller-raise')).toBeNull()
+  })
+
+  test('is not shown once the agent has connected, however long it took', async () => {
+    waitingFor('pending')
+    await waitAndSee()
+    act(() => void vi.advanceTimersByTime(TWO_MINUTES + 1_000))
+    expect(screen.queryByTestId('still-waiting')).toBeNull()
   })
 })

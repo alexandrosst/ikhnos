@@ -195,6 +195,55 @@ function AfterRun({ collapsed, children }: { collapsed: boolean; children: React
   )
 }
 
+/**
+ * What to look at when the agent has not shown up after a couple of minutes. Not shown before: most installs connect in under one,
+ * and a list of things to check next to a spinner that is about to finish only makes it look like something is wrong. The commands
+ * are for the way this cluster was asked: the pod's own log for helm; the resource the controller made, and the command that raises
+ * the controller's ceiling if it says it was installed with a lower one, for the controller.
+ */
+function StillWaiting({ via, created }: { via: 'helm' | 'controller'; created: CreatedToken }) {
+  const c = created.controller
+  return (
+    <div className="mt-3 rounded-lg border border-nb-850 bg-nb-925 px-4 py-3 text-xs text-nb-400" data-testid="still-waiting">
+      <div className="mb-1.5 text-sm font-medium text-nb-300">Still waiting?</div>
+      {via === 'helm' || !c.available ? (
+        <>
+          <p>Check that the agent started:</p>
+          <CommandLine text={WAITING_PODS} />
+          <p className="mt-2">If its pod is not running, its log says why:</p>
+          <CommandLine text={WAITING_LOG} />
+        </>
+      ) : (
+        <>
+          <p>Check what the controller made of it:</p>
+          <CommandLine text={WAITING_RESOURCE} />
+          {c.raise && (
+            <>
+              <p className="mt-2">If its status says the controller was installed with a lower access level than tier {c.maxTier}, raise it:</p>
+              <CommandLine text={c.raise} testId="controller-raise" />
+            </>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+/** How long the agent may take before the wizard says what to check. */
+const STALLED_AFTER_MS = 120_000
+const WAITING_PODS = 'kubectl -n ikhnos-system get pods'
+const WAITING_LOG = 'kubectl -n ikhnos-system logs deploy/ikhnos-agent'
+const WAITING_RESOURCE = 'kubectl -n ikhnos-system get ikhnosagent'
+
+function CommandLine({ text, testId }: { text: string; testId?: string }) {
+  return (
+    <div className="mt-1 flex items-center gap-2">
+      <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded border border-nb-850 bg-nb-950 px-2 py-1.5 font-mono text-[11px] text-nb-300" data-testid={testId}>{text}</code>
+      <CopyButton text={text} label="Copy" />
+    </div>
+  )
+}
+
 type Phase = 'form' | 'waiting' | 'approve' | 'discovering' | 'done' | 'stopped'
 const STEPS: { key: Phase; label: string }[] = [
   { key: 'waiting', label: 'Agent connects' },
@@ -241,6 +290,8 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
   const [via, setVia] = useState<'helm' | 'controller'>('helm')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // Whether the agent is taking longer than it usually does to show up: after two minutes of waiting, the card says what to look at.
+  const [stalled, setStalled] = useState(false)
 
   // A default name so Create works the moment the wizard opens; still yours to change, and renameable later either way.
   // Deliberately keyed on `open` alone: it should fill in once per open, not re-fill while the count changes under it.
@@ -283,6 +334,7 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
     setExc([])
     setSel('')
     setError('')
+    setStalled(false)
     onClose()
   }
 
@@ -315,6 +367,11 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
         : agent.status === 'approved'
           ? (counts && discovery.state !== 'discovering' ? 'done' : 'discovering')
           : 'stopped'
+  useEffect(() => {
+    if (phase !== 'waiting') return
+    const t = setTimeout(() => setStalled(true), STALLED_AFTER_MS)
+    return () => clearTimeout(t)
+  }, [phase])
   // Which step a stopped enrollment never got past. Rejected or expired both happen while still pending
   // approval; a revoke can only happen to something that was already approved, so it reads as having failed
   // one step further along (we don't know exactly when during discovery it was cut off, so this is our best guess).
@@ -546,9 +603,12 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
           )}
 
           {phase === 'waiting' && (
-            <p className="flex items-center gap-2 text-sm text-nb-400">
-              <Loader2 size={ICON_SM} className="animate-spin text-accent" /> Waiting for the agent to start and connect. This can take a minute.
-            </p>
+            <div>
+              <p className="flex items-center gap-2 text-sm text-nb-400">
+                <Loader2 size={ICON_SM} className="animate-spin text-accent" /> Waiting for the agent to start and connect. This can take a minute.
+              </p>
+              {stalled && <StillWaiting via={via} created={created} />}
+            </div>
           )}
           {phase === 'approve' && mine && <ApprovalCard agent={mine} showAccess={false} />}
           {phase === 'discovering' && (
