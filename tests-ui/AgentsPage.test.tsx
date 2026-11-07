@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, test, vi } from 'vitest'
 import AgentsPage from '@/features/agents/AgentsPage'
@@ -22,7 +22,7 @@ vi.mock('@/store/server', () => ({
   useConn: () => ({ org: 'o' }),
 }))
 // The consent form and the telemetry panel have their own tests and stores; this page test is about where the page puts the Telemetry section.
-vi.mock('@/features/agents/components/AgentInsight', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/features/agents/components/AgentInsight')>()), ConsentPanel: () => null }))
+vi.mock('@/features/agents/components/AgentInsight', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/features/agents/components/AgentInsight')>()), AccessPanel: () => <div data-testid="access-stub" /> }))
 vi.mock('@/features/pipeline/components/telemetry/TelemetryPanel', () => ({
   TelemetryPanel: ({ agentId, changeElsewhere }: { agentId?: string; changeElsewhere?: import('react').ReactNode }) => (
     <div data-testid="telemetry-stub" data-agent={agentId} data-form={changeElsewhere ? 'elsewhere' : 'form'}>{changeElsewhere}</div>
@@ -107,12 +107,34 @@ describe('AgentsPage', () => {
     expect(screen.queryByTestId('telemetry-stub')).toBeNull()
   })
 
+  test('the connection says how long the certificate has left, and turns amber only when it is about to run out while connected', () => {
+    const diagnostics = { reportedAt: new Date().toISOString(), agentVersion: '1.2.3', arch: 'arm64', os: 'linux', uptimeSeconds: 7200, installedTier: 2, approvedTier: 2, effectiveTier: 2, pausedCollectors: [], excludedNamespaces: 0, collectors: [], informers: [{ name: 'pods', synced: true }, { name: 'nodes', synced: false, lastError: 'forbidden' }], problems: [], installedTelemetry: [] }
+    const open = (certExpiresAt: string, connected = true) => {
+      topologyState = { agents: [ag({ connected, certExpiresAt })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
+      serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected, certExpiresAt }), diagnostics } as unknown as Agent] } }
+      return renderPage('/agents?open=a1')
+    }
+    const hours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString()
+    const first = open(hours(30))
+    const conn = screen.getByTestId('agent-connection')
+    expect(conn).toHaveTextContent('v1.2.3 · linux/arm64 · up 2 h')
+    expect(conn).toHaveTextContent('1 of 2 read')
+    expect(conn).toHaveTextContent('nodes: forbidden')
+    expect(within(conn).getByText(/left$/).className).not.toMatch(/text-warn|text-bad/)
+    first.unmount()
+    const soon = open(hours(1))
+    expect(within(screen.getByTestId('agent-connection')).getByText(/left$/)).toHaveClass('text-warn')
+    soon.unmount()
+    open(hours(-1))
+    expect(within(screen.getByTestId('agent-connection')).getByText(/expired/)).toHaveClass('text-bad')
+  })
+
   test('an open agent shows what it can see and its connection; the identity, counters and modules are in a closed fold', () => {
     const diagnostics = { reportedAt: new Date().toISOString(), agentVersion: '1', uptimeSeconds: 1, installedTier: 2, approvedTier: 2, effectiveTier: 2, pausedCollectors: [], excludedNamespaces: 0, collectors: [], informers: [], problems: [], installedTelemetry: ['resourceUsage'] }
     topologyState = { agents: [ag({ connected: true })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
     serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }), diagnostics } as unknown as Agent] } }
     renderPage('/agents?open=a1')
-    expect(screen.getByTestId('can-see')).toBeInTheDocument()
+    expect(screen.getByTestId('access-stub')).toBeInTheDocument()
     expect(screen.getByTestId('agent-connection')).toBeInTheDocument()
     expect((screen.getByTestId('agent-technical') as HTMLDetailsElement).open).toBe(false)
     expect((screen.getByTestId('agent-history') as HTMLDetailsElement).open).toBe(false)

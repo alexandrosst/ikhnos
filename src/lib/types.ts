@@ -978,6 +978,15 @@ export const ACCESS_TIERS: { value: AccessTier; label: string }[] = [
   { value: 4, label: 'Control' },
 ]
 
+/** The same levels in a few words, for the compact row of an agent's own page. ACCESS_TIER_CAPTIONS above is the full sentence and stays the source of truth. */
+export const ACCESS_TIER_BRIEF: Record<AccessTier, string> = {
+  0: 'Which cluster it is',
+  1: 'Nodes and storage',
+  2: 'Workloads and services',
+  3: 'Not available yet',
+  4: 'Not available yet',
+}
+
 /** One line per tier: what it adds on top of the tier below it. Each one from tier 1 up names the tier directly
  *  below it by label ("Everything in X, plus...") so the inclusion reads as a fact of the sentence, not something
  *  a picker's visual has to imply on its own. The single source of truth for every tier picker and indicator in

@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { ChevronRight, List, Network, Plug, Radio, Server } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { CanSee, ConsentPanel, DiscoveryChip, HealthChip, Problems } from '@/features/agents/components/AgentInsight'
+import { AccessPanel, DiscoveryChip, HealthChip, Problems } from '@/features/agents/components/AgentInsight'
 import { TelemetryPanel } from '@/features/pipeline/components/telemetry/TelemetryPanel'
 import { StatusBadge } from '@/components/ui/Status'
 import { SortTh, useSort } from '@/components/ui/sort'
@@ -22,7 +22,7 @@ import { DistroIcon, Flag, WithIcon } from '@/components/ui/brand'
 import { Button, EmptyState, ErrorBanner, GuessDot, ICON_SM, LiveDot, type LiveKind, PageHeader, SkeletonBlock, StatTile, Table, TableSkeleton, Td, Th, TierBadge } from '@/components/ui/primitives'
 import { api, ApiError } from '@/lib/api'
 import { skewLabel, skewWarning } from '@/lib/clock'
-import { extrasOf, type AgentExtras } from '@/lib/consent'
+import { extrasOf, uptimeWords, type AgentExtras } from '@/lib/consent'
 import { HEALTH_ORDER, healthOf, type AgentHealth } from '@/features/agents/lib/agentHealth'
 import { ageOf } from '@/lib/history'
 import { bytesTotal } from '@/lib/observed'
@@ -42,6 +42,8 @@ const HEALTH: Record<AgentHealth, { label: string; dot: LiveKind; text: string }
   unknown: { label: 'Not live', dot: 'idle', text: 'text-nb-400' },
 }
 /** Milliseconds until a certificate expires (negative once it has). */
+/** An agent renews its short-lived certificate well before this, so under it, and still connected, is worth a look (the same line the diagnosis draws). */
+const CERT_SOON = 2 * 3_600_000
 const msUntil = (iso?: string, now = Date.now()) => (iso ? new Date(iso).getTime() - now : undefined)
 /** Agent certificates are short-lived and renewed by the agent itself, so hours are the honest unit. */
 const inWords = (ms: number) => (ms < 3_600_000 ? `${Math.max(1, Math.round(ms / 60_000))} min` : ms < 48 * 3_600_000 ? `${Math.round(ms / 3_600_000)} h` : `${Math.round(ms / 86_400_000)} d`)
@@ -469,38 +471,42 @@ function AgentDetail({ agent: a, extras, canConsent, onSetUpTelemetry, onRevoke 
             ) : undefined,
           ],
           ['Connected', l?.connectedSince ? ageOf(l.connectedSince) : a.connected === false ? 'not connected' : undefined],
-          ['Certificate', a.certExpiresAt ? <span key="cert" title={`Expires ${when(a.certExpiresAt)}`}>{certLeft !== undefined && certLeft < 0 ? `expired ${when(a.certExpiresAt)}` : certLeft !== undefined ? `${inWords(certLeft)} left` : `expires ${when(a.certExpiresAt)}`}</span> : undefined],
+          ['Certificate', a.certExpiresAt ? <span key="cert" className={certLeft !== undefined && certLeft < 0 ? 'text-bad' : certLeft !== undefined && certLeft < CERT_SOON && a.connected ? 'text-warn' : undefined} title={`Expires ${when(a.certExpiresAt)}`}>{certLeft !== undefined && certLeft < 0 ? `expired ${when(a.certExpiresAt)}` : certLeft !== undefined ? `${inWords(certLeft)} left` : `expires ${when(a.certExpiresAt)}`}</span> : undefined],
           // Only when it is off: a clock that is right says nothing, and the plain figure is in the technical details.
           ['Clock', a.clockSkewMs !== undefined && skewWarning(a.clockSkewMs) ? skewLabel(a.clockSkewMs) : undefined],
+          ['Agent', d ? `v${d.agentVersion}${d.arch ? ` · ${d.os ?? ''}/${d.arch}` : ''} · up ${uptimeWords(d.uptimeSeconds)}` : undefined],
+          [
+            'Watches',
+            d && d.informers.length > 0 ? (
+              <span key="watches">
+                {d.informers.filter((i) => i.synced).length} of {d.informers.length} read
+                {d.informers.filter((i) => !i.synced || i.lastError).map((i) => (
+                  <span key={i.name} className="block break-words text-xs text-warn">{i.name}: {i.lastError || 'not read yet'}</span>
+                ))}
+              </span>
+            ) : undefined,
+          ],
         ]}
       />
     </div>
   )
-  const intent = canConsent && approved ? (
-    <div>
-      <Heading>Observability intent</Heading>
-      <ConsentPanel agent={a} diagnostics={d} consent={extras.consent} />
-    </div>
-  ) : null
+  const access = approved && (d || canConsent) ? <AccessPanel agent={a} diagnostics={d} consent={extras.consent} editable={canConsent} /> : null
   return (
     <div className="space-y-6 text-sm">
       <div className="grid gap-x-10 gap-y-6 md:grid-cols-2" data-testid={d ? 'agent-health' : undefined}>
-        {d && (
-          <div>
-            <div className="mb-3 flex flex-wrap items-center gap-2"><HealthChip diagnostics={d} connected={a.connected} /><DiscoveryChip diagnostics={d} /><span className="text-xs text-nb-600">from the agent's own report, {ageOf(d.reportedAt)}</span></div>
-            <CanSee agent={a} diagnostics={d} />
-            {d.problems.length > 0 && (
-              <div className="mt-4">
+        {(d || access) && (
+          <div className="space-y-4">
+            {d && <div className="flex flex-wrap items-center gap-2"><HealthChip diagnostics={d} connected={a.connected} /><DiscoveryChip diagnostics={d} /><span className="text-xs text-nb-600">from the agent's own report, {ageOf(d.reportedAt)}</span></div>}
+            {access}
+            {d && d.problems.length > 0 && (
+              <div>
                 <Heading>Problems</Heading>
                 <Problems problems={d.problems} />
               </div>
             )}
           </div>
         )}
-        <div className="space-y-6">
-          {connection}
-          {intent}
-        </div>
+        {connection}
       </div>
       {approved && canConsent && (
         // Its own full-width row: the form walks through four steps, and a request's state line reads in sentences.

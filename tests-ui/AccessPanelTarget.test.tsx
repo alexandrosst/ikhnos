@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { ConsentPanel } from '@/features/agents/components/AgentInsight'
+import { AccessPanel } from '@/features/agents/components/AgentInsight'
 import type { Agent } from '@/lib/types'
 import { answerTo, forgetUpgrades, lastUpgrade } from './upgradeServer'
 
@@ -31,22 +31,22 @@ beforeEach(() => {
   forgetUpgrades()
 })
 
-describe('ConsentPanel widen command', () => {
+describe('AccessPanel widen command', () => {
   test('asks for the command at the agent\'s own release and namespace, and shows what the server writes', async () => {
-    render(<ConsentPanel agent={agent({ namespace: 'observability', releaseName: 'agent-eu' })} />)
+    render(<AccessPanel editable agent={agent({ namespace: 'observability', releaseName: 'agent-eu' })} />)
     expect(reloadInfo).toHaveBeenCalledTimes(1)
     expect(await screen.findByTestId('helm-command')).toHaveTextContent(answerTo({ namespace: 'observability', release: 'agent-eu', tier: 1 }))
     expect(lastUpgrade()).toEqual({ namespace: 'observability', release: 'agent-eu', tier: 1 })
   })
 
   test('asks without a namespace or release while the agent has not said where it lives, which the server answers with the chart\'s defaults', async () => {
-    render(<ConsentPanel agent={agent()} />)
+    render(<AccessPanel editable agent={agent()} />)
     expect(await screen.findByTestId('helm-command')).toHaveTextContent(answerTo({ tier: 1 }))
     expect(lastUpgrade()).toEqual({ tier: 1 })
   })
 
   test('shows no command, and asks for none, while there is no wider tier to offer', () => {
-    render(<ConsentPanel agent={agent({ accessTier: 2, installedTier: 2 })} />)
+    render(<AccessPanel editable agent={agent({ accessTier: 2, installedTier: 2 })} />)
     expect(screen.queryByTestId('helm-command')).not.toBeInTheDocument()
     expect(screen.queryByTestId('helm-command-pending')).not.toBeInTheDocument()
   })

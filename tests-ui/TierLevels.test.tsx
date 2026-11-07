@@ -50,3 +50,22 @@ describe('the plain words for what each level reads', () => {
     for (const r of PLAIN_READS[2]) expect(lower, r.text).not.toContain(r.match)
   })
 })
+
+describe('TierLevels as a row', () => {
+  test('the levels sit side by side with a few words each, and one line for what they read', () => {
+    render(<TierLevels tiers={[0, 1, 2]} value={1} max={2} onSelect={() => undefined} layout="row" data-testid="t" />)
+    expect(screen.getAllByRole('radio')).toHaveLength(3)
+    expect(screen.getByTestId('t-1')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByTestId('t-2')).toHaveTextContent('Workloads and services')
+    expect(screen.getAllByText('Exactly what each level can read')).toHaveLength(1)
+    expect(screen.queryByText('What this grants')).toBeNull()
+  })
+
+  test('a level above the ceiling is locked and still reports its click', () => {
+    const picked: number[] = []
+    render(<TierLevels tiers={[0, 1, 2]} value={0} max={0} onSelect={(t) => picked.push(t)} layout="row" data-testid="t" />)
+    expect(screen.getByTestId('t-2')).toHaveAttribute('aria-disabled', 'true')
+    screen.getByTestId('t-2').click()
+    expect(picked).toEqual([2])
+  })
+})

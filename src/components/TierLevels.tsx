@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import type { ReactNode } from 'react'
 import { Boxes, Check, ChevronRight, Fingerprint, HardDrive, Lock, Share2, ShieldCheck, type LucideIcon } from 'lucide-react'
-import { ACCESS_TIER_BASELINE_GRANT, ACCESS_TIER_GRANTS, ACCESS_TIERS, ACCESS_TIER_CAPTIONS, type AccessTier } from '@/lib/types'
+import { ACCESS_TIER_BASELINE_GRANT, ACCESS_TIER_BRIEF, ACCESS_TIER_GRANTS, ACCESS_TIERS, ACCESS_TIER_CAPTIONS, type AccessTier } from '@/lib/types'
 import { ICON_MD, ICON_SM } from '@/components/ui/primitives'
 
 const ICON_SIZE = { sm: 18, md: 24 } as const
@@ -145,7 +145,8 @@ export interface TierLevelsProps {
    *  'cards': the same rungs side by side instead, sized for a handful of options a person compares
    *  before picking one. Meant for the connect wizard, where there is room and a decision to make;
    *  the stack reads better once there are more rungs than fit a row, or no room to spare. */
-  layout?: 'stack' | 'cards'
+  layout?: 'stack' | 'cards' | 'row'
+  /** 'row': the rungs side by side as small tiles (icon, name, a few words), with the one "exactly what each level can read" line under them instead of a disclosure per rung. For a panel with a lot else to say. */
   /** 'cards' only: shown under the cards and above the one "what each level can read" disclosure (the wizard's line about being read-only). */
   after?: ReactNode
   className?: string
@@ -163,9 +164,10 @@ export interface TierLevelsProps {
 export default function TierLevels({ tiers, value, max, onSelect, markAt, markLabel, size = 'md', layout = 'stack', after, className, 'data-testid': testId, 'aria-labelledby': labelledBy }: TierLevelsProps) {
   const compact = size === 'sm'
   const cards = layout === 'cards'
+  const row = layout === 'row'
   const rungs = (
     <div
-      className={clsx(cards ? 'grid gap-3 sm:grid-cols-2' : clsx('flex flex-col', compact ? 'gap-1' : 'gap-1.5'), !cards && className)}
+      className={clsx(cards ? 'grid gap-3 sm:grid-cols-2' : row ? 'grid grid-cols-3 gap-2' : clsx('flex flex-col', compact ? 'gap-1' : 'gap-1.5'), !cards && !row && className)}
       data-testid={testId}
       role={onSelect ? 'radiogroup' : undefined}
       aria-labelledby={labelledBy}
@@ -188,6 +190,30 @@ export default function TierLevels({ tiers, value, max, onSelect, markAt, markLa
           onClick: onSelect ? () => onSelect(t) : undefined,
           'data-testid': rungTestId,
         } as const
+        if (row) {
+          return (
+            <Tag
+              key={t}
+              {...shared}
+              className={clsx(
+                'relative flex min-w-0 flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors',
+                onSelect && !locked && 'cursor-pointer hover:border-nb-800',
+                locked && 'cursor-default opacity-60',
+                isCurrent ? 'border-accent/60 bg-accent-soft' : 'border-nb-850 bg-nb-930',
+              )}
+            >
+              <span className="absolute right-2.5 top-2.5" aria-hidden>
+                <TierIcon level={t} tone={locked ? 'locked' : filled ? 'filled' : 'idle'} marked={marked} size={18} />
+              </span>
+              <span className="flex items-center gap-1.5 pr-6 text-sm font-medium text-nb-300">
+                {label}
+                {locked && <Lock size={ICON_SM} className="text-nb-500" aria-hidden />}
+              </span>
+              <span className="text-xs text-nb-500">{ACCESS_TIER_BRIEF[t]}</span>
+              {marked && <span className="text-xs text-warn">{markLabel ?? 'Approved up to here'}</span>}
+            </Tag>
+          )
+        }
         if (cards) {
           return (
             <div key={t} className="flex flex-col">
@@ -249,9 +275,9 @@ export default function TierLevels({ tiers, value, max, onSelect, markAt, markLa
       })}
     </div>
   )
-  if (!cards) return rungs
+  if (!cards && !row) return rungs
   return (
-    <div className={clsx('space-y-2', className)}>
+    <div className={clsx(row ? 'space-y-1.5' : 'space-y-2', className)}>
       {rungs}
       {after}
       <ReadsDisclosure tiers={tiers} testId={testId ? `${testId}-reads` : undefined} />

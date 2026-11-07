@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { StatusBadge, type StatusTone } from '@/components/ui/Status'
+import { Info } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Field, TagsInput } from '@/components/ui/primitives'
 import { CopyCommand } from '@/components/ui/CopyCommand'
@@ -71,59 +72,32 @@ export function Problems({ problems }: { problems: AgentProblem[] }) {
 
 const TONE: Record<string, string> = { ok: 'text-ok', warn: 'text-warn', paused: 'text-info', off: 'text-nb-500' }
 
-/** "What this agent can see": the ceiling the install sets, what was approved, what it collects now, and how much of the cluster is in view. */
-export function CanSee({ agent, diagnostics: d }: { agent: Agent; diagnostics: AgentDiagnostics }) {
-  const note = effectiveNote(d)
-  const approved = (agent.status === 'approved' ? agent.accessTier : d.approvedTier) as AccessTier
-  const failing = d.informers.filter((i) => !i.synced || i.lastError)
+const INTENT_WORDS =
+  "This is the agent's observability intent: the scope of what it reads and reports. It can only reduce what this agent shares. What it may read at most is set by whoever owns the cluster, when it was installed (its access tier, permissions and scope), and this server cannot exceed it: the agent checks that itself and ignores anything that would widen it."
+
+function Switch({ on, onChange, label, testId }: { on: boolean; onChange: (on: boolean) => void; label: string; testId?: string }) {
   return (
-    <div data-testid="can-see">
-      <div className="mb-1.5 text-sm font-medium text-nb-300">What it can see</div>
-      <TierLevels
-        tiers={[0, 1, 2] as AccessTier[]}
-        value={d.effectiveTier as AccessTier}
-        max={d.installedTier as AccessTier}
-        markAt={approved}
-        markLabel={`Approved up to ${tierName(approved).toLowerCase()}`}
-        size="sm"
-        data-testid="can-see-tier"
-      />
-      {note && <p className="mt-1 text-xs text-warn" data-testid="tier-note">{note}</p>}
-      <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-        <dt className="text-nb-500">Namespaces</dt>
-        <dd className="text-nb-300" data-testid="scope-words">{scopeWords(d)}</dd>
-        <dt className="text-nb-500">Watches</dt>
-        <dd className="text-nb-300">
-          {d.informers.length === 0 ? 'none yet' : `${d.informers.filter((i) => i.synced).length} of ${d.informers.length} read`}
-          {failing.map((i) => (
-            <span key={i.name} className="block break-words text-xs text-warn">{i.name}: {i.lastError || 'not read yet'}</span>
-          ))}
-        </dd>
-        <dt className="text-nb-500">Agent</dt>
-        <dd className="text-nb-300">v{d.agentVersion}{d.arch ? ` · ${d.os ?? ''}/${d.arch}` : ''} · up {uptimeWords(d.uptimeSeconds)}</dd>
-      </dl>
-      <div className="mt-3 text-xs font-medium uppercase tracking-wide text-nb-500">Optional collectors</div>
-      <ul className="mt-1 space-y-1 text-sm" data-testid="collectors">
-        {COLLECTORS.map((c) => {
-          const s = collectorState(d.collectors.find((x) => x.name === c.id))
-          return (
-            <li key={c.id} className="flex flex-wrap items-baseline gap-x-2" data-testid={`collector-${c.id}`} data-tone={s.tone}>
-              <span className="text-nb-300">{c.label}</span>
-              <span className={clsx('text-xs', TONE[s.tone])}>{s.label}</span>
-            </li>
-          )
-        })}
-      </ul>
-      {d.partial && <p className="mt-2 text-xs text-nb-600">This is what the agent said when it connected; it has not finished looking at the cluster yet.</p>}
-    </div>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={() => onChange(!on)}
+      className={clsx('relative h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent', on ? 'bg-accent' : 'bg-nb-700')}
+      data-testid={testId}
+    >
+      <span className={clsx('absolute top-0.5 size-4 rounded-full bg-white transition-all', on ? 'left-[18px]' : 'left-0.5')} aria-hidden />
+    </button>
   )
 }
 
 /**
- * The consent panel. Everything on it can only REDUCE what this agent shares, and the agent enforces that for itself: what is above the
- * ceiling its install sets is shown, disabled, with the command the cluster's owner runs to raise it.
+ * What an agent may read and report, and what it does now, in one place. The level it is approved for, what that leaves in view (namespaces,
+ * the optional collectors) and the three things that can only REDUCE it: a lower level, a collector switched off, namespaces left out. The agent
+ * enforces all of it for itself: what is above the ceiling its install sets is shown, locked, with the command the cluster's owner runs to raise it.
+ * `editable` is whether this person may change it; without it the same panel only says what is so.
  */
-export function ConsentPanel({ agent, diagnostics: d, consent }: { agent: Agent; diagnostics?: AgentDiagnostics; consent?: AgentConsent }) {
+export function AccessPanel({ agent, diagnostics: d, consent, editable }: { agent: Agent; diagnostics?: AgentDiagnostics; consent?: AgentConsent; editable: boolean }) {
   const server = useServer()
   const info: ServerInfo | undefined = server.info
   // The widen command names the chart this server currently resolves: read it again now, so a long-lived tab does not print an old version.
@@ -162,7 +136,7 @@ export function ConsentPanel({ agent, diagnostics: d, consent }: { agent: Agent;
     }
   }
 
-  const toShow = asked ?? (installed < implemented ? ((installed + 1) as AccessTier) : undefined)
+  const toShow = editable ? (asked ?? (installed < implemented ? ((installed + 1) as AccessTier) : undefined)) : undefined
   // The command that raises the ceiling to it is written by the server, which knows the chart it serves.
   const widenRequest = useMemo(() => (toShow === undefined ? null : upgradeRequest({ tier: toShow, target: { namespace: agent.namespace, release: agent.releaseName } })), [toShow, agent.namespace, agent.releaseName])
   const widen = useAgentUpgradeCommand(widenRequest)
@@ -173,6 +147,15 @@ export function ConsentPanel({ agent, diagnostics: d, consent }: { agent: Agent;
   const confirmed = stored.confirmed ?? inForce(consent, agent.accessTier, d)
   const narrowed = stored.pausedCollectors.length > 0 || stored.excludedNamespaces.length > 0
   const waitingWords = !confirmed && narrowed && stored.setAt ? `${uptimeWords((Date.now() - Date.parse(stored.setAt)) / 1000)} ago` : undefined
+
+  // The optional collectors: those in the cluster get a row (and, for an editor, a switch); the rest are one quiet line.
+  const collectors = COLLECTORS.map((c) => {
+    const live = d?.collectors.find((x) => x.name === c.id)
+    return { c, state: d ? collectorState(live) : undefined, present: d ? !!live?.configured : true }
+  })
+  const rows = collectors.filter((x) => x.present || paused.includes(x.c.id))
+  const missing = collectors.filter((x) => !rows.includes(x))
+  const note = d && !dirty ? effectiveNote(d) : undefined
 
   const save = async () => {
     const c = server.conn()
@@ -199,113 +182,134 @@ export function ConsentPanel({ agent, diagnostics: d, consent }: { agent: Agent;
   }
 
   return (
-    <div data-testid="consent-panel">
-      <p className="mb-3 text-xs leading-relaxed text-nb-500">
-        This is the agent's <span className="text-nb-300">observability intent</span> — the scope of what it reads and reports. It can only <span className="text-nb-300">reduce</span> what this agent shares. What it may read at most is set by whoever owns the cluster, when it was installed (its access tier, permissions and scope), and this server cannot exceed it: the agent checks that itself and ignores anything that would widen it.
+    <div className="rounded-lg border border-nb-850 bg-nb-925 p-4" data-testid="agent-access" data-editable={editable}>
+      <div className="text-sm font-medium text-nb-300" id="tier-label">Access</div>
+      <p className="mb-3 mt-0.5 text-xs text-nb-500">
+        What this agent may read and report. It can only reduce what the install allows.{' '}
+        <span className="inline-flex align-text-bottom" tabIndex={0} role="img" title={INTENT_WORDS} aria-label={INTENT_WORDS}>
+          <Info size={14} aria-hidden />
+        </span>
       </p>
 
-      <div>
-        <div className="mb-1.5 text-sm font-medium text-nb-300" id="tier-label">Access this agent is approved for</div>
-        <TierLevels
-          tiers={tierLadder}
-          value={tier}
-          max={installed}
-          onSelect={(t) => {
-            if (t > installed) setAsked(t)
-            else {
-              setTier(t)
-              setSaved(false)
-            }
-          }}
-          size="sm"
-          data-testid="tier-option"
-          aria-labelledby="tier-label"
-        />
-      </div>
-      {toShow !== undefined && (
+      <TierLevels
+        layout="row"
+        tiers={tierLadder}
+        value={editable ? tier : ((d?.effectiveTier ?? agent.accessTier) as AccessTier)}
+        max={installed}
+        markAt={editable ? undefined : (agent.accessTier as AccessTier)}
+        markLabel={`Approved up to ${tierName(agent.accessTier).toLowerCase()}`}
+        onSelect={
+          editable
+            ? (t) => {
+                if (t > installed) setAsked(t)
+                else {
+                  setTier(t)
+                  setSaved(false)
+                }
+              }
+            : undefined
+        }
+        size="sm"
+        data-testid="tier-option"
+        aria-labelledby="tier-label"
+      />
+      {note && <p className="mt-1 text-xs text-warn" data-testid="tier-note">{note}</p>}
+      {toShow !== undefined ? (
         <div className="mt-2 text-xs text-nb-500" data-testid="widen-hint">
           This install allows up to <span className="text-nb-300">{tierName(installed).toLowerCase()}</span>. To allow <span className="text-nb-300">{tierName(toShow).toLowerCase()}</span>, the cluster's owner runs this in that cluster, and then you can select it here:
           <ServerCommand command={widen} />
         </div>
+      ) : (
+        <p className="mt-1.5 text-xs text-nb-500" data-testid="ceiling-line">The install allows up to <span className="text-nb-300">{tierName(installed).toLowerCase()}</span>.</p>
       )}
-      {agent.hardenHelm && (
+      {editable && agent.hardenHelm && (
         <div className="mt-2 rounded-md border border-warn/20 bg-warn/5 px-3 py-2 text-xs leading-relaxed text-nb-500" data-testid="harden-hint">
           Approved access here is narrower than what this install allows in the cluster. The agent already stopped reading and reporting at the wider tier, but that is a software-level change only: its <span className="text-nb-300">Kubernetes RBAC still grants the wider tier</span> until the cluster's owner runs this there too:
           <CopyCommand text={agent.hardenHelm} />
         </div>
       )}
 
-      <div className="mt-4">
-        <div className="mb-1.5 text-sm font-medium text-nb-300">Pause optional collectors</div>
-        <ul className="space-y-2">
-          {COLLECTORS.map((c) => {
-            const live = d?.collectors.find((x) => x.name === c.id)
-            const installedHere = d ? !!live?.configured : true
-            const on = paused.includes(c.id)
-            return (
-              <li key={c.id}>
-                <label className={clsx('flex items-start gap-2.5 text-sm', installedHere ? 'cursor-pointer' : 'cursor-not-allowed opacity-60')}>
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 size-4 accent-[var(--color-accent)]"
-                    checked={on}
-                    disabled={!installedHere && !on}
-                    onChange={(e) => {
-                      setPaused(e.target.checked ? [...paused, c.id] : paused.filter((x) => x !== c.id))
-                      setSaved(false)
-                    }}
-                    data-testid={`pause-${c.id}`}
-                  />
-                  <span>
-                    <span className="text-nb-300">Pause {c.label.toLowerCase()}</span>
-                    <span className="block text-xs text-nb-500">{c.what} {installedHere ? 'Pausing stops it in the cluster and forgets what it held.' : 'Not installed in this cluster.'}</span>
-                  </span>
-                </label>
-              </li>
-            )
-          })}
+      <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+        {d && (
+          <>
+            <dt className="text-nb-500">Namespaces</dt>
+            <dd className="text-nb-300" data-testid="scope-words">{scopeWords(d)}</dd>
+          </>
+        )}
+      </dl>
+
+      {rows.length > 0 && (
+        <ul className="mt-3 divide-y divide-nb-850 border-y border-nb-850" data-testid="collectors">
+          {rows.map(({ c, state }) => (
+            <li key={c.id} className="flex items-center gap-3 py-2 text-sm" data-testid={`collector-${c.id}`} data-tone={state?.tone}>
+              <span className="min-w-0 flex-1">
+                <span className="text-nb-300" title={c.what}>{c.label}</span>
+                {state && <span className={clsx('ml-2 text-xs', TONE[state.tone])}>{state.label}</span>}
+              </span>
+              {editable && (
+                <Switch
+                  on={!paused.includes(c.id)}
+                  onChange={(on) => {
+                    setPaused(on ? paused.filter((x) => x !== c.id) : [...paused, c.id])
+                    setSaved(false)
+                  }}
+                  label={`${c.label} on`}
+                  testId={`collector-switch-${c.id}`}
+                />
+              )}
+            </li>
+          ))}
         </ul>
-      </div>
+      )}
+      {editable && rows.length > 0 && <p className="mt-1.5 text-xs text-nb-500">Switching one off stops it in the cluster and forgets what it held.</p>}
+      {missing.length > 0 && (
+        <p className="mt-2 text-xs text-nb-500" data-testid="collectors-missing">Not installed: {missing.map((x) => x.c.label.toLowerCase()).join(', ')}</p>
+      )}
 
-      <div className="mt-4">
-        <Field label="Leave more namespaces out" hint="The agent drops them before anything is sent; they can only be added to what the install already leaves out. System namespaces cannot be left out.">
-          <TagsInput value={excl} onChange={(v) => { setExcl(v); setSaved(false) }} placeholder="e.g. payments, batch" aria-invalid={!valid} aria-describedby={valid ? undefined : 'exclude-problems'} data-testid="exclude-input" />
-        </Field>
-        {!valid && (
-          <ul id="exclude-problems" className="mt-1 text-xs text-bad" role="alert" data-testid="exclude-problems">
-            {parsed.problems.map((p) => <li key={p}>{p}</li>)}
-          </ul>
-        )}
-        {valid && !dirty && stored.unknownNamespaces && stored.unknownNamespaces.length > 0 && (
-          <ul className="mt-1 text-xs text-warn" data-testid="exclude-unknown">
-            {stored.unknownNamespaces.map((n) => (
-              <li key={n}>“{n}” has not been reported by this agent yet — check the spelling, or it may not have rolled out.</li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {editable && (
+        <div className="mt-4">
+          <Field label="Left out" hint="Dropped by the agent before anything is sent, on top of what the install already leaves out. System namespaces cannot be left out.">
+            <TagsInput value={excl} onChange={(v) => { setExcl(v); setSaved(false) }} placeholder="e.g. payments, batch" aria-invalid={!valid} aria-describedby={valid ? undefined : 'exclude-problems'} data-testid="exclude-input" />
+          </Field>
+          {!valid && (
+            <ul id="exclude-problems" className="mt-1 text-xs text-bad" role="alert" data-testid="exclude-problems">
+              {parsed.problems.map((p) => <li key={p}>{p}</li>)}
+            </ul>
+          )}
+          {valid && !dirty && stored.unknownNamespaces && stored.unknownNamespaces.length > 0 && (
+            <ul className="mt-1 text-xs text-warn" data-testid="exclude-unknown">
+              {stored.unknownNamespaces.map((n) => (
+                <li key={n}>“{n}” has not been reported by this agent yet — check the spelling, or it may not have rolled out.</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <Button variant="primary" size="sm" disabled={!dirty || !valid || busy} onClick={() => void save()} data-testid="consent-save">{busy ? 'Saving…' : 'Save'}</Button>
-        {dirty && !busy && <button type="button" className="text-xs text-nb-500 hover:text-nb-300" onClick={() => { setTier(agent.accessTier); setPaused(stored.pausedCollectors); setExcl(stored.excludedNamespaces); setError(''); setHelm('') }}>Discard changes</button>}
-        {!dirty && !error && (saved || (narrowed && !confirmed)) && (
-          <span className={clsx('text-xs', confirmed ? 'text-ok' : 'text-nb-400')} role="status" data-testid="consent-status">
-            {confirmed
-              ? saved
-                ? 'Saved, and the agent confirms it is in force.'
-                : 'The agent confirms this is in force.'
-              : saved
-                ? 'Saved. The agent applies this within seconds; the state on the left updates when it does.'
-                : `Waiting on the agent to confirm this${waitingWords ? ` — asked ${waitingWords}` : ''}.`}
-          </span>
-        )}
-      </div>
+      {editable && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button variant="primary" size="sm" disabled={!dirty || !valid || busy} onClick={() => void save()} data-testid="consent-save">{busy ? 'Saving…' : 'Save'}</Button>
+          {dirty && !busy && <button type="button" className="text-xs text-nb-500 hover:text-nb-300" onClick={() => { setTier(agent.accessTier); setPaused(stored.pausedCollectors); setExcl(stored.excludedNamespaces); setError(''); setHelm('') }}>Discard changes</button>}
+          {!dirty && !error && (saved || (narrowed && !confirmed)) && (
+            <span className={clsx('text-xs', confirmed ? 'text-ok' : 'text-nb-400')} role="status" data-testid="consent-status">
+              {confirmed
+                ? saved
+                  ? 'Saved, and the agent confirms it is in force.'
+                  : 'The agent confirms this is in force.'
+                : saved
+                  ? 'Saved. The agent applies this within seconds; this updates when it does.'
+                  : `Waiting on the agent to confirm this${waitingWords ? ` — asked ${waitingWords}` : ''}.`}
+            </span>
+          )}
+        </div>
+      )}
       {error && (
         <div role="alert" className="mt-2 rounded-md border border-bad/30 bg-bad/10 px-3 py-2 text-xs text-bad" data-testid="consent-error">
           {error}
           {helm && <CopyCommand text={helm} />}
         </div>
       )}
+      {d?.partial && <p className="mt-3 text-xs text-nb-600">This is what the agent said when it connected; it has not finished looking at the cluster yet.</p>}
     </div>
   )
 }
