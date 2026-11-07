@@ -6,8 +6,7 @@ import type { Agent, Cluster } from '@/lib/types'
 
 // A page test in the same style as NamespacesPage.test.tsx: everything AgentsPage reads from the shared
 // stores is faked here, and ConnectFlow is mocked directly so the connect wizard's own dependencies (a real
-// server connection, ServerConnect) never have to be stood up just to check the "Set up telemetry"
-// button's own visibility/enabled state next to it.
+// server connection, ServerConnect) never have to be stood up just to check the page.
 const cl = (over: Partial<Cluster> = {}) => ({ id: 'c1', name: 'edge-1', tier: 'edge', source: 'discovered', state: 'live', orgId: 'o', ...over }) as Cluster
 const ag = (over: Partial<Agent> = {}) => ({ id: 'a1', clusterId: 'c1', status: 'approved', accessTier: 2, name: 'edge-1', version: '1.0.0', modules: [], fingerprint: 'x', ...over }) as Agent
 
@@ -21,12 +20,8 @@ vi.mock('@/store/server', () => ({
   useServer: (selector?: (s: typeof serverState) => unknown) => (selector ? selector(serverState) : serverState),
   useConn: () => ({ org: 'o' }),
 }))
-// The consent form and the telemetry panel have their own tests and stores; this page test is about where the page puts the Telemetry section.
+// The access panel has its own tests and store; this page test is about the page around it.
 vi.mock('@/features/agents/components/AgentInsight', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/features/agents/components/AgentInsight')>()), AccessPanel: () => <div data-testid="access-stub" /> }))
-const startTelemetry = vi.fn()
-vi.mock('@/features/pipeline/components/telemetry/TelemetryFlow', () => ({
-  useTelemetryFlow: () => ({ start: startTelemetry, dialogs: null, canStart: true }),
-}))
 vi.mock('@/features/discovery/components/ConnectFlow', () => ({
   useConnectFlow: () => ({ start: vi.fn(), dialogs: null, canStart: false, wizardOpen: false }),
 }))
@@ -46,29 +41,11 @@ function renderPage(entry = '/agents') {
 }
 
 describe('AgentsPage', () => {
-  test('"Set up telemetry" is hidden entirely for a viewer who cannot edit', () => {
+  test('the page\'s header has only "Connect a cluster": telemetry is set up on the Pipeline page', () => {
     topologyState = { agents: [ag()], clusters: [cl()], sites: [], suggestions: [] }
-    serverState = { status: 'connected', canEdit: () => false }
+    serverState = { status: 'connected', canEdit: () => true }
     renderPage()
     expect(screen.queryByRole('button', { name: /Set up telemetry/ })).not.toBeInTheDocument()
-  })
-
-  test('with no approved cluster yet, the button is disabled with an explanatory title - discovery is a prerequisite', () => {
-    topologyState = { agents: [], clusters: [], sites: [], suggestions: [] }
-    serverState = { status: 'connected', canEdit: () => true }
-    renderPage()
-    const btn = screen.getByRole('button', { name: /Set up telemetry/ })
-    expect(btn).toBeDisabled()
-    expect(btn).toHaveAttribute('title', 'Connect a cluster first')
-  })
-
-  test('once a cluster is approved, an editor can open the telemetry flow', () => {
-    topologyState = { agents: [ag()], clusters: [cl()], sites: [], suggestions: [] }
-    serverState = { status: 'connected', canEdit: () => true }
-    renderPage()
-    const btn = screen.getByRole('button', { name: /Set up telemetry/ })
-    expect(btn).not.toBeDisabled()
-    expect(btn).not.toHaveAttribute('title')
   })
 
   test('a link from the Pipeline page (?open=<agent>) opens that agent\'s row, and is spent at once', async () => {

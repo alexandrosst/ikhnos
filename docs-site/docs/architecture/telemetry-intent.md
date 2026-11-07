@@ -141,8 +141,8 @@ Each RBAC rule in `telemetry-rbac.yaml` is gated behind the one signal that actu
 
 Every place telemetry gets configured — at install time, right after, or much later — opens the same guided wizard (`TelemetryWizard`), with the agent's self-report, the draft and the generated command behind it. There is no second, flat form of fields next to it. What differs is only how a person arrives:
 
-- the **Set up telemetry** button on the Pipeline page and on the Agents page, with no target chosen yet;
-- **Change what it sends…** in a local operator's details on the Pipeline page (and **Set up telemetry** in an agent's own details on the Agents page), which is the same wizard with the target already chosen, so there is no picker, and which starts from what is installed.
+- the **Set up telemetry** button on the Pipeline page, with no target chosen yet;
+- **Change what it sends…** in a local operator's details on the Pipeline page, and **Set up in Pipeline** on an agent's own details on the Agents page (a link to `/pipeline?setup=<agent>`), which are the same wizard with the target already chosen, so there is no picker, and which starts from what is installed.
 
 `useTelemetryFlow()` opens the dialog from the first. With no target resolved, the **Where from** step lists approved clusters to pick from, and if there are none yet, hands off to the "Connect a cluster" flow rather than bundling discovery into a telemetry modal — connecting a cluster is always a separate, prior step, never something this wizard does on a person's behalf. The steps are:
 

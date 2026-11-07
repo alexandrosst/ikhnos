@@ -9,7 +9,7 @@ import { useTopology } from '@/store/topology'
 import ClusterStep from './ClusterStep'
 
 /**
- * "Set up telemetry": the guided setup in a dialog, for the Agents page header button (no cluster chosen yet), the topology canvas's
+ * "Set up telemetry": the guided setup in a dialog, for the Pipeline page button (no cluster chosen yet), the topology canvas's
  * "Define scope from selection" (a cluster and scope already known) and "Connect <cluster>" on an operator (a cluster and the destination
  * known). Two parts of the same four-step rail: "Where from" picks the cluster when none was named, then the other three steps are the
  * TelemetryPanel's guided setup, the same component the inline panel on an agent row uses.

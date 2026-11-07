@@ -35,7 +35,7 @@ The **Agents** tab lists every connected cluster's agent: whether it's currently
 
 The **Suggestions** tab is where the server surfaces things it noticed but did not decide on its own: a newly discovered application grouping suggested from the traffic it has seen, or a *suspicion* (traffic from an onboarded cluster toward an address nothing has claimed, on a port only Kubernetes itself tends to use), which usually means there is another cluster worth connecting. Accept, correct or dismiss each one; nothing is applied automatically. The older `/discovery` address leads here. **Seen and gone** lists agents that have left, so a cluster that disappeared is a record and not a mystery.
 
-**Set up telemetry** (here and on the Pipeline page) starts the [telemetry wizard](#setting-up-telemetry). For an agent that is already set up, its details link to its collector on the Pipeline page, where **Change what it sends…** opens the same wizard, starting from what is installed now.
+Telemetry is not set up here. An agent's details say how many signals it sends and link to its collector on the Pipeline page, where **Change what it sends…** opens the [telemetry wizard](#setting-up-telemetry), starting from what is installed now; for an agent that sends nothing yet, **Set up in Pipeline** opens the same wizard there with that agent already chosen.
 
 ## Pipeline
 

@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { ChevronRight, List, Network, Plug, Radio, Server } from 'lucide-react'
+import { ChevronRight, List, Network, Plug, Server } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { AccessPanel, DiscoveryChip, HealthChip, Problems } from '@/features/agents/components/AgentInsight'
@@ -15,7 +15,6 @@ import { AgentTeardown } from './AgentTeardown'
 import { CheckLine, MODULE_STYLE, ObserverLine, ScopeLine, ApprovalStatus, when } from '@/features/discovery/components/AgentParts'
 import ApprovalCard from '@/features/discovery/components/ApprovalCard'
 import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
-import { useTelemetryFlow } from '@/features/pipeline/components/telemetry/TelemetryFlow'
 import EntityHistory from '@/features/history/components/EntityHistory'
 import { ConfirmModal } from '@/components/forms'
 import { DistroIcon, Flag, WithIcon } from '@/components/ui/brand'
@@ -92,7 +91,6 @@ export default function AgentsPage() {
   const conn = useServer((s) => s.conn)
   const refresh = useServer((s) => s.refresh)
   const connect = useConnectFlow()
-  const telemetry = useTelemetryFlow()
   const canAdminister = connect.canStart
   // Enrollment is decided here: a request waits for its approval code, and one rejected for too many wrong codes stays (with the reason) until dismissed.
   const locked = useApprovalLocks((s) => s.locked)
@@ -162,15 +160,6 @@ export default function AgentsPage() {
         description="The programs running inside your clusters that report to this server: where each runs, whether it is alive, and how much it has sent."
         actions={
           <>
-            {canConsent && (
-              <Button
-                onClick={() => telemetry.start()}
-                disabled={!agents.some((a) => a.status === 'approved')}
-                title={agents.some((a) => a.status === 'approved') ? undefined : 'Connect a cluster first'}
-              >
-                <Radio size={ICON_SM} /> Set up telemetry
-              </Button>
-            )}
             {canAdminister && (
               <Button variant="primary" onClick={connect.start}>
                 <Plug size={ICON_SM} /> Connect a cluster
@@ -384,7 +373,6 @@ export default function AgentsPage() {
       {diagnosing && agents.find((x) => x.id === diagnosing) && (
         <DiagnoseDrawer agent={agents.find((x) => x.id === diagnosing)!} extras={extrasOf(rawAgents, diagnosing)} now={now} onClose={() => setDiagnosing(null)} />
       )}
-      {telemetry.dialogs}
 
       {revoking && (
         <ConfirmModal
