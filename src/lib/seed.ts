@@ -325,6 +325,7 @@ export function seedTopology(): Model {
         { name: 'dependencies', status: 'ok' },
         { name: 'geo', status: 'ok' },
       ],
+      overlayPeers: [],
     },
     {
       id: 'ag-thess', orgId: DEFAULT_ORG, name: 'agent-edge-thessaloniki', clusterId: 'cl-edge-b', version: '0.1.0', accessTier: 2, status: 'approved',
@@ -335,10 +336,11 @@ export function seedTopology(): Model {
         { name: 'dependencies', status: 'skipped', reason: 'Needs access tier 3 (dependencies)' },
         { name: 'geo', status: 'ok' },
       ],
+      overlayPeers: [],
     },
     {
       id: 'ag-volos', orgId: DEFAULT_ORG, name: 'agent-volos', version: '0.1.0', accessTier: 0, status: 'pending',
-      fingerprint: 'kube-system:5e9a3c72-b8d1-47f0-a6c4-1d2e3f405968', connectingIp: '198.51.100.77', modules: [],
+      fingerprint: 'kube-system:5e9a3c72-b8d1-47f0-a6c4-1d2e3f405968', connectingIp: '198.51.100.77', modules: [], overlayPeers: [],
     },
   ]
 

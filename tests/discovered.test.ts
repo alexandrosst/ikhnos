@@ -62,7 +62,7 @@ test('a human override on a cluster is preserved and does not defeat the identit
 })
 
 test("an agent report that hasn't moved keeps its identity, and the agents array keeps its identity too", () => {
-  const a: Agent = { id: 'a1', orgId: 'o', name: 'agent-1', version: '1.0.0', accessTier: 'full', status: 'approved', fingerprint: 'fp', modules: [], installedTier: 'full', tierCap: 'full', requestedAt: '2024-01-01T00:00:00Z', connected: true } as Agent
+  const a: Agent = { id: 'a1', orgId: 'o', name: 'agent-1', version: '1.0.0', accessTier: 'full', status: 'approved', fingerprint: 'fp', modules: [], installedTier: 'full', tierCap: 'full', requestedAt: '2024-01-01T00:00:00Z', connected: true, overlayPeers: [] } as Agent
   const m = model({ agents: [a] })
   const state = doc({ agents: [serverAgent('a1', { name: 'agent-1' }) as never] })
   const { agents } = mergeDiscovered(m, state)
@@ -71,7 +71,7 @@ test("an agent report that hasn't moved keeps its identity, and the agents array
 })
 
 test('an agent whose status changed gets a fresh object and the array is rebuilt', () => {
-  const a: Agent = { id: 'a1', orgId: 'o', name: 'agent-1', version: '1.0.0', accessTier: 'full', status: 'approved', fingerprint: 'fp', modules: [], installedTier: 'full', tierCap: 'full', requestedAt: '2024-01-01T00:00:00Z', connected: true } as Agent
+  const a: Agent = { id: 'a1', orgId: 'o', name: 'agent-1', version: '1.0.0', accessTier: 'full', status: 'approved', fingerprint: 'fp', modules: [], installedTier: 'full', tierCap: 'full', requestedAt: '2024-01-01T00:00:00Z', connected: true, overlayPeers: [] } as Agent
   const m = model({ agents: [a] })
   const state = doc({ agents: [serverAgent('a1', { name: 'agent-1', connected: false }) as never] })
   const { agents } = mergeDiscovered(m, state)

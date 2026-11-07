@@ -1,6 +1,6 @@
 import { ipScope } from './present'
 import { applyRef } from './declared'
-import type { AccessTier, Agent, AgentLink, AgentScope, AuditEvent, ClusterLink, ClusterPairConnectivity, ConsistencyStatus, DeclaredRef, DiscoveryAgent, ObserverStatus, Path, Cluster, Dependency, ExternalEndpoint, GeoHint, GeoUnlocatableReason, MachineNode, Model, Namespace, Service, Suggestion, Tombstone } from './types'
+import type { AccessTier, Agent, AgentLink, AgentScope, AuditEvent, ClusterLink, ClusterPairConnectivity, ConsistencyStatus, DeclaredRef, DiscoveryAgent, ObserverStatus, Path, Cluster, Dependency, ExternalEndpoint, GeoHint, GeoUnlocatableReason, MachineNode, Model, Namespace, Overlay, OverlayPeer, Service, Suggestion, Tombstone } from './types'
 
 /** What the Ikhnos server returns from GET /api/v1/state. */
 export interface ServerAgent {
@@ -44,6 +44,9 @@ export interface ServerAgent {
   legacyEnrollment?: boolean
   approvalAttemptsLeft?: number
   pendingExpiresAt?: string
+  /** The overlay network (a VPN or mesh) this cluster's nodes say they are on, and the other clusters that share it. */
+  overlay?: Overlay
+  overlayPeers?: OverlayPeer[]
 }
 
 export interface ServerState {
@@ -236,6 +239,8 @@ export function mergeDiscovered(m: Model, doc: ServerState): Partial<Model> {
       legacyEnrollment: a.legacyEnrollment,
       approvalAttemptsLeft: a.approvalAttemptsLeft,
       pendingExpiresAt: a.pendingExpiresAt,
+      overlay: a.overlay ?? undefined,
+      overlayPeers: a.overlayPeers ?? [],
     }
     const old = existingAgents.get(a.id)
     return old && deepEqual(next, old) ? old : next
