@@ -1198,6 +1198,16 @@ type vk struct {
 // just trusting that context.WithTimeout was spelled correctly.
 var walkTimeout = 20 * time.Second
 
+// walkTrace, when a test sets it, is told how long each round trip of a walk took ("hop 1", "versions"), so a walk that was slow says which
+// statement it spent its time in. Nil in the product; a var for the same reason walkTimeout is.
+var walkTrace func(what string, took time.Duration)
+
+func traced(what string, since time.Time) {
+	if walkTrace != nil {
+		walkTrace(what, time.Since(since))
+	}
+}
+
 func (d *DB) walk(ctx context.Context, org string, at time.Time, kind, id string, hops int, forward bool) (time.Time, []Reached, error) {
 	ctx, cancel := context.WithTimeout(ctx, walkTimeout)
 	defer cancel()
@@ -1245,7 +1255,9 @@ RETURN DISTINCT n.kind AS kind, n.id AS id ORDER BY kind, id`, strings.Join(relT
 		for i, f := range frontier {
 			fr[i] = map[string]any{"kind": f.Kind, "id": f.ID}
 		}
+		began := time.Now()
 		rows, err := d.C.Run(ctx, sc.S(step, map[string]any{"frontier": fr, "at": atS}))
+		traced(fmt.Sprintf("hop %d (%d from the frontier)", h, len(frontier)), began)
 		if err != nil {
 			return time.Time{}, nil, err
 		}
@@ -1275,11 +1287,13 @@ RETURN DISTINCT n.kind AS kind, n.id AS id ORDER BY kind, id`, strings.Join(relT
 	for i, o := range order {
 		pairs[i] = map[string]any{"kind": o.Kind, "id": o.ID}
 	}
+	began := time.Now()
 	res, err := d.C.Run(ctx, sc.S(`UNWIND $pairs AS p
 MATCH (e:Entity {org:$org, kind:p.kind, id:p.id})-[:HAS_VERSION]->(v:Version {org:$org})
 USING INDEX SEEK e:Entity(org, kind, id)
 WHERE v.validFrom <= datetime($at) AND (v.validTo IS NULL OR v.validTo > datetime($at))
 RETURN v.kind, v.id, v.name, v.status, v.cluster, v.doc`, map[string]any{"pairs": pairs, "at": atS}))
+	traced(fmt.Sprintf("versions (%d entities)", len(pairs)), began)
 	if err != nil {
 		return time.Time{}, nil, err
 	}

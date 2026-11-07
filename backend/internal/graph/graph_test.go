@@ -1183,13 +1183,18 @@ func TestDependentsBoundsRealFanOut(t *testing.T) {
 	}
 	record(t, db, org, t0, topo)
 
+	// Where the time went, said when it was too much: this query takes a fifth of a second on a quiet machine, so a slow run is worth knowing
+	// the statement of, not just the total.
+	var spent []string
+	walkTrace = func(what string, took time.Duration) { spent = append(spent, fmt.Sprintf("%s: %v", what, took.Round(time.Millisecond))) }
+	t.Cleanup(func() { walkTrace = nil })
 	start := time.Now()
 	_, reached, err := db.Dependents(ctx, org, t0, "service", "hub", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if d := time.Since(start); d > 45*time.Second {
-		t.Errorf("a single hop with real fan-out took %v", d)
+		t.Errorf("a single hop with real fan-out took %v (%s)", d, strings.Join(spent, "; "))
 	}
 	if len(reached) != maxWalkResults-1 {
 		t.Fatalf("fan-out of %d callers past the cap should be held at maxWalkResults-1 (the start does not count against it): got %d", callers, len(reached))
