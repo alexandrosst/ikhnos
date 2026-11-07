@@ -993,7 +993,7 @@ export const ACCESS_TIER_CAPTIONS: Record<AccessTier, string> = {
 /**
  * What each implemented tier's Kubernetes RBAC *actually* grants, verb by verb, resource by resource —
  * the honest answer to "what does this need, and what do I have to do to grant it", surfaced by
- * TierLevels' per-rung "What this grants" disclosure (ApprovalCard, ConnectClusterWizard, AgentInsight).
+ * TierLevels' per-rung "What this grants" disclosure (ApprovalCard, AgentInsight). The wizard's cards say the same in plainer words, once for both levels (PLAIN_READS in TierLevels.tsx), and a test holds those to these lines.
  *
  * This is NOT the same text as ACCESS_TIER_CAPTIONS above, on purpose: that constant says what the agent
  * *collects* at a tier (its audience is "what will I see in the UI"); this one says what Kubernetes

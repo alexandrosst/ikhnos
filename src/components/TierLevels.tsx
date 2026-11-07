@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import type { ReactNode } from 'react'
 import { Boxes, Check, ChevronRight, Fingerprint, HardDrive, Lock, Share2, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { ACCESS_TIER_BASELINE_GRANT, ACCESS_TIER_GRANTS, ACCESS_TIERS, ACCESS_TIER_CAPTIONS, type AccessTier } from '@/lib/types'
 import { ICON_MD, ICON_SM } from '@/components/ui/primitives'
@@ -78,6 +79,53 @@ function GrantDisclosure({ tier, compact, testId }: { tier: AccessTier; compact:
   )
 }
 
+/**
+ * What each level reads, in the words a person choosing between them would use, once for all the cards instead of a
+ * disclosure under each. The exact verbs and the flag are still one click away on the screens that stack the levels
+ * (the approval card, the agent's consent panel); `match` ties every line to the RBAC lines in ACCESS_TIER_GRANTS, and
+ * a test holds them to it, so this cannot say something the chart does not grant.
+ */
+export const PLAIN_READS: Record<1 | 2, { text: string; match: string }[]> = {
+  1: [
+    { text: 'nodes', match: 'nodes' },
+    { text: 'storage classes', match: 'storage classes' },
+    { text: 'ingress classes', match: 'ingress classes' },
+  ],
+  2: [
+    { text: 'namespaces', match: 'namespaces' },
+    { text: 'pods', match: 'pods' },
+    { text: 'services', match: 'services' },
+    { text: 'volumes and volume claims', match: 'persistentvolumeclaims' },
+    { text: 'deployments, statefulsets, daemonsets and replica sets', match: 'deployments' },
+    { text: 'ingresses', match: 'ingresses' },
+    { text: 'horizontal pod autoscalers', match: 'horizontalpodautoscalers' },
+    { text: 'pod disruption budgets', match: 'poddisruptionbudgets' },
+    { text: 'the Istio mutual-TLS policy (on by default, can be turned off)', match: 'PeerAuthentication' },
+  ],
+}
+
+function ReadsDisclosure({ tiers, testId }: { tiers: AccessTier[]; testId?: string }) {
+  const shown = tiers.filter((t): t is 1 | 2 => t === 1 || t === 2)
+  if (shown.length === 0) return null
+  return (
+    <details className="group/reads" data-testid={testId}>
+      <summary className="flex cursor-pointer select-none items-center gap-1 text-xs text-nb-500 hover:text-nb-300 marker:content-none">
+        <ChevronRight size={ICON_SM} className="shrink-0 transition-transform group-open/reads:rotate-90" aria-hidden />
+        Exactly what each level can read
+      </summary>
+      <div className="mt-2 space-y-2 rounded-md border border-nb-850 bg-nb-950/60 px-3 py-2.5 text-xs leading-relaxed text-nb-500">
+        {shown.map((t) => (
+          <p key={t}>
+            <span className="font-medium text-nb-300">{ACCESS_TIERS.find((a) => a.value === t)?.label}</span>
+            {t === 2 && shown.includes(1) ? ' adds' : ''}: {PLAIN_READS[t].map((r) => r.text).join(', ')}.
+          </p>
+        ))}
+        <p className="text-nb-600">Both read only (get, list, watch), and both get the one namespace <code className="font-mono">kube-system</code>, to tell this cluster from another.</p>
+      </div>
+    </details>
+  )
+}
+
 export interface TierLevelsProps {
   /** Which tiers to render, as rungs, lowest first. */
   tiers: AccessTier[]
@@ -98,6 +146,8 @@ export interface TierLevelsProps {
    *  before picking one. Meant for the connect wizard, where there is room and a decision to make;
    *  the stack reads better once there are more rungs than fit a row, or no room to spare. */
   layout?: 'stack' | 'cards'
+  /** 'cards' only: shown under the cards and above the one "what each level can read" disclosure (the wizard's line about being read-only). */
+  after?: ReactNode
   className?: string
   'data-testid'?: string
   'aria-labelledby'?: string
@@ -110,12 +160,12 @@ export interface TierLevelsProps {
  *  "What this grants" disclosure (see GrantDisclosure) — the actual RBAC verbs/resources this tier's install
  *  applies, and the flag that applies them, so "what does this need" and "what do I do to grant it" are answered
  *  right where the tier is picked or viewed, not left to a separate doc that can drift from the chart. */
-export default function TierLevels({ tiers, value, max, onSelect, markAt, markLabel, size = 'md', layout = 'stack', className, 'data-testid': testId, 'aria-labelledby': labelledBy }: TierLevelsProps) {
+export default function TierLevels({ tiers, value, max, onSelect, markAt, markLabel, size = 'md', layout = 'stack', after, className, 'data-testid': testId, 'aria-labelledby': labelledBy }: TierLevelsProps) {
   const compact = size === 'sm'
   const cards = layout === 'cards'
-  return (
+  const rungs = (
     <div
-      className={clsx(cards ? 'grid gap-3 sm:grid-cols-2' : clsx('flex flex-col', compact ? 'gap-1' : 'gap-1.5'), className)}
+      className={clsx(cards ? 'grid gap-3 sm:grid-cols-2' : clsx('flex flex-col', compact ? 'gap-1' : 'gap-1.5'), !cards && className)}
       data-testid={testId}
       role={onSelect ? 'radiogroup' : undefined}
       aria-labelledby={labelledBy}
@@ -163,9 +213,6 @@ export default function TierLevels({ tiers, value, max, onSelect, markAt, markLa
                 <span className="text-sm leading-snug text-nb-400">{caption}</span>
                 {marked && <span className="text-xs text-warn">{markLabel ?? `Approved up to here`}</span>}
               </Tag>
-              <div className="px-1">
-                <GrantDisclosure tier={t} compact={false} testId={rungTestId ? `${rungTestId}-grants` : undefined} />
-              </div>
             </div>
           )
         }
@@ -202,4 +249,13 @@ export default function TierLevels({ tiers, value, max, onSelect, markAt, markLa
       })}
     </div>
   )
+  if (!cards) return rungs
+  return (
+    <div className={clsx('space-y-2', className)}>
+      {rungs}
+      {after}
+      <ReadsDisclosure tiers={tiers} testId={testId ? `${testId}-reads` : undefined} />
+    </div>
+  )
 }
+

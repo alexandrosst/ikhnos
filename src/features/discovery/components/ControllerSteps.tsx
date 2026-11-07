@@ -27,11 +27,8 @@ export default function ControllerSteps({ c }: { c: ControllerDoc }) {
         </div>
         <pre className="whitespace-pre-wrap break-all rounded-md border border-nb-850 bg-nb-950 px-3 py-3 font-mono text-xs leading-relaxed text-nb-300" data-testid="controller-install">{c.install}</pre>
         <p className="mt-1.5 text-xs text-nb-500">
-          That is all there is to do. It installs the controller in <code className="font-mono">{c.namespace}</code> with permission for access tier {c.maxTier} and no more,
-          and asks it for this agent with the one-time token. Deleting the <code className="font-mono">IkhnosAgent</code> resource it creates uninstalls the agent.
-          {c.allowTelemetry
-            ? ' It is also given the permissions telemetry needs, so turning telemetry on later asks for nothing more.'
-            : ' It is not given the permissions telemetry needs: turning telemetry on later will first ask for them.'}
+          That installs the controller (access tier {c.maxTier} at most) and asks it for this agent. Delete the <code className="font-mono">IkhnosAgent</code> it creates to uninstall.
+          {c.allowTelemetry ? ' It also gets the permissions telemetry needs.' : ' Turning telemetry on later will first ask for the permissions it needs.'}
         </p>
       </div>
     </div>

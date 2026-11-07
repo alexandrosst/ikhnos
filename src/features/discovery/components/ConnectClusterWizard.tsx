@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { Tabs } from '@/components/ui/Tabs'
 import { Activity, CheckCircle2, ChevronRight, Cpu, Loader2, MapPin, Network, Pin, Timer } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -229,16 +230,26 @@ function StillWaiting({ via, created }: { via: 'helm' | 'controller'; created: C
   )
 }
 
+const POD_SECURITY_LABEL = 'kubectl label namespace ikhnos-system pod-security.kubernetes.io/enforce=privileged --overwrite'
+
+/** What in this install a "baseline" Pod Security namespace would refuse (it mounts the host's /sys, or runs in the host network with extra capabilities), in words; empty when nothing. */
+function podSecurityNeeds(install: string): string {
+  const probe = /nodeProbe\.enabled=true/.test(install)
+  const flows = /flowObserver\.enabled=true/.test(install)
+  return probe && flows ? 'the node probe and the traffic observer' : probe ? 'the node probe' : flows ? 'the traffic observer' : ''
+}
+
 /** How long the agent may take before the wizard says what to check. */
 const STALLED_AFTER_MS = 120_000
 const WAITING_PODS = 'kubectl -n ikhnos-system get pods'
 const WAITING_LOG = 'kubectl -n ikhnos-system logs deploy/ikhnos-agent'
 const WAITING_RESOURCE = 'kubectl -n ikhnos-system get ikhnosagent'
 
-function CommandLine({ text, testId }: { text: string; testId?: string }) {
+/** A command on one line with a Copy button. `wrap` lets a long one break across lines instead of scrolling sideways, for one that is worth reading before it is run. */
+function CommandLine({ text, testId, wrap }: { text: string; testId?: string; wrap?: boolean }) {
   return (
     <div className="mt-1 flex items-center gap-2">
-      <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded border border-nb-850 bg-nb-950 px-2 py-1.5 font-mono text-[11px] text-nb-300" data-testid={testId}>{text}</code>
+      <code className={clsx('min-w-0 flex-1 rounded border border-nb-850 bg-nb-950 px-2 py-1.5 font-mono text-[11px] text-nb-300', wrap ? 'break-all' : 'overflow-x-auto whitespace-nowrap')} data-testid={testId}>{text}</code>
       <CopyButton text={text} label="Copy" />
     </div>
   )
@@ -426,8 +437,14 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
           {max >= 1 && (
             <section className="space-y-2" data-testid="wizard-access">
               <SectionLabel>Access</SectionLabel>
-              <TierLevels tiers={([1, 2] as AccessTier[]).filter((t) => t <= max)} value={tier} onSelect={(t) => setTier(t)} layout="cards" data-testid="wizard-tier" />
-              <p className="text-xs text-nb-500">Always read-only: it can never read Secrets or ConfigMaps, or change anything in the cluster.</p>
+              <TierLevels
+                tiers={([1, 2] as AccessTier[]).filter((t) => t <= max)}
+                value={tier}
+                onSelect={(t) => setTier(t)}
+                layout="cards"
+                data-testid="wizard-tier"
+                after={<p className="text-xs text-nb-500">Always read-only: it can never read Secrets or ConfigMaps, or change anything in the cluster.</p>}
+              />
             </section>
           )}
           {max >= 1 && (
@@ -542,15 +559,13 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
               ) : (
                 <ControllerSteps c={created.controller} />
               )}
-              <p className="mt-2 text-xs text-nb-500">
-                {/nodeProbe\.enabled=true/.test(created.install) && (
-                  <>The node probe mounts the host's <code className="font-mono">/sys</code> read-only. If the namespace enforces the Pod Security “baseline” profile, its pods are refused until you run <code className="font-mono">kubectl label namespace ikhnos-system pod-security.kubernetes.io/enforce=privileged --overwrite</code>. </>
-                )}
-                {/flowObserver\.enabled=true/.test(created.install) && (
-                  <>The traffic observer runs as root with only CAP_BPF, CAP_PERFMON and CAP_SYS_RESOURCE and an unconfined seccomp profile, in the host network. A namespace that enforces the Pod Security “baseline” profile refuses it until you run <code className="font-mono">kubectl label namespace ikhnos-system pod-security.kubernetes.io/enforce=privileged --overwrite</code>. </>
-                )}
-                The token works once and expires at {new Date(created.meta.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. It is shown only here and cannot be retrieved later.
-              </p>
+              <p className="mt-2 text-xs text-nb-500">The token works once and expires at {new Date(created.meta.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. It is shown only here.</p>
+              {podSecurityNeeds(created.install) && (
+                <div className="mt-2 text-xs text-nb-500" data-testid="pod-security-note">
+                  <p>A namespace that enforces the Pod Security baseline refuses {podSecurityNeeds(created.install)} until you run:</p>
+                  <CommandLine text={POD_SECURITY_LABEL} wrap />
+                </div>
+              )}
               {via === 'helm' && !imagesConfigured && <div className="mt-3"><NoRegistryNotice newTab /></div>}
               {via === 'helm' && (chartFile || !imagesConfigured) && (
                 <div className="mt-3 rounded-md border border-nb-850 bg-nb-930 px-3 py-2.5 text-xs text-nb-400" data-testid="install-prereq">

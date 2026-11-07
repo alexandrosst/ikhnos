@@ -195,6 +195,38 @@ afterEach(() => {
   ;(topology as { agents: unknown[] }).agents = []
 })
 
+describe('ConnectClusterWizard: what is said under the command', () => {
+  const made = (install: string) => {
+    createToken.mockResolvedValue({ token: 'ikh_x', install, controller: CONTROLLER, meta: { id: 't1', name: 'cluster-1', tier: 2, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3_600_000).toISOString() } })
+  }
+  const run = async () => {
+    const user = userEvent.setup()
+    wizard()
+    await create(user)
+    await screen.findByTestId('install-command')
+  }
+
+  test('only that the token works once and until when, when nothing needs a privileged namespace', async () => {
+    made(SERVED)
+    await run()
+    expect(screen.getByText(/The token works once and expires at .*It is shown only here\./)).toBeInTheDocument()
+    expect(screen.queryByTestId('pod-security-note')).toBeNull()
+  })
+
+  test.each([
+    ['--set nodeProbe.enabled=true', 'the node probe'],
+    ['--set flowObserver.enabled=true', 'the traffic observer'],
+    ['--set nodeProbe.enabled=true --set flowObserver.enabled=true', 'the node probe and the traffic observer'],
+  ])('with %s: one line naming what a baseline namespace refuses, and the one command that allows it', async (flags, what) => {
+    made(`${SERVED} ${flags}`)
+    await run()
+    const note = screen.getByTestId('pod-security-note')
+    expect(note).toHaveTextContent(`refuses ${what} until you run`)
+    expect(note).toHaveTextContent('kubectl label namespace ikhnos-system pod-security.kubernetes.io/enforce=privileged --overwrite')
+    expect(note.textContent?.match(/kubectl label/g)).toHaveLength(1)
+  })
+})
+
 describe('ConnectClusterWizard: the five steps', () => {
   const steps = () => screen.getByTestId('wizard-steps')
   const current = () => within(steps()).getByText((_, el) => el?.getAttribute('aria-current') === 'step').textContent
@@ -289,8 +321,8 @@ describe('ConnectClusterWizard: the same install as a resource for the controlle
     expect(screen.queryByTestId('controller-secret')).not.toBeInTheDocument()
     expect(screen.queryByTestId('controller-manifest')).not.toBeInTheDocument()
     expect(steps).toHaveTextContent('maxAccessTier=2')
-    expect(steps).toHaveTextContent('That is all there is to do')
-    expect(steps).toHaveTextContent('also given the permissions telemetry needs')
+    expect(steps).toHaveTextContent('Delete the IkhnosAgent it creates to uninstall')
+    expect(steps).toHaveTextContent('also gets the permissions telemetry needs')
     // Nothing about a ceiling that is too low is said up front: it is said after a wait, if the agent has not shown up (see below).
     expect(screen.queryByTestId('controller-raise')).toBeNull()
     expect(steps).not.toHaveTextContent('lower ceiling')
@@ -326,7 +358,7 @@ describe('ConnectClusterWizard: the same install as a resource for the controlle
     })
     const user = await made()
     await user.click(screen.getByTestId('install-tab-controller'))
-    expect(await screen.findByTestId('controller-steps')).toHaveTextContent('access tier 1 and no more')
+    expect(await screen.findByTestId('controller-steps')).toHaveTextContent('access tier 1 at most')
     expect(screen.getByTestId('controller-install')).toHaveTextContent('--set maxAccessTier=1')
   })
 })
