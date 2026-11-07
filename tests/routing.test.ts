@@ -94,3 +94,22 @@ test('the sample topology stays tidy: before this was reworked it had 21 crossin
   assert.ok(now.crossings <= 14, `crossings: ${now.crossings}`)
   assert.ok(now.overlap <= 40, `shared lane: ${Math.round(now.overlap)}px`)
 })
+
+test('no line runs over the title of a cluster', () => {
+  const { g, lookup } = scene()
+  for (const l of routeLines(lookup, g.edges, false)) {
+    for (const n of g.nodes) {
+      if (n.type !== 'boundary') continue
+      const b = lookup.get(n.id)!
+      const x0 = b.internals.positionAbsolute.x
+      const y0 = b.internals.positionAbsolute.y
+      // The title and its subtitle: the left part of the top of the box.
+      for (let i = 0; i + 1 < l.pts.length; i++) {
+        const a = l.pts[i]
+        const c = l.pts[i + 1]
+        const over = Math.max(a.x, c.x) > x0 && Math.min(a.x, c.x) < x0 + 260 && Math.max(a.y, c.y) > y0 && Math.min(a.y, c.y) < y0 + 60
+        assert.ok(!over, `${l.id} runs over the title of ${n.id}`)
+      }
+    }
+  }
+})

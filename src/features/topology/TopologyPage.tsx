@@ -51,6 +51,7 @@ import { narrowFitZoom } from '@/features/topology/lib/fit'
 import { applyFilter, encodeList, filterActive, hopNeighborhood, isFreshApplicationView, knownOnly, parseFilter } from '@/features/topology/lib/filter'
 import { applyGraphUpdate, buildGraph, cardId, groupId, sameLayout, syncSelected, type TopoEdge, type TopoNode } from '@/features/topology/lib/graph'
 import { lossBand } from '@/lib/metrics'
+import { lossLabel } from '@/features/topology/lib/lossLabel'
 import { anyMesh, VERDICT_COLOR } from '@/features/topology/lib/mesh'
 import { useAutoPlaceClusters } from '@/lib/usePlacement'
 import { usePlanHints } from '@/lib/placement/usePlacement'
@@ -662,7 +663,8 @@ function Canvas() {
       return {
         ...e,
         className: hot ? [e.className, 'topo-hot'].filter(Boolean).join(' ') : e.className,
-        label: showLabel ? e.label : undefined,
+        // A line that loses connection attempts says so on itself, in its own colour, so it can be found without hovering.
+        label: showLabel ? e.label : !dim ? lossLabel(q?.lossPct, band) : undefined,
         style: {
           stroke,
           strokeWidth: width,
@@ -672,8 +674,8 @@ function Canvas() {
           // A measured cluster link is always solid: whether anything was observed is not what it says.
           strokeDasharray: cl ? undefined : !e.data?.aggregated && !seen ? '2 5' : conntrackOnly ? '8 4' : undefined,
         },
-        labelStyle: { fill: hot ? '#f68330' : '#a7b1b9', fontSize: 10.5, opacity: dim ? 0.3 : 1 },
-        labelBgStyle: { fill: 'var(--color-nb-910)', fillOpacity: 0.95 },
+        labelStyle: { fill: hot ? '#f68330' : !showLabel && band !== 'ok' ? stroke : '#a7b1b9', fontSize: 10.5, opacity: dim ? 0.3 : 1 },
+        labelBgStyle: { fill: 'var(--color-nb-910)', fillOpacity: 0.95, stroke: !showLabel && !hot && band !== 'ok' ? stroke : undefined, strokeOpacity: 0.6 },
         labelBgPadding: [6, 3] as [number, number],
         labelBgBorderRadius: 4,
         markerEnd: e.markerEnd ? arrowId(stroke) : undefined,
@@ -693,7 +695,7 @@ function Canvas() {
   // every other edge keeps the exact same object reference it already had.
   const edges = useMemo<TopoEdge[]>(() => {
     if (!hoverEdge) return styledEdges
-    return styledEdges.map((e) => (e.id === hoverEdge && !e.label ? { ...e, label: rawLabelById.get(e.id) } : e))
+    return styledEdges.map((e) => (e.id === hoverEdge && e.label !== rawLabelById.get(e.id) ? { ...e, label: rawLabelById.get(e.id) } : e))
   }, [styledEdges, hoverEdge, rawLabelById])
 
   // React-flow node id -> its own display title, for EdgeHoverCard: an edge's `source`/`target` ARE already

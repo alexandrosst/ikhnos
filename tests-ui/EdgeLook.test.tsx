@@ -2,6 +2,7 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, test } from 'vitest'
 import { OffsetEdge, particlesFor, SquareRoutesContext, type RoutedPath } from '@/features/topology/components/OffsetEdge'
+import { lossLabel } from '@/features/topology/lib/lossLabel'
 import { GroupBox } from '@/features/topology/components/nodes'
 
 const draw = (data: Record<string, unknown>, routed: Partial<RoutedPath> = {}, stroke = '#98a4ae') => {
@@ -53,6 +54,15 @@ describe('a squared line', () => {
 
   test('has no lights while its length is not known (before the first measure)', () => {
     expect(draw({ observed: true }, { length: undefined }).container.querySelector('.topo-flow')).toBeNull()
+  })
+})
+
+describe('lossLabel', () => {
+  test('says how much failed, only when the loss is past the usual', () => {
+    expect(lossLabel(0.4, 'ok')).toBeUndefined()
+    expect(lossLabel(undefined, 'warn')).toBeUndefined()
+    expect(lossLabel(3.24, 'warn')).toBe('3.2% failed')
+    expect(lossLabel(12.4, 'hot')).toBe('12% failed')
   })
 })
 
