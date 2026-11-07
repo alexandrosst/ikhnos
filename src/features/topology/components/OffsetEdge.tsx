@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react'
 import { HEADER, NS_HEADER, type TopoEdge } from '@/features/topology/lib/graph'
 import { DETOUR_STUB, detourRoute, polylineMidpoint } from './detour'
 import { orthoRoute } from './ortho'
+import { normalOf, sidesByRule } from './ports'
 
 /** A node's absolute (canvas-space, parent offsets already applied) bounding box, or null while React Flow
  *  hasn't measured it yet (the very first render or two after it mounts). */
@@ -495,6 +496,9 @@ export function layoutEdge(
   targetOffset: number,
   /** The squared style: a cluster or namespace box is not a wall (only its header is), and its border is reported as `soft`. */
   squared: boolean,
+  /** Pick each side by where the boxes stand (a call between tiers always leaves through a bottom or top; see ports.ts) rather than from the
+   *  straight line between their centres. The squared style, which also gives every end its own slot, sets it. */
+  ruled = false,
 ): EdgeLayout | null {
   const sourceBox = boxOf(nodeLookup.get(source))
   const targetBox = boxOf(nodeLookup.get(target))
@@ -511,8 +515,9 @@ export function layoutEdge(
 
   const targetCenter = { x: targetBox.x + targetBox.w / 2, y: targetBox.y + targetBox.h / 2 }
   const sourceCenter = { x: sourceBox.x + sourceBox.w / 2, y: sourceBox.y + sourceBox.h / 2 }
-  const from = intersection(sourceBox, targetCenter)
-  const naturalTo = intersection(targetBox, sourceCenter)
+  const rule = ruled ? sidesByRule(sourceBox, targetBox) : null
+  const from = rule ? slideOnSide(sourceBox, rule[0], targetCenter) : intersection(sourceBox, targetCenter)
+  const naturalTo = rule ? slideOnSide(targetBox, rule[1], sourceCenter) : intersection(targetBox, sourceCenter)
   // Each end first takes the side the straight line to the other end would use, then slides along it as the other end
   // moves. A target whose natural side is blocked gets another (pickClearSide), and a first-row card in a cluster keeps
   // its line off the cluster's header text by using a side instead of its top (avoidHeaderSide); not when both ends sit in
@@ -521,9 +526,9 @@ export function layoutEdge(
   const sourceCluster = clusterBoxOf(nodeLookup, source)
   const targetCluster = clusterBoxOf(nodeLookup, target)
   const sameCluster = sourceCluster !== undefined && sourceCluster.id === targetCluster?.id
-  const sourceNatural = { point: from, normal: outwardNormal(sourceBox, from) }
+  const sourceNatural = { point: from, normal: rule ? normalOf(rule[0]) : outwardNormal(sourceBox, from) }
   const fromSide = sameCluster ? sourceNatural : avoidHeaderSide(sourceBox, sourceCluster, sourceNatural, targetCenter, obstacles)
-  const picked = pickClearSide(targetBox, { point: naturalTo, normal: outwardNormal(targetBox, naturalTo) }, obstacles, sourceCenter)
+  const picked = pickClearSide(targetBox, { point: naturalTo, normal: rule ? normalOf(rule[1]) : outwardNormal(targetBox, naturalTo) }, obstacles, sourceCenter)
   const chosen = sameCluster ? picked : avoidHeaderSide(targetBox, targetCluster, picked, sourceCenter, obstacles)
   const n1 = fromSide.normal
   const n2 = chosen.normal
@@ -552,7 +557,8 @@ export function useNodeGeometryKey(): string {
 }
 
 /** A squared line already routed together with all the others (see SquareRoutes.tsx), by edge id. */
-export type RoutedPath = { path: string; labelX: number; labelY: number }
+/** `length` (px, flow space) is only known for a squared line; it sets how many particles run along a line that carries traffic. */
+export type RoutedPath = { path: string; labelX: number; labelY: number; length?: number }
 export const SquareRoutesContext = createContext<Map<string, RoutedPath> | null>(null)
 
 /**
@@ -576,23 +582,66 @@ export function OffsetEdge(props: EdgeProps<TopoEdge>) {
   return routed ? <EdgeLine {...props} result={routed} /> : <UnroutedOffsetEdge {...props} />
 }
 
-function EdgeLine({ id, result, label, labelStyle, labelBgStyle, labelBgPadding, labelBgBorderRadius, labelShowBg, markerEnd, style, interactionWidth }: EdgeProps<TopoEdge> & { result: RoutedPath }) {
+/** The greys a line that is merely a line is drawn in; any other colour (amber, red, orange, a mesh verdict) says something. */
+const PLAIN_STROKES = new Set(['#98a4ae', '#6f7b85', '#8a96a0'])
+
+/** How many particles run along a line `length` px long, and how fast (px/s): a busier line has more, faster ones. */
+export function particlesFor(length: number, weight: number): { count: number; speed: number } {
+  return { count: Math.max(1, Math.min(5, Math.round(length / 150))), speed: 36 + 90 * Math.min(1, Math.max(0, weight)) }
+}
+
+/** Small lights moving along a line that carries measured traffic: motion is the sign that it is live. A head and two fainter
+ *  followers per particle, all on the one path, so they stay on the line round every corner and hop. */
+function Flow({ path, length, weight, color }: { path: string; length: number; weight: number; color: string }) {
+  const { count, speed } = particlesFor(length, weight)
+  const dur = Math.max(1.2, length / speed)
+  const tails = [
+    { r: 2.3, o: 0.95, delay: 0 },
+    { r: 1.6, o: 0.45, delay: 0.09 },
+    { r: 1.1, o: 0.22, delay: 0.18 },
+  ]
   return (
-    <BaseEdge
-      id={id}
-      path={result.path}
-      labelX={result.labelX}
-      labelY={result.labelY}
-      label={label}
-      labelStyle={labelStyle}
-      labelShowBg={labelShowBg}
-      labelBgStyle={labelBgStyle}
-      labelBgPadding={labelBgPadding}
-      labelBgBorderRadius={labelBgBorderRadius}
-      markerEnd={markerEnd}
-      style={style}
-      interactionWidth={interactionWidth}
-    />
+    <g className="topo-flow" aria-hidden="true" pointerEvents="none">
+      {Array.from({ length: count }, (_, i) =>
+        tails.map((t) => (
+          <circle key={`${i}-${t.delay}`} r={t.r} fill={color} opacity={t.o}>
+            <animateMotion dur={`${dur.toFixed(2)}s`} repeatCount="indefinite" path={path} begin={`${(-(((i / count) * dur) - t.delay + dur) % dur).toFixed(2)}s`} />
+          </circle>
+        )),
+      )}
+    </g>
+  )
+}
+
+function EdgeLine({ id, data, result, label, labelStyle, labelBgStyle, labelBgPadding, labelBgBorderRadius, labelShowBg, markerEnd, style, interactionWidth }: EdgeProps<TopoEdge> & { result: RoutedPath }) {
+  const stroke = String(style?.stroke ?? '')
+  const width = Number(style?.strokeWidth ?? 1.2)
+  const opacity = style?.opacity
+  const start = /^M\s*(-?[\d.]+)[ ,](-?[\d.]+)/.exec(result.path)
+  const live = !!data?.observed && !data?.stale && !!result.length
+  return (
+    <>
+      {/* A thin line of the canvas colour under the line, so where two cross, or one runs past a box, each stays readable. */}
+      <path d={result.path} fill="none" className="topo-casing" strokeWidth={width + 3} style={{ opacity }} pointerEvents="none" />
+      <BaseEdge
+        id={id}
+        path={result.path}
+        labelX={result.labelX}
+        labelY={result.labelY}
+        label={label}
+        labelStyle={labelStyle}
+        labelShowBg={labelShowBg}
+        labelBgStyle={labelBgStyle}
+        labelBgPadding={labelBgPadding}
+        labelBgBorderRadius={labelBgBorderRadius}
+        markerEnd={markerEnd}
+        style={style}
+        interactionWidth={interactionWidth}
+      />
+      {/* Where the line leaves its box: a small ring, the other end of the arrowhead. */}
+      {start && <circle cx={start[1]} cy={start[2]} r={2.6} className="topo-port" stroke={stroke} strokeWidth={1.3} style={{ opacity }} pointerEvents="none" />}
+      {live && <Flow path={result.path} length={result.length!} weight={data?.weight ?? 0.15} color={PLAIN_STROKES.has(stroke) ? 'var(--color-nb-300)' : stroke} />}
+    </>
   )
 }
 

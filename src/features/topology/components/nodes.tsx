@@ -25,7 +25,7 @@ import {
   Truck,
   type LucideIcon,
 } from 'lucide-react'
-import { ICON_MD, ICON_SM, TIER_ICON } from '@/components/ui/primitives'
+import { ICON_MD, ICON_SM } from '@/components/ui/primitives'
 import { memo, useCallback, useContext, useState, type ComponentProps, type ReactNode } from 'react'
 import { PodPopover, PodRail } from '@/features/topology/components/Pods'
 import { LoadRow, peakLoad } from '@/features/topology/components/Load'
@@ -210,9 +210,6 @@ export const GroupBox = memo(function GroupBox({ data, selected }: NodeProps<Gro
         : data.tier === 'far-edge'
           ? 'Far edge'
           : data.tier[0].toUpperCase() + data.tier.slice(1)
-  // Devices/External are synthetic grouping rows (always laid out as tier: 'cloud', see graph.ts), not a
-  // real tier - no tier icon for those, same as their label above already isn't a tier name.
-  const TierGlyph = data.extra ? undefined : TIER_ICON[data.tier]
   return (
     // The selection ring is `inset`, not the plain outward `0_0_0_Npx` box-shadow it used to be: OffsetEdge
     // places an incoming edge's arrowhead tip with zero gap exactly on this box's true boundary (see its
@@ -222,7 +219,7 @@ export const GroupBox = memo(function GroupBox({ data, selected }: NodeProps<Gro
     // very tip of any edge pointing at it. Inset keeps the identical highlight look without ever drawing
     // outside the box OffsetEdge's own math already treats as this card's exact, true extent.
     <div
-      className={clsx('topo-box h-full w-full rounded-2xl border transition-shadow', selected ? 'topo-pop shadow-[0_10px_30px_-12px_rgb(0_0_0/0.35)]' : peer && 'shadow-[inset_0_0_0_1.5px_var(--color-nb-500)]')}
+      className={clsx('topo-box relative h-full w-full rounded-2xl border transition-shadow', selected ? 'topo-pop shadow-[0_10px_30px_-12px_rgb(0_0_0/0.35)]' : peer && 'shadow-[inset_0_0_0_1.5px_var(--color-nb-500)]')}
       style={{
         '--pop': 1.012,
         // Selected is a change of colour and a small lift, not a heavier border.
@@ -231,6 +228,8 @@ export const GroupBox = memo(function GroupBox({ data, selected }: NodeProps<Gro
       } as React.CSSProperties}
     >
       <AllHandles />
+      {/* A hairline of the tier colour along the top edge, fading out at both ends. */}
+      <div className="pointer-events-none absolute inset-x-5 top-0 h-px rounded-full opacity-60" style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
       <div className="flex items-start justify-between gap-3 px-5 pt-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -282,19 +281,8 @@ export const GroupBox = memo(function GroupBox({ data, selected }: NodeProps<Gro
                 <Funnel size={ICON_MD} />
               </button>
             )}
-            <span
-              // Background fill added per this round's visual review: every other badge in this header
-              // (mesh, networking, the status dot) reads as "a label" because it has a tinted fill behind
-              // it - this one was border-only, so at default zoom it nearly disappeared against the box's
-              // own faint tier-tinted background. Same color-mix approach as the border, just lower opacity.
-              className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.08em]"
-              style={{
-                color,
-                borderColor: `color-mix(in srgb, ${color} 22%, transparent)`,
-                background: `color-mix(in srgb, ${color} 11%, transparent)`,
-              }}
-            >
-              {TierGlyph && <TierGlyph size={ICON_SM - 2} aria-hidden="true" />}
+            {/* The tier is written, in its own colour, not drawn as a badge: nothing in the header competes with the name. */}
+            <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em]" style={{ color }} data-testid="tier-label">
               {tierLabel}
             </span>
           </div>

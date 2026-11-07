@@ -1552,9 +1552,6 @@ test('a card\'s own drag extent keeps it inside its parent box\'s PAD/HEADER mar
 })
 
 test('service card: cards sharing a packed row are all as tall as the row\'s tallest', () => {
-  // w-registry and w-train (both in cl-cloud, namespace 'ml') sort ahead of w-gw/w-orch (namespace
-  // 'platform') and together already fill the group's first row of two, so w-gw and w-orch land in the
-  // same row together - exactly the layout packItems rows cards into.
   const opts = { view: 'application' as const, groupBy: 'cluster' as const, servicesOnNodes: false, links: true, devices: false }
   const now = Date.now()
   const old = new Date(now - 20 * 60 * 1000).toISOString()
@@ -1567,10 +1564,11 @@ test('service card: cards sharing a packed row are all as tall as the row\'s tal
   }
   const g = buildGraph(steady, opts)
   const gw = g.nodes.find((n) => n.id === cardId('w-gw'))!
-  const orch = g.nodes.find((n) => n.id === cardId('w-orch'))!
   assert.equal(Number(gw.style?.height), APP_CARD.h + 24, 'the taller card (its own pods row) keeps that height')
-  assert.equal(Number(orch.style?.height), Number(gw.style?.height), 'its shorter row-mate is stretched to match, so the row reads as one band')
-  assert.equal(orch.position.y, gw.position.y, 'both start at the same top')
+  // Whoever shares its row (which cards those are depends on how the cluster's cards are ordered) is as tall, and starts at the same top.
+  const mates = g.nodes.filter((n) => n.parentId === gw.parentId && n.id !== gw.id && n.position.y === gw.position.y)
+  assert.ok(mates.length > 0, 'the taller card has a row-mate')
+  for (const m of mates) assert.equal(Number(m.style?.height), Number(gw.style?.height), 'its shorter row-mate is stretched to match, so the row reads as one band')
 })
 
 test('cluster links: only a measured link is drawn, directly between the two clusters, with no arrowhead', () => {

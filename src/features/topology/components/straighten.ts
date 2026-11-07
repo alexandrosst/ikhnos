@@ -13,7 +13,8 @@ export const MAX_JOG = 12
 /** How far in from a corner an end may be moved to. */
 const INSET = 12
 
-export type Ends = { source: Rect; target: Rect; sourceOffset: number; targetOffset: number }
+/** `sourceLocked`/`targetLocked`: that end sits in a slot among several on its side (see ports.ts) and must stay in it. */
+export type Ends = { source: Rect; target: Rect; sourceOffset: number; targetOffset: number; sourceLocked?: boolean; targetLocked?: boolean }
 
 /** Replaces `pts` (a route of four points: out, across, in) by its straight form when it is a small jog; returns whether it did. */
 export function straightenJog(pts: Pt[], ends: Ends): boolean {
@@ -27,8 +28,8 @@ export function straightenJog(pts: Pt[], ends: Ends): boolean {
   if (Math.abs(delta) < 1e-6 || Math.abs(delta) > MAX_JOG) return false
 
   const fits = (box: Rect, v: number) => (vertical ? v >= box.x + INSET && v <= box.x + box.w - INSET : v >= box.y + INSET && v <= box.y + box.h - INSET)
-  const moveTarget = fits(ends.target, vertical ? a.x : a.y)
-  const moveSource = fits(ends.source, vertical ? d.x : d.y)
+  const moveTarget = !ends.targetLocked && fits(ends.target, vertical ? a.x : a.y)
+  const moveSource = !ends.sourceLocked && fits(ends.source, vertical ? d.x : d.y)
   // The less fanned end moves; a tie moves the target.
   const preferTarget = Math.abs(ends.targetOffset) <= Math.abs(ends.sourceOffset)
   if (moveTarget && (preferTarget || !moveSource)) {

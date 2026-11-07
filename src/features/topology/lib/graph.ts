@@ -10,6 +10,7 @@ import { buildPodsView, type PodsView } from './pods'
 import { MarkerType, Position, type Edge, type Node } from '@xyflow/react'
 import { deepEqual } from '../../../lib/discovered'
 import { clusterNets, type ClusterNet } from './clusterNets'
+import { orderCards, orderRows, wrapRow, type GroupLink, type Pull } from './order'
 import { isObserved } from '../../../lib/observed'
 import { clusterMeshLine, connectionVerdict, inMesh, meshName, proxyWords, type MeshVerdict } from './mesh'
 import { clusterLoad, pathQuality, type ClusterLoad, type PathQuality } from '../../../lib/metrics'
@@ -290,6 +291,8 @@ const GAP_X = 72
 const GAP_Y = 44
 const GROUP_GAP_X = 64
 const ROW_GAP = 150
+/** A tier wider than this (px) breaks into more than one line of clusters. */
+const MAX_TIER_WIDTH = 2400
 // Widened from 244/248 per the UI/UX pass: several common service/device names ("inference-regional",
 // "stream-aggregator", "Vibration sensor") were truncating hard even with visible slack around the card -
 // the icon, status dot, and optional meta/hint column on the right all eat into the title's real estate
@@ -556,7 +559,42 @@ export function buildGraph(topology: Topology, o: GraphOptions): { nodes: TopoNo
     const { w, h, children } = packItems(g.items, HEADER)
     return { g, w: Math.max(w || 248, 248, MIN_GROUP_HEADER_WIDTH), h: n === 0 ? HEADER + 52 : h, children }
   }
-  const placedRows = [...rows.entries()].sort((a, b) => a[0] - b[0]).map(([, gs]) => gs.map(layoutCards))
+  // Within a tier, a cluster stands near the clusters it talks to (see order.ts); a tier too wide for one screen breaks into lines.
+  const rowNums = [...rows.keys()].sort((a, b) => a - b)
+  const groupByKey = new Map([...groups.values()].map((g) => [g.key, g]))
+  const links: GroupLink[] = []
+  for (const d of t.dependencies) {
+    const a = groupOfEntity.get(d.from)
+    const b = groupOfEntity.get(d.to)
+    if (a && b && a !== b) links.push([a, b])
+  }
+  const orderedRows = orderRows(rowNums.map((n) => rows.get(n)!.map((g) => g.key)), links)
+  const place = () => orderedRows.flatMap((keys) => wrapRow(keys.map((k) => layoutCards(groupByKey.get(k)!)), GROUP_GAP_X, MAX_TIER_WIDTH))
+  // Where each cluster stands (the line it is on and its middle), to turn every card toward what it talks to.
+  const firstPass = place()
+  const widthOfLine = (r: Placed[]) => r.reduce((sum, p) => sum + p.w, 0) + (r.length - 1) * GROUP_GAP_X
+  const widest = Math.max(0, ...firstPass.map(widthOfLine))
+  const stand = new Map<string, { line: number; mid: number }>()
+  firstPass.forEach((r, line) => {
+    let at = (widest - widthOfLine(r)) / 2
+    for (const p of r) {
+      stand.set(p.g.key, { line, mid: at + p.w / 2 })
+      at += p.w + GROUP_GAP_X
+    }
+  })
+  const pulls = new Map<string, Pull[]>()
+  const pull = (entity: string, own: string | undefined, other: string | undefined) => {
+    const a = own ? stand.get(own) : undefined
+    const b = other ? stand.get(other) : undefined
+    if (!a || !b || own === other) return
+    pulls.set(entity, [...(pulls.get(entity) ?? []), { rows: b.line - a.line, dx: b.mid - a.mid }])
+  }
+  for (const d of t.dependencies) {
+    pull(d.from, groupOfEntity.get(d.from), groupOfEntity.get(d.to))
+    pull(d.to, groupOfEntity.get(d.to), groupOfEntity.get(d.from))
+  }
+  if (!nsEnabled) for (const g of groups.values()) g.items = orderCards(g.items, (i) => i.data.entityId, pulls)
+  const placedRows = place()
   const rowWidths = placedRows.map((r) => r.reduce((s, p) => s + p.w, 0) + (r.length - 1) * GROUP_GAP_X)
   const maxW = Math.max(0, ...rowWidths)
 

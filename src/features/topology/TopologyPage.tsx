@@ -661,6 +661,7 @@ function Canvas() {
       const conntrackOnly = seen && e.data?.via === 'conntrack'
       return {
         ...e,
+        className: hot ? [e.className, 'topo-hot'].filter(Boolean).join(' ') : e.className,
         label: showLabel ? e.label : undefined,
         style: {
           stroke,
@@ -670,8 +671,6 @@ function Canvas() {
           transitionDelay: dim && focusView ? `${Math.min(focusView.ripple.get(e.source) ?? 0, focusView.ripple.get(e.target) ?? 0)}ms` : undefined,
           // A measured cluster link is always solid: whether anything was observed is not what it says.
           strokeDasharray: cl ? undefined : !e.data?.aggregated && !seen ? '2 5' : conntrackOnly ? '8 4' : undefined,
-          // Busier links run their dashes faster (a quiet one takes 2.4 s for a period, the busiest 0.7 s).
-          animationDuration: e.className === 'edge-animated' ? `${(2.4 - 1.7 * (e.data?.weight ?? 0)).toFixed(2)}s` : undefined,
         },
         labelStyle: { fill: hot ? '#f68330' : '#a7b1b9', fontSize: 10.5, opacity: dim ? 0.3 : 1 },
         labelBgStyle: { fill: 'var(--color-nb-910)', fillOpacity: 0.95 },
@@ -1182,6 +1181,7 @@ function Canvas() {
               fitViewOptions={FIT_VIEW_OPTIONS}
               proOptions={PRO_OPTIONS}
               colorMode="dark"
+              className="topo-canvas"
             >
               <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color="var(--color-nb-850)" />
               <Controls showInteractive={false} />
@@ -1194,7 +1194,7 @@ function Canvas() {
                     right edge of the canvas with no way to see the rest of it. whitespace-nowrap is kept on
                     the row so wrapping only ever happens between entries, never mid-label. */}
                 {legendOpen ? (
-                  <div className="flex max-w-[min(92vw,720px)] flex-wrap items-center gap-x-4 gap-y-1.5 whitespace-nowrap rounded-lg border border-nb-850 bg-nb-925/95 px-3.5 py-2 text-xs text-nb-400">
+                  <div className="topo-glass flex max-w-[min(92vw,720px)] flex-wrap items-center gap-x-4 gap-y-1.5 whitespace-nowrap rounded-xl border border-nb-850 px-3.5 py-2 text-xs text-nb-400">
                   {TIERS.map((t) => (
                     <span key={t.value} className="flex items-center gap-1.5">
                       <span className="size-2 rounded-full" style={{ background: TIER_COLOR[t.value] }} />
@@ -1307,7 +1307,7 @@ function Canvas() {
                   <button
                     type="button"
                     onClick={() => toggleLegend(true)}
-                    className="flex items-center gap-1.5 rounded-lg border border-nb-850 bg-nb-925/95 px-2.5 py-1.5 text-xs text-nb-400 hover:text-nb-200"
+                    className="topo-glass flex items-center gap-1.5 rounded-xl border border-nb-850 px-2.5 py-1.5 text-xs text-nb-400 hover:text-nb-200"
                     aria-label="Show legend"
                     title="What the colours and line styles mean"
                     data-testid="legend-toggle"

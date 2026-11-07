@@ -10,6 +10,8 @@
  * Pure functions of the geometry, so they are testable without rendering anything.
  */
 
+import { stepConflicts, type Runs } from './conflicts'
+
 export type Pt = { x: number; y: number }
 export type Rect = { x: number; y: number; w: number; h: number }
 
@@ -28,6 +30,9 @@ const EPS = 0.5
  *  reads as part of the box's frame, so a line should cross the border, not ride it. */
 const BORDER_COST = 1.5
 const SOFT_BAND = 22
+/** What `occupied` costs: each line crossed (about two and a half bends) and each px run on top of another line. */
+const CROSS_COST = 60
+const OVERLAP_COST = 1.2
 
 const DIRS: Pt[] = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }]
 const dirIndex = (v: Pt) => DIRS.findIndex((d) => d.x === Math.sign(v.x) && d.y === Math.sign(v.y))
@@ -121,9 +126,10 @@ export function simpleOrthoRoute(p1: Pt, n1: Pt, p2: Pt, n2: Pt): Pt[] {
 /**
  * The corners of the cheapest squared route from `p1` (leaving its box along `n1`) to `p2` (arriving along `n2`) that
  * stays out of every one of `obstacles`, or null when there is none (an end boxed in, or too many boxes). Both normals
- * must be axis-aligned unit vectors.
+ * must be axis-aligned unit vectors. `occupied` is the runs of lines already placed: crossing or running along one costs extra,
+ * so a line shares a channel with another only when it has no better way.
  */
-export function orthoRoute(p1: Pt, n1: Pt, p2: Pt, n2: Pt, obstacles: Rect[], soft: Rect[] = []): Pt[] | null {
+export function orthoRoute(p1: Pt, n1: Pt, p2: Pt, n2: Pt, obstacles: Rect[], soft: Rect[] = [], occupied?: Runs): Pt[] | null {
   if (obstacles.length > ORTHO_MAX_OBSTACLES) return null
   const d1 = dirIndex(n1)
   const d2 = dirIndex({ x: -n2.x, y: -n2.y })
@@ -191,7 +197,13 @@ export function orthoRoute(p1: Pt, n1: Pt, p2: Pt, n2: Pt, obstacles: Rect[], so
       const v = stateOf(ni, nj, d)
       const len = Math.abs(xs[ni] - xs[i]) + Math.abs(ys[nj] - ys[j])
       const extra = soft.length > 0 && riding((xs[i] + xs[ni]) / 2, (ys[j] + ys[nj]) / 2, d >= 2) ? BORDER_COST * len : 0
-      const nc = c + len + extra
+      let crowd = 0
+      if (occupied) {
+        const horizontalStep = d < 2
+        const q = stepConflicts(occupied, horizontalStep, horizontalStep ? ys[j] : xs[i], horizontalStep ? xs[i] : ys[j], horizontalStep ? xs[ni] : ys[nj])
+        crowd = CROSS_COST * q.crossings + OVERLAP_COST * q.overlap
+      }
+      const nc = c + len + extra + crowd
       if (nc < dist[v]) {
         dist[v] = nc
         prev[v] = u

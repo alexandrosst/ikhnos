@@ -140,24 +140,48 @@ body {
 .react-flow__attribution { display: none; }
 .react-flow__controls {
   border: 1px solid var(--color-nb-850);
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: none;
+  background: color-mix(in srgb, var(--color-nb-925) 78%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 24px -14px rgb(0 0 0 / 0.5);
 }
 .react-flow__controls-button {
-  background: var(--color-nb-925);
-  border-bottom: 1px solid var(--color-nb-850);
+  background: transparent;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-nb-850) 70%, transparent);
   fill: var(--color-nb-400);
   color: var(--color-nb-400);
 }
-.react-flow__controls-button:hover { background: var(--color-nb-940); }
+.react-flow__controls-button:last-child { border-bottom: 0; }
+.react-flow__controls-button:hover { background: color-mix(in srgb, var(--color-nb-940) 80%, transparent); }
 .react-flow__minimap {
   /* Through React Flow's own variables (its stylesheet sets `background` after ours, so a plain background loses): the map is
      the page surface and the dimmed part outside the viewport a recessed one, in whichever theme is on. A fixed dark rgba was a black box in light. */
-  --xy-minimap-background-color: var(--color-nb-925);
+  --xy-minimap-background-color: color-mix(in srgb, var(--color-nb-925) 78%, transparent);
   --xy-minimap-mask-background-color: color-mix(in srgb, var(--color-nb-950) 80%, transparent);
   border: 1px solid var(--color-nb-850);
-  border-radius: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 24px -14px rgb(0 0 0 / 0.5);
+}
+/* The legend and anything else floating over the canvas: the same frosted surface as the controls and the minimap. */
+.topo-glass {
+  background: color-mix(in srgb, var(--color-nb-925) 78%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 24px -14px rgb(0 0 0 / 0.5);
+}
+/* The canvas fades toward its edges, so the picture sits in the middle of it. Over the nodes, under every control. */
+.topo-canvas::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: radial-gradient(ellipse 85% 80% at 50% 50%, transparent 62%, color-mix(in srgb, var(--color-nb-950) 55%, transparent));
 }
 .react-flow__handle { opacity: 0; pointer-events: none; }
 
@@ -200,8 +224,12 @@ body {
 .react-flow__edge-text { fill: var(--color-nb-400); font-size: 10px; }
 .react-flow__edge-textbg { fill: var(--color-nb-910); }
 
-@keyframes dash { to { stroke-dashoffset: -20; } }
-.edge-animated path.react-flow__edge-path { stroke-dasharray: 5 5; animation: dash 1s linear infinite; }
+/* A line: round ends (a dotted line is a row of dots), a casing of the canvas colour under it so crossings stay readable, a ring where
+   it leaves its box, and small lights running along it when traffic was seen on it (Flow in OffsetEdge.tsx). The focus's own lines glow. */
+.react-flow__edge-path { stroke-linecap: round; stroke-linejoin: round; }
+.topo-casing { stroke: var(--color-nb-910); stroke-linecap: round; stroke-linejoin: round; opacity: 0.9; transition: opacity 320ms ease-out; }
+.topo-port { fill: var(--color-nb-910); transition: opacity 320ms ease-out; }
+.react-flow__edge.topo-hot .react-flow__edge-path { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-accent) 70%, transparent)); }
 
 /* Connections on the map move like the ones in the other views: the dashes run from the caller to what it calls,
    faster the busier the link. --flow is the time for one dash period; the direction flips when b calls a. */
@@ -210,7 +238,8 @@ body {
 .map-link[data-reverse='1'] { animation-direction: reverse; }
 
 @media (prefers-reduced-motion: reduce) {
-  .edge-animated path.react-flow__edge-path, .map-link { animation: none; }
+  .map-link { animation: none; }
+  .topo-flow { display: none; }
 }
 
 /* A popover (filter, saved views, options, add) eases in briefly on open instead of just appearing - the same light
