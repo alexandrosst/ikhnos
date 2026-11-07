@@ -32,7 +32,7 @@ describe('NeedsLook', () => {
 
   test('lists a guessed value with the signal it rests on, and keeps it as it is on one click', () => {
     render(<NeedsLook kind="cluster" rec={rec({ evidence: { tier: { signal: 'node count', confidence: 'low', detail: 'two nodes' } } })} />)
-    expect(screen.getByText('Needs a look (1)')).toBeInTheDocument()
+    expect(screen.getByText('Worth a look (1)')).toBeInTheDocument()
     expect(screen.getByText('node count (two nodes)')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Keep as is' }))
     expect(confirmField).toHaveBeenCalledWith('cluster', 'cl-1', 'tier', 'alex')

@@ -83,13 +83,12 @@ export function NeedsLook({ kind, rec }: { kind: 'cluster' | 'node' | 'service';
   if (weak.length === 0) return null
   return (
     <div className="border-t border-nb-850 bg-warn/5 px-5 py-4" data-testid="needs-look">
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-nb-500">Needs a look ({weak.length})</div>
+      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-nb-500">Worth a look ({weak.length})</div>
       <ul className="space-y-2.5">
         {weak.map((w) => (
           <li key={w.field} className="text-sm">
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-nb-400">{w.label}</span>
-              <EvidenceChip level={w.level} always why={w.why} />
             </div>
             <div className="mt-0.5 flex items-baseline justify-between gap-3 text-[11px] leading-4 text-nb-500">
               <span>{w.why}</span>

@@ -10,11 +10,10 @@ import { LinkRow, Section, ShortList } from '@/features/topology/components/Insp
 import { OverlaySection } from '@/features/topology/components/OverlaySection'
 import PlatformPanel, { PlatformSubtitle } from '@/features/topology/components/PlatformPanel'
 import { DistroIcon, Flag, Place, ProviderIcon, WithIcon } from '@/components/ui/brand'
-import { Button, CompletenessBadge, ConnectivityStatusBadge, DetailRow, ICON_MD, ICON_SM, Input, IpAddress, Pill, Provenance as ProvenanceStrip, Select, Sparkline, SourceBadge, StatusDot, TierBadge, TunnelEvidence } from '@/components/ui/primitives'
+import { Button, CompletenessBadge, ConnectivityStatusBadge, DetailRow, GuessDot, ICON_MD, ICON_SM, Input, IpAddress, Pill, Provenance as ProvenanceStrip, Select, Sparkline, StatusDot, TierBadge, TunnelEvidence } from '@/components/ui/primitives'
 import { clusterNets } from '@/features/topology/lib/clusterNets'
 import { completeness } from '@/lib/completeness'
 import { CONFIDENCE_TONE, dependencyProvenance, observation } from '@/lib/provenance'
-import { hasOverrides } from '@/lib/effective'
 import { exitIps } from '@/features/topology/lib/geo'
 import { ageLabel, autoscalerRange, callerIfaceSpeedMbps, disruptionLabel, formatMemory, GEO_UNLOCATABLE_HELP, GEO_UNLOCATABLE_LABEL, ipInCidr, linkUtilizationPct, podsLabel, podsPercent, recentlyScaledPods, volumeSize } from '@/lib/present'
 import { usePlacementSuggestions } from '@/lib/usePlacement'
@@ -26,7 +25,7 @@ import { lossBand, pathQuality, rttLabel } from '@/lib/metrics'
 import { useClusterPairConnectivity, usePaths } from '@/store/topology'
 import { connectionVerdict, meshName, MTLS_WORDS, proxyWords, VERDICT_COLOR } from '@/features/topology/lib/mesh'
 import type { PlatformModel } from '@/features/topology/lib/platformLayer'
-import { CONNECTIVITY, DEVICE_KINDS, TIERS, type Agent, type Dependency, type Evidence, type ExternalEndpoint, type ExternalKind, type OverrideMeta, type Provenance, type Resources, type Tier } from '@/lib/types'
+import { CONNECTIVITY, DEVICE_KINDS, TIERS, type Agent, type Dependency, type Evidence, type ExternalEndpoint, type ExternalKind, type Provenance, type Resources, type Tier } from '@/lib/types'
 import { api } from '@/lib/api'
 import type { DependencySeriesPoint } from '@/lib/history'
 
@@ -92,27 +91,6 @@ function DependencyTrend({ dependencyId }: { dependencyId: string }) {
   )
 }
 
-/** Why discovery believes a value. Shown so a guess never looks like a fact. */
-/**
- * A small "confirmed" tag for a field a person set by hand over a guessed or unknown value - the positive
- * counterpart to the "Not sure" caveat below (and to weakAttributes' evidence chips): those disappear once a
- * field is overridden, but disappearing is easy to miss, especially when there was nothing to notice in the
- * first place (a probe-based guess never showed a caveat at all - see the Type row). This makes the edit visible
- * right where the value is, instead of only in the Evidence section further down (where it does show up, as
- * "declared by a person" with the old guess kept beneath it) or the History page's audit entry.
- *
- * `meta` names who confirmed it and when, when that is known (see Provenance.overrideMeta); older overrides made
- * before this existed have no `meta`, and fall back to the generic wording rather than guessing an author.
- */
-function Confirmed({ meta }: { meta?: OverrideMeta }) {
-  const title = meta ? `${meta.by} set this by hand ${ageLabel(meta.at)} ago; it will not be overwritten by rediscovery.` : 'You set this by hand; it will not be overwritten by rediscovery.'
-  return (
-    <span className="ml-1.5 inline-block align-middle whitespace-nowrap rounded-full border border-ok/30 bg-ok/10 px-1.5 py-px text-[10px] font-medium text-ok" title={title}>
-      {meta ? `confirmed by ${meta.by}` : 'you confirmed this'}
-    </span>
-  )
-}
-
 const ago = (iso?: string) => {
   if (!iso) return undefined
   const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
@@ -131,15 +109,13 @@ function fieldProvenance(ev?: Evidence): ComponentProps<typeof ProvenanceStrip> 
 }
 
 /** The shared Provenance strip's props for a whole discovered/declared record (cluster, node, service,
- *  device): the origin words this file's old Origin showed, the aggregate "Edited" badge SourceBadge
- *  already carries for a person's override, confidence from the record's own observation state
+ *  device): the origin words this file's old Origin showed, confidence from the record's own observation state
  *  (live/stale/disconnected/revoked/gone - the only "how sure" a whole record carries; a single value's own
  *  guess/unknown is NeedsLook's job and stays separate from this), and when it was last seen. */
 function recordProvenance(e: Provenance): ComponentProps<typeof ProvenanceStrip> {
   const obs = observation(e)
   return {
     source: e.source === 'manual' ? 'Entered manually' : e.source === 'discovered' ? 'Detected' : 'Imported',
-    sourceBadge: <SourceBadge source="manual" overridden={hasOverrides(e)} />,
     confidence: obs ? { tone: obs.tone, label: obs.label, title: obs.reason } : e.stale ? { tone: 'warn', label: 'stale' } : undefined,
     freshness: e.lastSeen ? { label: 'Seen', at: e.lastSeen } : undefined,
   }
@@ -414,10 +390,10 @@ export default function Inspector({
       <>
         <NeedsLook kind="cluster" rec={c} />
         <Section title="Identity">
-          <Row label="Distribution" badge={!!c.overrides?.distribution && <Confirmed meta={c.overrideMeta?.distribution} />}>
+          <Row label="Distribution">
             <WithIcon icon={<DistroIcon distribution={c.distribution} size={ICON_SM} />}>{c.distribution} {c.version}</WithIcon>
           </Row>
-          <Row label="Provider" badge={!!c.overrides?.provider && <Confirmed meta={c.overrideMeta?.provider} />}>
+          <Row label="Provider">
             {c.provider ? <WithIcon icon={<ProviderIcon provider={c.provider} size={ICON_SM} />}>{c.provider}</WithIcon> : '—'}
           </Row>
           <Maybe label="Age">{c.createdAt ? `${ageLabel(c.createdAt)} (${new Date(c.createdAt).toLocaleDateString()})` : undefined}</Maybe>
@@ -453,7 +429,7 @@ export default function Inspector({
                   <span>
                     {[agent.connectingGeo.city, agent.connectingGeo.countryName || agent.connectingGeo.country].filter(Boolean).join(', ')}
                     {agent.connectingGeo.accuracyKm ? <span className="text-nb-500"> ±{agent.connectingGeo.accuracyKm} km</span> : null}
-                    {agent.connectingGeo.estimated && <span className="ml-1 text-nb-500">(estimated)</span>}
+                    {agent.connectingGeo.estimated && <GuessDot why="Taken from this server's own internet connection, because the cluster's address is private." />}
                   </span>
                 </span>
                 {agent.connectingGeo.asOrg && (
@@ -688,21 +664,22 @@ export default function Inspector({
           <Row label="Cluster">
             <button className="text-accent hover:underline" onClick={() => onSelect({ kind: 'cluster', id: n.clusterId })}>{clusterName(n.clusterId)}</button>
           </Row>
-          <Row label="Type" badge={!!n.overrides?.kind && <Confirmed meta={n.overrideMeta?.kind} />}>
+          <Row
+            label="Type"
+            badge={
+              !n.overrides?.kind && n.source === 'discovered' && (n.probed ? n.evidence?.kind?.confidence === 'medium' : n.evidence?.kind?.confidence === 'low') ? (
+                <GuessDot
+                  why={
+                    n.probed
+                      ? 'The node probe saw no hypervisor flag or firmware name, so it worked the type out from the chassis or battery. Set it here if it is wrong.'
+                      : 'Guessed from the Kubernetes API. Turn on the node probe to have the machine tell for itself, or set it here.'
+                  }
+                />
+              ) : undefined
+            }
+          >
             {n.kind === 'vm' ? 'Virtual machine' : n.kind === 'bare-metal' ? 'Bare metal' : 'Edge device'}
           </Row>
-          {!n.overrides?.kind && n.source === 'discovered' && (n.probed ? n.evidence?.kind?.confidence === 'medium' : n.evidence?.kind?.confidence === 'low') && (
-            <ProvenanceStrip
-              source={n.probed ? 'node probe' : 'Kubernetes API'}
-              confidence={{
-                tone: CONFIDENCE_TONE[n.evidence!.kind!.confidence],
-                label: n.evidence!.kind!.confidence,
-                title: n.probed
-                  ? 'The node probe saw no hypervisor flag or firmware name for this - it inferred the type from the chassis or battery instead, which can be wrong. Set it here if it is.'
-                  : 'This type is a guess from the Kubernetes API. Turn on the node probe when connecting the cluster to have the machine tell for itself, or set it here.',
-              }}
-            />
-          )}
           <Maybe label="Virtualization">{n.virtualization}</Maybe>
           <Maybe label="Hardware">{n.hardwareModel}</Maybe>
           <Maybe label="Instance">{[n.instanceType, n.zone].filter(Boolean).join(' · ')}</Maybe>

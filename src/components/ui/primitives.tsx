@@ -12,7 +12,7 @@ import { IP_SCOPE_HELP, ipScope, ipScopeLabel, loadBand } from '@/lib/present'
 import { rttLabel } from '@/lib/metrics'
 import { ageLabel, EVIDENCE_HELP, EVIDENCE_LABEL, EVIDENCE_TONE, needsEvidenceChip, TONE_CLASS, type EvidenceLevel, type ObsInfo, type Tone } from '@/lib/provenance'
 import { StatusBadge, StatusPip, type StatusTone } from '@/components/ui/Status'
-import { STATUS_COLOR, TIER_COLOR, type Source, type Status, type Tier } from '@/lib/types'
+import { STATUS_COLOR, TIER_COLOR, type Status, type Tier } from '@/lib/types'
 
 /** The app's whole icon-size scale: every lucide-react (and brand.tsx) icon's `size` prop should come
  *  from one of these two constants rather than a one-off literal - the 10-18px range previously in use
@@ -707,25 +707,14 @@ export function TierBadge({ tier }: { tier: Tier }) {
   )
 }
 
-/** Where a record came from. Nothing is shown for manual records to keep tables quiet. */
-export function SourceBadge({ source, overridden, stacked }: { source: Source; overridden?: boolean; stacked?: boolean }) {
-  if (source === 'manual' && !overridden) return null
-  const label = source === 'discovered' ? 'Detected' : source === 'imported' ? 'Imported' : 'Manual'
-  return (
-    <span className={clsx('inline-flex items-center gap-1 align-middle', stacked ? 'mt-1' : 'ml-2')}>
-      {source !== 'manual' && (
-        <span className="rounded border border-info/30 bg-info/10 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-info">{label}</span>
-      )}
-      {overridden && (
-        <span
-          title="Some values were changed by a person and will survive rediscovery"
-          className="rounded border border-accent/30 bg-accent-soft px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-accent"
-        >
-          Edited
-        </span>
-      )}
-    </span>
-  )
+/**
+ * A value discovery is not sure of: a small dot after it, nothing more. What it rests on is in the tooltip, and the sidebar's
+ * "Worth a look" offers to keep or change it. A value a person sets or confirms is just a value, so it loses the dot.
+ */
+export function GuessDot({ why, level = 'guess' }: { why?: string; level?: string }) {
+  if (level !== 'guess') return null
+  const title = why ? `Probably right, not certain. ${why}` : 'Probably right, not certain.'
+  return <span role="img" aria-label="Not certain" title={title} data-guess className="ml-1.5 inline-block size-1.5 rounded-full bg-nb-500 align-middle" />
 }
 
 /**

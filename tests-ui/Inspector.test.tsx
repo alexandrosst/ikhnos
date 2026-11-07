@@ -243,26 +243,21 @@ describe('Inspector · node type confidence', () => {
   // Type guess) is never what a query happens to match.
   const identity = () => within(screen.getByText('Identity').parentElement!)
 
-  test('an unprobed guess from the Kubernetes API shows the shared Provenance strip, not bespoke prose', () => {
+  test('an unprobed guess from the Kubernetes API is a dot on the Type row, with the reason in its tooltip', () => {
     renderNodeInspector(node({ kind: 'vm', probed: false, evidence: { kind: { signal: 'Kubernetes API', confidence: 'low' } } }))
-    const scope = identity()
-    expect(scope.getByText('Provenance')).toBeInTheDocument()
-    expect(scope.getByText('Kubernetes API')).toBeInTheDocument()
-    const chip = scope.getByTestId('provenance-confidence')
-    expect(chip).toHaveTextContent('low')
-    expect(chip).toHaveAttribute('title', expect.stringContaining('guess from the Kubernetes API'))
+    const dot = identity().getByRole('img', { name: 'Not certain' })
+    expect(dot).toHaveAttribute('title', expect.stringContaining('Guessed from the Kubernetes API'))
+    expect(identity().queryByText('low')).not.toBeInTheDocument()
   })
 
-  test('a probe-based guess names the probe as the source, with its own caveat as the tooltip', () => {
+  test('a probe-based guess says in the tooltip that the probe worked it out from the chassis', () => {
     renderNodeInspector(node({ kind: 'vm', probed: true, evidence: { kind: { signal: 'chassis', confidence: 'medium' } } }))
-    const scope = identity()
-    expect(scope.getByText('node probe')).toBeInTheDocument()
-    expect(scope.getByTestId('provenance-confidence')).toHaveAttribute('title', expect.stringContaining('no hypervisor flag'))
+    expect(identity().getByRole('img', { name: 'Not certain' })).toHaveAttribute('title', expect.stringContaining('no hypervisor flag'))
   })
 
-  test('a confirmed override shows no confidence strip for Type at all', () => {
+  test('a value a person set has no dot', () => {
     renderNodeInspector(node({ kind: 'vm', probed: true, evidence: { kind: { signal: 'chassis', confidence: 'medium' } }, overrides: { kind: 'vm' } }))
-    expect(identity().queryByTestId('provenance-confidence')).not.toBeInTheDocument()
+    expect(identity().queryByRole('img', { name: 'Not certain' })).not.toBeInTheDocument()
   })
 })
 

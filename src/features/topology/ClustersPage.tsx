@@ -5,12 +5,11 @@ import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import { ClusterForm, ConfirmModal } from '@/components/forms'
 import PlacementHint from '@/features/placement/components/PlacementHint'
 import { DistroIcon, Place, ProviderIcon, WithIcon } from '@/components/ui/brand'
-import { Button, CompletenessBadge, DeclaredMark, EmptyState, EvidenceChip, ICON_SM, ObservationChip, PageHeader, SourceBadge, StatusDot, Table, Td, Th, TierBadge } from '@/components/ui/primitives'
+import { Button, CompletenessBadge, DeclaredMark, EmptyState, GuessDot, ICON_SM, ObservationChip, PageHeader, StatusDot, Table, Td, Th, TierBadge } from '@/components/ui/primitives'
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
 import { observation } from '@/lib/provenance'
 import { ageLabel, shortVersion } from '@/lib/present'
 import { completeness } from '@/lib/completeness'
-import { hasOverrides } from '@/lib/effective'
 import { useAutoPlaceClusters, usePlacementSuggestions } from '@/lib/usePlacement'
 import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
@@ -93,14 +92,13 @@ export default function ClustersPage() {
               const obs = observation(c)
               const chip = (attr: string, field?: string) => {
                 const w = weak(c as never, attr, field)
-                return w ? <EvidenceChip level={w.level} why={w.why} /> : null
+                return w ? <GuessDot level={w.level} why={w.why} /> : null
               }
               return (
               <tr key={c.id} className="group hover:bg-nb-930/60">
                 <Td className="whitespace-nowrap font-medium text-nb-300">
                   <div>{c.name}</div>
                   {c.createdAt && <div className="text-xs font-normal text-nb-500" title={`Created ${new Date(c.createdAt).toLocaleDateString()}`}>{ageLabel(c.createdAt)} old</div>}
-                  <SourceBadge stacked source={c.source} overridden={hasOverrides(c)} />
                   <div className="mt-1 flex items-center gap-2">
                     <ObservationChip quiet info={obs} />
                     {c.source === 'manual' && <DeclaredMark />}
@@ -108,8 +106,7 @@ export default function ClustersPage() {
                 </Td>
                 {isVisible('tier') && (
                   <Td>
-                    <TierBadge tier={c.tier} />
-                    {chip('tier') && <div className="mt-1">{chip('tier')}</div>}
+                    <span className="inline-flex items-center"><TierBadge tier={c.tier} />{chip('tier')}</span>
                   </Td>
                 )}
                 {isVisible('distro') && (
@@ -117,11 +114,10 @@ export default function ClustersPage() {
                     <WithIcon icon={<DistroIcon distribution={c.distribution} />}>
                       <span title={c.version}>{c.distribution || '—'} <span className="text-nb-500">{shortVersion(c.version)}</span></span>
                     </WithIcon>
-                    {chip('distribution') && <span className="ml-1.5">{chip('distribution')}</span>}
+                    {chip('distribution')}
                     {c.provider && (
                       <div className="mt-0.5 flex items-center gap-1.5 text-xs text-nb-500">
-                        <WithIcon icon={<ProviderIcon provider={c.provider} />}>{c.provider}</WithIcon>
-                        {chip('provider')}
+                        <WithIcon icon={<ProviderIcon provider={c.provider} />}><>{c.provider}{chip('provider')}</></WithIcon>
                       </div>
                     )}
                   </Td>
@@ -132,10 +128,9 @@ export default function ClustersPage() {
                       const site = sites.find((x) => x.id === c.siteId)
                       return (
                         <div>
-                          <Place site={site} fallback={c.region} />
+                          <span className="inline-flex items-center"><Place site={site} fallback={c.region} />{!site && chip('region')}</span>
                           {site && <div className="whitespace-nowrap pl-[26px] text-xs text-nb-500">{site.name}</div>}
-                          {!site && chip('region') && <div className="mt-0.5">{chip('region')}</div>}
-                          {!site && <PlacementHint compact suggestion={placement.get(c.id)} egressIp={c.egressIp} />}
+                                                    {!site && <PlacementHint compact suggestion={placement.get(c.id)} egressIp={c.egressIp} />}
                         </div>
                       )
                     })()}

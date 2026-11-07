@@ -19,7 +19,7 @@ import { useTelemetryFlow } from '@/features/pipeline/components/telemetry/Telem
 import EntityHistory from '@/features/history/components/EntityHistory'
 import { ConfirmModal } from '@/components/forms'
 import { DistroIcon, Flag, WithIcon } from '@/components/ui/brand'
-import { Button, EmptyState, ErrorBanner, ICON_SM, LiveDot, type LiveKind, PageHeader, SkeletonBlock, StatTile, Table, TableSkeleton, Td, Th, TierBadge } from '@/components/ui/primitives'
+import { Button, EmptyState, ErrorBanner, GuessDot, ICON_SM, LiveDot, type LiveKind, PageHeader, SkeletonBlock, StatTile, Table, TableSkeleton, Td, Th, TierBadge } from '@/components/ui/primitives'
 import { api, ApiError } from '@/lib/api'
 import { skewLabel, skewWarning } from '@/lib/clock'
 import { extrasOf, type AgentExtras } from '@/lib/consent'
@@ -482,7 +482,7 @@ function AgentDetail({ agent: a, extras, canConsent, onSetUpTelemetry, onRevoke 
                     <Flag code={a.connectingGeo.country} />
                     <span>
                       {[a.connectingGeo.city, a.connectingGeo.countryName || a.connectingGeo.country].filter(Boolean).join(', ')}
-                      {a.connectingGeo.estimated && <span className="ml-1 text-nb-500">(estimated)</span>}
+                      {a.connectingGeo.estimated && <GuessDot why="Taken from this server's own internet connection, because the cluster's address is private." />}
                     </span>
                   </span>
                   {a.connectingGeo.asOrg && (

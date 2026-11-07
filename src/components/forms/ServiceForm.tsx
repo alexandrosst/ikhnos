@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Button, EvidenceChip, Field, ICON_MD, ICON_SM, Input, LabelsEditor, Modal, Select } from '@/components/ui/primitives'
+import { Button, GuessDot, Field, ICON_MD, ICON_SM, Input, LabelsEditor, Modal, Select } from '@/components/ui/primitives'
 import { hasOverrides } from '@/lib/effective'
 import { uid, useTopology } from '@/store/topology'
 import { useServer } from '@/store/server'
@@ -44,7 +44,7 @@ export function ServiceForm({ initial, onClose, defaultClusterId }: { initial: S
     if (!w) return undefined
     return (
       <span className="inline-flex items-center gap-1.5">
-        <EvidenceChip level={w.level} why={w.why} />
+        <GuessDot level={w.level} why={w.why} />
         {w.level === 'guess' && initial && by && (
           <button
             onClick={() => confirmField('service', initial.id, 'applicationId', by)}

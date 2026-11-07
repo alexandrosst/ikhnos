@@ -2,8 +2,7 @@ import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import ColumnPicker from '@/features/topology/components/ColumnPicker'
 import { ApplicationForm, ConfirmModal } from '@/components/forms'
-import { Button, ChipList, EmptyState, ICON_SM, PageHeader, Pill, SourceBadge, Table, Td, Th } from '@/components/ui/primitives'
-import { hasOverrides } from '@/lib/effective'
+import { Button, ChipList, EmptyState, ICON_SM, PageHeader, Pill, Table, Td, Th } from '@/components/ui/primitives'
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
 import { originLabel } from '@/lib/present'
 import type { Application } from '@/lib/types'
@@ -67,7 +66,7 @@ export default function ApplicationsPage() {
               return (
                 <tr key={a.id} className="group hover:bg-nb-930/60">
                   <Td>
-                    <div className="font-medium text-nb-300">{a.name}<SourceBadge source={a.source} overridden={hasOverrides(a)} /></div>
+                    <div className="font-medium text-nb-300">{a.name}</div>
                     {a.description && <div className="text-xs text-nb-500">{a.description}</div>}
                   </Td>
                   {isVisible('services') && <Td>{mine.length}</Td>}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ComboField, EvidenceChip, Field, Input, LabelsEditor, Modal, Select } from '@/components/ui/primitives'
+import { ComboField, GuessDot, Field, Input, LabelsEditor, Modal, Select } from '@/components/ui/primitives'
 import { hasOverrides } from '@/lib/effective'
 import { OS_OPTIONS } from '@/lib/present'
 import { useWeakValue } from '@/store/rowEvidence'
@@ -41,7 +41,7 @@ export function NodeForm({ initial, onClose, defaultClusterId }: { initial: Mach
     if (!w) return undefined
     return (
       <span className="inline-flex items-center gap-1.5">
-        <EvidenceChip level={w.level} why={w.why} />
+        <GuessDot level={w.level} why={w.why} />
         {w.level === 'guess' && initial && by && (
           <button
             onClick={() => confirmField('node', initial.id, field ?? attr, by)}

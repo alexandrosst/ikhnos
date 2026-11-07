@@ -5,12 +5,11 @@ import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import { ConfirmModal, NodeForm } from '@/components/forms'
 import { WithIcon } from '@/components/ui/brand'
 import { GoneRecords } from '@/components/Observations'
-import { Button, DeclaredMark, EmptyState, EvidenceChip, ICON_MD, ICON_SM, IpAddress, Meter, ObservationChip, PageHeader, Select, SourceBadge, StatusDot, Table, Td, Th } from '@/components/ui/primitives'
+import { Button, DeclaredMark, EmptyState, GuessDot, ICON_MD, ICON_SM, IpAddress, Meter, ObservationChip, PageHeader, Select, StatusDot, Table, Td, Th } from '@/components/ui/primitives'
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
 import { observation } from '@/lib/provenance'
 import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
-import { hasOverrides } from '@/lib/effective'
 import { accelSummary, ageLabel, formatCpu, formatMemory, podsLabel, podsPercent, requestedPercent } from '@/lib/present'
 import type { MachineNode } from '@/lib/types'
 import { matches, RowActions, SearchBox } from './shared'
@@ -87,7 +86,7 @@ export default function NodesPage() {
               const obs = observation(n)
               const chip = (attr: string, field?: string) => {
                 const w = weak(n as never, attr, field)
-                return w ? <EvidenceChip level={w.level} why={w.why} /> : null
+                return w ? <GuessDot level={w.level} why={w.why} /> : null
               }
               return (
               <tr key={n.id} className="group hover:bg-nb-930/60">
@@ -97,7 +96,6 @@ export default function NodesPage() {
                       <StatusDot status={n.status} withLabel notCurrent={obs && obs.kind !== 'live' ? (obs.reason ?? obs.label) : undefined} />
                     </span>
                     <span>{n.name}</span>
-                    <SourceBadge source={n.source} overridden={hasOverrides(n)} />
                     <ObservationChip quiet info={obs} />
                     {n.source === 'manual' && <DeclaredMark />}
                     {n.conditions && n.conditions.length > 0 && (
@@ -124,12 +122,11 @@ export default function NodesPage() {
                 )}
                 {isVisible('type') && (
                   <Td>
-                    {(() => { const K = KIND_ICON[n.kind]; return <WithIcon icon={<K size={ICON_SM} className="text-nb-500" />}>{KIND_LABEL[n.kind]}</WithIcon> })()}
+                    {(() => { const K = KIND_ICON[n.kind]; return <WithIcon icon={<K size={ICON_SM} className="text-nb-500" />}><>{KIND_LABEL[n.kind]}{chip('kind')}</></WithIcon> })()}
                     <div className="flex items-center gap-1.5 pl-[23px] text-xs text-nb-500">
-                      {n.arch ? <span>{n.arch}</span> : chip('arch')}
+                      {n.arch && <span>{n.arch}</span>}
                       {/* Bare metal/edge rows now carry an explicit "No hypervisor detected" too (see hostprobe.go) - worth a full line in the Inspector, but repeating it on every row here would just be noise next to a kind icon that already says "Bare metal". Only the interesting case (it IS a VM) earns space in this dense list. */}
                       {n.kind === 'vm' && n.virtualization && <span>· {n.virtualization}</span>}
-                      {chip('kind')}
                     </div>
                   </Td>
                 )}

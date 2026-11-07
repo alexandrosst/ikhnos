@@ -6,12 +6,11 @@ import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import { ConfirmModal, ServiceForm } from '@/components/forms'
 import { MobilityChip, useMoveModel } from '@/features/placement/components/MobilityPanel'
 import { GoneRecords } from '@/components/Observations'
-import { Button, ChipList, DeclaredMark, EmptyState, EvidenceChip, ICON_SM, ObservationChip, PageHeader, Pill, Select, SourceBadge, StatusDot, Table, Td, Th } from '@/components/ui/primitives'
+import { Button, ChipList, DeclaredMark, EmptyState, GuessDot, ICON_SM, ObservationChip, PageHeader, Pill, Select, StatusDot, Table, Td, Th } from '@/components/ui/primitives'
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
 import { observation } from '@/lib/provenance'
 import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
-import { hasOverrides } from '@/lib/effective'
 import type { Service } from '@/lib/types'
 import { matches, RowActions, SearchBox, ServiceTraits } from './shared'
 
@@ -97,7 +96,7 @@ export default function ServicesPage() {
             {rows.map((w) => (
               <tr key={w.id} className="group hover:bg-nb-930/60">
                 <Td>
-                  <div className="font-medium text-nb-300">{w.name}<SourceBadge source={w.source} overridden={hasOverrides(w)} /> <ObservationChip quiet info={observation(w)} />{w.source === 'manual' && <> <DeclaredMark /></>}</div>
+                  <div className="font-medium text-nb-300">{w.name}<ObservationChip quiet info={observation(w)} />{w.source === 'manual' && <> <DeclaredMark /></>}</div>
                   <div className="font-mono text-xs text-nb-500">{w.image || '—'} · ×{w.replicas}</div>
                   <ServiceTraits w={w} nodeName={nodeName} />
                 </Td>
@@ -110,7 +109,7 @@ export default function ServicesPage() {
                 {isVisible('application') && (
                   <Td className="whitespace-nowrap text-nb-400">
                     {applications.find((a) => a.id === w.applicationId)?.name ?? '—'}
-                    {(() => { const g = w.applicationId ? weak(w as never, 'applicationId') : undefined; return g ? <> <EvidenceChip level={g.level} why={g.why} /></> : null })()}
+                    {(() => { const g = w.applicationId ? weak(w as never, 'applicationId') : undefined; return g ? <GuessDot level={g.level} why={g.why} /> : null })()}
                   </Td>
                 )}
                 {isVisible('kind') && <Td><Pill>{w.kind}</Pill></Td>}

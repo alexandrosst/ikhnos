@@ -3,8 +3,7 @@ import { useState } from 'react'
 import ColumnPicker from '@/features/topology/components/ColumnPicker'
 import { ConfirmModal, DeviceForm } from '@/components/forms'
 import { DEVICE_ICON } from '@/features/topology/components/nodes'
-import { Button, EmptyState, ICON_SM, PageHeader, Pill, Select, SourceBadge, StatusDot, Table, Td, Th } from '@/components/ui/primitives'
-import { hasOverrides } from '@/lib/effective'
+import { Button, EmptyState, ICON_SM, PageHeader, Pill, Select, StatusDot, Table, Td, Th } from '@/components/ui/primitives'
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
 import { CONNECTIVITY, DEVICE_KINDS, type Device } from '@/lib/types'
 import { useTopology } from '@/store/topology'
@@ -88,7 +87,6 @@ export default function DevicesPage() {
                 <tr key={d.id} className="group hover:bg-nb-930/60">
                   <Td className="font-medium text-nb-300">
                     <span className="inline-flex items-center gap-2"><Icon size={ICON_SM} className="text-nb-500" />{d.name}</span>
-                    <SourceBadge source={d.source} overridden={hasOverrides(d)} />
                     {gw && <div className="whitespace-nowrap pl-6 text-xs font-normal text-nb-500">attached to {gw.name}</div>}
                   </Td>
                   {isVisible('kind') && <Td><Pill>{kindLabel(d.kind)}</Pill></Td>}
