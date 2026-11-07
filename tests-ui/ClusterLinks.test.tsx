@@ -708,4 +708,37 @@ describe('ClusterLinks', () => {
       expect(screen.queryByTestId('add-pair-why')).toBeNull()
     })
   })
+
+  describe('how two clusters are connected, when their nodes say they share an overlay network', () => {
+    const tailscale = (range: string) => ({ product: 'tailscale', interface: 'tailscale0', kind: 'tun', range, nodes: 2, ofNodes: 2, why: [] })
+
+    it('says so in the Add pair dialog, offers mesh addresses with a button, and picks nothing until it is pressed', async () => {
+      render(<ClusterLinks />)
+      seedAgents(
+        { ...agent('c-eu'), overlay: tailscale('100.64.1.0/24'), overlayPeers: [{ clusterId: 'c-us' }] },
+        { ...agent('c-us'), overlay: tailscale('100.64.2.0/24'), overlayPeers: [{ clusterId: 'c-eu' }] },
+      )
+      fireEvent.click(screen.getByTestId('add-pair'))
+      expect(screen.queryByTestId('pair-overlay')).toBeNull() // no pair chosen yet
+      pick('First cluster', 'cloud-eu')
+      pick('Second cluster', 'cloud-us')
+      expect(screen.getByTestId('pair-overlay')).toHaveTextContent('Likely the same Tailscale network')
+      expect(screen.getByTestId('via-select')).toHaveTextContent('The address your traffic uses (recommended)') // nothing is chosen for the person
+      fireEvent.click(screen.getByRole('combobox', { name: 'Measure through' }))
+      expect(screen.getByRole('option', { name: 'Mesh addresses: Tailscale, both clusters (suggested)' })).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('option', { name: 'The address your traffic uses (recommended)' })) // closes it, still nothing chosen
+      fireEvent.click(screen.getByTestId('pair-overlay-use'))
+      expect(screen.queryByTestId('pair-overlay-use')).toBeNull()
+      fireEvent.click(screen.getByTestId('confirm-add-pair'))
+      await vi.waitFor(() => expect(saved).toEqual([{ a: 'c-eu', b: 'c-us', via: 'mesh' }]))
+    })
+
+    it('says nothing for clusters that have no overlay', () => {
+      render(<ClusterLinks />)
+      fireEvent.click(screen.getByTestId('add-pair'))
+      pick('First cluster', 'cloud-eu')
+      pick('Second cluster', 'cloud-us')
+      expect(screen.queryByTestId('pair-overlay')).toBeNull()
+    })
+  })
 })

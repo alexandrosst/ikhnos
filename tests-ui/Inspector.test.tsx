@@ -364,13 +364,13 @@ describe('Inspector · cluster layout', () => {
   const cl = { id: 'a', name: 'atlas', status: 'ready', tier: 'edge', distribution: 'k3s', version: 'v1', podCidr: '10.42.0.0/16', serviceCidr: '10.43.0.0/16', cni: 'canal', ingress: 'nginx', storageClasses: ['longhorn'], source: 'discovered', orgId: 'o', labels: {} }
   const agent = { id: 'ag', name: 'atlas-agent', clusterId: 'a', accessTier: 2, link: { bytes: 690_000_000, syncs: 490, flows: 12_600, measurements: 950, heartbeats: 5_900 } }
 
-  function renderCluster(nodeCount = 2) {
+  function renderCluster(nodeCount = 2, ag: object = agent) {
     pairsState = [{ fromCluster: 'a', fromName: 'atlas', toCluster: 'b', toName: 'kestrel', status: 'subnet', dependencyFlows: 0, links: [] }] as never
     topologyState = {
       ...topologyState,
       clusters: [cl] as never[],
       nodes: Array.from({ length: nodeCount }, (_, i) => node({ id: `n${i}`, name: `edge-${i}`, clusterId: 'a' })),
-      agents: [agent] as never[],
+      agents: [ag] as never[],
       externalEndpoints: [],
     }
     return render(
@@ -420,5 +420,22 @@ describe('Inspector · cluster layout', () => {
   test('a short list has no "Show all"', () => {
     renderCluster(3)
     expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument()
+  })
+
+  const overlay = { product: 'tailscale', interface: 'tailscale0', kind: 'tun', range: '100.64.12.0/27', nodes: 3, ofNodes: 4, why: ['3 nodes have tailscale0 with addresses in 100.64.12.0/27'] }
+
+  test('a cluster whose nodes have an overlay interface says which, its range and who else is on it, with the evidence closed', () => {
+    renderCluster(2, { ...agent, overlay, overlayPeers: [{ clusterId: 'b', maybe: false }, { clusterId: 'c', maybe: true }] })
+    expect(screen.getByTestId('overlay-name')).toHaveTextContent('Tailscale')
+    expect(screen.getByText('100.64.12.0/27')).toBeInTheDocument()
+    expect(screen.getByText('3 of 4 nodes')).toBeInTheDocument()
+    expect(screen.queryByTestId('overlay-evidence')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('overlay-why'))
+    expect(screen.getByTestId('overlay-evidence')).toHaveTextContent('tailscale0')
+  })
+
+  test('a cluster with no overlay has no overlay section', () => {
+    renderCluster(2, { ...agent, overlayPeers: [] })
+    expect(screen.queryByText('Overlay network')).not.toBeInTheDocument()
   })
 })

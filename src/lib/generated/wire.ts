@@ -160,6 +160,8 @@ export interface AgentDoc {
   lateAfterSeconds: number
   connectingGeo?: Result
   connectingGeoReason?: string
+  overlay?: Overlay
+  overlayPeers: Peer[]
   certExpiresAt?: string
   lastHeartbeat?: string
   requestedAt: string
@@ -2003,6 +2005,16 @@ export interface OutcomeDoc {
 
 export type OutcomeResult = 'measured' | 'unconfirmed' | 'no_data'
 
+export interface Overlay {
+  product?: string
+  interface?: string
+  kind?: string
+  range: string
+  nodes: number
+  ofNodes: number
+  why: string[]
+}
+
 export interface Overview {
   id?: string
   services?: string[]
@@ -2056,6 +2068,11 @@ export interface Path {
 }
 
 export type PathSource = 'observed' | 'manual'
+
+export interface Peer {
+  clusterId: string
+  maybe?: boolean
+}
 
 export type PeerKind = 'service' | 'external'
 

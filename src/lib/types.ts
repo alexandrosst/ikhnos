@@ -1117,6 +1117,23 @@ export interface AgentScope {
   inScope: number
 }
 
+/** What a cluster's nodes say about the overlay network they are on (see internal/overlay). `product` is what the interface looks like; both it and `interface` are empty when only addresses were seen. */
+export interface Overlay {
+  product?: string
+  interface?: string
+  kind?: string
+  range: string
+  nodes: number
+  ofNodes: number
+  why: string[]
+}
+
+/** Another cluster that looks to be on the same overlay network, or may be (`maybe`: one side's addresses only). */
+export interface OverlayPeer {
+  clusterId: string
+  maybe?: boolean
+}
+
 export interface Agent {
   id: string
   orgId: string
@@ -1132,6 +1149,10 @@ export interface Agent {
   connectingIp?: string
   connectingGeo?: GeoHint
   connectingGeoReason?: GeoUnlocatableReason
+  /** The overlay network (a VPN or mesh) the cluster's nodes say they are on, read from their interfaces and addresses. A reading, not proof. */
+  overlay?: Overlay
+  /** The other clusters that look to be on the same one. */
+  overlayPeers: OverlayPeer[]
   certExpiresAt?: string
   lastHeartbeat?: string
   /** After this many seconds without a heartbeat the agent is late: the server's number, from its stale setting. Absent on sample and hand-made agents, which are judged by the default (`AGENT_LATE_AFTER_MS`). */

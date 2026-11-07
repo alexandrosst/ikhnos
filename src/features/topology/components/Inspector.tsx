@@ -7,6 +7,7 @@ import { NeedsLook, SourcesFooter } from '@/features/topology/components/Evidenc
 import MobilityPanel from '@/features/placement/components/MobilityPanel'
 import PlacementHint from '@/features/placement/components/PlacementHint'
 import { LinkRow, Section, ShortList } from '@/features/topology/components/InspectorParts'
+import { OverlaySection } from '@/features/topology/components/OverlaySection'
 import PlatformPanel, { PlatformSubtitle } from '@/features/topology/components/PlatformPanel'
 import { DistroIcon, Flag, Place, ProviderIcon, WithIcon } from '@/components/ui/brand'
 import { Button, CompletenessBadge, ConnectivityStatusBadge, DetailRow, ICON_MD, ICON_SM, Input, IpAddress, Pill, Provenance as ProvenanceStrip, Select, Sparkline, SourceBadge, StatusDot, TierBadge, TunnelEvidence } from '@/components/ui/primitives'
@@ -478,6 +479,9 @@ export default function Inspector({
             </div>
           )}
         </Section>
+        {agent?.overlay?.interface && (
+          <OverlaySection overlay={agent.overlay} sharedWith={agent.overlayPeers.filter((p) => !p.maybe).map((p) => clusters.find((x) => x.id === p.clusterId)?.name ?? p.clusterId)} />
+        )}
         <Section title="Network">
           <Maybe label="Pod CIDR" copy={c.podCidr}><span className="font-mono text-xs">{c.podCidr}</span></Maybe>
           <Chips label="CIDR overlap" items={overlap.map((o) => o.name)} tone="warn" title="Overlapping pod CIDRs can break direct cross-cluster routing." />

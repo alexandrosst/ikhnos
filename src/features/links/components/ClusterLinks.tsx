@@ -11,6 +11,8 @@ import {
 import type { LinkPair } from '@/lib/history'
 import type { Agent } from '@/lib/types'
 import type { Conn } from '@/lib/api'
+import { PairOverlayBox } from '@/features/links/components/PairOverlayBox'
+import { pairOverlay } from '@/lib/overlay'
 import { useConn, useServer } from '@/store/server'
 import { useSettings } from '@/store/settings'
 import { useTopology } from '@/store/topology'
@@ -350,11 +352,11 @@ function Choice({ label, text, on, onChange, fixed }: { label: string; text: str
 }
 
 /** Which kind of the other cluster's addresses the active measurements go through. */
-function ViaSelect({ value, onChange }: { value: Via | ''; onChange: (v: Via | '') => void }) {
+function ViaSelect({ value, onChange, meshLabel }: { value: Via | ''; onChange: (v: Via | '') => void; meshLabel?: string }) {
   return (
     <Field label="Measure through" hint={VIA_HINT}>
       <Select value={value} onChange={(e) => onChange(e.target.value as Via | '')} aria-label="Measure through" data-testid="via-select">
-        {VIA_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {VIA_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.value === 'mesh' && meshLabel ? meshLabel : o.label}</option>)}
       </Select>
     </Field>
   )
@@ -459,7 +461,8 @@ function EditPair({ pair, agents, name, onClose }: { pair: LinkPair; agents: Age
           {tpOn && <ThroughputOptions choice={choice} onChoice={setChoice} own={pair.throughput} cost={throughput} runner={name(runnerOf(pair))} answerer={name(runnerOf(pair) === pair.a ? pair.b : pair.a)} />}
 
           <hr className="border-nb-850" />
-          <ViaSelect value={via} onChange={setVia} />
+          <PairOverlayBox agents={agents} x={pair.a} y={pair.b} name={name} via={via} onUseMesh={() => setVia('mesh')} />
+          <ViaSelect value={via} onChange={setVia} meshLabel={pairOverlay(agents, pair.a, pair.b, name)?.meshLabel} />
 
           <hr className="border-nb-850" />
           <div>
@@ -546,7 +549,8 @@ function AddPair({ clusters, agents, name, onClose }: { clusters: { id: string; 
             <div className="space-y-4">
               <Choice label="Real traffic" text="Always on for a listed pair." on fixed />
               <Choice label="Probing" text="Delay, jitter and loss per direction, packet size and route. Tiny traffic." on={probe} onChange={setProbe} />
-              <ViaSelect value={via} onChange={setVia} />
+              {ready && <PairOverlayBox agents={agents} x={x} y={y} name={name} via={via} onUseMesh={() => setVia('mesh')} />}
+              <ViaSelect value={via} onChange={setVia} meshLabel={ready ? pairOverlay(agents, x, y, name)?.meshLabel : undefined} />
               <Choice label="Throughput tests" text={bothCan ? 'Fills the link for a few seconds to see how much it can carry. Both clusters have them turned on in their install, so they are ticked here: untick to leave them off for this pair.' : 'Fills the link for a few seconds to see how much it can carry. Off unless you tick it, so nothing heavy runs by surprise; the clusters must also have them turned on in their telemetry settings.'} on={tpOn} onChange={setTp} />
               {tpOn && <ThroughputOptions choice={amount} onChoice={setAmount} cost={throughput} />}
             </div>

@@ -33,6 +33,8 @@ type Expect<T extends true> = T
  */
 export type Agreements = [
   Expect<Agrees<P.Evidence, W.Evidence>>,
+  Expect<Agrees<P.Overlay, W.Overlay>>,
+  Expect<Agrees<P.OverlayPeer, W.Peer>>,
   Expect<Agrees<P.Path, W.Path>>,
   Expect<Agrees<P.ExternalEndpoint, W.ExternalEndpoint>>,
   Expect<Agrees<P.ClusterLink, W.ClusterLink>>,
