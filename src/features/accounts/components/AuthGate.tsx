@@ -10,6 +10,7 @@ import { useServer } from '@/store/server'
 /** The frame of every screen before the app: the mark and the name, a card, and the credits at the foot of the page. On the sign-in page the
  *  description goes under the name (`tagline`), so the card holds its title and the form alone. */
 function Shell({ title, description, tagline = false, children }: { title: string; description: string; tagline?: boolean; children: ReactNode }) {
+  const version = useServer((s) => s.serverVersion)
   return (
     <div className="relative flex min-h-full flex-col items-center overflow-hidden bg-nb-900 px-4">
       <AuthBackdrop />
@@ -29,6 +30,7 @@ function Shell({ title, description, tagline = false, children }: { title: strin
       </div>
       {/* The page's colour fades in under the credits, so a line of the backdrop is never read through them. */}
       <div className="relative w-full bg-gradient-to-t from-nb-900 via-nb-900/80 to-transparent pb-5 pt-12">
+        {version && <p className="mb-1.5 text-center font-mono text-[11px] text-nb-500" data-testid="auth-version">Version {version}</p>}
         <Copyright className="text-center" />
       </div>
     </div>

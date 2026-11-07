@@ -42,7 +42,7 @@ Your browser will warn you that the certificate is not trusted. That is expected
 
 <Shot src="journey/signin" alt="The Ikhnos sign-in page with a username and password field" caption="The sign-in page. Type admin and the password from the log." />
 
-Type `admin` and the password, and press **Sign in**.
+Type `admin` and the password, and press **Sign in**. At the foot of the page, above the credits, it says which version of the server you are talking to; that is the number to quote in a bug report.
 
 ## Choose your own password
 

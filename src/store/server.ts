@@ -57,6 +57,8 @@ interface ServerStore {
   role?: Role
   /** Who may create an account on this server. */
   registration: Registration
+  /** The server's own version, from the page that is public: what the sign-in screens show at their foot. Unset while unknown (an older server, or no answer). */
+  serverVersion?: string
   /** An invitation the person arrived with (a link), waiting to be used. */
   invite?: { token: string; preview?: InvitePreview }
   info?: ServerInfo
@@ -241,7 +243,7 @@ export const useServer = create<ServerStore>((set, get) => {
       write(URL_KEY, c.url)
       set({ url: c.url, checked: true })
       const info = await infoPromise
-      set({ registration: info?.registration ?? 'closed' }) // no info at all (an older server): assume sign-up is not offered
+      set({ registration: info?.registration ?? 'closed', serverVersion: info?.version || undefined }) // no info at all (an older server): assume sign-up is not offered
       const sso = info?.sso ?? false
       const inv = get().invite
       if (inv && !inv.preview) {

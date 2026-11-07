@@ -34,6 +34,21 @@ describe('the sign-in page', () => {
     expect(screen.queryByText(/without a server/i)).toBeNull()
   })
 
+  test('the version of the server is at the foot of the page, above the credits, as the server says it', () => {
+    const first = show({ serverVersion: '0.1.0' })
+    expect(screen.getByTestId('auth-version')).toHaveTextContent('Version 0.1.0')
+    expect(screen.getByTestId('copyright').parentElement).toContainElement(screen.getByTestId('auth-version'))
+    expect(screen.getByTestId('auth-version').compareDocumentPosition(screen.getByTestId('copyright')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    first.unmount()
+    show({ serverVersion: 'edge-3fa9c1' })
+    expect(screen.getByTestId('auth-version')).toHaveTextContent('Version edge-3fa9c1')
+  })
+
+  test('no version line while the server has not said one', () => {
+    show()
+    expect(screen.queryByTestId('auth-version')).toBeNull()
+  })
+
   test('the server is named only when it is not the one the page came from', () => {
     show({ url: 'https://other.example:8080' })
     expect(screen.getByTestId('auth-server')).toHaveTextContent('Server: https://other.example:8080')
