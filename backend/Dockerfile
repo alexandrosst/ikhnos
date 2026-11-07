@@ -80,12 +80,15 @@ ARG VERSION=0.1.0-dev
 # back to the chart's own Chart.yaml literal instead - see Admin.agentChartVersion's doc comment for why the two
 # can disagree for a CI-published image.
 ARG CHART_VERSION=
+# APP_VERSION is the tag the images of this run were pushed under ("edge", or a release's tag): what the controller sets as the agent chart's
+# image tag. It is not VERSION, which on a main build also names the commit ("edge-g1a2b3c4"), a tag nothing is pushed under.
+ARG APP_VERSION=
 ENV CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH}
 # The controller is its own binary because it carries the Helm library. It installs the agent chart that is embedded in it at CHART_VERSION
 # (and appVersion VERSION) when those are given, which is what the published agent chart was packaged with.
 RUN go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/ikhnos ./cmd/ikhnos \
  && go build -trimpath -ldflags "-s -w -X main.version=${VERSION} -X main.agentChartVersion=${CHART_VERSION} -X main.operatorChartVersion=${CHART_VERSION} -X main.controllerChartVersion=${CHART_VERSION}" -o /out/server ./cmd/server \
- && go build -trimpath -ldflags "-s -w -X main.version=${VERSION} -X ikhnos/internal/cli/agentcontroller.ChartVersion=${CHART_VERSION}" -o /out/controller ./cmd/controller
+ && go build -trimpath -ldflags "-s -w -X main.version=${VERSION} -X ikhnos/internal/cli/agentcontroller.ChartVersion=${CHART_VERSION} -X ikhnos/internal/cli/agentcontroller.AppVersion=${APP_VERSION}" -o /out/controller ./cmd/controller
 
 # The default user of this base image is 65532 (nonroot); nothing here overrides it, so a pod that needs root (the flow
 # collector) asks for it in its own securityContext.

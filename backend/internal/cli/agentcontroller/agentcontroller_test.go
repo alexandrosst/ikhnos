@@ -41,3 +41,14 @@ func TestATierThatDoesNotExistStopsIt(t *testing.T) {
 		t.Fatalf("exit %d", code)
 	}
 }
+
+func TestTheAgentImageTagIsTheOneThatWasPushed(t *testing.T) {
+	// A main build says "edge-g1a2b3c4" but only "edge" exists as a tag: the agents must be asked for that one.
+	if got := appVersion("edge", "edge-g1a2b3c4"); got != "edge" {
+		t.Fatalf("%q", got)
+	}
+	// A release, or a local build that was told nothing, runs what it says it is.
+	if got := appVersion("", "v0.3.0"); got != "v0.3.0" {
+		t.Fatalf("%q", got)
+	}
+}

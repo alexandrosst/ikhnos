@@ -158,6 +158,7 @@ jobs:
           build-args: |
             VERSION=${{ needs.version.outputs.binary_version }}
             CHART_VERSION=${{ needs.version.outputs.chart_version }}
+            APP_VERSION=${{ needs.version.outputs.version }}
 
       - uses: sigstore/cosign-installer@v3
 

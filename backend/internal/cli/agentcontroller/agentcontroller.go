@@ -30,6 +30,19 @@ import (
 // controller installs the agent release at. Empty: what the embedded chart says.
 var ChartVersion string
 
+// AppVersion is the tag of the agent images the published chart runs (a release build sets it with the linker): the tag that was pushed,
+// which on a main build is "edge" while the binaries say more ("edge-g1a2b3c4"). Empty: the version this binary says.
+var AppVersion string
+
+// appVersion is what the agent chart's appVersion, its default image tag, is set to: the pushed tag when the build knows it, else the
+// running version, which for a release is the same thing.
+func appVersion(pushed, running string) string {
+	if pushed != "" {
+		return pushed
+	}
+	return running
+}
+
 // Defaults are the Helm values every agent release gets under what an IkhnosAgent says: where this build's images are. The agent
 // chart in the source tree names placeholder images; a release build's published chart has the registry it published to baked in, and
 // this binary, which carries the chart's files and not that edit, is told the same things instead.
@@ -101,7 +114,7 @@ func Main(args []string) int {
 	}
 	inst := &helminstall.Installer{Chart: chart.Agent, Configure: helminstall.Config(rc, log), Timeout: *timeout, Log: log}
 	if ChartVersion != "" {
-		inst.Version, inst.AppVersion = ChartVersion, cli.Version
+		inst.Version, inst.AppVersion = ChartVersion, appVersion(AppVersion, cli.Version)
 	}
 	r := &controller.Reconciler{Dyn: dyn, Kube: kube, Installer: inst, Namespace: *ns, Log: log, Defaults: Defaults(*imageRepo, *imageTag, *linkRepo), MaxTier: maxTier, AllowTelemetry: *allowTelemetry, RelayTelemetry: *relayTelemetry, RelayDeadline: *relayDeadline, BootstrapConfigMap: *bootstrap}
 
