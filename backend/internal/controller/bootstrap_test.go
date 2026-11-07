@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"log/slog"
 	"strings"
 	"testing"
@@ -175,5 +177,128 @@ func TestTheSameBootstrapWithANewTokenAsksForTheAgentAgain(t *testing.T) {
 		if strings.Contains(v, "new") && k != BootstrapApplied {
 			t.Errorf("annotation %s = %q", k, v)
 		}
+	}
+}
+
+// The chart's own notes say the token Secret may be removed once the agent has enrolled. A controller that remembered what it had asked for
+// only while the Secret was there made the agent again the next time it started, and put back what a person had edited.
+func TestRemovingTheSpentTokenSecretDoesNotAskForTheAgentAgain(t *testing.T) {
+	g := newRig(t)
+	g.secret("ikhnos-enrollment", "token", "spent")
+	g.bootstrapMap(goodBootstrap)
+	ctx := context.Background()
+	if err := g.r.Bootstrap(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// A person deletes the resource, then cleans up the Secret.
+	if err := g.dyn.Resource(GVR).Namespace(ns).Delete(ctx, "this-cluster", metav1.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.kube.CoreV1().Secrets(ns).Delete(ctx, "ikhnos-enrollment", metav1.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.r.Bootstrap(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(ctx, "this-cluster", metav1.GetOptions{}); err == nil {
+		t.Fatal("the agent was asked for again because the Secret of its spent token was removed")
+	}
+}
+
+func TestRemovingTheSpentTokenSecretDoesNotRevertWhatAPersonEdited(t *testing.T) {
+	g := newRig(t)
+	g.secret("ikhnos-enrollment", "token", "spent")
+	g.bootstrapMap(goodBootstrap)
+	ctx := context.Background()
+	if err := g.r.Bootstrap(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// The person raises the tier in the resource itself, then removes the Secret.
+	u := g.get("this-cluster")
+	u.Object["spec"].(map[string]any)["accessTier"] = int64(2)
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Update(ctx, u, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.kube.CoreV1().Secrets(ns).Delete(ctx, "ikhnos-enrollment", metav1.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.r.Bootstrap(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.get("this-cluster").Object["spec"].(map[string]any)["accessTier"]; got != int64(2) && got != float64(2) {
+		t.Fatalf("what a person set in the resource was put back to the bootstrap's value: accessTier = %v", got)
+	}
+}
+
+func TestAChangedSpecIsStillANewRequestWhenTheSecretIsGone(t *testing.T) {
+	g := newRig(t)
+	g.secret("ikhnos-enrollment", "token", "spent")
+	g.bootstrapMap(goodBootstrap)
+	ctx := context.Background()
+	if err := g.r.Bootstrap(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.kube.CoreV1().Secrets(ns).Delete(ctx, "ikhnos-enrollment", metav1.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	g.setBootstrap(strings.Replace(goodBootstrap, `"accessTier":1`, `"accessTier":2`, 1))
+	if err := g.r.Bootstrap(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.get("this-cluster").Object["spec"].(map[string]any)["accessTier"]; got != int64(2) && got != float64(2) {
+		t.Fatalf("a changed spec was not carried out: accessTier = %v", got)
+	}
+}
+
+// What an earlier controller wrote (one digest of the spec and the token together) still reads as "already asked for", and is rewritten in
+// the form that holds when the Secret is gone.
+func TestWhatAnEarlierControllerRecordedIsStillRecognised(t *testing.T) {
+	g := newRig(t)
+	g.secret("ikhnos-enrollment", "token", "spent")
+	g.bootstrapMap(goodBootstrap)
+	ctx := context.Background()
+	// The annotation as the earlier controller wrote it.
+	h := sha256.New()
+	h.Write([]byte(strings.TrimSpace(goodBootstrap)))
+	h.Write([]byte{0})
+	h.Write([]byte("spent"))
+	old := hex.EncodeToString(h.Sum(nil))
+	cm, _ := g.kube.CoreV1().ConfigMaps(ns).Get(ctx, bootstrapName, metav1.GetOptions{})
+	cm.Annotations = map[string]string{BootstrapApplied: old}
+	if _, err := g.kube.CoreV1().ConfigMaps(ns).Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.r.Bootstrap(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(ctx, "this-cluster", metav1.GetOptions{}); err == nil {
+		t.Fatal("a request an earlier controller had carried out was carried out again")
+	}
+	cm, _ = g.kube.CoreV1().ConfigMaps(ns).Get(ctx, bootstrapName, metav1.GetOptions{})
+	if !strings.HasPrefix(cm.Annotations[BootstrapApplied], "v2:") {
+		t.Errorf("the annotation was not rewritten: %q", cm.Annotations[BootstrapApplied])
+	}
+	// And now the Secret can go.
+	if err := g.kube.CoreV1().Secrets(ns).Delete(ctx, "ikhnos-enrollment", metav1.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.r.Bootstrap(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(ctx, "this-cluster", metav1.GetOptions{}); err == nil {
+		t.Fatal("the agent was asked for again after the Secret was removed")
+	}
+}
+
+func TestTheAnnotationHoldsDigestsAndNotTheToken(t *testing.T) {
+	g := newRig(t)
+	g.secret("ikhnos-enrollment", "token", "ikh_very_secret")
+	g.bootstrapMap(goodBootstrap)
+	if err := g.r.Bootstrap(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	cm, _ := g.kube.CoreV1().ConfigMaps(ns).Get(context.Background(), bootstrapName, metav1.GetOptions{})
+	if v := cm.Annotations[BootstrapApplied]; strings.Contains(v, "ikh_very_secret") || !strings.HasPrefix(v, "v2:") {
+		t.Errorf("annotation = %q", v)
 	}
 }

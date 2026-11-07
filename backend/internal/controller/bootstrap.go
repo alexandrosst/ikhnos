@@ -71,11 +71,16 @@ func (r *Reconciler) Bootstrap(ctx context.Context) error {
 	}
 	// What was asked for is the spec and the token together: the same spec with a new token is a new request. It is how a person connects a
 	// cluster again after the server revoked its agent (the controller removed it): the same command with a new token asks again.
-	digest, err := r.bootstrapDigest(ctx, raw, spec)
+	want, err := r.bootstrapAsked(ctx, raw, spec)
 	if err != nil {
 		return err
 	}
-	if cm.Annotations[BootstrapApplied] == digest {
+	if done, upgrade := want.alreadyCarriedOut(cm.Annotations[BootstrapApplied]); done {
+		if upgrade {
+			// An annotation written by an earlier controller says the same in one digest; say it in the form that survives the token's Secret
+			// being removed. Best effort: it is only a better way of remembering what was already known.
+			_ = r.markBootstrap(ctx, want)
+		}
 		// Said out loud, because a person who sees a controller and no agent has nowhere else to learn why: the same request (this spec,
 		// this token) was already carried out, and what a person has deleted since is not made again.
 		if _, err := r.Dyn.Resource(GVR).Namespace(r.Namespace).Get(ctx, install.ControllerResourceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
@@ -121,33 +126,92 @@ func (r *Reconciler) Bootstrap(ctx context.Context) error {
 		r.log().Info("changed the agent the controller was installed with", "name", install.ControllerResourceName)
 	}
 
-	mark, err := json.Marshal(map[string]any{"metadata": map[string]any{"annotations": map[string]string{BootstrapApplied: digest}}})
+	return r.markBootstrap(ctx, want)
+}
+
+// markBootstrap records on the ConfigMap what was asked for, as digests: never the token.
+func (r *Reconciler) markBootstrap(ctx context.Context, want bootstrapRequest) error {
+	mark, err := json.Marshal(map[string]any{"metadata": map[string]any{"annotations": map[string]string{BootstrapApplied: want.annotation()}}})
 	if err != nil {
 		return err
 	}
-	if _, err := cms.Patch(ctx, r.BootstrapConfigMap, types.MergePatchType, mark, metav1.PatchOptions{}); err != nil {
+	if _, err := r.Kube.CoreV1().ConfigMaps(r.Namespace).Patch(ctx, r.BootstrapConfigMap, types.MergePatchType, mark, metav1.PatchOptions{}); err != nil {
 		return fmt.Errorf("recording that the agent was asked for: %w", err)
 	}
 	return nil
 }
 
-// bootstrapDigest is the digest of the bootstrap spec and, when its Secret is there, of the token in it. Only the digest is kept (as an
-// annotation on the ConfigMap), never the token.
-func (r *Reconciler) bootstrapDigest(ctx context.Context, raw string, spec Spec) (string, error) {
-	h := sha256.New()
-	h.Write([]byte(raw))
+// bootstrapRequest is what a bootstrap asks for, as digests: the spec, and the token in the Secret it names when that Secret is there.
+type bootstrapRequest struct {
+	spec  string // digest of the spec text
+	token string // digest of the token; empty when the Secret is not there
+
+	// hasRef is whether the spec names a Secret for the token at all.
+	hasRef bool
+
+	// Kept only to recognise what an earlier controller wrote (see legacyDigest); never stored.
+	raw         string
+	legacyToken []byte
+}
+
+// annotation is what is kept on the ConfigMap: both digests, so that the spec can be compared when the Secret is gone. The token is spent
+// at its first use and the chart's own notes say the Secret may be removed then; a controller that forgot what it had asked for when that
+// happened would make an agent a person had deleted, or put back what a person had edited.
+func (q bootstrapRequest) annotation() string { return "v2:" + q.spec + ":" + q.token }
+
+// alreadyCarriedOut says whether `kept`, the annotation of the ConfigMap, is this request, and whether it should be rewritten in the
+// current form. The same spec with a new token is a new request. The same spec with no Secret to look at is not: nothing says the token
+// changed, and a request that was carried out is not carried out again because its spent token was cleaned up.
+func (q bootstrapRequest) alreadyCarriedOut(kept string) (done, upgrade bool) {
+	if kept == "" {
+		return false, false
+	}
+	if rest, ok := strings.CutPrefix(kept, "v2:"); ok {
+		spec, token, _ := strings.Cut(rest, ":")
+		if spec != q.spec {
+			return false, false
+		}
+		return q.token == "" || q.token == token, false
+	}
+	// Written by a controller that kept one digest of the spec and the token together (and of the spec alone when there was no Secret).
+	// With the Secret there, or with no Secret named, the old digest can be compared; with a Secret that is gone, an annotation was made
+	// with a token and nothing says it changed.
+	if q.token == "" && q.hasRef {
+		return true, false
+	}
+	same := kept == legacyDigest(q)
+	return same, same && q.hasRef
+}
+
+func (r *Reconciler) bootstrapAsked(ctx context.Context, raw string, spec Spec) (bootstrapRequest, error) {
+	q := bootstrapRequest{spec: hex.EncodeToString(sha256Sum(raw))}
 	if ref := spec.Enrollment.TokenSecretRef; ref != nil {
+		q.hasRef = true
 		sec, err := r.Kube.CoreV1().Secrets(r.Namespace).Get(ctx, ref.Name, metav1.GetOptions{})
 		switch {
 		case apierrors.IsNotFound(err):
 		case err != nil:
-			return "", err
+			return q, err
 		default:
-			h.Write([]byte{0})
-			h.Write(sec.Data[ref.TokenKey()])
+			q.token = hex.EncodeToString(sha256Sum(string(sec.Data[ref.TokenKey()])))
+			q.legacyToken = sec.Data[ref.TokenKey()]
 		}
 	}
-	return hex.EncodeToString(h.Sum(nil)), nil
+	q.raw = raw
+	return q, nil
+}
+
+func sha256Sum(s string) []byte { h := sha256.Sum256([]byte(s)); return h[:] }
+
+// legacyDigest is the single digest an earlier controller kept: the spec text, then (when the Secret was there) a zero byte and the token.
+func legacyDigest(q bootstrapRequest) string {
+	h := sha256.New()
+	h.Write([]byte(q.raw))
+	if len(q.legacyToken) > 0 || q.token != "" {
+		h.Write([]byte{0})
+		h.Write(q.legacyToken)
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // bootstrapUntilDone tries Bootstrap until it succeeds or ctx ends.
