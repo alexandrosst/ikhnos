@@ -23,10 +23,10 @@ An administrator has to go read that code from the cluster's own logs and type i
 2. **The server mints a one-time token** — valid one hour, one use — and prints a ready-to-run `helm install` command with its CA pin already embedded.
 3. **You run that command** against the target cluster. Nothing to fill in by hand: the chart reference, image and CA pin are all already correct.
 4. **The agent starts, dials the server's `:8443`, and checks the pin.** Before it trusts anything the server sends back, it verifies the server's certificate against the CA pin from the install command — first contact is protected against a wrong pin, wrong host, or a foreign CA entirely.
-5. **The server verifies the token and signs the agent a certificate** from its own private CA. The token is consumed here — reusing it fails.
+5. **The server verifies the token** when the agent first contacts it, and the token is spent there, before anyone has approved: reusing it fails. Once you have approved the agent with its code, the server **signs it a certificate** from its own private CA.
 6. **Every connection after this is mutual TLS.** Both sides present certificates; there's no shared secret sitting on disk anywhere, and no inbound rule needed on the cluster's firewall, because the agent is the one dialing out, every time, for the life of the connection.
 
-Certificates last 24 hours and renew automatically at the halfway point. An agent that's been offline for less than 7 days re-establishes on its own with no new token needed; longer than that, or if the certificate is explicitly revoked, it needs to enroll again from step 1.
+Certificates last 24 hours and renew automatically at the halfway point. An agent whose certificate expired no more than 60 days ago re-establishes on its own with no new token needed; longer than that, or if the certificate is explicitly revoked, it needs to enroll again from step 1.
 
 ## Revocation
 

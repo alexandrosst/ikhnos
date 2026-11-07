@@ -52,7 +52,7 @@ The server issues the agent a certificate from its own certificate authority. Th
 On the **Agents** page, the agent shows **Approved** and **Connected**, with a recent heartbeat and a certificate expiry about a day away. The checklist on Topology disappears, because it has done its job. Nodes, namespaces and services start appearing within moments.
 </See>
 
-The certificate lasts 24 hours and renews by itself at the halfway point, so you do not have to remember anything. If the agent is ever offline for less than seven days it rejoins by itself, with no new token.
+The certificate lasts 24 hours and renews by itself at the halfway point, so you do not have to remember anything. If the agent is ever offline, it rejoins by itself, with no new token, for up to 60 days after its certificate expired.
 
 ## If it did not work
 

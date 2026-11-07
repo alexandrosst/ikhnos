@@ -28,9 +28,10 @@ running where I expect" are two different, separately-checked facts:
    bound to the agent's own public key. An administrator has to go read that code from the cluster's logs
    and type it into the approve dialog; that's what turns "someone had a token" into an actual human
    decision about this specific cluster.
-3. **Certificate.** The agent dials the server, checks the CA pin from its own install command before
-   trusting anything back, and the server signs it a certificate from its private CA once the token and
-   approval are both verified. The token is consumed at this point — reusing it fails.
+3. **Certificate.** The agent dials the server and checks the CA pin from its own install command before
+   trusting anything back. The token is consumed when the agent first contacts the server, before anyone has
+   approved — reusing it fails. The server signs the agent a certificate from its private CA once the
+   approval code has been verified.
 4. **Tier enforcement.** Every connection after this is mutual TLS, and what an agent is actually allowed
    to report is governed by three tiers, always checked in this order: the chart's own `access.tier` is a
    ceiling only a `helm upgrade` on the cluster's own side can raise; an administrator's **approved** tier
@@ -44,9 +45,9 @@ running where I expect" are two different, separately-checked facts:
    design. A revoked agent's pod keeps restarting (Kubernetes doesn't know it's been told no) but exits
    promptly every time with a clear reason logged, backing off to a few attempts an hour. The only way back
    in is `helm upgrade` with a fresh token, starting over from step 1.
-6. **Rejoin.** Certificates last 24 hours and renew automatically at the halfway point. An agent that's been
-   offline for less than 7 days re-establishes on its own with no new token needed; longer than that, or if
-   it was explicitly revoked, it has to enroll again from scratch.
+6. **Rejoin.** Certificates last 24 hours and renew automatically at the halfway point. An agent whose
+   certificate expired no more than 60 days ago re-establishes on its own with no new token needed; longer
+   than that, or if it was explicitly revoked, it has to enroll again from scratch.
 
 Full detail, including why two secrets rather than one and exactly what each RPC re-checks, is in [Agent
 trust model](./agent-trust-model.md).

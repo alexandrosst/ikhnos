@@ -58,7 +58,7 @@ An agent proves itself with a certificate from the server's own CA. That certifi
 
 - **Enroll** (once): the agent shows a token and the server answers with the first certificate, after a person approves the agent. See [Agent trust model](../architecture/agent-trust-model.md).
 - **Renew**: at half of the certificate's life, over the existing identity.
-- **Rejoin**: if the agent was away for less than seven days, it can come back without a new approval.
+- **Rejoin**: if its certificate expired no more than 60 days ago, the agent can come back without a new token or approval.
 
 Past that, the agent is asked to enroll again and a person approves it again.
 
