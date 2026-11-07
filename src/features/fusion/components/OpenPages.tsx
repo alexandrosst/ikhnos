@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, LayoutDashboard } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { buttonClass } from '@/components/ui/buttonClass'
 import { ErrorBanner, ICON_SM } from '@/components/ui/primitives'
@@ -41,25 +41,31 @@ export function useOpenPage() {
   return { open, opening, error }
 }
 
-/** The two pages FUSION serves, as buttons. Before one is up (its part is still starting) it is shown, disabled, so the person knows it is
- *  coming rather than wondering where it is. */
+/** The two pages FUSION serves, as buttons: Grafana, where the charts are, is the main one. Before one is up (its part is still starting) it is
+ *  shown, disabled, so the person knows it is coming rather than wondering where it is. */
 export function OpenPages({ links, opening, onOpen }: { links: FusionStatus['links']; opening: boolean; onOpen: (page: 'grafana' | 'prometheus') => void }) {
   const button = (page: 'grafana' | 'prometheus', label: string) => {
-    const cls = buttonClass('secondary')
+    const main = page === 'grafana'
+    const cls = buttonClass(main ? 'primary' : 'secondary')
+    const content = (
+      <>
+        {main && <LayoutDashboard size={ICON_SM} aria-hidden />} {label} <ExternalLink size={ICON_SM} aria-hidden />
+      </>
+    )
     if (!links?.[page]) {
       return (
         <span className={clsx(cls, 'cursor-not-allowed opacity-45')} aria-disabled="true" title="Available when it has started" data-testid={`fusion-open-${page}`}>
-          <ExternalLink size={ICON_SM} aria-hidden /> {label}
+          {content}
         </span>
       )
     }
     return (
       <button type="button" className={cls} onClick={() => onOpen(page)} disabled={opening} data-testid={`fusion-open-${page}`}>
-        <ExternalLink size={ICON_SM} aria-hidden /> {label}
+        {content}
       </button>
     )
   }
-  return <>{button('prometheus', 'Open Prometheus')}{button('grafana', 'Open Grafana')}</>
+  return <>{button('grafana', 'Open Grafana')}{button('prometheus', 'Open Prometheus')}</>
 }
 
 export const OpenError = ({ message }: { message: string }) => (message ? <ErrorBanner className="mb-4" data-testid="fusion-open-error">{message}</ErrorBanner> : null)

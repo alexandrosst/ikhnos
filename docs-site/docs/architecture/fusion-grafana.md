@@ -6,7 +6,7 @@ description: Grafana ships inside FUSION already connected to Prometheus, Loki a
 
 # Grafana and the web pages in FUSION
 
-[FUSION](./regional-operators.md#fusion-where-a-regional-operator-saves-what-it-receives) saves metrics, logs and traces. To look at them you do not need to find an address or port-forward anything: the **FUSION** page (sidebar, Telemetry) has **Open Grafana** and **Open Prometheus** at the top, each opening in a new tab once that part is up.
+[FUSION](./regional-operators.md#fusion-where-a-regional-operator-saves-what-it-receives) saves metrics, logs and traces. To look at them you do not need to find an address or port-forward anything: the **FUSION** page (sidebar, Telemetry) has **Open Grafana** (the main button) and **Open Prometheus** at the top, each opening in a new tab once that part is up. Once Grafana is up, the same **Open Grafana** is also a small chart button on the FUSION row of the sidebar, for an administrator who wants the dashboards without opening the page first.
 
 ## What is in it
 

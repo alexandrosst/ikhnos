@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { BookOpen, Boxes, Cable, ClipboardCheck, Database, Folders, History, Keyboard, Layers, MapPin, Menu, Network, Package, Radio, Route, Search, Server, Settings2, Waypoints } from 'lucide-react'
+import { BookOpen, Boxes, Cable, ClipboardCheck, Folders, History, Keyboard, LayoutDashboard, Layers, MapPin, Menu, Network, Package, Radio, Route, Search, Server, Settings2, Waypoints } from 'lucide-react'
 import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BrandMark, Copyright } from '@/components/ui/brand'
@@ -9,6 +9,7 @@ import AuthGate from '@/features/accounts/components/AuthGate'
 import SyncNotices from '@/features/accounts/components/SyncNotices'
 import CommandPalette from '@/components/CommandPalette'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import FusionShortcut from '@/features/fusion/components/FusionShortcut'
 import HistoryBanner from '@/features/history/components/HistoryBanner'
 import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal'
 import SampleBanner from '@/components/SampleBanner'
@@ -49,7 +50,7 @@ const NAV_GROUPS: { label: string; items: NavEntry[] }[] = [
     label: 'Telemetry',
     items: [
       { to: '/pipeline', label: 'Pipeline', icon: Waypoints },
-      { to: '/fusion', label: 'FUSION', icon: Database },
+      { to: '/fusion', label: 'FUSION', icon: LayoutDashboard },
     ],
   },
   {
@@ -68,8 +69,8 @@ const NAV_GROUPS: { label: string; items: NavEntry[] }[] = [
  * whichever of its items is active, so this item skips drawing its own - a `slid` group and a `NavIndicator`
  * always come as a pair. Items outside that group (Settings, in the footer) keep the plain static bar.
  */
-function NavItem({ to, label, icon: Icon, badge, slid }: NavEntry & { badge?: number; slid?: boolean }) {
-  return (
+function NavItem({ to, label, icon: Icon, badge, slid, trailing }: NavEntry & { badge?: number; slid?: boolean; trailing?: ReactNode }) {
+  const link = (
     <NavLink
       to={to}
       data-nav-to={slid ? to : undefined}
@@ -78,6 +79,7 @@ function NavItem({ to, label, icon: Icon, badge, slid }: NavEntry & { badge?: nu
       className={({ isActive }) =>
         clsx(
           'group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+          trailing && 'pr-11',
           isActive ? 'bg-nb-940 text-nb-300' : 'text-nb-400 hover:bg-nb-930 hover:text-nb-300',
         )
       }
@@ -95,6 +97,14 @@ function NavItem({ to, label, icon: Icon, badge, slid }: NavEntry & { badge?: nu
         </>
       )}
     </NavLink>
+  )
+  // A control that sits beside the link (a button inside an <a> is not valid, and would be a click on both).
+  if (!trailing) return link
+  return (
+    <div className="relative">
+      {link}
+      <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center">{trailing}</div>
+    </div>
   )
 }
 
@@ -203,6 +213,7 @@ function SidebarNav({
   found,
   proposals,
   accountSlot,
+  fusionShortcut,
   onSearch,
   onShortcuts,
 }: {
@@ -214,6 +225,8 @@ function SidebarNav({
   found?: number
   proposals?: number
   accountSlot: ReactNode
+  /** The button beside FUSION: only once signed in, since it reads FUSION's state. */
+  fusionShortcut?: ReactNode
   onSearch: () => void
   onShortcuts: () => void
 }) {
@@ -246,7 +259,7 @@ function SidebarNav({
             <div key={group.label} className="flex flex-col gap-1">
               <div className="px-3 text-[11px] font-medium uppercase tracking-wide text-nb-600">{group.label}</div>
               {group.items.map((n) => (
-                <NavItem key={n.to} {...n} slid badge={n.to === '/agents' ? (approvals ?? 0) + (found ?? 0) : n.to === '/proposals' ? proposals : undefined} />
+                <NavItem key={n.to} {...n} slid badge={n.to === '/agents' ? (approvals ?? 0) + (found ?? 0) : n.to === '/proposals' ? proposals : undefined} trailing={n.to === '/fusion' ? fusionShortcut : undefined} />
               ))}
             </div>
           ))}
@@ -356,6 +369,7 @@ function Shell() {
         found={found}
         proposals={proposals}
         accountSlot={<AccountMenu />}
+        fusionShortcut={<FusionShortcut />}
         onSearch={() => setSearching(true)}
         onShortcuts={() => setShortcuts(true)}
       />
