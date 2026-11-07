@@ -177,3 +177,13 @@ test('with many clusters every line is searched for and none runs through a card
   console.log(`# crowded: ${g.edges.length} lines, ${through} run through a card`)
   assert.ok(through <= 5, `${through} lines run through a card`)
 })
+
+test('the tracks past the edge of the drawing leave a crowded graph with much less shared lane', () => {
+  const g = buildGraph(crowded(3) as never, { view: 'application', groupBy: 'cluster', servicesOnNodes: false, links: true, devices: false })
+  const lookup = lookupOf(g.nodes)
+  const without = measure(routeLines(lookup, g.edges, false, { frame: false }))
+  const withIt = measure(routeLines(lookup, g.edges, false))
+  console.log(`# crowded ${g.edges.length} lines, tracks past the edge: crossings ${without.crossings} -> ${withIt.crossings}, shared lane ${Math.round(without.overlap)}px -> ${Math.round(withIt.overlap)}px`)
+  assert.ok(withIt.overlap < without.overlap * 0.6, `shared lane ${without.overlap} -> ${withIt.overlap}`)
+  assert.ok(withIt.crossings <= without.crossings * 1.05, `crossings ${without.crossings} -> ${withIt.crossings}`)
+})

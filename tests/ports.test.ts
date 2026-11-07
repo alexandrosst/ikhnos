@@ -77,6 +77,26 @@ test('a line told where the others are goes round them when a way exists', () =>
   assert.equal(conflictsWith(around, { h: [], v: short.v }).crossings, 0)
 })
 
+test('past the edge of the drawing there are tracks to go round by, a lane apart, so lines told where the others run each take their own', () => {
+  const right = { x: 1, y: 0 }
+  const left = { x: -1, y: 0 }
+  // A wall across the whole drawing, and four lines that all have to go round it: the wall's own two sides hold two lines, not four.
+  const wall = [{ x: 190, y: 0, w: 20, h: 400 }]
+  const frame = { x: 0, y: 0, w: 400, h: 400 }
+  const run = (withFrame: boolean) => {
+    const done: { x: number; y: number }[][] = []
+    for (const y of [180, 190, 200, 210]) {
+      const occupied = { h: done.flatMap((r) => runsOf(r).h), v: done.flatMap((r) => runsOf(r).v) }
+      const route = orthoRoute({ x: 0, y }, right, { x: 400, y }, left, wall, [], occupied, withFrame ? frame : undefined)
+      assert.ok(route, 'a way round')
+      done.push(route!)
+    }
+    return countConflicts(done).overlap
+  }
+  assert.ok(run(false) > 0, 'without the tracks past the edge, two of the four share a lane')
+  assert.equal(run(true), 0, 'with them each has its own')
+})
+
 test('the second go keeps a new route only when it is less crowded', () => {
   // Two lines on the same y, one of which has a way round and one of which has none.
   const routes = [

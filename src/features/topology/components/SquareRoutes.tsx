@@ -12,14 +12,14 @@ import { relieve } from './relieve'
 import { straightenJog } from './straighten'
 
 /** What a line was routed from, kept so it can be routed again when it turns out to be in the others' way. */
-type Input = { p1: Pt; n1: Pt; p2: Pt; n2: Pt; hard: PathObstacle[]; soft: PathObstacle[] }
+type Input = { p1: Pt; n1: Pt; p2: Pt; n2: Pt; hard: PathObstacle[]; soft: PathObstacle[]; frame?: Rect }
 export type Laid = { id: string; pts: Pt[]; n1: Pt; n2: Pt; hasMarker: boolean; input: Input }
 
 /** The lines' routes, all together. `dragging`: a card is being dragged, so only what is cheap is done. The options exist so a test can
  *  switch a step off and measure what it is worth; the page uses the defaults. */
-export type RouteOptions = { rule?: boolean; slots?: boolean; relieve?: boolean }
+export type RouteOptions = { rule?: boolean; slots?: boolean; relieve?: boolean; frame?: boolean }
 export function routeLines(nodeLookup: Map<string, InternalNode>, edges: TopoEdge[], dragging: boolean, opts: RouteOptions = {}): Laid[] {
-  const { rule = true, slots: useSlots = true, relieve: useRelieve = true } = opts
+  const { rule = true, slots: useSlots = true, relieve: useRelieve = true, frame: useFrame = true } = opts
   setOrthoCacheCap(orthoCacheCapFor(edges.length))
 
   // 1. Sides by rule, then a slot for every end.
@@ -38,18 +38,37 @@ export function routeLines(nodeLookup: Map<string, InternalNode>, edges: TopoEdg
   for (const en of ends) sharing.set(`${en.nodeId}|${en.normal.x},${en.normal.y}`, (sharing.get(`${en.nodeId}|${en.normal.x},${en.normal.y}`) ?? 0) + 1)
   const slotted = (p: Pt, n: Pt, v: number | undefined): Pt => (v === undefined ? p : n.y !== 0 ? { x: v, y: p.y } : { x: p.x, y: v })
 
+  // The whole drawing, for the tracks round it.
+  let frame: Rect | undefined
+  if (useFrame) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+    for (const n of nodeLookup.values()) {
+      if (n.type !== 'boundary' && n.type !== 'card') continue
+      const w = n.measured.width
+      const h = n.measured.height
+      if (!w || !h) continue
+      x0 = Math.min(x0, n.internals.positionAbsolute.x)
+      y0 = Math.min(y0, n.internals.positionAbsolute.y)
+      x1 = Math.max(x1, n.internals.positionAbsolute.x + w)
+      y1 = Math.max(y1, n.internals.positionAbsolute.y + h)
+    }
+    // Rounded outwards to a coarse step, so dragging a card about does not change what every line's search is keyed on.
+    const step = 120
+    if (x1 > x0 && y1 > y0) frame = { x: Math.floor(x0 / step) * step, y: Math.floor(y0 / step) * step, w: Math.ceil(x1 / step) * step - Math.floor(x0 / step) * step, h: Math.ceil(y1 / step) * step - Math.floor(y0 / step) * step }
+  }
+
   // 2. One search per line.
   const routes: Laid[] = []
   for (const { e, l } of placed) {
     const p1 = slotted(l.p1, l.n1, slots.get(`${e.id}|s`))
     const p2 = slotted(l.p2, l.n2, slots.get(`${e.id}|t`))
     const hard = [...l.obstacles, l.sourceBox, l.targetBox]
-    const route = cachedOrtho(p1, l.n1, p2, l.n2, [...hard, ...l.soft]) ?? simpleOrthoRoute(p1, l.n1, p2, l.n2)
+    const route = cachedOrtho(p1, l.n1, p2, l.n2, [...hard, ...l.soft], frame) ?? simpleOrthoRoute(p1, l.n1, p2, l.n2)
     const pts = route.map((p) => ({ ...p }))
     // A route that is only a few px of sideways jog becomes one straight run (see straighten.ts); an end in a slot among several stays put.
     const crowded = (id: string, n: Pt) => useSlots && (sharing.get(`${id}|${n.x},${n.y}`) ?? 0) > 1
     if (straightenJog(pts, { source: l.sourceBox, target: l.targetBox, sourceOffset: useSlots ? 0 : (e.data?.sourceOffset ?? 0), targetOffset: useSlots ? 0 : (e.data?.targetOffset ?? 0), sourceLocked: crowded(e.source, l.n1), targetLocked: crowded(e.target, l.n2) })) pts.splice(1, 2)
-    routes.push({ id: e.id, pts, n1: l.n1, n2: l.n2, hasMarker: !!e.markerEnd, input: { p1, n1: l.n1, p2, n2: l.n2, hard, soft: l.soft } })
+    routes.push({ id: e.id, pts, n1: l.n1, n2: l.n2, hasMarker: !!e.markerEnd, input: { p1, n1: l.n1, p2, n2: l.n2, hard, soft: l.soft, frame } })
   }
 
   // While a card is being dragged every line is routed again on each frame, so what only tidies waits until it is dropped.
@@ -59,7 +78,7 @@ export function routeLines(nodeLookup: Map<string, InternalNode>, edges: TopoEdg
   if (useRelieve) {
     relieve(routes, (i, occupied) => {
       const { input } = routes[i]
-      const again = orthoRoute(input.p1, input.n1, input.p2, input.n2, input.hard, input.soft, occupied)
+      const again = orthoRoute(input.p1, input.n1, input.p2, input.n2, input.hard, input.soft, occupied, input.frame)
       return again ? again.map((p) => ({ ...p })) : null
     })
   }

@@ -69,18 +69,18 @@ export const orthoCacheCapFor = (edgeCount: number) => Math.max(400, edgeCount *
 export function setOrthoCacheCap(n: number) {
   orthoCap = n
 }
-export function cachedOrtho(p1: Pt, n1: Pt, p2: Pt, n2: Pt, obstacles: PathObstacle[]) {
+export function cachedOrtho(p1: Pt, n1: Pt, p2: Pt, n2: Pt, obstacles: PathObstacle[], frame?: PathObstacle) {
   const hard = obstacles.filter((o) => !o.soft)
   const soft = obstacles.filter((o) => o.soft)
   const r = (v: number) => Math.round(v * 2) / 2
-  const key = [p1.x, p1.y, n1.x, n1.y, p2.x, p2.y, n2.x, n2.y, ...hard.flatMap((o) => [o.x, o.y, o.w, o.h]), -99999, ...soft.flatMap((o) => [o.x, o.y, o.w, o.h])].map(r).join(',')
+  const key = [p1.x, p1.y, n1.x, n1.y, p2.x, p2.y, n2.x, n2.y, ...hard.flatMap((o) => [o.x, o.y, o.w, o.h]), -99999, ...soft.flatMap((o) => [o.x, o.y, o.w, o.h]), -88888, ...(frame ? [frame.x, frame.y, frame.w, frame.h] : [])].map(r).join(',')
   if (orthoCache.has(key)) {
     const hit = orthoCache.get(key)!
     orthoCache.delete(key)
     orthoCache.set(key, hit)
     return hit
   }
-  const route = orthoRoute(p1, n1, p2, n2, hard, soft)
+  const route = orthoRoute(p1, n1, p2, n2, hard, soft, undefined, frame)
   while (orthoCache.size >= orthoCap) orthoCache.delete(orthoCache.keys().next().value!)
   orthoCache.set(key, route)
   return route

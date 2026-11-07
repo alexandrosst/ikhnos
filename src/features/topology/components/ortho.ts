@@ -26,6 +26,12 @@ const BEND_COST = 24
 /** Cost per px a turn lies away from the middle between the ends (centres a jog; kept small so a box in the way wins). */
 const CENTER_COST = 0.1
 const EPS = 0.5
+/** The tracks past the edge of the drawing: how many, how far out the first is, and how far apart (px). */
+const FRAME_TRACKS = 6
+const FRAME_AIR = 24
+const FRAME_PITCH = 14
+/** A line's ends must be within this of a side of the drawing for the tracks beyond it to be offered (px). */
+const FRAME_REACH = 900
 /** A route running along (parallel to, within SOFT_BAND of) the border of a `soft` box pays this much extra per px: it
  *  reads as part of the box's frame, so a line should cross the border, not ride it. */
 const BORDER_COST = 1.5
@@ -129,7 +135,7 @@ export function simpleOrthoRoute(p1: Pt, n1: Pt, p2: Pt, n2: Pt): Pt[] {
  * must be axis-aligned unit vectors. `occupied` is the runs of lines already placed: crossing or running along one costs extra,
  * so a line shares a channel with another only when it has no better way.
  */
-export function orthoRoute(p1: Pt, n1: Pt, p2: Pt, n2: Pt, obstacles: Rect[], soft: Rect[] = [], occupied?: Runs): Pt[] | null {
+export function orthoRoute(p1: Pt, n1: Pt, p2: Pt, n2: Pt, obstacles: Rect[], soft: Rect[] = [], occupied?: Runs, frame?: Rect): Pt[] | null {
   if (obstacles.length > ORTHO_MAX_OBSTACLES) return null
   const d1 = dirIndex(n1)
   const d2 = dirIndex({ x: -n2.x, y: -n2.y })
@@ -142,8 +148,14 @@ export function orthoRoute(p1: Pt, n1: Pt, p2: Pt, n2: Pt, obstacles: Rect[], so
 
   const midX = (s1.x + s2.x) / 2
   const midY = (s1.y + s2.y) / 2
-  const xs = lines([s1.x, s2.x, midX, ...rects.flatMap((r) => [r.x, r.x + r.w]), ...soft.flatMap((r) => [r.x, r.x + r.w])])
-  const ys = lines([s1.y, s2.y, midY, ...rects.flatMap((r) => [r.y, r.y + r.h]), ...soft.flatMap((r) => [r.y, r.y + r.h])])
+  // Beyond everything there is room for as many lines as want it: a few tracks past the edge of the whole drawing, a lane apart.
+  // Only on the sides a line's ends are near enough to want them: the grid grows with every track.
+  const outer = (lo: number, hi: number, a: number, b: number) =>
+    Array.from({ length: FRAME_TRACKS }, (_, k) => [Math.min(a, b) - lo < FRAME_REACH ? lo - FRAME_AIR - k * FRAME_PITCH : NaN, hi - Math.max(a, b) < FRAME_REACH ? hi + FRAME_AIR + k * FRAME_PITCH : NaN])
+      .flat()
+      .filter((v) => !Number.isNaN(v))
+  const xs = lines([s1.x, s2.x, midX, ...rects.flatMap((r) => [r.x, r.x + r.w]), ...soft.flatMap((r) => [r.x, r.x + r.w]), ...(frame ? outer(frame.x, frame.x + frame.w, p1.x, p2.x) : [])])
+  const ys = lines([s1.y, s2.y, midY, ...rects.flatMap((r) => [r.y, r.y + r.h]), ...soft.flatMap((r) => [r.y, r.y + r.h]), ...(frame ? outer(frame.y, frame.y + frame.h, p1.y, p2.y) : [])])
   // Extra cost of a step along a box border (see BORDER_COST): `vertical` for a step in y, which rides a left/right border.
   const riding = (mx: number, my: number, vertical: boolean) =>
     soft.some((r) =>
