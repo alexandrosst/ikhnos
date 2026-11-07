@@ -27,6 +27,18 @@ describe('what is said about a pair', () => {
     expect(p.meshLabel).toBe('Mesh addresses: Tailscale, both clusters (suggested)')
   })
 
+  test('a connection that opened to a mesh address replaces "likely" with what happened', () => {
+    const p = pairOverlay(same, 'c-a', 'c-b', name, ['mesh', 'public'])!
+    expect(p.sentence).toBe('Connections between them opened over mesh addresses.')
+    expect(p.meshLabel).toBe('Mesh addresses: Tailscale, both clusters')
+    expect(pairOverlay(same, 'c-a', 'c-b', name, ['public'])!.sentence).toContain('Likely the same Tailscale network')
+  })
+
+  test('the same for a maybe: reaching the range settles it, whatever the range was used for', () => {
+    const agents = [ag('c-a', ts('100.64.12.0/24'), [{ clusterId: 'c-c', maybe: true }]), ag('c-c', bare('100.64.0.0/10'))]
+    expect(pairOverlay(agents, 'c-a', 'c-c', name, ['mesh'])!.sentence).toBe('Connections between them opened over mesh addresses.')
+  })
+
   test('one side with only addresses in the shared range is a maybe, named, with what to do', () => {
     const agents = [ag('c-a', ts('100.64.12.0/24'), [{ clusterId: 'c-c', maybe: true }]), ag('c-c', bare('100.64.0.0/10'))]
     const p = pairOverlay(agents, 'c-a', 'c-c', name)!

@@ -325,6 +325,28 @@ func kindUp(cluster, peer, kind string, v float64) fusionapi.LinkReading {
 	return fusionapi.LinkReading{Cluster: cluster, Peer: peer, Kind: kind, Value: v}
 }
 
+// The kinds a connection opened to are named, whichever cluster opened it, in the order of the words.
+func TestTheKindsOfAddressThatWereReachedAreNamed(t *testing.T) {
+	now := time.Unix(1791200000, 0)
+	pairs := []kernel.LinkSetting{{A: "cl-a", B: "cl-b"}}
+	reached := func(in ...fusionapi.LinkReading) string {
+		var out []string
+		for _, k := range latestPairs(pairs, fusionapi.LinkReadings{KindUp: in}, now)[0].Reached {
+			out = append(out, string(k))
+		}
+		return strings.Join(out, ",")
+	}
+	if got := reached(kindUp("cl-a", "cl-b", "public", 1), kindUp("cl-b", "cl-a", "mesh", 1), kindUp("cl-a", "cl-b", "private", 0)); got != "mesh,public" {
+		t.Errorf("either cluster reaching a kind counts, and the order is the words': %q", got)
+	}
+	if got := reached(kindUp("cl-a", "cl-b", "mesh", 0)); got != "" {
+		t.Errorf("a kind nothing reached is not named: %q", got)
+	}
+	if got := reached(kindUp("cl-a", "cl-c", "mesh", 1)); got != "" {
+		t.Errorf("another pair's reading is not this pair's: %q", got)
+	}
+}
+
 // A pair reached over one kind of address and not over another is told apart from one that is not reached at all.
 func TestTheKindsOfAddressThatDidNotAnswerAreNamed(t *testing.T) {
 	now := time.Unix(1791200000, 0)

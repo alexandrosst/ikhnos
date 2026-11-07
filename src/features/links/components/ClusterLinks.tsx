@@ -199,7 +199,7 @@ export default function ClusterLinks() {
       </p>
 
       {adding && <AddPair clusters={clusters} agents={agents} name={name} onClose={() => setAdding(false)} />}
-      {editing && <EditPair key={`${editing.a}|${editing.b}`} pair={editing} agents={agents} name={name} onClose={() => setEditing(null)} />}
+      {editing && <EditPair key={`${editing.a}|${editing.b}`} pair={editing} agents={agents} name={name} reached={latestByPair.get(pairKey(editing.a, editing.b))?.reached} onClose={() => setEditing(null)} />}
     </section>
   )
 }
@@ -414,7 +414,7 @@ function ThroughputOptions({ choice, onChoice, own, cost, runner, answerer }: { 
   )
 }
 
-function EditPair({ pair, agents, name, onClose }: { pair: LinkPair; agents: Agent[]; name: (id: string) => string; onClose: () => void }) {
+function EditPair({ pair, agents, name, reached, onClose }: { pair: LinkPair; agents: Agent[]; name: (id: string) => string; reached?: readonly string[]; onClose: () => void }) {
   const { busy, error, run } = useSaveLinks(onClose)
   const [probe, setProbe] = useState(!pair.noProbe)
   const [via, setVia] = useState<Via | ''>(pair.via ?? '')
@@ -461,8 +461,8 @@ function EditPair({ pair, agents, name, onClose }: { pair: LinkPair; agents: Age
           {tpOn && <ThroughputOptions choice={choice} onChoice={setChoice} own={pair.throughput} cost={throughput} runner={name(runnerOf(pair))} answerer={name(runnerOf(pair) === pair.a ? pair.b : pair.a)} />}
 
           <hr className="border-nb-850" />
-          <PairOverlayBox agents={agents} x={pair.a} y={pair.b} name={name} via={via} onUseMesh={() => setVia('mesh')} />
-          <ViaSelect value={via} onChange={setVia} meshLabel={pairOverlay(agents, pair.a, pair.b, name)?.meshLabel} />
+          <PairOverlayBox agents={agents} x={pair.a} y={pair.b} name={name} via={via} onUseMesh={() => setVia('mesh')} reached={reached} />
+          <ViaSelect value={via} onChange={setVia} meshLabel={pairOverlay(agents, pair.a, pair.b, name, reached)?.meshLabel} />
 
           <hr className="border-nb-850" />
           <div>

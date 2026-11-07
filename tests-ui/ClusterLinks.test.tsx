@@ -733,6 +733,19 @@ describe('ClusterLinks', () => {
       await vi.waitFor(() => expect(saved).toEqual([{ a: 'c-eu', b: 'c-us', via: 'mesh' }]))
     })
 
+    it('in the Edit dialog, says the connections opened once the latest figures show a mesh address was reached', async () => {
+      seed('admin', [{ a: 'c-eu', b: 'c-us' }])
+      seedAgents(
+        { ...agent('c-eu'), overlay: tailscale('100.64.1.0/24'), overlayPeers: [{ clusterId: 'c-us' }] },
+        { ...agent('c-us'), overlay: tailscale('100.64.2.0/24'), overlayPeers: [{ clusterId: 'c-eu' }] },
+      )
+      vi.spyOn(api, 'linksLatest').mockResolvedValue(answer({ pairs: [{ a: 'c-eu', b: 'c-us', lossAToB: 0, lossBToA: 0, reached: ['mesh'], probedAt: NOW }] }))
+      render(<ClusterLinks />)
+      await within(await screen.findByTestId('pair-row')).findByTestId('latest')
+      fireEvent.click(screen.getByRole('button', { name: 'Edit cloud-eu and cloud-us' }))
+      expect(screen.getByTestId('pair-overlay')).toHaveTextContent('Connections between them opened over mesh addresses.')
+    })
+
     it('says nothing for clusters that have no overlay', () => {
       render(<ClusterLinks />)
       fireEvent.click(screen.getByTestId('add-pair'))

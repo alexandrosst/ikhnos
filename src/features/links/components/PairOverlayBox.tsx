@@ -8,8 +8,8 @@ import type { Via } from '@/lib/clusterLinks'
  * to share it. Nothing is chosen for the person: when mesh addresses are worth measuring through, there is a button that picks them, and the
  * measurement is what then shows whether the two reach each other. Shows nothing when there is nothing to say.
  */
-export function PairOverlayBox({ agents, x, y, name, via, onUseMesh }: { agents: Agent[]; x: string; y: string; name: (id: string) => string; via: Via | ''; onUseMesh: () => void }) {
-  const p = pairOverlay(agents, x, y, name)
+export function PairOverlayBox({ agents, x, y, name, via, onUseMesh, reached }: { agents: Agent[]; x: string; y: string; name: (id: string) => string; via: Via | ''; onUseMesh: () => void; reached?: readonly string[] }) {
+  const p = pairOverlay(agents, x, y, name, reached)
   if (!p) return null
   return (
     <div data-testid="pair-overlay">

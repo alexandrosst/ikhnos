@@ -36,7 +36,11 @@ const rowOf = (name: string, o: Overlay): PairRow =>
     ? { name, what: productName(o) || o.interface || 'Overlay', range: o.range, nodes: nodesOn(o) }
     : { name, what: 'Addresses in', range: o.range, nodes: nodesOn(o), note: 'no overlay interface seen' }
 
-export function pairOverlay(agents: Agent[], x: string, y: string, name: (id: string) => string): PairOverlay | null {
+/**
+ * `reached` is what the connect timing says of the pair (the kinds of address a connection opened to). A connection to a mesh-range address
+ * is the proof the nodes' interfaces cannot give, so it replaces "likely" and "may be" with what happened.
+ */
+export function pairOverlay(agents: Agent[], x: string, y: string, name: (id: string) => string, reached: readonly string[] = []): PairOverlay | null {
   const ag = (id: string) => agents.find((a) => a.clusterId === id && a.status === 'approved')
   const ax = ag(x)
   const ay = ag(y)
@@ -45,6 +49,15 @@ export function pairOverlay(agents: Agent[], x: string, y: string, name: (id: st
   if (!ax || !ay || !ox || !oy) return null
   const rows: [PairRow, PairRow] = [rowOf(name(x), ox), rowOf(name(y), oy)]
   const peer = (ax.overlayPeers ?? []).find((p) => p.clusterId === y)
+  if (reached.includes('mesh') && (peer || (fromInterface(ox) && fromInterface(oy)))) {
+    const product = productName(ox)
+    return {
+      rows,
+      offerMesh: true,
+      meshLabel: `Mesh addresses${product && peer && !peer.maybe ? `: ${product}, both clusters` : ''}`,
+      sentence: 'Connections between them opened over mesh addresses.',
+    }
+  }
   if (peer && !peer.maybe) {
     const product = productName(ox)
     return {

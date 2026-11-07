@@ -1278,6 +1278,7 @@ export interface FusionLinkPair {
   probeAToB?: LinkProbeLatest
   probeBToA?: LinkProbeLatest
   silent?: LinkVia[]
+  reached?: LinkVia[]
   testsHeld?: TestsHeld
   testsReason?: ProbeFailure
   measuredBy: string[]
@@ -1597,6 +1598,7 @@ export interface LinkPairLatest {
   probeAToB?: LinkProbeLatest
   probeBToA?: LinkProbeLatest
   silent?: LinkVia[]
+  reached?: LinkVia[]
   testsHeld?: TestsHeld
   testsReason?: ProbeFailure
 }

@@ -66,6 +66,10 @@ type LinkPairLatest struct {
 	// address, say) rather than a cluster that is down. Absent when every kind that was tried answered, and when none did, since
 	// that says nothing of one path against another.
 	Silent []kernel.LinkVia `json:"silent,omitempty"`
+	// Reached are the kinds of address of the other cluster that a connection opened to in the latest rounds of the connect timing, in the
+	// order mesh, private, public: what shows that two clusters really reach each other over a path, as a reading of the nodes' interfaces
+	// cannot. Either cluster reaching a kind counts. Absent when none did.
+	Reached []kernel.LinkVia `json:"reached,omitempty"`
 	// TestsHeld says why a pair with throughput tests has no result lately: what its tests have been held back by or failed with in the
 	// last hours, or that none has been tried yet. Absent where a test finished within the window, where the pair has no tests and where
 	// nothing explains the wait (a plan that runs once a day is not late). TestsReason is the failure reason when TestsHeld is failing.
@@ -504,6 +508,7 @@ func readPairs(links []kernel.LinkSetting, rd fusionapi.LinkReadings, now time.T
 			}
 			connect.timed = p.RTTSeconds != nil
 			p.Silent = silentKinds(rd.KindUp, a, b)
+			p.Reached = reachedKinds(rd.KindUp, a, b)
 			diagnose(p.ProbeAToB, p.ProbeBToA, p.LossAToB, connect, now)
 			diagnose(p.ProbeBToA, p.ProbeAToB, p.LossBToA, connect, now)
 		}
@@ -548,6 +553,24 @@ func silentKinds(in []fusionapi.LinkReading, a, b string) []kernel.LinkVia {
 	for _, w := range (kernel.LinkVia("")).WireWords() {
 		if k := kernel.LinkVia(w); down[k] && !up[k] {
 			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// reachedKinds are the kinds of address of the pair that a connection opened to, in the order mesh, private, public. A kind counts as
+// reached if either cluster reached it. The words come from the same fixed list as silentKinds.
+func reachedKinds(in []fusionapi.LinkReading, a, b string) []kernel.LinkVia {
+	up := map[string]bool{}
+	for _, x := range in {
+		if (x.Cluster == a && x.Peer == b || x.Cluster == b && x.Peer == a) && x.Value >= 1 {
+			up[x.Kind] = true
+		}
+	}
+	var out []kernel.LinkVia
+	for _, w := range (kernel.LinkVia("")).WireWords() {
+		if up[w] {
+			out = append(out, kernel.LinkVia(w))
 		}
 	}
 	return out
