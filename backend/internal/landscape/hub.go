@@ -516,6 +516,10 @@ func (h *Hub) Connect(stream ikhnosv1.AgentService_ConnectServer) error {
 					asm = nil // a whole picture or a change arriving means the series before it will not be finished
 				}
 				drift, checked, err := h.ApplySync(cur, sy, fullSeen)
+				if errors.Is(err, errConsentUnavailable) {
+					// Not the agent's doing and not a limit it hit: it reconnects and sends the picture again.
+					return status.Error(codes.Unavailable, "the server could not read this agent's settings; try again")
+				}
 				if err != nil {
 					h.refuseSync(ctx, cur, v, err)
 					return status.Error(codes.ResourceExhausted, err.Error())
@@ -598,7 +602,9 @@ func (h *Hub) ApplySync(a store.Agent, s *ikhnosv1.Sync, fullSeen bool) (drift f
 	for _, n := range s.Namespaces {
 		reportedNS = append(reportedNS, n.Name)
 	}
-	h.dropConsentOverrides(a.ID, s)
+	if err := h.dropConsentOverrides(a.ID, s); err != nil {
+		return drift, false, err
+	}
 	h.Mu.Lock()
 	defer h.Mu.Unlock()
 	v := h.Views[a.ID]

@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -662,22 +663,56 @@ func agentSnapshot(a store.Agent, c Consent) AgentSnapshot {
 	return s
 }
 
-// consentFor loads an agent's overrides straight from the store, for a caller that is not the hub's live
-// view of a connected agent (recording history is one). Falls back to none rather than failing: a graph
-// version with no discovery intent recorded is far better than one skipped entirely over this.
-func consentFor(ctx context.Context, st store.Store, agentID string) Consent {
-	data, _, err := st.LoadSnapshot(ctx, ConsentKey(agentID))
+// keepValid is CleanConsent for what the server stored itself: an entry that no longer passes (a namespace that
+// has since become a system one, a collector a later release dropped) is left out and the rest is kept, where a
+// request with one bad entry is refused whole. Throwing out all of an agent's overrides because of one stale entry
+// would quietly start collecting what an administrator had asked it not to.
+func keepValid(in Consent) Consent {
+	var out Consent
+	for _, p := range in.Paused {
+		if c, err := CleanConsent(Consent{Paused: []string{p}}); err == nil {
+			out.Paused = append(out.Paused, c.Paused...)
+		}
+	}
+	for _, ns := range in.Excluded {
+		if c, err := CleanConsent(Consent{Excluded: []string{ns}}); err == nil {
+			out.Excluded = append(out.Excluded, c.Excluded...)
+		}
+	}
+	out, _ = CleanConsent(out) // sorted and without duplicates
+	if len(out.Excluded) > kernel.MaxExcluded {
+		out.Excluded = out.Excluded[:kernel.MaxExcluded]
+	}
+	return out
+}
+
+// LoadConsent reads an agent's overrides from the store. An agent with none stored has none; a stored value that
+// cannot be read is cleaned entry by entry (see keepValid). An error is returned only when the store itself could
+// not answer, which says nothing about what the overrides are: the caller must not take it for "none".
+func LoadConsent(ctx context.Context, st store.Store, agentID string) (Consent, time.Time, error) {
+	data, at, err := st.LoadSnapshot(ctx, ConsentKey(agentID))
+	if errors.Is(err, store.ErrNotFound) {
+		return Consent{}, time.Time{}, nil
+	}
 	if err != nil {
-		return Consent{}
+		return Consent{}, time.Time{}, err
 	}
 	var c Consent
 	if json.Unmarshal(data, &c) != nil {
+		return Consent{}, at, nil
+	}
+	return keepValid(c), at, nil
+}
+
+// consentFor is LoadConsent for a caller that is not the hub's live view of a connected agent (recording history is
+// one). Falls back to none rather than failing: a graph version with no discovery intent recorded is far better than
+// one skipped entirely over this.
+func consentFor(ctx context.Context, st store.Store, agentID string) Consent {
+	c, _, err := LoadConsent(ctx, st, agentID)
+	if err != nil {
 		return Consent{}
 	}
-	if cc, err := CleanConsent(c); err == nil {
-		return cc
-	}
-	return Consent{}
+	return c
 }
 
 // entityRecorder is what a store adds when it keeps a graph: the ability to version one entity's state

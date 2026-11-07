@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	ikhnosv1 "ikhnos/gen/ikhnosv1"
 	"ikhnos/internal/accounts"
@@ -35,31 +34,30 @@ func (h *Hub) ViewFor(id string) *View {
 	return v
 }
 
+// errConsentUnavailable is what a caller that must not guess gets when an agent's overrides could not be read.
+var errConsentUnavailable = errors.New("the agent's overrides could not be read from the store")
+
 // ensureConsent loads an agent's overrides from the store the first time they are needed. Do not hold h.mu.
-func (h *Hub) ensureConsent(id string, v *View) {
+// An agent with none stored has none. When the store cannot answer, nothing is remembered, so the next call asks
+// again, and the error says the overrides are unknown rather than empty.
+func (h *Hub) ensureConsent(id string, v *View) error {
 	h.Mu.Lock()
 	loaded := v.Ext.ConsentLoad
 	h.Mu.Unlock()
 	if loaded {
-		return
+		return nil
 	}
-	var c agents.Consent
-	var at time.Time
-	if data, savedAt, err := h.C.Store.LoadSnapshot(bg(), agents.ConsentKey(id)); err == nil {
-		at = savedAt
-		if json.Unmarshal(data, &c) != nil {
-			c = agents.Consent{}
-		} else if cc, err := agents.CleanConsent(c); err == nil {
-			c = cc // stored data is not trusted more than a request
-		} else {
-			c = agents.Consent{}
-		}
+	c, at, err := agents.LoadConsent(bg(), h.C.Store, id)
+	if err != nil {
+		h.Log.Warn("an agent's overrides could not be read; asking again next time", "agent", id, "err", err)
+		return errConsentUnavailable
 	}
 	h.Mu.Lock()
 	if !v.Ext.ConsentLoad {
 		v.Ext.Consent, v.Ext.ConsentAt, v.Ext.ConsentLoad = c, at, true
 	}
 	h.Mu.Unlock()
+	return nil
 }
 
 // NamespaceOf returns the Kubernetes namespace an agent last reported for itself, or "" if it never has (an older
@@ -89,10 +87,24 @@ func (h *Hub) ConsentOf(id string) agents.Consent {
 	h.Mu.Lock()
 	v := h.ViewFor(id)
 	h.Mu.Unlock()
-	h.ensureConsent(id, v)
+	h.ensureConsent(id, v) // on failure: none for this call, and asked again the next
 	h.Mu.Lock()
 	defer h.Mu.Unlock()
 	return v.Ext.Consent
+}
+
+// consentToApply is ConsentOf for the one caller that must not guess: what is let into the server's picture. If the
+// overrides cannot be read it says so instead of letting through what an administrator asked to leave out.
+func (h *Hub) consentToApply(id string) (agents.Consent, error) {
+	h.Mu.Lock()
+	v := h.ViewFor(id)
+	h.Mu.Unlock()
+	if err := h.ensureConsent(id, v); err != nil {
+		return agents.Consent{}, err
+	}
+	h.Mu.Lock()
+	defer h.Mu.Unlock()
+	return v.Ext.Consent, nil
 }
 
 // ConsentDocFor is consentDoc for one agent by id: what has been asked of it, and whether it has confirmed
@@ -226,8 +238,13 @@ func (h *Hub) SetConsent(ctx context.Context, actor, agentID string, in agents.C
 // function already drops it), so the edge has nothing to attach to and stays inert rather than invisible. Worth
 // tightening later if that residual is ever a problem in practice; not attempted here because it would mean
 // parsing a flow key's namespace reliably enough to trust filtering by it.
-func (h *Hub) dropConsentOverrides(id string, s *ikhnosv1.Sync) {
-	agents.ApplyConsent(h.ConsentOf(id), s)
+func (h *Hub) dropConsentOverrides(id string, s *ikhnosv1.Sync) error {
+	c, err := h.consentToApply(id)
+	if err != nil {
+		return err
+	}
+	agents.ApplyConsent(c, s)
+	return nil
 }
 
 // narrowState drops what the server holds for an agent above a tier that was just lowered, by replacing its picture with
