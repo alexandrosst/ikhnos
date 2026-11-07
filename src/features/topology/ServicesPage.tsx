@@ -12,7 +12,7 @@ import { observation } from '@/lib/provenance'
 import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
 import type { Service } from '@/lib/types'
-import { matches, RowActions, SearchBox, ServiceTraits } from './shared'
+import { editOnDoubleClick, matches, RowActions, SearchBox, ServiceTraits } from './shared'
 
 const SERVICE_COLUMNS: ColumnDef[] = [
   { key: 'cluster', label: 'Cluster' },
@@ -94,7 +94,7 @@ export default function ServicesPage() {
           </thead>
           <tbody>
             {rows.map((w) => (
-              <tr key={w.id} className="group hover:bg-nb-930/60">
+              <tr key={w.id} className="group hover:bg-nb-930/60" {...editOnDoubleClick(() => setEditing(w))}>
                 <Td>
                   <div className="font-medium text-nb-300">{w.name}<ObservationChip quiet info={observation(w)} />{w.source === 'manual' && <> <DeclaredMark /></>}</div>
                   <div className="font-mono text-xs text-nb-500">{w.image || '—'} · ×{w.replicas}</div>

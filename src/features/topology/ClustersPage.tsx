@@ -14,7 +14,7 @@ import { useAutoPlaceClusters, usePlacementSuggestions } from '@/lib/usePlacemen
 import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
 import type { Cluster } from '@/lib/types'
-import { matches, RowActions, SearchBox } from './shared'
+import { editOnDoubleClick, matches, RowActions, SearchBox } from './shared'
 
 const CLUSTER_COLUMNS: ColumnDef[] = [
   { key: 'tier', label: 'Tier' },
@@ -95,7 +95,7 @@ export default function ClustersPage() {
                 return w ? <GuessDot level={w.level} why={w.why} /> : null
               }
               return (
-              <tr key={c.id} className="group hover:bg-nb-930/60">
+              <tr key={c.id} className="group hover:bg-nb-930/60" {...editOnDoubleClick(() => setEditing(c))}>
                 <Td className="whitespace-nowrap font-medium text-nb-300">
                   <div>{c.name}</div>
                   {c.createdAt && <div className="text-xs font-normal text-nb-500" title={`Created ${new Date(c.createdAt).toLocaleDateString()}`}>{ageLabel(c.createdAt)} old</div>}

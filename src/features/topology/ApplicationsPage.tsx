@@ -7,7 +7,7 @@ import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/col
 import { originLabel } from '@/lib/present'
 import type { Application } from '@/lib/types'
 import { useTopology } from '@/store/topology'
-import { matches, RowActions, SearchBox } from './shared'
+import { editOnDoubleClick, matches, RowActions, SearchBox } from './shared'
 
 const APPLICATION_COLUMNS: ColumnDef[] = [
   { key: 'services', label: 'Services' },
@@ -64,7 +64,7 @@ export default function ApplicationsPage() {
               const mine = services.filter((s) => s.applicationId === a.id)
               const cIds = [...new Set(mine.map((s) => s.clusterId))]
               return (
-                <tr key={a.id} className="group hover:bg-nb-930/60">
+                <tr key={a.id} className="group hover:bg-nb-930/60" {...editOnDoubleClick(() => setEditing(a))}>
                   <Td>
                     <div className="font-medium text-nb-300">{a.name}</div>
                     {a.description && <div className="text-xs text-nb-500">{a.description}</div>}

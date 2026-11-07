@@ -12,7 +12,7 @@ import { usePlaceIndex } from '@/lib/places-data'
 import { countryName } from '@/lib/present'
 import { SITE_KINDS, type Site } from '@/lib/types'
 import { useTopology } from '@/store/topology'
-import { matches, RowActions, SearchBox } from './shared'
+import { editOnDoubleClick, matches, RowActions, SearchBox } from './shared'
 
 const SITE_COLUMNS: ColumnDef[] = [
   { key: 'kind', label: 'Kind' },
@@ -68,7 +68,7 @@ export default function SitesPage() {
           </thead>
           <tbody>
             {rows.map((s) => (
-              <tr key={s.id} className="group hover:bg-nb-930/60">
+              <tr key={s.id} className="group hover:bg-nb-930/60" {...editOnDoubleClick(() => setEditing(s))}>
                 <Td className="font-medium text-nb-300">{s.name}</Td>
                 {isVisible('kind') && <Td><Pill>{kindLabel(s.kind)}</Pill></Td>}
                 {isVisible('location') && (

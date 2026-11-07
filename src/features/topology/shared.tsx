@@ -12,10 +12,23 @@ export function SearchBox({ value, onChange, placeholder }: { value: string; onC
   )
 }
 
+/**
+ * Props for a table row that opens its edit form on a double-click, so a change always starts with a deliberate gesture and not with a
+ * button that sits next to Delete. A double-click on a control inside the row (a link, a button, a field) is left to that control.
+ */
+export const editOnDoubleClick = (onEdit: () => void) => ({
+  title: 'Double-click to edit',
+  onDoubleClick: (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button, a, input, select, textarea, [role="button"], [role="combobox"]')) return
+    window.getSelection()?.removeAllRanges()
+    onEdit()
+  },
+})
+
 export function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
   return (
     <div className="flex justify-end gap-1">
-      <Button variant="ghost" size="sm" aria-label="Edit" onClick={onEdit}>
+      <Button variant="ghost" size="sm" aria-label="Edit" title="Edit (or double-click the row)" onClick={onEdit}>
         <Pencil size={ICON_MD} />
       </Button>
       <Button variant="ghost" size="sm" aria-label="Delete" onClick={onDelete}>

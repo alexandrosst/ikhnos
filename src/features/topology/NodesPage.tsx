@@ -12,7 +12,7 @@ import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
 import { accelSummary, ageLabel, formatCpu, formatMemory, podsLabel, podsPercent, requestedPercent } from '@/lib/present'
 import type { MachineNode } from '@/lib/types'
-import { matches, RowActions, SearchBox } from './shared'
+import { editOnDoubleClick, matches, RowActions, SearchBox } from './shared'
 
 const KIND_LABEL = { vm: 'Virtual machine', 'bare-metal': 'Bare metal', 'edge-device': 'Edge device' } as const
 const KIND_ICON = { vm: Server, 'bare-metal': HardDrive, 'edge-device': Cpu } as const
@@ -89,7 +89,7 @@ export default function NodesPage() {
                 return w ? <GuessDot level={w.level} why={w.why} /> : null
               }
               return (
-              <tr key={n.id} className="group hover:bg-nb-930/60">
+              <tr key={n.id} className="group hover:bg-nb-930/60" {...editOnDoubleClick(() => setEditing(n))}>
                 <Td>
                   <div className="flex items-center gap-2 whitespace-nowrap font-medium text-nb-300">
                     <span className="shrink-0">
