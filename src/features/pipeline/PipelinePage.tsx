@@ -116,6 +116,15 @@ export default function PipelinePage() {
     setDetailFor(row.id)
     setSp((p) => { const n = new URLSearchParams(p); n.delete('open'); return n }, { replace: true })
   }, [wantOpen, rows, setSp])
+  // `/pipeline?setup=<agent id>` (the button on an agent with no telemetry yet) opens the guided setup with that agent chosen. Spent at once, like
+  // `open` above; it waits until this person can start it, and is left alone for someone who never can.
+  const wantSetup = sp.get('setup')
+  const { start: startSetup, canStart } = telemetry
+  useEffect(() => {
+    if (!wantSetup || !canStart) return
+    startSetup(wantSetup)
+    setSp((p) => { const n = new URLSearchParams(p); n.delete('setup'); return n }, { replace: true })
+  }, [wantSetup, canStart, startSetup, setSp])
   const fusionKind = fusionSentence(fusion.status).kind
   const hops = useMemo(
     () => buildHops(rows, { kind: fusionKind, lastDataAt: fusion.status?.lastDataAt }).filter((h) => h.key !== 'agent' && (admin || (h.key !== 'regional' && h.key !== 'central'))),

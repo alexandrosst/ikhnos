@@ -23,11 +23,6 @@ vi.mock('@/store/server', () => ({
 }))
 // The consent form and the telemetry panel have their own tests and stores; this page test is about where the page puts the Telemetry section.
 vi.mock('@/features/agents/components/AgentInsight', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/features/agents/components/AgentInsight')>()), AccessPanel: () => <div data-testid="access-stub" /> }))
-vi.mock('@/features/pipeline/components/telemetry/TelemetryPanel', () => ({
-  TelemetryPanel: ({ agentId, changeElsewhere }: { agentId?: string; changeElsewhere?: import('react').ReactNode }) => (
-    <div data-testid="telemetry-stub" data-agent={agentId} data-form={changeElsewhere ? 'elsewhere' : 'form'}>{changeElsewhere}</div>
-  ),
-}))
 const startTelemetry = vi.fn()
 vi.mock('@/features/pipeline/components/telemetry/TelemetryFlow', () => ({
   useTelemetryFlow: () => ({ start: startTelemetry, dialogs: null, canStart: true }),
@@ -81,7 +76,7 @@ describe('AgentsPage', () => {
     topologyState = { agents: [ag({ connected: true })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
     serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }), diagnostics } as unknown as Agent] } }
     renderPage('/agents?open=a1')
-    expect(screen.getByTestId('telemetry-stub')).toHaveAttribute('data-agent', 'a1')
+    expect(screen.getByTestId('open-in-pipeline-a1')).toBeInTheDocument()
     expect(screen.getByTestId('where')).toHaveTextContent(/^\/agents$/)
   })
 
@@ -90,7 +85,7 @@ describe('AgentsPage', () => {
     topologyState = { agents: [ag({ connected: true })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
     serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }), diagnostics } as unknown as Agent] } }
     renderPage('/agents')
-    expect(screen.queryByTestId('telemetry-stub')).toBeNull()
+    expect(screen.queryByTestId('agent-telemetry')).toBeNull()
   })
 
   test('an agent\'s detail settles in with a short fade and its chevron turns, instead of being swapped', () => {
@@ -101,10 +96,10 @@ describe('AgentsPage', () => {
     const row = screen.getByTestId('agent-row')
     expect(row).toHaveAttribute('aria-expanded', 'true')
     expect(row.querySelector('.chevron-turn')).toHaveAttribute('data-open', 'true')
-    expect(screen.getByTestId('telemetry-stub').closest('.detail-in')).not.toBeNull()
+    expect(screen.getByTestId('agent-telemetry').closest('.detail-in')).not.toBeNull()
     fireEvent.click(row)
     expect(screen.getByTestId('agent-row').querySelector('.chevron-turn')).toHaveAttribute('data-open', 'false')
-    expect(screen.queryByTestId('telemetry-stub')).toBeNull()
+    expect(screen.queryByTestId('agent-telemetry')).toBeNull()
   })
 
   test('the connection says how long the certificate has left, and turns amber only when it is about to run out while connected', () => {
@@ -149,33 +144,36 @@ describe('AgentsPage', () => {
     expect(body).not.toHaveTextContent('Last heartbeat')
   })
 
-  test('nothing is changed in an agent\'s row: a running one is changed from its collector, one with none is set up in the guided dialog', () => {
+  test('an agent\'s telemetry is a pointer to Pipeline: a running one says how many signals and opens its collector, one with none is set up there', () => {
     const base = { reportedAt: new Date().toISOString(), agentVersion: '1', uptimeSeconds: 1, installedTier: 2, approvedTier: 2, effectiveTier: 2, pausedCollectors: [], excludedNamespaces: 0, collectors: [], informers: [], problems: [] }
     topologyState = { agents: [ag({ connected: true })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
-    serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }), diagnostics: { ...base, installedTelemetry: ['resourceUsage'] } } as unknown as Agent] } }
+    serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }), diagnostics: { ...base, installedTelemetry: ['resourceUsage', 'kubernetesState'] } } as unknown as Agent] } }
     const first = renderPage('/agents?open=a1')
-    expect(screen.getByTestId('telemetry-stub')).toHaveAttribute('data-form', 'elsewhere')
-    const link = screen.getByTestId('change-in-pipeline-a1')
-    expect(link).toHaveAttribute('href', '/pipeline?open=a1')
-    expect(link).toHaveTextContent(/Pipeline → .* collector/)
-    expect(screen.queryByTestId('setup-telemetry-a1')).toBeNull()
+    expect(screen.getByTestId('agent-telemetry-count')).toHaveTextContent('2 signals')
+    expect(screen.getByTestId('open-in-pipeline-a1')).toHaveAttribute('href', '/pipeline?open=a1')
+    expect(screen.queryByTestId('setup-in-pipeline-a1')).toBeNull()
     first.unmount()
 
-    startTelemetry.mockClear()
     serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }), diagnostics: { ...base, installedTelemetry: [] } } as unknown as Agent] } }
     renderPage('/agents?open=a1')
-    expect(screen.getByTestId('telemetry-stub')).toHaveAttribute('data-form', 'elsewhere')
-    expect(screen.queryByTestId('change-in-pipeline-a1')).toBeNull()
-    fireEvent.click(screen.getByTestId('setup-telemetry-a1'))
-    expect(startTelemetry).toHaveBeenCalledWith('a1')
+    expect(screen.getByTestId('agent-telemetry')).toHaveTextContent('Nothing is sent from this cluster yet.')
+    expect(screen.queryByTestId('open-in-pipeline-a1')).toBeNull()
+    expect(screen.getByTestId('setup-in-pipeline-a1')).toHaveAttribute('href', '/pipeline?setup=a1')
   })
 
-  test('an agent that has not reported at all is set up the same way', () => {
+  test('an agent that has not reported at all is not said to send nothing, and can still be set up', () => {
     topologyState = { agents: [ag({ connected: true })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
     serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }) } as unknown as Agent] } }
-    startTelemetry.mockClear()
     renderPage('/agents?open=a1')
-    fireEvent.click(screen.getByTestId('setup-telemetry-a1'))
-    expect(startTelemetry).toHaveBeenCalledWith('a1')
+    expect(screen.getByTestId('agent-telemetry')).toHaveTextContent('Not known until the agent has reported.')
+    expect(screen.getByTestId('setup-in-pipeline-a1')).toHaveAttribute('href', '/pipeline?setup=a1')
+  })
+
+  test('someone who cannot change things is shown the state but not sent to set it up', () => {
+    topologyState = { agents: [ag({ connected: true })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
+    serverState = { status: 'connected', canEdit: () => false, state: { agents: [{ ...ag({ connected: true }) } as unknown as Agent] } }
+    renderPage('/agents?open=a1')
+    expect(screen.getByTestId('agent-telemetry')).toBeInTheDocument()
+    expect(screen.queryByTestId('setup-in-pipeline-a1')).toBeNull()
   })
 })

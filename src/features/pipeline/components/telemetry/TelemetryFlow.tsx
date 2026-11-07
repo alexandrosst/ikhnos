@@ -16,7 +16,8 @@ const TelemetryWizard = lazy(() => import('@/features/pipeline/components/teleme
  * admin-level `canStart`, since configuring telemetry is an editor-level action today, not an
  * administrative one.
  *
- * Deliberately no `?connect=1`-style URL auto-open: nothing here needs a bookmarkable telemetry-wizard URL.
+ * No bookmarkable telemetry-wizard URL, but one link into it: `/pipeline?setup=<agent id>`, the button on an agent that sends nothing yet, which the
+ * Pipeline page spends at once (see PipelinePage).
  * The wizard's own empty-state handles "no cluster connected yet" by navigating to `/agents?connect=1`
  * itself, rather than this hook owning a second `useConnectFlow` instance - see TelemetryWizard.tsx.
  */

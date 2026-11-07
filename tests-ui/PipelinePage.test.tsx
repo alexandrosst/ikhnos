@@ -88,8 +88,9 @@ vi.mock('@/store/server', () => ({
   },
 }))
 const telemetryStart = vi.fn()
+let telemetryCanStart = false
 vi.mock('@/features/pipeline/components/telemetry/TelemetryFlow', () => ({
-  useTelemetryFlow: () => ({ start: telemetryStart, dialogs: null, canStart: false }),
+  useTelemetryFlow: () => ({ start: telemetryStart, dialogs: null, canStart: telemetryCanStart }),
 }))
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>()
@@ -136,6 +137,7 @@ beforeEach(() => {
   setOperatorAddress.mockReset()
   setOperatorAddress.mockResolvedValue({} as RegionalOperator)
   telemetryStart.mockClear()
+  telemetryCanStart = false
   fusionStatus = fusionOff()
   getFusion.mockClear()
   enableFusion.mockClear()
@@ -1140,6 +1142,22 @@ describe('PipelinePage - local operators', () => {
     renderPage('/pipeline?open=a1')
     expect(await screen.findByTestId('local-operator-detail')).toBeInTheDocument()
     expect(screen.getByTestId('where')).toHaveTextContent(/^\/pipeline$/)
+  })
+
+  test('a link from an agent with no telemetry (/pipeline?setup=<agent>) opens the guided setup with that agent, and is spent at once', async () => {
+    telemetryCanStart = true
+    topologyState = { agents: [ag()], clusters: [cl()] }
+    renderPage('/pipeline?setup=a1')
+    await waitFor(() => expect(telemetryStart).toHaveBeenCalledWith('a1'))
+    expect(telemetryStart).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/pipeline$/)
+  })
+
+  test('someone who cannot set telemetry up is not sent into the setup, and the link does nothing', async () => {
+    topologyState = { agents: [ag()], clusters: [cl()] }
+    renderPage('/pipeline?setup=a1')
+    await screen.findByTestId('where')
+    expect(telemetryStart).not.toHaveBeenCalled()
   })
 
   test('someone who is not an administrator gets the destination from the read model, and no operator is loaded', async () => {

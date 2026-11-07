@@ -3,7 +3,7 @@ import { ChevronRight, List, Network, Plug, Radio, Server } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { AccessPanel, DiscoveryChip, HealthChip, Problems } from '@/features/agents/components/AgentInsight'
-import { TelemetryPanel } from '@/features/pipeline/components/telemetry/TelemetryPanel'
+import { AgentTelemetry } from '@/features/agents/components/AgentTelemetry'
 import { StatusBadge } from '@/components/ui/Status'
 import { SortTh, useSort } from '@/components/ui/sort'
 import { TabPanel, Tabs } from '@/components/ui/Tabs'
@@ -346,7 +346,7 @@ export default function AgentsPage() {
                         <tr>
                           <Td colSpan={7} className="bg-nb-930/40 py-4">
                             <div className="detail-in">
-                              <AgentDetail agent={a} extras={extrasOf(rawAgents, a.id)} canConsent={canConsent} onSetUpTelemetry={() => telemetry.start(a.id)} onRevoke={canAdminister && connected && a.status === 'approved' ? () => setRevoking(a) : undefined} />
+                              <AgentDetail agent={a} extras={extrasOf(rawAgents, a.id)} canConsent={canConsent} onRevoke={canAdminister && connected && a.status === 'approved' ? () => setRevoking(a) : undefined} />
                             </div>
                           </Td>
                         </tr>
@@ -367,7 +367,7 @@ export default function AgentsPage() {
                 <h2 className="text-sm font-medium text-nb-300">{openAgent.name}</h2>
                 <button className="text-xs text-nb-500 hover:text-nb-300" onClick={() => setOpen(null)}>Close</button>
               </div>
-              <AgentDetail agent={openAgent} extras={extrasOf(rawAgents, openAgent.id)} canConsent={canConsent} onSetUpTelemetry={() => telemetry.start(openAgent.id)} onRevoke={canAdminister && connected && openAgent.status === 'approved' ? () => setRevoking(openAgent) : undefined} />
+              <AgentDetail agent={openAgent} extras={extrasOf(rawAgents, openAgent.id)} canConsent={canConsent} onRevoke={canAdminister && connected && openAgent.status === 'approved' ? () => setRevoking(openAgent) : undefined} />
             </div>
           )}
         </>
@@ -400,33 +400,11 @@ export default function AgentsPage() {
 }
 
 /** Everything the server knows about one agent that does not fit in a row. */
-function AgentDetail({ agent: a, extras, canConsent, onSetUpTelemetry, onRevoke }: { agent: Agent; extras: AgentExtras; canConsent: boolean; onSetUpTelemetry?: () => void; onRevoke?: () => void }) {
+function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent; extras: AgentExtras; canConsent: boolean; onRevoke?: () => void }) {
   const l = a.link
   const certLeft = msUntil(a.certExpiresAt)
   const ip = a.connectingIp
   const publicIpFallbackOn = useServer((s) => s.info?.geoip?.publicIpFallback)
-  const install = useServer((s) => s.info?.install)
-  // An agent whose telemetry is running has a local operator on the Pipeline page, and that is where it is changed: the signals it sends,
-  // where to, how often. Here the installed ones are only shown. An agent with none yet is set up in the guided dialog, the same one the page's own
-  // "Set up telemetry" button opens, with this agent already chosen: nothing is changed in this row, so there is one place for each thing.
-  const hasCollector = (extras.diagnostics?.installedTelemetry ?? []).length > 0
-  const changeInPipeline = (
-    <span className="text-nb-500">
-      To change what it sends or where to, use{' '}
-      <Link to={`/pipeline?open=${encodeURIComponent(a.id)}`} className="text-accent hover:underline" data-testid={`change-in-pipeline-${a.id}`}>
-        Pipeline → {a.name} collector
-      </Link>
-      .
-    </span>
-  )
-  const setUp = (
-    <div className="flex flex-wrap items-center gap-3 text-nb-500">
-      <Button onClick={onSetUpTelemetry} data-testid={`setup-telemetry-${a.id}`}>
-        <Radio size={ICON_SM} /> Set up telemetry
-      </Button>
-      <span>A short guided setup for this agent&apos;s cluster. It is changed afterwards from its collector on the Pipeline page.</span>
-    </div>
-  )
   const approved = a.status === 'approved'
   const d = approved ? extras.diagnostics : undefined
   const reported = a.status === 'approved' || a.status === 'revoked' || a.status === 'rejected'
@@ -506,15 +484,11 @@ function AgentDetail({ agent: a, extras, canConsent, onSetUpTelemetry, onRevoke 
             )}
           </div>
         )}
-        {connection}
-      </div>
-      {approved && canConsent && (
-        // Its own full-width row: the form walks through four steps, and a request's state line reads in sentences.
-        <div id={`telemetry-${a.id}`}>
-          <Heading>Telemetry</Heading>
-          <TelemetryPanel diagnostics={d} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} changeElsewhere={hasCollector ? changeInPipeline : setUp} />
+        <div className="space-y-6">
+          {connection}
+          {approved && <AgentTelemetry agent={a} diagnostics={d} canConsent={canConsent} />}
         </div>
-      )}
+      </div>
       {(a.status === 'revoked' || a.status === 'rejected') && a.teardown && <AgentTeardown status={a.status} teardown={a.teardown} />}
       <Fold
         title="Technical details"
