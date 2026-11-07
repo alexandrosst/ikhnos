@@ -425,161 +425,194 @@ function AgentDetail({ agent: a, extras, canConsent, onSetUpTelemetry, onRevoke 
       <span>A short guided setup for this agent&apos;s cluster. It is changed afterwards from its collector on the Pipeline page.</span>
     </div>
   )
-  return (
-    <div className="grid gap-x-10 gap-y-5 text-sm md:grid-cols-2 xl:grid-cols-3">
-      {a.status === 'approved' && extras.diagnostics && (
-        <div className="md:col-span-2 xl:col-span-3" data-testid="agent-health">
-          <div className="grid gap-x-10 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
-            <div>
-              <Heading>What this agent can see</Heading>
-              <div className="mb-2 flex flex-wrap items-center gap-2"><HealthChip diagnostics={extras.diagnostics} connected={a.connected} /><DiscoveryChip diagnostics={extras.diagnostics} /><span className="text-xs text-nb-600">from the agent's own report, {ageOf(extras.diagnostics.reportedAt)}</span></div>
-              <CanSee agent={a} diagnostics={extras.diagnostics} />
-              {extras.diagnostics.problems.length > 0 && (
-                <div className="mt-4">
-                  <Heading>Problems</Heading>
-                  <Problems problems={extras.diagnostics.problems} />
-                </div>
-              )}
-            </div>
-            {canConsent && (
-              <div className="xl:col-span-2">
-                <Heading>Observability intent</Heading>
-                <ConsentPanel agent={a} diagnostics={extras.diagnostics} consent={extras.consent} />
-              </div>
-            )}
-            {canConsent && (
-              // Its own full-width row: the form walks through four steps, and a request's state line reads in sentences.
-              <div id={`telemetry-${a.id}`} className="md:col-span-2 xl:col-span-3">
-                <Heading>Telemetry</Heading>
-                <TelemetryPanel diagnostics={extras.diagnostics} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} changeElsewhere={hasCollector ? changeInPipeline : setUp} />
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      {a.status === 'approved' && !extras.diagnostics && canConsent && (
-        <div className="grid gap-x-10 gap-y-5 md:grid-cols-2 md:col-span-2 xl:col-span-3">
-          <div>
-            <Heading>Observability intent</Heading>
-            <ConsentPanel agent={a} diagnostics={undefined} consent={extras.consent} />
-          </div>
-          <div id={`telemetry-${a.id}`} className="md:col-span-2">
-            <Heading>Telemetry</Heading>
-            <TelemetryPanel diagnostics={undefined} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} changeElsewhere={setUp} />
-          </div>
-        </div>
-      )}
-      <div>
-        <Heading>Connection</Heading>
-        <Facts
-          rows={[
-            ['Connecting from', ip ? `${ip}${ipScopeLabel(ipScope(ip)) ? ` (${ipScopeLabel(ipScope(ip)).toLowerCase()})` : ''}` : undefined],
-            [
-              'Located',
-              a.connectingGeo ? (
-                <span key="located" className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                  <span className="inline-flex items-center gap-2">
-                    <Flag code={a.connectingGeo.country} />
-                    <span>
-                      {[a.connectingGeo.city, a.connectingGeo.countryName || a.connectingGeo.country].filter(Boolean).join(', ')}
-                      {a.connectingGeo.estimated && <GuessDot why="Taken from this server's own internet connection, because the cluster's address is private." />}
-                    </span>
+  const approved = a.status === 'approved'
+  const d = approved ? extras.diagnostics : undefined
+  const reported = a.status === 'approved' || a.status === 'revoked' || a.status === 'rejected'
+  const modulesNotOk = a.modules.filter((m) => m.status !== 'ok')
+  // The approved level, and only what differs from it: the install and the enrollment say more only when they are not the same.
+  const tierName = (t?: number) => ACCESS_TIERS.find((x) => x.value === t)?.label
+  const accessWords = [
+    tierOf(a),
+    a.installedTier !== undefined && a.installedTier !== a.accessTier ? `installed up to ${tierName(a.installedTier)}` : undefined,
+    a.tierCap !== undefined && a.tierCap !== (a.installedTier ?? a.accessTier) ? `enrolled up to ${tierName(a.tierCap)}` : undefined,
+  ].filter(Boolean).join(' · ')
+  const connection = (
+    <div data-testid="agent-connection">
+      <Heading>Connection</Heading>
+      <Facts
+        rows={[
+          ['From', ip ? `${ip}${ipScopeLabel(ipScope(ip)) ? ` (${ipScopeLabel(ipScope(ip)).toLowerCase()})` : ''}` : undefined],
+          [
+            'Located',
+            a.connectingGeo ? (
+              <span key="located" className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <span className="inline-flex items-center gap-2">
+                  <Flag code={a.connectingGeo.country} />
+                  <span>
+                    {[a.connectingGeo.city, a.connectingGeo.countryName || a.connectingGeo.country].filter(Boolean).join(', ')}
+                    {a.connectingGeo.estimated && <GuessDot why="Taken from this server's own internet connection, because the cluster's address is private." />}
                   </span>
-                  {a.connectingGeo.asOrg && (
-                    <span className="text-nb-500" title="Which network this address belongs to, from a separate ASN database.">
-                      · {a.connectingGeo.asOrg}
-                      {a.connectingGeo.asn ? ` (AS${a.connectingGeo.asn})` : ''}
-                    </span>
-                  )}
                 </span>
-              ) : a.connectingGeoReason ? (
-                <span key="located" className="text-nb-500" title={GEO_UNLOCATABLE_HELP[a.connectingGeoReason]}>
-                  No location — {GEO_UNLOCATABLE_LABEL[a.connectingGeoReason].toLowerCase()}
-                  {(a.connectingGeoReason === 'cgnat' || a.connectingGeoReason === 'private') && !publicIpFallbackOn &&
-                    ' (an administrator can turn on estimating this from the server\'s own address in the deployment settings)'}
-                </span>
-              ) : undefined,
-            ],
-            ['Connected since', l?.connectedSince ? when(l.connectedSince) : a.connected === false ? 'not connected' : undefined],
-            ['Connections since server start', l ? String(l.connects) : undefined],
-            ['Last heartbeat', a.lastHeartbeat ? `${when(a.lastHeartbeat)} (${ageOf(a.lastHeartbeat)})` : undefined],
-            ['Clock', a.clockSkewMs === undefined ? undefined : skewWarning(a.clockSkewMs) ? skewLabel(a.clockSkewMs) : 'within 2 minutes of the server'],
-            ['Certificate', a.certExpiresAt ? (certLeft !== undefined && certLeft < 0 ? `expired ${when(a.certExpiresAt)}` : `expires ${when(a.certExpiresAt)}${certLeft !== undefined ? ` (in ${inWords(certLeft)})` : ''}`) : undefined],
-          ]}
-        />
-      </div>
-      <div>
-        <Heading>What it sent</Heading>
-        {l ? (
-          <Facts
-            rows={[
-              ['Total', bytesTotal(l.bytes)],
-              ['Cluster reports', `${num(l.syncs)}${l.lastSync ? ` · last ${ageOf(l.lastSync)}` : ''}`],
-              ['Traffic reports', `${num(l.flows)}${l.lastFlows ? ` · last ${ageOf(l.lastFlows)}` : ''}`],
-              ['Path measurements', num(l.measurements)],
-              ['Heartbeats', num(l.heartbeats)],
-            ]}
-          />
-        ) : (
-          <p className="text-nb-500">Nothing counted yet. Counters start when the server does.</p>
+                {a.connectingGeo.asOrg && (
+                  <span className="text-nb-500" title="Which network this address belongs to, from a separate ASN database.">
+                    · {a.connectingGeo.asOrg}
+                    {a.connectingGeo.asn ? ` (AS${a.connectingGeo.asn})` : ''}
+                  </span>
+                )}
+              </span>
+            ) : a.connectingGeoReason ? (
+              <span key="located" className="text-nb-500" title={GEO_UNLOCATABLE_HELP[a.connectingGeoReason]}>
+                No location — {GEO_UNLOCATABLE_LABEL[a.connectingGeoReason].toLowerCase()}
+                {(a.connectingGeoReason === 'cgnat' || a.connectingGeoReason === 'private') && !publicIpFallbackOn &&
+                  ' (an administrator can turn on estimating this from the server\'s own address in the deployment settings)'}
+              </span>
+            ) : undefined,
+          ],
+          ['Connected', l?.connectedSince ? ageOf(l.connectedSince) : a.connected === false ? 'not connected' : undefined],
+          ['Certificate', a.certExpiresAt ? <span key="cert" title={`Expires ${when(a.certExpiresAt)}`}>{certLeft !== undefined && certLeft < 0 ? `expired ${when(a.certExpiresAt)}` : certLeft !== undefined ? `${inWords(certLeft)} left` : `expires ${when(a.certExpiresAt)}`}</span> : undefined],
+          // Only when it is off: a clock that is right says nothing, and the plain figure is in the technical details.
+          ['Clock', a.clockSkewMs !== undefined && skewWarning(a.clockSkewMs) ? skewLabel(a.clockSkewMs) : undefined],
+        ]}
+      />
+    </div>
+  )
+  const intent = canConsent && approved ? (
+    <div>
+      <Heading>Observability intent</Heading>
+      <ConsentPanel agent={a} diagnostics={d} consent={extras.consent} />
+    </div>
+  ) : null
+  return (
+    <div className="space-y-6 text-sm">
+      <div className="grid gap-x-10 gap-y-6 md:grid-cols-2" data-testid={d ? 'agent-health' : undefined}>
+        {d && (
+          <div>
+            <div className="mb-3 flex flex-wrap items-center gap-2"><HealthChip diagnostics={d} connected={a.connected} /><DiscoveryChip diagnostics={d} /><span className="text-xs text-nb-600">from the agent's own report, {ageOf(d.reportedAt)}</span></div>
+            <CanSee agent={a} diagnostics={d} />
+            {d.problems.length > 0 && (
+              <div className="mt-4">
+                <Heading>Problems</Heading>
+                <Problems problems={d.problems} />
+              </div>
+            )}
+          </div>
         )}
-        <p className="mt-2 text-xs text-nb-600">Sizes are of the messages as encoded, before gRPC framing and TLS.</p>
+        <div className="space-y-6">
+          {connection}
+          {intent}
+        </div>
       </div>
-      <div>
-        <Heading>Access and health</Heading>
-        <Facts
-          rows={[
-            ['Approved access', tierOf(a)],
-            ['Installed allows', a.installedTier !== undefined ? ACCESS_TIERS.find((t) => t.value === a.installedTier)?.label : undefined],
-            ['Enrollment ceiling', a.tierCap !== undefined ? ACCESS_TIERS.find((t) => t.value === a.tierCap)?.label : undefined],
-            ['Namespace', a.status === 'approved' || a.status === 'revoked' || a.status === 'rejected' ? (a.namespace ?? 'not reported by this agent yet') : undefined],
-            ['Helm release', a.status === 'approved' || a.status === 'revoked' || a.status === 'rejected' ? (a.releaseName ?? 'not reported by this agent yet') : undefined],
-            ['Fingerprint', a.fingerprint ? a.fingerprint.slice(0, 12) + '…' : undefined],
-            ['Requested', a.requestedAt ? when(a.requestedAt) : undefined],
-          ]}
-        />
-        <p className="mt-2 text-xs text-nb-600">
-          Approved access is what actually runs. It can never be approved above the enrollment ceiling set when the agent joined, and stays capped at whatever the cluster's installed RBAC allows (Installed allows) until that install is upgraded to match.
-        </p>
-      </div>
-      {(a.status === 'revoked' || a.status === 'rejected') && a.teardown && <AgentTeardown status={a.status} teardown={a.teardown} />}
-      <div className="md:col-span-2 xl:col-span-3">
-        <Heading>Discovery modules</Heading>
-        {a.modules.length === 0 ? (
-          <p className="text-nb-500">None reported.</p>
-        ) : (
-          <ul className="grid gap-x-8 gap-y-1.5 md:grid-cols-2 xl:grid-cols-3">
-            {a.modules.map((m) => (
-              <li key={m.name} className="text-xs">
-                <span className={clsx('font-medium', MODULE_STYLE[m.status])}>{m.name}{m.status !== 'ok' && ` (${m.status})`}</span>
-                {m.reason && <div className="text-nb-500">{m.reason}</div>}
-              </li>
-            ))}
-          </ul>
-        )}
-        <ScopeLine agent={a} />
-        <ObserverLine agent={a} />
-        <CheckLine agent={a} />
-      </div>
-      {onRevoke && (
-        <div className="md:col-span-2 xl:col-span-3">
-          <Button size="sm" variant="danger" onClick={onRevoke} aria-label={`Revoke ${a.name}`}>Revoke this agent</Button>
+      {approved && canConsent && (
+        // Its own full-width row: the form walks through four steps, and a request's state line reads in sentences.
+        <div id={`telemetry-${a.id}`}>
+          <Heading>Telemetry</Heading>
+          <TelemetryPanel diagnostics={d} install={install} agentId={a.id} clusterId={a.clusterId} target={{ namespace: a.namespace, release: a.releaseName }} changeElsewhere={hasCollector ? changeInPipeline : setUp} />
         </div>
       )}
-      <div className="md:col-span-2 xl:col-span-3">
+      {(a.status === 'revoked' || a.status === 'rejected') && a.teardown && <AgentTeardown status={a.status} teardown={a.teardown} />}
+      <Fold
+        title="Technical details"
+        testId="agent-technical"
+        hint={modulesNotOk.length > 0 ? `${modulesNotOk.length} module${modulesNotOk.length === 1 ? '' : 's'} ${modulesNotOk.every((m) => m.status === 'skipped') ? 'skipped' : 'to look at'}` : 'identity, counters, modules'}
+        warn={modulesNotOk.some((m) => m.status === 'error')}
+      >
+        <div className="grid gap-x-10 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
+          <div>
+            <Heading>Identity</Heading>
+            <Facts
+              rows={[
+                [
+                  'Access',
+                  <span key="access" title="Approved access is what actually runs. It can never be approved above the enrollment ceiling set when the agent joined, and stays capped at whatever the cluster's installed RBAC allows until that install is upgraded to match.">{accessWords}</span>,
+                ],
+                ['Namespace', reported ? (a.namespace ?? 'not reported by this agent yet') : undefined],
+                ['Helm release', reported ? (a.releaseName ?? 'not reported by this agent yet') : undefined],
+                ['Fingerprint', a.fingerprint ? a.fingerprint.slice(0, 12) + '…' : undefined],
+                ['Requested', a.requestedAt ? when(a.requestedAt) : undefined],
+              ]}
+            />
+          </div>
+          <div>
+            <Heading>Connection</Heading>
+            <Facts
+              rows={[
+                ['Last heartbeat', a.lastHeartbeat ? `${when(a.lastHeartbeat)} (${ageOf(a.lastHeartbeat)})` : undefined],
+                ['Connections since server start', l ? String(l.connects) : undefined],
+                ['Clock', a.clockSkewMs === undefined ? undefined : skewWarning(a.clockSkewMs) ? skewLabel(a.clockSkewMs) : 'within 2 minutes of the server'],
+              ]}
+            />
+          </div>
+          <div>
+            <Heading>What it sent</Heading>
+            {l ? (
+              <Facts
+                rows={[
+                  [<span key="t" title="Sizes are of the messages as encoded, before gRPC framing and TLS.">Total</span>, bytesTotal(l.bytes)],
+                  ['Cluster reports', `${num(l.syncs)}${l.lastSync ? ` · last ${ageOf(l.lastSync)}` : ''}`],
+                  ['Traffic reports', `${num(l.flows)}${l.lastFlows ? ` · last ${ageOf(l.lastFlows)}` : ''}`],
+                  ['Path measurements', num(l.measurements)],
+                  ['Heartbeats', num(l.heartbeats)],
+                ]}
+              />
+            ) : (
+              <p className="text-nb-500">Nothing counted yet. Counters start when the server does.</p>
+            )}
+          </div>
+          <div className="md:col-span-2 xl:col-span-3">
+            <Heading>Discovery modules</Heading>
+            {a.modules.length === 0 ? (
+              <p className="text-nb-500">None reported.</p>
+            ) : (
+              <ul className="flex flex-wrap gap-x-8 gap-y-1.5">
+                {a.modules.map((m) => (
+                  <li key={m.name} className="text-xs">
+                    <span className={clsx('font-medium', MODULE_STYLE[m.status])}>{m.name}{m.status !== 'ok' && ` (${m.status})`}</span>
+                    {m.reason && <div className="text-nb-500">{m.reason}</div>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-2">
+              {!d && <ScopeLine agent={a} />}
+              <ObserverLine agent={a} />
+              <CheckLine agent={a} />
+            </div>
+          </div>
+        </div>
+      </Fold>
+      <Fold title="History" testId="agent-history">
         <EntityHistory kind="agent" id={a.id} />
-      </div>
+      </Fold>
+      {onRevoke && (
+        <div>
+          <Button size="sm" variant="danger" onClick={onRevoke} aria-label={`Revoke ${a.name}`}>Revoke…</Button>
+        </div>
+      )}
     </div>
+  )
+}
+
+/** A closed section: a title with what is inside it in a few words, opened on a click. */
+function Fold({ title, hint, warn, testId, children }: { title: string; hint?: string; warn?: boolean; testId?: string; children: ReactNode }) {
+  return (
+    <details className="group" data-testid={testId}>
+      <summary className="flex cursor-pointer list-none items-baseline gap-1.5 text-sm text-nb-400 hover:text-nb-300 [&::-webkit-details-marker]:hidden">
+        <ChevronRight size={14} className="shrink-0 self-center transition-transform group-open:rotate-90" aria-hidden />
+        {title}
+        {hint && <span className={clsx('text-xs', warn ? 'text-warn' : 'text-nb-600')}>{hint}</span>}
+      </summary>
+      <div className="mt-3 pl-5">{children}</div>
+    </details>
   )
 }
 
 const Heading = ({ children }: { children: string }) => <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-nb-500">{children}</div>
 
-function Facts({ rows }: { rows: [string, ReactNode][] }) {
+function Facts({ rows }: { rows: [ReactNode, ReactNode][] }) {
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-      {rows.filter((r): r is [string, ReactNode] => !!r[1]).map(([k, v]) => (
-        <Fragment key={k}>
+      {rows.filter((r) => !!r[1]).map(([k, v], i) => (
+        <Fragment key={i}>
           <dt className="text-nb-500">{k}</dt>
           <dd className="min-w-0 break-words text-nb-300">{v}</dd>
         </Fragment>

@@ -107,6 +107,21 @@ describe('AgentsPage', () => {
     expect(screen.queryByTestId('telemetry-stub')).toBeNull()
   })
 
+  test('an open agent shows what it can see and its connection; the identity, counters and modules are in a closed fold', () => {
+    const diagnostics = { reportedAt: new Date().toISOString(), agentVersion: '1', uptimeSeconds: 1, installedTier: 2, approvedTier: 2, effectiveTier: 2, pausedCollectors: [], excludedNamespaces: 0, collectors: [], informers: [], problems: [], installedTelemetry: ['resourceUsage'] }
+    topologyState = { agents: [ag({ connected: true })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
+    serverState = { status: 'connected', canEdit: () => true, state: { agents: [{ ...ag({ connected: true }), diagnostics } as unknown as Agent] } }
+    renderPage('/agents?open=a1')
+    expect(screen.getByTestId('can-see')).toBeInTheDocument()
+    expect(screen.getByTestId('agent-connection')).toBeInTheDocument()
+    expect((screen.getByTestId('agent-technical') as HTMLDetailsElement).open).toBe(false)
+    expect((screen.getByTestId('agent-history') as HTMLDetailsElement).open).toBe(false)
+    // The three tiers are not three rows any more, and the long paragraphs are tooltips.
+    expect(screen.queryByText('Enrollment ceiling')).toBeNull()
+    expect(screen.queryByText(/Sizes are of the messages as encoded/)).toBeNull()
+    expect(screen.queryByText('Access and health')).toBeNull()
+  })
+
   test('nothing is changed in an agent\'s row: a running one is changed from its collector, one with none is set up in the guided dialog', () => {
     const base = { reportedAt: new Date().toISOString(), agentVersion: '1', uptimeSeconds: 1, installedTier: 2, approvedTier: 2, effectiveTier: 2, pausedCollectors: [], excludedNamespaces: 0, collectors: [], informers: [], problems: [] }
     topologyState = { agents: [ag({ connected: true })], clusters: [cl()], sites: [], suggestions: [], nodes: [] }
