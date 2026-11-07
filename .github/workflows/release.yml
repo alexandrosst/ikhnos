@@ -44,6 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
+      binary_version: ${{ steps.v.outputs.binary_version }}
       is_release: ${{ steps.v.outputs.is_release }}
       is_stable: ${{ steps.v.outputs.is_stable }}
       owner: ${{ steps.v.outputs.owner }}
@@ -80,6 +81,11 @@ jobs:
           fi
           echo "owner=$owner" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          # What the binaries say they are (the login page, Settings, an agent's own report). `version` above is also the charts' appVersion, which the
+          # charts use as their default image tag, so it must stay a tag that exists ("edge"); the binaries can say more: on a main build, which commit.
+          binary_version="$version"
+          if [[ "$is_release" != "true" ]]; then binary_version="edge-g$(echo "$GITHUB_SHA" | cut -c1-7)"; fi
+          echo "binary_version=$binary_version" >> "$GITHUB_OUTPUT"
           echo "is_release=$is_release" >> "$GITHUB_OUTPUT"
           echo "is_stable=$is_stable" >> "$GITHUB_OUTPUT"
           echo "chart_version=$chart_version" >> "$GITHUB_OUTPUT"
@@ -150,7 +156,7 @@ jobs:
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
-            VERSION=${{ needs.version.outputs.version }}
+            VERSION=${{ needs.version.outputs.binary_version }}
             CHART_VERSION=${{ needs.version.outputs.chart_version }}
 
       - uses: sigstore/cosign-installer@v3

@@ -4,7 +4,7 @@ import { completeness } from '../src/lib/completeness'
 import { mergeDiscovered, normalizeServerState, type ServerAgent, type ServerState } from '../src/lib/discovered'
 import { applyEdit, applyEffective, confirmOverride, effective } from '../src/lib/effective'
 import { normalize, upgrade } from '../src/lib/migrate'
-import { accelSummary, ageLabel, autoscalerRange, callerIfaceSpeedMbps, count, countryName, middleTruncate, disruptionLabel, ipScope, linkUtilizationPct, podsLabel, podsPercent, distroKey, formatCpu, formatMemory, loadBand, placeLabel, providerKey, requestedPercent, shortVersion } from '../src/lib/present'
+import { accelSummary, ageLabel, autoscalerRange, callerIfaceSpeedMbps, count, countryName, middleTruncate, disruptionLabel, ipScope, linkUtilizationPct, podsLabel, podsPercent, distroKey, formatCpu, formatMemory, loadBand, placeLabel, providerKey, requestedPercent, shortVersion, withV } from '../src/lib/present'
 import { buildMapSites, clampPan, dominantTier, exitIps, groupByProximity, groupLabel, siteConnections, unplacedClusters, worstStatus } from '../src/features/topology/lib/geo'
 import { buildIndex, countryAt, countryShapes, derivePlacementSuggestions, distanceKm, findCities, fold, nearestCity, parseCities, placementCandidates, siteFromCandidate, siteLocationIssue } from '../src/lib/places'
 import { EXONYMS } from '../src/data/exonyms'
@@ -502,6 +502,8 @@ test('resources are written for people: units, TB, MB, and how much is already r
   assert.equal(loadBand(94), 'hot')
   assert.equal(shortVersion('v1.29.6+k3s1'), 'v1.29.6')
   assert.equal(shortVersion(undefined), '')
+  assert.equal(withV('0.3.0'), 'v0.3.0')
+  assert.equal(withV('edge-g1a2b3c4'), 'edge-g1a2b3c4') // a v goes before a number only
   assert.equal(accelSummary([{ vendor: 'NVIDIA', model: 'A100', count: 2 }]), '2× NVIDIA A100')
   assert.equal(accelSummary(undefined), '')
 })

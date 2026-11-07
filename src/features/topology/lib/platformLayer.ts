@@ -7,6 +7,7 @@
  * known is left out, a state that cannot be known is "Unknown". The result is plain data: telemetryLanes.ts places it for the
  * Telemetry tab, the Inspector describes it.
  */
+import { withV } from '../../../lib/present'
 import { extrasOf } from '../../../lib/consent'
 import { exportReach, exportRows } from '../../../lib/exportHealth'
 import { CENTRAL_OPERATOR_ID } from '../../fusion/lib/fusionStatus'
@@ -184,7 +185,7 @@ export function buildPlatform(input: PlatformInput, now: number): PlatformModel 
     const installed = extrasOf(input.rawAgents, a.id).diagnostics?.installedTelemetry ?? []
     const intent = intentOf(a.id)
     const base = { clusterId: a.clusterId, clusterName: clusterName.get(a.clusterId), agentId: a.id }
-    const agent: PlatformEntity = { ...base, id: `agent:${a.id}`, kind: 'agent', name: 'Discovery agent', sendsTo: [], detail: a.version ? `v${a.version}` : 'Agent', version: a.version, lastHeartbeatAt: a.lastHeartbeat, ...agentState(a, now) }
+    const agent: PlatformEntity = { ...base, id: `agent:${a.id}`, kind: 'agent', name: 'Discovery agent', sendsTo: [], detail: a.version ? withV(a.version) : 'Agent', version: a.version, lastHeartbeatAt: a.lastHeartbeat, ...agentState(a, now) }
     entities.push(agent)
     if (installed.length === 0 && !intent) continue
     const { operatorIds, elsewhere } = destinationsOf(intent)

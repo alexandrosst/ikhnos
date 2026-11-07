@@ -7,6 +7,7 @@ import SetupSteps from '@/features/pipeline/components/operators/SetupSteps'
 import StateChip from '@/features/pipeline/components/operators/StateChip'
 import { Button, ChipList, CopyIconButton, ICON_SM, Pill, Table, Td, Th, TierBadge } from '@/components/ui/primitives'
 import { SortTh, useSort } from '@/components/ui/sort'
+import { withV } from '@/lib/present'
 import { severity } from '@/lib/status'
 import { certLife } from '@/features/pipeline/lib/certLifetime'
 import { addressCell, KIND_LABEL, lastDataText, type CertCell, type ComponentRow } from '@/features/pipeline/lib/operatorsView'
@@ -96,7 +97,7 @@ export default function ComponentsTable({ rows: unsorted, now, menuFor, onWhatTo
                   <Button size="sm" className="mt-2" onClick={() => onWhatToDo(r)} aria-label={`What to do about ${r.name}`} data-testid={`component-todo-${r.id}`}>What to do</Button>
                 )}
               </Td>
-              <Td valign="top" className="whitespace-nowrap text-xs text-nb-500 max-md:inline-block max-md:border-0 max-md:pb-0 max-md:pt-2"><Label>Version</Label>{r.version ? `v${r.version}` : <span className="text-nb-700">—</span>}</Td>
+              <Td valign="top" className="whitespace-nowrap text-xs text-nb-500 max-md:inline-block max-md:border-0 max-md:pb-0 max-md:pt-2"><Label>Version</Label>{r.version ? withV(r.version) : <span className="text-nb-700">—</span>}</Td>
               <Td valign="top" className="text-xs max-md:block max-md:border-0 max-md:pb-0 max-md:pt-1"><Label>Certificate</Label><CertLife cert={r.cert} now={now} /></Td>
               <Td valign="top" className="text-xs text-nb-400 max-md:block max-md:border-0 max-md:pb-0 max-md:pt-1"><Label>Sends to</Label><span className="break-words font-mono md:block md:truncate" title={r.sendsTo}>{r.sendsTo}</span></Td>
               <Td valign="top" className="whitespace-nowrap text-xs text-nb-500 max-md:block max-md:border-0 max-md:pb-0 max-md:pt-1"><Label>Last data</Label><span title={r.lastData ? new Date(r.lastData).toLocaleString() : undefined}>{lastDataText(r.lastData, now)}</span></Td>

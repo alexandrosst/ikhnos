@@ -25,7 +25,7 @@ import { extrasOf, uptimeWords, type AgentExtras } from '@/lib/consent'
 import { HEALTH_ORDER, healthOf, type AgentHealth } from '@/features/agents/lib/agentHealth'
 import { ageOf } from '@/lib/history'
 import { bytesTotal } from '@/lib/observed'
-import { GEO_UNLOCATABLE_HELP, GEO_UNLOCATABLE_LABEL, ipScope, ipScopeLabel } from '@/lib/present'
+import { GEO_UNLOCATABLE_HELP, GEO_UNLOCATABLE_LABEL, ipScope, ipScopeLabel, withV } from '@/lib/present'
 import { ACCESS_TIERS, type Agent, type Cluster, type Tier } from '@/lib/types'
 import { useApprovalLocks } from '@/store/approvalLocks'
 import { useServer } from '@/store/server'
@@ -440,7 +440,7 @@ function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent;
           ['Certificate', a.certExpiresAt ? <span key="cert" className={certLeft !== undefined && certLeft < 0 ? 'text-bad' : certLeft !== undefined && certLeft < CERT_SOON && a.connected ? 'text-warn' : undefined} title={`Expires ${when(a.certExpiresAt)}`}>{certLeft !== undefined && certLeft < 0 ? `expired ${when(a.certExpiresAt)}` : certLeft !== undefined ? `${inWords(certLeft)} left` : `expires ${when(a.certExpiresAt)}`}</span> : undefined],
           // Only when it is off: a clock that is right says nothing, and the plain figure is in the technical details.
           ['Clock', a.clockSkewMs !== undefined && skewWarning(a.clockSkewMs) ? skewLabel(a.clockSkewMs) : undefined],
-          ['Agent', d ? `v${d.agentVersion}${d.arch ? ` · ${d.os ?? ''}/${d.arch}` : ''} · up ${uptimeWords(d.uptimeSeconds)}` : undefined],
+          ['Agent', d ? `${withV(d.agentVersion)}${d.arch ? ` · ${d.os ?? ''}/${d.arch}` : ''} · up ${uptimeWords(d.uptimeSeconds)}` : undefined],
           [
             'Watches',
             d && d.informers.length > 0 ? (

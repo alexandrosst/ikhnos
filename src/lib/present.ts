@@ -179,6 +179,9 @@ export const DEVICE_PROTOCOL_OPTIONS: { value: string; label: string }[] = [
 /** "v1.29.6+k3s1" -> "v1.29.6": the build suffix only makes a column wider. Keep the full string for tooltips. */
 export const shortVersion = (v?: string): string => (v ?? '').split('+')[0]
 
+/** "0.3.0" -> "v0.3.0", but "edge-g1a2b3c4" stays as it is: a v only goes before a number. */
+export const withV = (v: string): string => (/^\d/.test(v) ? `v${v}` : v)
+
 /* ---------- resources ---------- */
 
 /** 16 -> "16 GB", 0.5 -> "512 MB", 1536 -> "1.5 TB". */
