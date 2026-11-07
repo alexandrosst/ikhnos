@@ -433,9 +433,9 @@ func (h *Hub) Connect(stream ikhnosv1.AgentService_ConnectServer) error {
 	h.Mu.Lock()
 	v.CfgSentAt = h.C.Now()
 	h.Mu.Unlock()
-	fullSeen := false                     // a full picture is a consistency check only after the first one of this connection
-	var asm *assembly                     // the pieces of a picture that arrives in several messages, until the last one
-	limiter := kernel.NewLimiter(120, 20) // per minute, burst
+	fullSeen := false // a full picture is a consistency check only after the first one of this connection
+	var asm *assembly // the pieces of a picture that arrives in several messages, until the last one
+	limits := newStreamLimits()
 	for {
 		select {
 		case end := <-ended:
@@ -456,9 +456,7 @@ func (h *Hub) Connect(stream ikhnosv1.AgentService_ConnectServer) error {
 			if r.err != nil {
 				return r.err
 			}
-			// The later pieces of one picture are not counted against the rate: the first was, and the picture's size is
-			// bounded by the limits instead.
-			if sy := r.m.GetSync(); (sy == nil || sy.ChunkIndex == 0 || sy.ChunkTotal < 2) && !limiter.Allow("s") {
+			if !limits.allow(r.m) {
 				return status.Error(codes.ResourceExhausted, "sending too fast")
 			}
 			h.Mu.Lock()
