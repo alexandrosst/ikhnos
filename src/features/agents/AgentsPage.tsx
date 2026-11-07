@@ -513,70 +513,48 @@ function AgentDetail({ agent: a, extras, canConsent, onSetUpTelemetry, onRevoke 
       <Fold
         title="Technical details"
         testId="agent-technical"
-        hint={modulesNotOk.length > 0 ? `${modulesNotOk.length} module${modulesNotOk.length === 1 ? '' : 's'} ${modulesNotOk.every((m) => m.status === 'skipped') ? 'skipped' : 'to look at'}` : 'identity, counters, modules'}
+        hint={modulesNotOk.length > 0 ? `${modulesNotOk.length} module${modulesNotOk.length === 1 ? '' : 's'} ${modulesNotOk.every((m) => m.status === 'skipped') ? 'skipped' : 'to look at'}` : 'install, identity, what it sent'}
         warn={modulesNotOk.some((m) => m.status === 'error')}
       >
-        <div className="grid gap-x-10 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
+        {/* Only what is not said above: the access level, the heartbeat, the clock and the modules that are fine are already in the chips,
+            the tier ladder and the connection, so they come back here only for an agent that has no report to say them. */}
+        <div className="space-y-3" data-testid="agent-technical-body">
+          <Facts
+            rows={[
+              ['Install', reported ? [a.namespace, a.releaseName].filter(Boolean).join(' · ') || 'not reported by this agent yet' : undefined],
+              ['Identity', a.fingerprint ? <span key="fp" className="font-mono text-xs" title={a.fingerprint}>{a.fingerprint.replace(/^[^:]*:/, '').slice(0, 8)}…</span> : undefined],
+              ['Requested', a.requestedAt ? when(a.requestedAt) : undefined],
+              [
+                'Sent',
+                l ? (
+                  <span key="sent" title="Since the server started. Sizes are of the messages as encoded, before gRPC framing and TLS.">
+                    {[bytesTotal(l.bytes), `${num(l.syncs)} cluster reports`, `${num(l.flows)} traffic reports`, l.measurements > 0 ? `${num(l.measurements)} path measurements` : undefined, `${l.connects} connection${l.connects === 1 ? '' : 's'}`].filter(Boolean).join(' · ')}
+                  </span>
+                ) : (
+                  'nothing counted yet'
+                ),
+              ],
+              [
+                'Access',
+                d ? undefined : <span key="access" title="Approved access is what actually runs. It can never be approved above the enrollment ceiling set when the agent joined, and stays capped at whatever the cluster's installed RBAC allows until that install is upgraded to match.">{accessWords}</span>,
+              ],
+              ['Last heartbeat', d ? undefined : a.lastHeartbeat ? `${when(a.lastHeartbeat)} (${ageOf(a.lastHeartbeat)})` : undefined],
+            ]}
+          />
+          {modulesNotOk.length > 0 && (
+            <ul className="space-y-1" data-testid="agent-modules-not-ok">
+              {modulesNotOk.map((m) => (
+                <li key={m.name} className="text-xs">
+                  <span className={clsx('font-medium', MODULE_STYLE[m.status])}>{m.name} ({m.status})</span>
+                  {m.reason && <span className="text-nb-500"> · {m.reason}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
           <div>
-            <Heading>Identity</Heading>
-            <Facts
-              rows={[
-                [
-                  'Access',
-                  <span key="access" title="Approved access is what actually runs. It can never be approved above the enrollment ceiling set when the agent joined, and stays capped at whatever the cluster's installed RBAC allows until that install is upgraded to match.">{accessWords}</span>,
-                ],
-                ['Namespace', reported ? (a.namespace ?? 'not reported by this agent yet') : undefined],
-                ['Helm release', reported ? (a.releaseName ?? 'not reported by this agent yet') : undefined],
-                ['Fingerprint', a.fingerprint ? a.fingerprint.slice(0, 12) + '…' : undefined],
-                ['Requested', a.requestedAt ? when(a.requestedAt) : undefined],
-              ]}
-            />
-          </div>
-          <div>
-            <Heading>Connection</Heading>
-            <Facts
-              rows={[
-                ['Last heartbeat', a.lastHeartbeat ? `${when(a.lastHeartbeat)} (${ageOf(a.lastHeartbeat)})` : undefined],
-                ['Connections since server start', l ? String(l.connects) : undefined],
-                ['Clock', a.clockSkewMs === undefined ? undefined : skewWarning(a.clockSkewMs) ? skewLabel(a.clockSkewMs) : 'within 2 minutes of the server'],
-              ]}
-            />
-          </div>
-          <div>
-            <Heading>What it sent</Heading>
-            {l ? (
-              <Facts
-                rows={[
-                  [<span key="t" title="Sizes are of the messages as encoded, before gRPC framing and TLS.">Total</span>, bytesTotal(l.bytes)],
-                  ['Cluster reports', `${num(l.syncs)}${l.lastSync ? ` · last ${ageOf(l.lastSync)}` : ''}`],
-                  ['Traffic reports', `${num(l.flows)}${l.lastFlows ? ` · last ${ageOf(l.lastFlows)}` : ''}`],
-                  ['Path measurements', num(l.measurements)],
-                  ['Heartbeats', num(l.heartbeats)],
-                ]}
-              />
-            ) : (
-              <p className="text-nb-500">Nothing counted yet. Counters start when the server does.</p>
-            )}
-          </div>
-          <div className="md:col-span-2 xl:col-span-3">
-            <Heading>Discovery modules</Heading>
-            {a.modules.length === 0 ? (
-              <p className="text-nb-500">None reported.</p>
-            ) : (
-              <ul className="flex flex-wrap gap-x-8 gap-y-1.5">
-                {a.modules.map((m) => (
-                  <li key={m.name} className="text-xs">
-                    <span className={clsx('font-medium', MODULE_STYLE[m.status])}>{m.name}{m.status !== 'ok' && ` (${m.status})`}</span>
-                    {m.reason && <div className="text-nb-500">{m.reason}</div>}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="mt-2">
-              {!d && <ScopeLine agent={a} />}
-              <ObserverLine agent={a} />
-              <CheckLine agent={a} />
-            </div>
+            {!d && <ScopeLine agent={a} />}
+            <ObserverLine agent={a} />
+            <CheckLine agent={a} />
           </div>
         </div>
       </Fold>

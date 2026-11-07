@@ -120,6 +120,11 @@ describe('AgentsPage', () => {
     expect(screen.queryByText('Enrollment ceiling')).toBeNull()
     expect(screen.queryByText(/Sizes are of the messages as encoded/)).toBeNull()
     expect(screen.queryByText('Access and health')).toBeNull()
+    // Inside the fold: a few lines, and only what is not already said above.
+    const body = screen.getByTestId('agent-technical-body')
+    expect(body).toHaveTextContent('Install')
+    expect(body).not.toHaveTextContent('Heartbeats')
+    expect(body).not.toHaveTextContent('Last heartbeat')
   })
 
   test('nothing is changed in an agent\'s row: a running one is changed from its collector, one with none is set up in the guided dialog', () => {
