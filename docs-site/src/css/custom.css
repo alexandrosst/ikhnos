@@ -191,7 +191,15 @@ code {
 pre code,
 .theme-code-block code {
   border: 0;
-  padding: 0;
+}
+/* The block's own padding lives on the code element (Docusaurus's code-lines wrapper), so it is set here, not reset to 0:
+   a reset left the commands against the box's edge. */
+.theme-code-block pre code {
+  padding: 1rem 1.25rem;
+  line-height: 1.65;
+}
+div[class*='codeBlockTitle'] + div pre code {
+  padding-top: 0.75rem;
 }
 .theme-code-block {
   border: 1px solid var(--ikh-line);
@@ -202,6 +210,7 @@ pre code,
 div[class*='codeBlockTitle'] {
   border-bottom: 1px solid var(--ikh-line) !important;
   font-size: 0.8rem;
+  padding: 0.6rem 1.25rem !important;
 }
 
 /* tables */
