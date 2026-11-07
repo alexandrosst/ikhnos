@@ -36,6 +36,7 @@ var allowedRepoImports = map[string]bool{
 	"ikhnos/internal/model":        true,
 	"ikhnos/internal/observed":     true,
 	"ikhnos/internal/operators":    true,
+	"ikhnos/internal/overlay":      true,
 	"ikhnos/internal/store":        true,
 	"ikhnos/internal/twin":         true,
 	"ikhnos/internal/workspace":    true,

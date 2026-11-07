@@ -26,6 +26,7 @@ import (
 	"ikhnos/internal/kernel"
 	"ikhnos/internal/model"
 	"ikhnos/internal/observed"
+	"ikhnos/internal/overlay"
 	"ikhnos/internal/store"
 	"ikhnos/internal/twin"
 
@@ -1058,14 +1059,19 @@ type AgentDoc struct {
 	// the agent is reaching this server through some NAT (derived from the address's own range, not a live
 	// probe - see geoip.UnlocatableReason), which is exactly the case deploy/README.md's Troubleshooting
 	// section covers with geoip.publicIpService.
-	ConnectingGeoReason string      `json:"connectingGeoReason,omitempty"`
-	CertExpiresAt       string      `json:"certExpiresAt,omitempty"`
-	LastHeartbeat       string      `json:"lastHeartbeat,omitempty"`
-	RequestedAt         string      `json:"requestedAt"`
-	Reason              string      `json:"reason,omitempty"`
-	Connected           bool        `json:"connected"`
-	Synced              bool        `json:"synced"`
-	Modules             []ModuleDoc `json:"modules"`
+	ConnectingGeoReason string `json:"connectingGeoReason,omitempty"`
+	// Overlay is the overlay network (a VPN or mesh) this cluster's nodes say they are on, read from their interfaces and addresses
+	// (see internal/overlay); absent when there is nothing to say. OverlayPeers are the other clusters that look to be on the same one.
+	// Both are readings, not proof: the link measurement is what shows two clusters reach each other.
+	Overlay       *overlay.Overlay `json:"overlay,omitempty"`
+	OverlayPeers  []overlay.Peer   `json:"overlayPeers"`
+	CertExpiresAt string           `json:"certExpiresAt,omitempty"`
+	LastHeartbeat string           `json:"lastHeartbeat,omitempty"`
+	RequestedAt   string           `json:"requestedAt"`
+	Reason        string           `json:"reason,omitempty"`
+	Connected     bool             `json:"connected"`
+	Synced        bool             `json:"synced"`
+	Modules       []ModuleDoc      `json:"modules"`
 	// Observer is what the traffic observer reports about itself; absent when no collector has ever reported.
 	Observer *observed.ObserverDoc `json:"observer,omitempty"`
 	// Consistency is the result of the last check of the server's picture against the agent's full one.
@@ -1327,6 +1333,9 @@ func (h *Hub) buildAgentDocs(ctx context.Context, now time.Time) ([]AgentDoc, []
 				}
 				d.Link = l
 			}
+			if a.Status == store.StatusApproved {
+				d.Overlay = overlay.Detect(overlayNodes(v.State))
+			}
 			if sc := v.State.Cluster.GetScope(); sc != nil {
 				d.Scope = &agents.ScopeDoc{Description: sc.Description, Total: int(sc.NamespacesTotal), InScope: int(sc.NamespacesInScope)}
 			}
@@ -1353,8 +1362,48 @@ func (h *Hub) buildAgentDocs(ctx context.Context, now time.Time) ([]AgentDoc, []
 		}
 		agentDocs = append(agentDocs, d)
 	}
+	for i := range agentDocs {
+		agentDocs[i].OverlayPeers = overlayPeers(agentDocs, i)
+	}
 	sort.Slice(agentDocs, func(i, j int) bool { return agentDocs[i].RequestedAt < agentDocs[j].RequestedAt })
 	return agentDocs, agentList, nil
+}
+
+// overlayNodes is what an agent's nodes say about their interfaces and addresses, for internal/overlay.
+func overlayNodes(st *facts.State) []overlay.Node {
+	var out []overlay.Node
+	for _, n := range st.Nodes {
+		on := overlay.Node{Name: n.Name, IPs: append(append([]string(nil), n.InternalIps...), n.ExternalIps...)}
+		if n.Probe != nil {
+			for _, ha := range n.Probe.HostAddresses {
+				if len(on.Ifaces) >= 32 { // the probe sends at most 16; a larger list is not believed
+					break
+				}
+				on.Ifaces = append(on.Ifaces, overlay.Iface{Name: ha.Interface, Kind: ha.Kind, Addr: ha.Address})
+			}
+		}
+		out = append(out, on)
+	}
+	return out
+}
+
+// overlayPeers lists the other approved clusters whose overlay looks the same as docs[i]'s, or may be. Never nil.
+func overlayPeers(docs []AgentDoc, i int) []overlay.Peer {
+	out := []overlay.Peer{}
+	me := docs[i]
+	if me.Overlay == nil || me.Status != string(store.StatusApproved) {
+		return out
+	}
+	for j, o := range docs {
+		if j == i || o.Overlay == nil || o.Status != string(store.StatusApproved) || o.ClusterID == me.ClusterID {
+			continue
+		}
+		if same, maybe := overlay.Relate(me.Overlay, o.Overlay); same || maybe {
+			out = append(out, overlay.Peer{ClusterID: o.ClusterID, Maybe: !same})
+		}
+	}
+	sort.Slice(out, func(a, b int) bool { return out[a].ClusterID < out[b].ClusterID })
+	return out
 }
 
 // buildTopology does the expensive, h.mu-guarded work of interpreting every approved agent's facts,

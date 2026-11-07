@@ -24,7 +24,7 @@ cannot import its caller), by a test in each package that refuses an import outs
 Read from the bottom, what the packages stand on:
 
 - **The libraries** know nothing of the server: `model`, `facts`, `netid`, `probe`, `link`, `measure`, `pki`, `store` (with `workspace`),
-  `interpret`, `twin`, `history`, `graph`, `chart`, `install`, `geoip`, `approval`, `advice`. Several of them are also the agent's.
+  `interpret`, `twin`, `history`, `graph`, `chart`, `install`, `geoip`, `overlay`, `approval`, `advice`. Several of them are also the agent's.
 - **The kernel** (`internal/kernel`) stands on the store, the CA and the two settings libraries and on no module. Everything above may use it.
 - **The vocabulary of who is calling** is `internal/accounts` (with `internal/passkey` beside it), on the kernel and the store alone.
   The HTTP kit `internal/httpkit` is on top of it: the router that records what a route asks of its caller, the roles, the error
