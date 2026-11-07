@@ -126,6 +126,21 @@ Use a pin when the path the traffic takes is not the one you want to know about:
 
 **What the figures describe.** Delay, loss, jitter, the path's largest packet and the throughput describe the path that was measured, which is the one the traffic uses by default or the kind you pinned, and not necessarily every path between the two clusters. After a fall back they describe the address that answered, and a change of the busiest address changes the path being measured, which can show as a step in the figures or as a route change. If several paths matter, pin the pair to the one you care about.
 
+## Whether two clusters share an overlay network
+
+A mesh or VPN (Tailscale, NetBird, ZeroTier, Nebula, WireGuard) gives nodes addresses of their own, and two clusters on the same one can talk over it whatever their private ranges are. The server reads this from what each agent already reports about its nodes: the interfaces and their addresses, and the node addresses. Nothing more is collected.
+
+An interface counts as an overlay when its name or kind says so (`tailscale0`, `wt0`, `zt…`, `nebula1`, `wg0`, a WireGuard-kind interface). Interfaces that belong to the pod network (Cilium, Calico and Flannel's WireGuard or VXLAN, `cni`, `docker`, `veth`, bridges) are left out, so a CNI that encrypts pod traffic does not read as a mesh. The product comes from the interface name, the range is the smallest prefix that covers the overlay interfaces' subnets, and the overlay is the one most of the cluster's nodes are on. Node addresses in `100.64.0.0/10` with no overlay interface seen give an overlay with no name: that range is also used by carriers and by some pod networks, so it is never presented as more than that.
+
+Two clusters are said to be on the same overlay when both run the same Tailscale or NetBird (their ranges are shared by the whole network), or when another product's ranges overlap. An address-only reading against a named one is shown as "may be", with the reason. Two address-only readings say nothing.
+
+It is shown as facts, not as labels:
+
+- On a cluster, the **Overlay network** section gives the name, range, how many nodes are on it and which other clusters are on the same one. "Why we think so" is closed and lists the interfaces and addresses it rests on.
+- In the Add and Edit pair dialogs, **How these two are connected** gives the same reading for the pair in one sentence, and offers **Measure through mesh addresses**, which only fills in the choice of address (`via: mesh`) for the administrator to save. Nothing is set on its own.
+
+What it does not do: it says what the nodes have, not that the two clusters can reach each other. Firewalls, ACLs and a node not yet joined all stop traffic, and only the link measurement shows what really flows.
+
 ## What exists today: passive link metrics
 
 The first source is the node flow collector that was already there. Its eBPF programs read the kernel's own per-connection counters: round-trip time, retransmits, connection time and failed attempts. The agent labels each report row by the peer cluster its far end belongs to, and keeps running totals per cluster pair. No address, port or workload is ever a label of a series or kept on disk; the only trace of an address is a small table in the agent's memory of which addresses of a peer the traffic is seen using, for the active measurements (see [Which address is measured](#which-address-is-measured)). The number of series is fixed per peer, so it grows with the number of peers and with nothing that traffic or the network does: not with connections, addresses or nodes, ports, or the rates the UDP ramp steps through. The only settings that change what one peer costs are the ones that add a measurement: `dscp` classes and the stream counts of the throughput tests (about 21 series per class, see [Series per peer](#series-per-peer)), and whether probing and the throughput tests are on at all.
