@@ -396,6 +396,24 @@ function clusterBoxOf(nodeLookup: Map<string, ObstacleCandidate>, id: string): (
  *  "hit" right at the anchor point, for every single cross-group edge. `skip` is exactly that container
  *  chain - every ancestor of `source` and of `target`, walked up via `parentId` - excluded so only a
  *  sibling or unrelated group/namespace box (one neither end is actually inside) ever counts. */
+/** How far across a cluster's header its title and subtitle can reach (px). */
+const TITLE_ZONE_W = 300
+
+/** A line going round a cluster keeps this much further off it than the usual margin (px): a hair off its edge it reads as the cluster's own outline. Less than half a gap between two clusters, so the gap stays open. */
+const WALL_AIR = 14
+
+/** Is `n` inside a cluster (boundary) that is not one of `skip`, the clusters an end of the line is in? */
+function insideForeignBoundary(nodeLookup: Map<string, ObstacleCandidate>, n: ObstacleCandidate, skip: ReadonlySet<string>): boolean {
+  let id = n.parentId
+  while (id !== undefined) {
+    const p = nodeLookup.get(id)
+    if (!p) return false
+    if (p.type === 'boundary' && !skip.has(id)) return true
+    id = p.parentId
+  }
+  return false
+}
+
 export function collectObstacles(
   nodeLookup: Map<string, ObstacleCandidate>,
   source: string,
@@ -420,6 +438,13 @@ export function collectObstacles(
   for (const id of ancestorsOf(target)) skip.add(id)
   const obstacles: PathObstacle[] = []
   for (const [nodeId, n] of nodeLookup) {
+    if (through && skip.has(nodeId) && n.type === 'boundary') {
+      // The cluster an end is in is open to the line, but not over its title.
+      const w = n.measured.width
+      const h = n.measured.height
+      if (w && h) obstacles.push({ x: n.internals.positionAbsolute.x, y: n.internals.positionAbsolute.y, w: Math.min(w * 0.5, TITLE_ZONE_W), h: Math.min(h, HEADER) })
+      continue
+    }
     if (nodeId === source || nodeId === target || skip.has(nodeId)) continue
     if (n.type !== 'card' && n.type !== 'boundary' && n.type !== 'namespace') continue
     const w = n.measured.width
@@ -428,8 +453,12 @@ export function collectObstacles(
     const bx = n.internals.positionAbsolute.x
     const by = n.internals.positionAbsolute.y
     if (!(bx < bounds.maxX && bx + w > bounds.minX && by < bounds.maxY && by + h > bounds.minY)) continue
-    if (through && n.type !== 'card') {
-      obstacles.push({ x: bx, y: by, w, h: Math.min(h, n.type === 'boundary' ? HEADER : NS_HEADER) })
+    // A cluster neither end is in is one rock in the stream: a line goes round it (down the gaps between clusters), never through it,
+    // so what is inside it is covered by it and need not be searched round.
+    if (through && insideForeignBoundary(nodeLookup, n, skip)) continue
+    if (through && n.type === 'boundary') obstacles.push({ x: bx - WALL_AIR, y: by - WALL_AIR, w: w + 2 * WALL_AIR, h: h + 2 * WALL_AIR })
+    else if (through && n.type !== 'card') {
+      obstacles.push({ x: bx, y: by, w, h: Math.min(h, NS_HEADER) })
       if (soft) obstacles.push({ x: bx, y: by, w, h, soft: true })
     }
     else obstacles.push({ x: bx, y: by, w, h })

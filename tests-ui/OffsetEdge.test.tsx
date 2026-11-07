@@ -345,12 +345,30 @@ describe('collectObstacles (what a line must keep out of)', () => {
     expect(o).toHaveLength(3) // g3, the namespace and the card; not src, dst, g1, g2
   })
 
-  test('squared: a cluster or namespace is only its header (the text), and its whole box is returned apart, as soft', () => {
+  test('squared: a cluster neither end is in is one whole box, and what is inside it is covered by it', () => {
     const o = collectObstacles(lookup, 'src', 'dst', everything, true, true)
-    expect(o).toContainEqual({ x: 0, y: 400, w: 400, h: HEADER })
-    expect(o).toContainEqual({ x: 10, y: 440, w: 200, h: NS_HEADER })
-    expect(o).toContainEqual({ x: 20, y: 500, w: 100, h: 50 }) // a card is always solid
-    expect(o.filter((b) => b.soft)).toEqual([{ x: 0, y: 400, w: 400, h: 300, soft: true }, { x: 10, y: 440, w: 200, h: 120, soft: true }])
+    const wall = o.filter((b) => b.y >= 300) // the others are the titles of the two clusters the ends are in
+    expect(wall).toHaveLength(1)
+    expect(wall[0].x).toBeLessThan(0) // the box, and a little air round it
+    expect(wall[0].y).toBeLessThan(400)
+    expect(wall[0].x + wall[0].w).toBeGreaterThan(400)
+    expect(wall[0].y + wall[0].h).toBeGreaterThan(700)
+    expect(o).toContainEqual({ x: 0, y: 0, w: 200, h: HEADER }) // a line may go into its own cluster, but not over its title
+    expect(o).toContainEqual({ x: 600, y: 0, w: 200, h: HEADER })
+  })
+
+  test('squared: inside a cluster an end is in, a namespace is only its header (the text), its whole box apart as soft, and a card is solid', () => {
+    const own = new Map([
+      ['g1', node('boundary', 0, 0, 400, 300)],
+      ['src', node('card', 20, 120, 100, 50, 'g1')],
+      ['dst', node('card', 220, 220, 100, 50, 'g1')],
+      ['ns', node('namespace', 10, 40, 200, 120, 'g1')],
+      ['mate', node('card', 240, 100, 100, 50, 'g1')],
+    ]) as never
+    const o = collectObstacles(own, 'src', 'dst', everything, true, true)
+    expect(o).toContainEqual({ x: 10, y: 40, w: 200, h: NS_HEADER })
+    expect(o).toContainEqual({ x: 240, y: 100, w: 100, h: 50 })
+    expect(o.filter((b) => b.soft)).toEqual([{ x: 10, y: 40, w: 200, h: 120, soft: true }])
   })
 
   test('only boxes near the two ends are looked at', () => {

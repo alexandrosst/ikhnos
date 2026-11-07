@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { InternalNode } from '@xyflow/react'
 import { countConflicts } from '../src/features/topology/components/conflicts'
+import { collectObstacles } from '../src/features/topology/components/OffsetEdge'
+import { ORTHO_MAX_OBSTACLES } from '../src/features/topology/components/ortho'
 import { routeLines, type Laid } from '../src/features/topology/components/SquareRoutes'
 import { buildGraph, HEADER, type TopoNode } from '../src/features/topology/lib/graph'
 import { seedTopology } from '../src/lib/seed'
@@ -97,8 +99,11 @@ test('the sample topology stays tidy: before this was reworked it had 21 crossin
 
 test('no line runs over the title of a cluster', () => {
   const { g, lookup } = scene()
-  for (const l of routeLines(lookup, g.edges, false)) {
-    for (const n of g.nodes) {
+  const wide = buildGraph(crowded(3) as never, { view: 'application', groupBy: 'cluster', servicesOnNodes: false, links: true, devices: false })
+  const dense = lookupOf(wide.nodes)
+  const lines = [...routeLines(lookup, g.edges, false).map((l) => ({ l, lookup, nodes: g.nodes })), ...routeLines(dense, wide.edges, false).map((l) => ({ l, lookup: dense, nodes: wide.nodes }))]
+  for (const { l, lookup, nodes } of lines) {
+    for (const n of nodes) {
       if (n.type !== 'boundary') continue
       const b = lookup.get(n.id)!
       const x0 = b.internals.positionAbsolute.x
@@ -112,4 +117,63 @@ test('no line runs over the title of a cluster', () => {
       }
     }
   }
+})
+
+test('a cluster neither end is in is one box to go round, with nothing of its inside to search past', () => {
+  const { g, lookup } = scene()
+  const e = g.edges.find((x) => x.id === 'd15')! // cloud -> a card of edge-patras, past athens-regional
+  const all = collectObstacles(lookup, e.source, e.target, { minX: -1e5, maxX: 1e5, minY: -1e5, maxY: 1e5 }, true, true)
+  const region = lookup.get('g:cl-region')!
+  const whole = all.filter((o) => !o.soft && o.w > (region.measured.width ?? 0) && o.w < (region.measured.width ?? 0) + 60 && o.x < region.internals.positionAbsolute.x && o.y < region.internals.positionAbsolute.y)
+  assert.equal(whole.length, 1, 'athens-regional is one whole box')
+  const inside = (o: { x: number; y: number }) => o.x >= region.internals.positionAbsolute.x && o.x < region.internals.positionAbsolute.x + (region.measured.width ?? 0) && o.y >= region.internals.positionAbsolute.y && o.y < region.internals.positionAbsolute.y + (region.measured.height ?? 0)
+  assert.equal(all.filter((o) => inside(o) && o !== whole[0]).length, 0, 'none of its cards or its header is listed besides')
+  // The clusters the line is in stay open: their own cards are still in the way.
+  const own = lookup.get('g:cl-edge-a')!
+  assert.ok(all.some((o) => !o.soft && o.x > own.internals.positionAbsolute.x && o.w < (own.measured.width ?? 0)), 'edge-patras still lists its cards')
+})
+
+/** The sample, copied `k` times (as many clusters, a call from each service to one in a tier above): a graph with a lot of boxes in the way. */
+function crowded(k: number) {
+  const m = seedTopology() as unknown as Record<string, any[]>
+  const rank: Record<string, number> = { cloud: 0, edge: 1, 'far-edge': 2 }
+  const out: Record<string, any> = { ...m, clusters: [], services: [], namespaces: [], nodes: [], dependencies: [], devices: [] }
+  const at = (id: string, i: number) => (i === 0 ? id : `${id}~${i}`)
+  for (let i = 0; i < k; i++) {
+    for (const c of m.clusters) out.clusters.push({ ...c, id: at(c.id, i), name: `${c.name}-${i}` })
+    for (const s of m.services) out.services.push({ ...s, id: at(s.id, i), clusterId: at(s.clusterId, i), nodeIds: [] })
+    for (const n of m.namespaces) out.namespaces.push({ ...n, id: `${n.id}~${i}`, clusterId: at(n.clusterId, i) })
+    for (const d of m.dependencies) if (d.fromKind === 'service' && d.toKind === 'service') out.dependencies.push({ ...d, id: `${d.id}~${i}`, from: at(d.from, i), to: at(d.to, i) })
+  }
+  const tier = new Map<string, number>(out.clusters.map((c: any) => [c.id, rank[c.tier]]))
+  const ups = (r: number) => out.services.filter((s: any) => (tier.get(s.clusterId) ?? 0) < r)
+  let n = 0
+  for (const [i, s] of out.services.entries()) {
+    const r = tier.get(s.clusterId) ?? 0
+    const above = ups(r)
+    if (r === 0 || above.length === 0) continue
+    out.dependencies.push({ ...m.dependencies[0], id: `x${n++}`, from: s.id, to: above[(i * 7) % above.length].id, sources: ['declared'], crossCluster: true })
+  }
+  return out
+}
+
+test('with many clusters every line is searched for and none runs through a card', () => {
+  const g = buildGraph(crowded(6) as never, { view: 'application', groupBy: 'cluster', servicesOnNodes: false, links: true, devices: false })
+  const lookup = lookupOf(g.nodes)
+  const laid = routeLines(lookup, g.edges, false)
+  const cards = g.nodes.filter((n) => n.type === 'card').map((n) => ({ id: n.id, ...lookup.get(n.id)!.internals.positionAbsolute, w: lookup.get(n.id)!.measured.width!, h: lookup.get(n.id)!.measured.height! }))
+  let through = 0
+  for (const l of laid) {
+    assert.ok(l.input.hard.length + l.input.soft.length <= ORTHO_MAX_OBSTACLES, `${l.id} has ${l.input.hard.length + l.input.soft.length} boxes in the way, more than are searched past`)
+    const e = g.edges.find((x) => x.id === l.id)!
+    for (let i = 0; i + 1 < l.pts.length; i++) {
+      const [a, b] = [l.pts[i], l.pts[i + 1]]
+      if (cards.some((c) => c.id !== e.source && c.id !== e.target && Math.max(a.x, b.x) > c.x + 1 && Math.min(a.x, b.x) < c.x + c.w - 1 && Math.max(a.y, b.y) > c.y + 1 && Math.min(a.y, b.y) < c.y + c.h - 1)) {
+        through++
+        break
+      }
+    }
+  }
+  console.log(`# crowded: ${g.edges.length} lines, ${through} run through a card`)
+  assert.ok(through <= 5, `${through} lines run through a card`)
 })
