@@ -101,12 +101,20 @@ jobs:
         # required alongside it: sudo's default secure_path would otherwise drop the go toolchain that
         # actions/setup-go put earlier on PATH, and env_reset/always_set_home would otherwise just mean a
         # fresh (root-owned) build cache for this step, not a missing `go` binary.
+        #
+        # The graph package runs last and alone. Its tests talk to one Neo4j on this two-CPU machine, and one of them (the fan-out
+        # test) has a minute to answer: with every other package's race-instrumented binary running beside it, that minute was
+        # sometimes spent waiting for a CPU, not for the database.
         run: |
+          pkgs=$(go list ./... | grep -v '/internal/graph$')
           sudo env "PATH=$PATH" \
             IKHNOS_REQUIRE_TOOLS=1 \
             IKHNOS_OTELCOL="$IKHNOS_OTELCOL" OTELCOL_CONTRIB="$IKHNOS_OTELCOL" \
             IKHNOS_TEST_NEO4J=http://127.0.0.1:7474 IKHNOS_TEST_NEO4J_PASSWORD="$NEO4J_PASSWORD" \
-            go test ./... -race -count=1
+            go test $pkgs -race -count=1
+          sudo env "PATH=$PATH" \
+            IKHNOS_TEST_NEO4J=http://127.0.0.1:7474 IKHNOS_TEST_NEO4J_PASSWORD="$NEO4J_PASSWORD" \
+            go test ./internal/graph -race -count=1
 
       - name: Fix cache ownership after root test run
         working-directory: backend
