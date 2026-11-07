@@ -48,4 +48,14 @@ describe('WizardSteps', () => {
     rerender(<WizardSteps steps={STEPS} currentIndex={0} testId="guided-steps" />)
     expect(screen.getByTestId('guided-steps')).toBeInTheDocument()
   })
+
+  test('the lines between the steps all stretch by the same share, so the gaps are equal whatever the labels are', () => {
+    render(<WizardSteps steps={['Set up', 'Agent connects', 'You approve it', 'Discovering', 'Connected']} currentIndex={0} />)
+    const row = screen.getByTestId('wizard-steps')
+    const lines = [...row.children].filter((el) => el.className.includes('h-px'))
+    expect(lines).toHaveLength(4)
+    for (const l of lines) expect(l.className).toContain('flex-1')
+    // The steps themselves do not stretch with their own line.
+    for (const step of [...row.children].filter((el) => !el.className.includes('h-px'))) expect(step.className).not.toContain('flex-1')
+  })
 })

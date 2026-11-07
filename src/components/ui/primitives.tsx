@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { Check, ChevronDown, Cloud, Copy, Cpu, Eye, EyeOff, Loader2, Minus, Plus, Server, X, type LucideIcon } from 'lucide-react'
 import {
-  Children, isValidElement, useEffect, useId, useRef, useState,
+  Children, Fragment, isValidElement, useEffect, useId, useRef, useState,
   type ButtonHTMLAttributes, type ChangeEvent, type ComponentProps, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type SelectHTMLAttributes,
 } from 'react'
 import { createPortal } from 'react-dom'
@@ -1517,28 +1517,31 @@ export function WizardSteps({ steps, currentIndex, failedIndex, testId = 'wizard
         const done = !failed && i < currentIndex
         const current = !failed && i === currentIndex
         return (
-          <div key={label} className={clsx('flex items-center', i < steps.length - 1 && 'flex-1')}>
-            <span className="relative flex size-5 shrink-0 items-center justify-center">
-              {current && <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent/40" />}
-              <span
-                className={clsx(
-                  'relative flex size-5 items-center justify-center rounded-full border text-[10px] font-medium',
-                  failed
-                    ? 'border-bad/50 bg-bad/15 text-bad'
-                    : done
-                      ? 'border-ok/50 bg-ok/15 text-ok'
-                      : current
-                        ? 'border-accent bg-accent-soft text-accent'
-                        : 'border-nb-800 text-nb-600',
-                )}
-              >
-                {failed ? <X size={ICON_MD} /> : done ? <Check size={ICON_MD} /> : i + 1}
+          <Fragment key={label}>
+            <div className="flex items-center">
+              <span className="relative flex size-5 shrink-0 items-center justify-center">
+                {current && <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent/40" />}
+                <span
+                  className={clsx(
+                    'relative flex size-5 items-center justify-center rounded-full border text-[10px] font-medium',
+                    failed
+                      ? 'border-bad/50 bg-bad/15 text-bad'
+                      : done
+                        ? 'border-ok/50 bg-ok/15 text-ok'
+                        : current
+                          ? 'border-accent bg-accent-soft text-accent'
+                          : 'border-nb-800 text-nb-600',
+                  )}
+                >
+                  {failed ? <X size={ICON_MD} /> : done ? <Check size={ICON_MD} /> : i + 1}
+                </span>
               </span>
-            </span>
-            {/* Where the row is narrow (a phone, or the column an agent's row opens into) only the current step keeps its words on screen (the others stay for a screen reader): the labels do not fit in a row. */}
-            <span aria-current={current ? 'step' : undefined} className={clsx('ml-1.5 whitespace-nowrap text-[11px]', !current && '@max-md:sr-only', failed ? 'text-bad' : done ? 'text-nb-400' : current ? 'text-nb-200' : 'text-nb-600')}>{label}</span>
-            {i < steps.length - 1 && <span className={clsx('mx-2 h-px flex-1', done ? 'bg-ok/30' : 'bg-nb-850')} />}
-          </div>
+              {/* Where the row is narrow (a phone, or the column an agent's row opens into) only the current step keeps its words on screen (the others stay for a screen reader): the labels do not fit in a row. */}
+              <span aria-current={current ? 'step' : undefined} className={clsx('ml-1.5 whitespace-nowrap text-[11px]', !current && '@max-md:sr-only', failed ? 'text-bad' : done ? 'text-nb-400' : current ? 'text-nb-200' : 'text-nb-600')}>{label}</span>
+            </div>
+            {/* The lines between the steps are what stretches, each by the same share, so the gaps are equal whatever the words are: when each step stretched with its own line, the long labels were left with short lines. */}
+            {i < steps.length - 1 && <span className={clsx('mx-2 h-px min-w-3 flex-1', done ? 'bg-ok/30' : 'bg-nb-850')} />}
+          </Fragment>
         )
       })}
     </div>
