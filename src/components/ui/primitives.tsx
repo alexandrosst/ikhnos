@@ -1216,7 +1216,7 @@ export function Modal({
    * broken rather than intentional. Default true: every other modal keeps closing exactly as before.
    */
   dismissible?: boolean
-  /** A panel against the right edge, full height, instead of a dialog in the middle: for editing one row of a table that should stay in view. Same focus handling and closing. */
+  /** A panel against the right edge, exactly the screen's height, instead of a dialog in the middle: for editing one row of a table that should stay in view. The header and the buttons stay put and only the form between them scrolls, however long it grows. Same focus handling and closing. */
   side?: boolean
 }) {
   const box = useRef<HTMLDivElement>(null)
@@ -1272,17 +1272,17 @@ export function Modal({
   // descendants and confine the dialog to that element's box instead of the viewport - the same reason
   // Select's own list is portaled below.
   return createPortal(
-    <div className={clsx('fixed inset-0 z-50 flex overflow-y-auto bg-black/60 backdrop-blur-[2px]', side ? 'items-stretch justify-end' : 'items-start justify-center p-4 pt-[8vh]')} onMouseDown={dismissible ? onClose : undefined}>
+    <div className={clsx('fixed inset-0 z-50 flex bg-black/60 backdrop-blur-[2px]', side ? 'items-stretch justify-end overflow-hidden' : 'items-start justify-center overflow-y-auto p-4 pt-[8vh]')} onMouseDown={dismissible ? onClose : undefined}>
       <div
         ref={box}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={clsx(side ? 'drawer-in' : 'modal-pop', 'w-full border border-nb-850 bg-nb-920 shadow-2xl', side ? 'flex min-h-full flex-col rounded-none border-y-0 border-r-0' : 'rounded-xl', width)}
+        className={clsx(side ? 'drawer-in' : 'modal-pop', 'w-full border border-nb-850 bg-nb-920 shadow-2xl', side ? 'flex h-full flex-col rounded-none border-y-0 border-r-0' : 'rounded-xl', width)}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-nb-850 px-6 py-4">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-nb-850 px-6 py-4">
           <div>
             <h2 className="text-base font-medium text-nb-300">{title}</h2>
             {description && <p className="mt-1 text-sm text-nb-500">{description}</p>}
@@ -1293,9 +1293,9 @@ export function Modal({
             </button>
           )}
         </div>
-        <div className={clsx('px-6 py-5', side && 'flex-1')}>{children}</div>
+        <div className={clsx('px-6 py-5', side && 'min-h-0 flex-1 overflow-y-auto')}>{children}</div>
         {/* Sticky, so the buttons stay in view while a long form scrolls. A centred dialog sits in 1rem of padding, which sticky does not count, hence -bottom-4: the bar reaches the screen's edge instead of leaving a strip of the form showing under it. */}
-        {footer && <div className={clsx('sticky flex justify-end gap-2 border-t border-nb-850 bg-nb-920 px-6 py-4', side ? 'bottom-0' : '-bottom-4 rounded-b-xl')}>{footer}</div>}
+        {footer && <div className={clsx('flex justify-end gap-2 border-t border-nb-850 bg-nb-920 px-6 py-4', side ? 'shrink-0' : 'sticky -bottom-4 rounded-b-xl')}>{footer}</div>}
       </div>
     </div>,
     document.body,
