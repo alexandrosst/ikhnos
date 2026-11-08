@@ -1160,9 +1160,10 @@ function Canvas() {
       </div>
       )}
 
-      {form?.type === 'cluster' && <ClusterForm initial={clusters.find((c) => c.id === form.id) ?? null} onClose={closeForm} />}
+      {form?.type === 'cluster' && <ClusterForm initial={clusters.find((c) => c.id === form.id) ?? null} edit onClose={closeForm} />}
       {form?.type === 'node' && (
         <NodeForm
+          edit
           initial={machines.find((n) => n.id === form.id) ?? null}
           defaultClusterId={selection?.kind === 'cluster' ? selection.id : undefined}
           onClose={closeForm}

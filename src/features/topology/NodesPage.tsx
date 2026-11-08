@@ -1,18 +1,19 @@
-import { AlertTriangle, Cpu, HardDrive, Plug, Plus, Server } from 'lucide-react'
+import { Cpu, HardDrive, Plug, Plus, Server } from 'lucide-react'
 import { useState } from 'react'
 import ColumnPicker from '@/features/topology/components/ColumnPicker'
 import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import { ConfirmModal, NodeForm } from '@/components/forms'
 import { WithIcon } from '@/components/ui/brand'
 import { GoneRecords } from '@/components/Observations'
-import { Button, DeclaredMark, EmptyState, GuessDot, ICON_MD, ICON_SM, IpAddress, Meter, ObservationChip, PageHeader, Select, StatusDot, Table, Td, Th } from '@/components/ui/primitives'
+import { Button, EmptyState, GuessDot, ICON_SM, IpAddress, Meter, PageHeader, Select, StatusDot, Table, Td, Th } from '@/components/ui/primitives'
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
+import { OriginLine } from '@/components/entity/parts'
 import { observation } from '@/lib/provenance'
 import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
-import { accelSummary, ageLabel, formatCpu, formatMemory, podsLabel, podsPercent, requestedPercent } from '@/lib/present'
+import { accelSummary, formatCpu, formatMemory, podsLabel, podsPercent, requestedPercent } from '@/lib/present'
 import type { MachineNode } from '@/lib/types'
-import { editOnDoubleClick, matches, RowActions, SearchBox } from './shared'
+import { matches, openOnClick, RowActions, SearchBox } from './shared'
 
 const KIND_LABEL = { vm: 'Virtual machine', 'bare-metal': 'Bare metal', 'edge-device': 'Edge device' } as const
 const KIND_ICON = { vm: Server, 'bare-metal': HardDrive, 'edge-device': Cpu } as const
@@ -32,7 +33,8 @@ export default function NodesPage() {
   const connect = useConnectFlow()
   const [q, setQ] = useState('')
   const [clusterFilter, setClusterFilter] = useState('')
-  const [editing, setEditing] = useState<MachineNode | null | 'new'>(null)
+  // The panel: a node to read (or edit straight away from the pencil), or a blank one to add.
+  const [panel, setPanel] = useState<{ node: MachineNode | null; edit: boolean } | null>(null)
   const [deleting, setDeleting] = useState<MachineNode | null>(null)
   const { isVisible, toggle } = useColumnVisibility('nodes')
 
@@ -45,7 +47,7 @@ export default function NodesPage() {
         title="Nodes"
         description="The machines — virtual machines, bare-metal servers and edge devices — that make up your clusters."
         actions={
-          <Button variant="primary" onClick={() => setEditing('new')} disabled={clusters.length === 0}>
+          <Button variant="primary" onClick={() => setPanel({ node: null, edit: true })} disabled={clusters.length === 0}>
             <Plus size={ICON_SM} /> Add node
           </Button>
         }
@@ -78,6 +80,7 @@ export default function NodesPage() {
               {isVisible('cpu') && <Th>CPU</Th>}
               {isVisible('memory') && <Th>Memory</Th>}
               {isVisible('services') && <Th>Services</Th>}
+              <Th>Status</Th>
               <Th className="sticky right-0 bg-nb-925" />
             </tr>
           </thead>
@@ -89,30 +92,11 @@ export default function NodesPage() {
                 return w ? <GuessDot level={w.level} why={w.why} /> : null
               }
               return (
-              <tr key={n.id} className="group hover:bg-nb-930/60" {...editOnDoubleClick(() => setEditing(n))}>
-                <Td>
-                  <div className="flex items-center gap-2 whitespace-nowrap font-medium text-nb-300">
-                    <span className="shrink-0">
-                      <StatusDot status={n.status} withLabel notCurrent={obs && obs.kind !== 'live' ? (obs.reason ?? obs.label) : undefined} />
-                    </span>
-                    <span>{n.name}</span>
-                    <ObservationChip quiet info={obs} />
-                    {n.source === 'manual' && <DeclaredMark />}
-                    {n.conditions && n.conditions.length > 0 && (
-                      <span className="inline-flex text-warn" title={`Active conditions: ${n.conditions.join(', ')}`}>
-                        <AlertTriangle size={ICON_MD} aria-label={n.conditions.join(', ')} />
-                      </span>
-                    )}
-                  </div>
-                  {(n.hardwareModel || n.os || n.accelerators?.length || n.createdAt) && (
-                    <div className="flex items-center gap-1.5 whitespace-nowrap text-xs text-nb-500">
-                      <span>{n.hardwareModel || n.os}</span>
-                      {n.createdAt && <span title={`Joined the cluster ${new Date(n.createdAt).toLocaleDateString()}`}>· {ageLabel(n.createdAt)}</span>}
-                      {n.accelerators && n.accelerators.length > 0 && (
-                        <span title={accelSummary(n.accelerators)} className="rounded border border-violet-400/30 bg-violet-400/10 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-violet-300">GPU</span>
-                      )}
-                    </div>
-                  )}
+              <tr key={n.id} className="group cursor-pointer hover:bg-nb-930/60" {...openOnClick(() => setPanel({ node: n, edit: false }))}>
+                <Td className="whitespace-nowrap">
+                  <button className="font-medium text-nb-300 hover:text-accent" onClick={() => setPanel({ node: n, edit: false })}>{n.name}</button>
+                  <OriginLine rec={n} createdAt={n.createdAt} />
+                  {n.conditions && n.conditions.length > 0 && <div className="mt-0.5 text-xs text-warn" title="Active conditions">{n.conditions.join(', ')}</div>}
                 </Td>
                 {isVisible('cluster') && (
                   <Td className="whitespace-nowrap">
@@ -127,6 +111,9 @@ export default function NodesPage() {
                       {n.arch && <span>{n.arch}</span>}
                       {/* Bare metal/edge rows now carry an explicit "No hypervisor detected" too (see hostprobe.go) - worth a full line in the Inspector, but repeating it on every row here would just be noise next to a kind icon that already says "Bare metal". Only the interesting case (it IS a VM) earns space in this dense list. */}
                       {n.kind === 'vm' && n.virtualization && <span>· {n.virtualization}</span>}
+                      {n.accelerators && n.accelerators.length > 0 && (
+                        <span title={accelSummary(n.accelerators)} className="rounded border border-violet-400/30 bg-violet-400/10 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-violet-300">GPU</span>
+                      )}
                     </div>
                   </Td>
                 )}
@@ -157,19 +144,29 @@ export default function NodesPage() {
                     )}
                   </Td>
                 )}
-                <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setEditing(n)} onDelete={() => setDeleting(n)} /></Td>
+                <Td><StatusDot status={n.status} withLabel notCurrent={obs && obs.kind !== 'live' ? (obs.reason ?? obs.label) : undefined} /></Td>
+                <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setPanel({ node: n, edit: true })} onDelete={() => setDeleting(n)} /></Td>
               </tr>
               )
             })}
             {rows.length === 0 && (
-              <tr><Td colSpan={2 + NODE_COLUMNS.filter((c) => isVisible(c.key)).length} className="py-8 text-center text-nb-500">No nodes match your filters.</Td></tr>
+              <tr><Td colSpan={3 + NODE_COLUMNS.filter((c) => isVisible(c.key)).length} className="py-8 text-center text-nb-500">No nodes match your filters.</Td></tr>
             )}
           </tbody>
         </Table>
       )}
       <GoneRecords kinds={['node']} className="mt-8" />
 
-      {editing && <NodeForm initial={editing === 'new' ? null : editing} defaultClusterId={clusterFilter || undefined} onClose={() => setEditing(null)} />}
+      {panel && (
+        <NodeForm
+          key={panel.node?.id ?? 'new'}
+          initial={panel.node}
+          edit={panel.edit}
+          defaultClusterId={clusterFilter || undefined}
+          onClose={() => setPanel(null)}
+          onDelete={panel.node ? () => { setDeleting(panel.node); setPanel(null) } : undefined}
+        />
+      )}
       {deleting && (
         <ConfirmModal
           title={`Delete ${deleting.name}?`}

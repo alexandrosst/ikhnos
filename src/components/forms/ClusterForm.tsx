@@ -5,10 +5,10 @@ import { Button, ComboField, GuessDot, ICON_SM, Input, LabelsEditor, Modal, Sele
 import { FormRow, OriginLine, Row, Section } from '@/components/entity/parts'
 import { completeness } from '@/lib/completeness'
 import { effective, hasOverrides } from '@/lib/effective'
-import { initiallyOpen, isDetected, isLocked, originOf } from '@/lib/fieldOrigin'
+import { useFieldLocks } from '@/components/entity/useFieldLocks'
+import { originOf } from '@/lib/fieldOrigin'
 import { CNI_OPTIONS, DISTRIBUTION_OPTIONS, PROVIDER_OPTIONS } from '@/lib/present'
 import { observation } from '@/lib/provenance'
-import { useWeakValue } from '@/store/rowEvidence'
 import { uid, useRawTopology, useTopology } from '@/store/topology'
 import { useServer } from '@/store/server'
 import { DEFAULT_ORG, TIERS, type Cluster } from '@/lib/types'
@@ -31,8 +31,6 @@ const blank = (): Cluster => ({
   source: 'manual',
 })
 
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
-
 /**
  * A cluster in a side panel. It opens read-only, every fact with a mark for where it comes from, and Edit turns it into a form. In the form a
  * value an agent reports is locked until you choose Override, so you only ever change what you mean to change; the rest stays tracked.
@@ -41,27 +39,25 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 export function ClusterForm({ initial, onClose, edit, onDelete }: { initial: Cluster | null; onClose: () => void; edit?: boolean; onDelete?: () => void }) {
   const save = useTopology((s) => s.saveCluster)
   const resetOverrides = useTopology((s) => s.resetOverrides)
-  const confirmField = useTopology((s) => s.confirmField)
   const sites = useTopology((s) => s.sites)
   const nodes = useTopology((s) => s.nodes)
   const services = useTopology((s) => s.services)
   const dependencies = useTopology((s) => s.dependencies)
   const by = useServer((s) => s.user?.username)
-  const weak = useWeakValue('cluster')
   // The stored record, before overrides: what an agent reported, and which fields are yours. The panel shows the live one, so a save is visible at once.
   const raw = useRawTopology((s) => (initial ? s.clusters.find((c) => c.id === initial.id) : undefined))
   const current = raw ? effective(raw) : initial
   const [editing, setEditing] = useState(!initial || !!edit)
   const [f, setF] = useState<Cluster>(() => current ?? blank())
   const [labels, setLabels] = useState(f.labels)
-  const [opened, setOpened] = useState<Set<string>>(() => initiallyOpen(raw))
   const set = <K extends keyof Cluster>(k: K, v: Cluster[K]) => setF((p) => ({ ...p, [k]: v }))
+  const { weak, lock, reopen } = useFieldLocks({ kind: 'cluster', id: initial?.id, raw, form: f, setForm: setF, yours: YOURS, by })
 
   const startEditing = () => {
     if (!current) return
     setF(current)
     setLabels(current.labels)
-    setOpened(initiallyOpen(raw))
+    reopen(raw)
     setEditing(true)
   }
   const done = () => (initial ? setEditing(false) : onClose())
@@ -160,41 +156,6 @@ export function ClusterForm({ initial, onClose, edit, onDelete }: { initial: Clu
   }
 
   /* ---------- form ---------- */
-  // A discovered value that is only a guess is not locked (confirming it is one click, or type a better one); neither is a field with nothing reported.
-  const locked = (field: string) => isLocked(raw, field, { opened, guess: weak(f as never, field)?.level === 'guess', open: YOURS })
-  const baseOf = (field: string) => (raw as unknown as Record<string, unknown> | undefined)?.[field]
-  const changed = (field: string) => isDetected(raw, field) && !YOURS.includes(field) && !locked(field) && !same((f as unknown as Record<string, unknown>)[field], baseOf(field))
-  const reset = (field: string) => {
-    setF((p) => ({ ...p, [field]: baseOf(field) }))
-    setOpened((p) => {
-      const n = new Set(p)
-      n.delete(field)
-      return n
-    })
-  }
-  const chip = (field: string) => {
-    const w = weak(f as never, field)
-    if (!w) return undefined
-    return (
-      <span className="inline-flex items-center gap-1.5">
-        <GuessDot level={w.level} why={w.why} />
-        {w.level === 'guess' && initial && by && (
-          <button type="button" onClick={() => confirmField('cluster', initial.id, field, by)} className="text-[11px] text-accent hover:underline" title="Keep this value as it is; it will not be overwritten by rediscovery.">
-            confirm
-          </button>
-        )}
-      </span>
-    )
-  }
-  const lock = (field: string, text: ReactNode) => ({
-    locked: locked(field),
-    lockedValue: text,
-    onOverride: () => setOpened((p) => new Set(p).add(field)),
-    changed: changed(field),
-    onReset: changed(field) ? () => reset(field) : undefined,
-    adornment: chip(field),
-  })
-
   return (
     <Modal
       open

@@ -74,11 +74,13 @@ Telemetry is not set up here. An agent's details say how many signals it sends a
 
 The **Placement** page answers "where would this service be better off, and what would that change?" — it's read-only advice, and every recommendation shows its evidence: what the round-trip estimate is based on (measured, declared, or a distance-based guess), how confident the traffic-weight figure is, and what would have to be true for the recommendation to flip. Nothing is ever moved from here; a person applies a change deliberately, elsewhere. See [Mobility and placement](./mobility-and-placement.md) for how the cost function and confidence levels work.
 
-## Clusters
+## Clusters and nodes
 
 The Clusters list shows each cluster with a second line under its name: **Detected · 12 s ago** for one an agent reports (or why it is quiet, stale or gone), **Declared by you** for one you described by hand, and a warning when discovery has not found its nodes, services or dependencies yet. Click a row or its name to open the cluster in a side panel, read-only, grouped into Identity, Platform, Network, Location and Policy. A **lock** beside a value means an agent reports it; a **pencil** means you set it. The pencil in the row opens the panel straight in edit mode, and **Delete** is in the panel footer.
 
 In edit mode a value an agent reports is locked: it shows as it is, with **Override** beside it. Open only the fields you mean to change; a field you override is kept when the cluster is rediscovered, and **Reset** puts the detected value back. Site, trust zone, data residency and labels are yours and are never locked, and a value discovery only guessed can be edited or confirmed on the spot. **Reset to detected values** clears every override at once. The **Discovered** column, which says how much of a cluster is known, is off by default; turn it on from **Columns**.
+
+Nodes work the same way: the name cell says where the record comes from and lists any active conditions (such as MemoryPressure), status has its own column, and the panel groups a node into Identity, Hardware, System, Network, Workload and Labels. Only labels are always yours; every other field an agent reports is locked until you override it.
 
 ## Namespaces and services
 
