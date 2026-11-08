@@ -1,24 +1,22 @@
 import { Filter as FilterIcon, X } from 'lucide-react'
 import { Button, ICON_SM, MenuPanel } from '@/components/ui/primitives'
-import { filterActive, filterSummary, NO_APP, SERVICE_KINDS, type Filter } from '@/features/topology/lib/filter'
-import type { Application, Cluster } from '@/lib/types'
+import { DEFAULT_KINDS, filterActive, filterSummary, NO_APP, SERVICE_KINDS, type Filter } from '@/features/topology/lib/filter'
+import type { Application, Cluster, ServiceKind } from '@/lib/types'
 
-/** A short label next to each workload kind in the Filter menu's "Kind" section - Deployment is the
- * common case and needs no explanation. */
-const KIND_HINT: Record<(typeof SERVICE_KINDS)[number], string | undefined> = {
-  Deployment: undefined,
-  StatefulSet: 'stateful',
-  DaemonSet: 'per node',
-  Job: 'runs once',
-}
+/** What the Kind section offers: the services together, then the machinery around them on request. */
+const KIND_CHOICES: { id: string; name: string; hint?: string; kinds: ServiceKind[] }[] = [
+  { id: 'services', name: 'Services', hint: 'deployments, stateful sets', kinds: DEFAULT_KINDS },
+  { id: 'DaemonSet', name: 'DaemonSets', hint: 'one per node', kinds: ['DaemonSet'] },
+  { id: 'Job', name: 'Jobs', hint: 'run once', kinds: ['Job'] },
+]
 
 /**
  * "Show only these": a popover with a checklist of clusters, one of applications, and one of workload kinds
- * (e.g. tick just Deployment to hide DaemonSets, StatefulSets and Jobs - the "real services" view). Nothing
- * chosen in a list means everything. The filter lives in the URL, so a filtered view can be linked and saved.
+ * (the services by default; DaemonSets and Jobs are ticked in on request). Nothing chosen in the cluster or
+ * application list means all of it. The filter lives in the URL, so a filtered view can be linked and saved.
  *
  * Controlled (`open`/`onOpenChange`) rather than managing its own state: the Topology toolbar has several of
- * these popovers side by side (this one, saved views, options, add), and only one of them may be open at a
+ * these popovers side by side (this one, options), and only one of them may be open at a
  * time - a page-level switch enforces that, click-outside and Escape included, so two never fight over the screen.
  */
 export default function FilterMenu({
@@ -38,7 +36,20 @@ export default function FilterMenu({
   applications: Application[]
   onChange: (f: Filter) => void
 }) {
-  const count = filter.clusters.length + filter.apps.length + filter.kinds.length
+  const count = filter.clusters.length + filter.apps.length + (filter.kinds.length ? 1 : 0)
+  // Kinds read the other way round from the lists above: nothing chosen is every kind, so what is ticked is what is shown.
+  const shownKinds = new Set<ServiceKind>(filter.kinds.length ? filter.kinds : SERVICE_KINDS)
+  const toggleKinds = (kinds: ServiceKind[]) => {
+    const next = new Set(shownKinds)
+    const on = kinds.every((k) => next.has(k))
+    for (const k of kinds) {
+      if (on) next.delete(k)
+      else next.add(k)
+    }
+    if (next.size === 0) return // something has to be shown
+    const chosen = SERVICE_KINDS.filter((k) => next.has(k))
+    onChange({ ...filter, kinds: chosen.length === SERVICE_KINDS.length ? [] : chosen })
+  }
 
   const toggle = (key: 'clusters' | 'apps' | 'kinds', id: string) => {
     const cur = filter[key]
@@ -86,10 +97,16 @@ export default function FilterMenu({
           {list('clusters', clusters.map((c) => ({ id: c.id, name: c.name, hint: c.tier })), 'No clusters yet.')}
           <div className="px-3 pb-1 pt-3 text-xs uppercase tracking-wide text-nb-500">Applications</div>
           {list('apps', [...applications.map((a) => ({ id: a.id, name: a.name })), { id: NO_APP, name: 'No application', hint: 'unassigned' }], '')}
-          <div className="px-3 pb-1 pt-3 text-xs uppercase tracking-wide text-nb-500">Kind</div>
-          {list('kinds', SERVICE_KINDS.map((k) => ({ id: k, name: k, hint: KIND_HINT[k] })), '')}
+          <div className="px-3 pb-1 pt-3 text-xs uppercase tracking-wide text-nb-500">Workloads</div>
+          {KIND_CHOICES.map((c) => (
+            <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm text-nb-300 hover:bg-nb-940">
+              <input type="checkbox" className="accent-[var(--color-accent,#f68330)]" checked={c.kinds.every((k) => shownKinds.has(k))} onChange={() => toggleKinds(c.kinds)} data-testid={`filter-kinds-${c.id}`} />
+              <span className="min-w-0 flex-1 truncate">{c.name}</span>
+              {c.hint && <span className="shrink-0 text-xs text-nb-500">{c.hint}</span>}
+            </label>
+          ))}
         </div>
-        <p className="border-t border-nb-850 px-3 py-2 text-xs text-nb-500">Nothing ticked in a list means all of it. A dependency is shown only if both ends are.</p>
+        <p className="border-t border-nb-850 px-3 py-2 text-xs text-nb-500">Nothing ticked under Clusters or Applications means all of them. A dependency is shown only if both ends are.</p>
       </MenuPanel>
     </div>
   )

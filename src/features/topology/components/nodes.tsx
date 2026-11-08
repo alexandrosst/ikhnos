@@ -1,7 +1,6 @@
 import { Handle, useStore, type NodeProps } from '@xyflow/react'
 import clsx from 'clsx'
 import {
-  Funnel,
   ArrowUpRight,
   BatteryCharging,
   Box,
@@ -16,7 +15,6 @@ import {
   Globe,
   HardDrive,
   Layers,
-  Network,
   Radio,
   Router,
   Server,
@@ -25,12 +23,11 @@ import {
   Truck,
   type LucideIcon,
 } from 'lucide-react'
-import { ICON_MD, ICON_SM } from '@/components/ui/primitives'
-import { memo, useCallback, useContext, useState, type ComponentProps, type ReactNode } from 'react'
+import { ICON_SM } from '@/components/ui/primitives'
+import { memo, useCallback, useState, type ComponentProps, type ReactNode } from 'react'
 import { PodPopover, PodRail } from '@/features/topology/components/Pods'
-import { LoadRow, peakLoad } from '@/features/topology/components/Load'
+import { peakLoad } from '@/features/topology/components/Load'
 import { DistroIcon, Flag } from '@/components/ui/brand'
-import { netLabel, netSentence, PeerRingContext, peerIds, type ClusterNet } from '@/features/topology/lib/clusterNets'
 import { middleTruncate } from '@/lib/present'
 import { SIDES, type CardNode, type GroupNode, type NamespaceNode } from '@/features/topology/lib/graph'
 import { STATUS_COLOR, TIER_COLOR, type DeviceKind, type ServiceKind } from '@/lib/types'
@@ -72,10 +69,6 @@ const MESH_TONE = { in: 'bg-ok/10 text-ok', control: 'bg-violet-400/10 text-viol
 // service chips, which previously used two adjacent-but-different grays (bg-nb-900 vs bg-nb-940) that never
 // meant anything different from each other, just drifted independently.
 const NEUTRAL_TONE = 'bg-nb-900 text-nb-400'
-// A cluster header's own chips (networks, CNI/ingress): a faint wash of the text colour, not a white pill, so they sit in the box's tint
-// instead of reading as separate stickers.
-const HEADER_TONE = 'bg-[color-mix(in_srgb,var(--color-nb-300)_8%,transparent)] text-nb-500'
-
 /** "1000" reads worse on a small badge than "1 Gbps" - the Inspector's own full interface list (Inspector.tsx)
  *  keeps raw Mbps since it has room to be exact about every interface; this is a single at-a-glance number
  *  for the fastest one, so the friendlier unit wins here. */
@@ -134,47 +127,6 @@ function Badge({
   )
 }
 
-/** A cluster's networks and tunnels as chips, the same two readable facts in both layers, on the title's own line
- *  so the header keeps its height: they take the room the name leaves and truncate (the full sentence is the
- *  tooltip) rather than push it, and only the first two are drawn. */
-function NetChips({ nets }: { nets: ClusterNet[] }) {
-  const { show } = useContext(PeerRingContext)
-  const shown = nets.slice(0, 2)
-  const more = nets.slice(2)
-  return (
-    <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden" data-testid="net-chips">
-      {shown.map((n) => {
-        const peers = peerIds([n])
-        const [label, suffix] = netLabel(n)
-        return (
-          <Badge
-            key={`${n.kind}:${n.via}`}
-            tone={HEADER_TONE}
-            dense
-            icon={n.kind === 'subnet' ? Network : Cable}
-            title={netSentence(n)}
-            className="min-w-0 !shrink"
-            suffix={suffix}
-            data-testid="net-chip"
-            tabIndex={0}
-            onMouseEnter={() => show(peers)}
-            onMouseLeave={() => show(null)}
-            onFocus={() => show(peers)}
-            onBlur={() => show(null)}
-          >
-            {label}
-          </Badge>
-        )
-      })}
-      {more.length > 0 && (
-        <Badge tone={HEADER_TONE} dense title={more.map(netSentence).join('\n')}>
-          +{more.length}
-        </Badge>
-      )}
-    </div>
-  )
-}
-
 /** The status dot, with a soft halo of its own colour; an offline one breathes slowly (still when motion is reduced). */
 function StatusDot({ status, className, title }: { status: keyof typeof STATUS_COLOR; className?: string; title?: string }) {
   return <span className={clsx('topo-dot shrink-0 rounded-full', status === 'offline' && 'topo-dot-bad', className)} style={{ background: STATUS_COLOR[status], color: STATUS_COLOR[status] }} title={title} />
@@ -199,7 +151,6 @@ function ReplicaCells({ replicas, label, far }: { replicas: { total: number; rea
 /* ---------- Cluster / tier boundary ---------- */
 export const GroupBox = memo(function GroupBox({ data, selected }: NodeProps<GroupNode>) {
   const far = useFar()
-  const peer = useContext(PeerRingContext).ring.has(data.entityId) && data.groupBy === 'cluster' && !data.extra
   const color = TIER_COLOR[data.tier]
   const peak = data.load ? peakLoad(data.load) : undefined
   const tierLabel =
@@ -219,12 +170,12 @@ export const GroupBox = memo(function GroupBox({ data, selected }: NodeProps<Gro
     // very tip of any edge pointing at it. Inset keeps the identical highlight look without ever drawing
     // outside the box OffsetEdge's own math already treats as this card's exact, true extent.
     <div
-      className={clsx('topo-box relative h-full w-full rounded-2xl border transition-shadow', selected ? 'topo-pop shadow-[0_10px_30px_-12px_rgb(0_0_0/0.35)]' : peer && 'shadow-[inset_0_0_0_1.5px_var(--color-nb-500)]')}
+      className={clsx('topo-box relative h-full w-full rounded-2xl border transition-shadow', selected && 'topo-pop shadow-[0_10px_30px_-12px_rgb(0_0_0/0.35)]')}
       style={{
         '--pop': 1.012,
         // Selected is a change of colour and a small lift, not a heavier border.
-        borderColor: selected ? 'var(--color-accent)' : `color-mix(in srgb, ${color} 32%, transparent)`,
-        background: `linear-gradient(180deg, color-mix(in srgb, ${color} 9%, var(--color-nb-920)), color-mix(in srgb, ${color} 4%, var(--color-nb-920)) 38%)`,
+        borderColor: selected ? 'var(--color-accent)' : `color-mix(in srgb, ${color} var(--box-edge), transparent)`,
+        background: `linear-gradient(180deg, color-mix(in srgb, ${color} var(--box-wash-top), var(--color-nb-920)), color-mix(in srgb, ${color} var(--box-wash), var(--color-nb-920)) 38%)`,
       } as React.CSSProperties}
     >
       <AllHandles />
@@ -236,9 +187,8 @@ export const GroupBox = memo(function GroupBox({ data, selected }: NodeProps<Gro
             <StatusDot status={data.status} className="size-2" />
             {data.distribution && <DistroIcon distribution={data.distribution} size={ICON_SM} />}
             <span className={clsx('truncate font-semibold tracking-tight text-nb-200', far ? 'text-[26px] leading-8' : 'text-sm')} title={data.title}>{data.title}</span>
-            {!far && data.nets && <NetChips nets={data.nets} />}
-            {far && peak !== undefined && peak >= 70 && (
-              <span className={clsx('rounded px-1.5 py-0.5 text-[15px] font-medium', peak >= 90 ? 'bg-bad/15 text-bad' : 'bg-warn/15 text-warn')} title="Busiest resource: share requested by pods">{peak}%</span>
+            {peak !== undefined && peak >= 70 && (
+              <span className={clsx('shrink-0 rounded px-1.5 py-px font-medium', far ? 'text-[15px]' : 'text-[10.5px]', peak >= 90 ? 'bg-bad/15 text-bad' : 'bg-warn/15 text-warn')} title="Busiest resource: share requested by pods">{peak}%</span>
             )}
           </div>
           {!far && (
@@ -250,37 +200,11 @@ export const GroupBox = memo(function GroupBox({ data, selected }: NodeProps<Gro
                   {data.mesh.label}
                 </Badge>
               )}
-              {data.networking && (
-                <Badge
-                  tone={HEADER_TONE}
-                  dense
-                  icon={Router}
-                  title={`Detected in this cluster: ${[data.networking.cni && `${data.networking.cni} (CNI)`, data.networking.ingress && `${data.networking.ingress} (ingress)`].filter(Boolean).join(' · ')}`}
-                  data-testid="networking-badge"
-                >
-                  {[data.networking.cni, data.networking.ingress].filter(Boolean).join(' · ')}
-                </Badge>
-              )}
             </div>
-          )}
-          {!far && data.load && (data.load.cpuPct !== undefined || data.load.memPct !== undefined || data.load.podPct !== undefined || data.load.ready < data.load.nodes || data.load.unready > 0) && (
-            <LoadRow load={data.load} className="mt-1 pl-4" />
           )}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <div className="flex items-center gap-1">
-            {data.localTelemetry && (
-              <button
-                type="button"
-                data-testid="local-telemetry-badge"
-                data-local-telemetry-cluster={data.entityId}
-                title={`Local telemetry running: ${data.localTelemetry.layers.join(', ') || 'signals active'}. Click to configure.`}
-                aria-label={`Local telemetry running: ${data.localTelemetry.layers.join(', ') || 'signals active'}. Click to configure.`}
-                className="grid size-5 shrink-0 place-items-center rounded-full bg-accent-soft text-accent transition-colors hover:bg-accent/20"
-              >
-                <Funnel size={ICON_MD} />
-              </button>
-            )}
             {/* The tier is written, in its own colour, not drawn as a badge: nothing in the header competes with the name. */}
             <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em]" style={{ color }} data-testid="tier-label">
               {tierLabel}

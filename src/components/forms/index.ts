@@ -1,4 +1,4 @@
-// Barrel so `@/components/forms` keeps working as one import surface for consumers (pages, ViewsMenu),
+// Barrel so `@/components/forms` keeps working as one import surface for consumers (pages),
 // while each entity's form lives in its own file - this directory replaced a single ~930-line forms.tsx
 // that had grown to hold six unrelated forms plus their shared bits in one place.
 export { ClusterForm } from './ClusterForm'

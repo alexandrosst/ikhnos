@@ -14,8 +14,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import clsx from 'clsx'
-import { toPng } from 'html-to-image'
-import { Funnel, Boxes, ChevronDown, Download, Ellipsis, Filter as FilterIcon, Info, Package, Plug, Plus, Radio, RotateCcw, ScanEye, Server, SlidersHorizontal, Target, TriangleAlert, X } from 'lucide-react'
+import { Filter as FilterIcon, Info, Plug, Plus, RotateCcw, ScanEye, SlidersHorizontal, Target, TriangleAlert, X } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
@@ -34,10 +33,8 @@ import { PodLegend } from '@/features/topology/components/Pods'
 // here didn't previously cover.
 const MapView = lazy(() => import('@/features/topology/components/MapView'))
 import EdgeHoverCard, { type EdgeHoverPos } from '@/features/topology/components/EdgeHoverCard'
-import ViewsMenu from '@/features/topology/components/ViewsMenu'
 import LiveStatus from '@/features/topology/components/LiveStatus'
 import { nodeTypes } from '@/features/topology/components/nodes'
-import { PeerRingContext, peerIds } from '@/features/topology/lib/clusterNets'
 import TelemetryTab from '@/features/topology/components/TelemetryTab'
 import { edgeTypes } from '@/features/topology/components/OffsetEdge'
 import { AutoMiniMap } from '@/features/topology/components/AutoMiniMap'
@@ -45,10 +42,9 @@ import { SquareRoutes } from '@/features/topology/components/SquareRoutes'
 import { Button, EmptyState, ICON_MD, ICON_SM, MenuPanel, Select, SkeletonBlock } from '@/components/ui/primitives'
 import { PRESS_CLASS } from '@/components/ui/buttonClass'
 import FilterMenu, { FilterChip } from '@/features/topology/components/FilterMenu'
-import { extrasOf, TELEMETRY_SIGNALS } from '@/lib/consent'
 import { computeFocus } from '@/features/topology/lib/focus'
 import { narrowFitZoom } from '@/features/topology/lib/fit'
-import { applyFilter, encodeList, filterActive, hopNeighborhood, isFreshApplicationView, knownOnly, parseFilter } from '@/features/topology/lib/filter'
+import { applyFilter, DEFAULT_KINDS, encodeList, filterActive, hopNeighborhood, isFreshApplicationView, knownOnly, parseFilter } from '@/features/topology/lib/filter'
 import { applyGraphUpdate, buildGraph, cardId, groupId, sameLayout, syncSelected, type TopoEdge, type TopoNode } from '@/features/topology/lib/graph'
 import { lossBand } from '@/lib/metrics'
 import { lossLabel } from '@/features/topology/lib/lossLabel'
@@ -56,9 +52,8 @@ import { anyMesh, VERDICT_COLOR } from '@/features/topology/lib/mesh'
 import { useAutoPlaceClusters } from '@/lib/usePlacement'
 import { usePlanHints } from '@/lib/placement/usePlacement'
 import { parseSel } from '@/lib/search'
-import { TIER_COLOR, TIERS, type GroupBy, type ViewKind } from '@/lib/types'
+import { TIER_COLOR, type GroupBy, type ViewKind } from '@/lib/types'
 import { useServer } from '@/store/server'
-import { useHistoryView } from '@/store/history'
 import { useClusterLinks, usePaths, useTopology } from '@/store/topology'
 
 type Mode = ViewKind | 'map' | 'telemetry'
@@ -203,16 +198,16 @@ function Canvas() {
       return n
     }, { replace: true })
 
-  // The Application view defaults to "real services" (Deployment) rather than "everything": a fresh visit
-  // with no filter chosen yet is the common case, and starting there with just Deployment makes the canvas
-  // read as actual services (not DaemonSets/StatefulSets/Jobs) and gives a topology selection fewer, more
+  // The Application view defaults to the services (Deployments and StatefulSets) rather than "everything": a fresh visit
+  // with no filter chosen yet is the common case, and starting there with just the services makes the canvas
+  // read as actual services (not DaemonSets/Jobs) and gives a topology selection fewer, more
   // relevant cards to choose from. A one-time URL rewrite, not a render-time default - deriving it at render
   // time instead would break the moment someone unchecks the only active kind, since the resulting empty
   // selection writes the exact same "no kinds param" URL the default itself would read, so the default would
   // silently reassert itself on the very next render. Running once, on mount, means it can never re-fire
   // after that no matter what the person does afterward (including clearing it right back to "everything").
   useEffect(() => {
-    if (isFreshApplicationView(sp)) setParam('kinds', encodeList(['Deployment']))
+    if (isFreshApplicationView(sp)) setParam('kinds', encodeList(DEFAULT_KINDS))
     // only meant to run once, at first mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -222,7 +217,6 @@ function Canvas() {
   // Arriving from search (or a shared link) with ?sel=service:w-gw opens that thing in the inspector.
   const selParam = sp.get('sel')
   const [form, setForm] = useState<FormState>(null)
-  const inPast = useHistoryView((s) => s.at !== null)
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null)
   // The legend is a small chip until someone wants it, so it does not sit on top of the graph; the choice is remembered.
   const [legendOpen, setLegendOpen] = useState(() => {
@@ -249,54 +243,6 @@ function Canvas() {
   // The canvas's own bounding box, for EdgeHoverCard to position itself against - set once the ReactFlow
   // wrapper mounts, same ref-callback pattern MapView uses for its own hover cards' `host`.
   const [host, setHost] = useState<HTMLElement | null>(null)
-  const [exportingPng, setExportingPng] = useState(false)
-  // Renders the graph's own `.react-flow__viewport` element (the panned/zoomed layer that actually holds
-  // every card and edge - Controls/MiniMap/Background are separate siblings under `host`, not part of it,
-  // so capturing this one element already excludes them without a filter) into a detached, full-bounds PNG:
-  // a fixed width/height and an explicit transform temporarily replace whatever pan/zoom is on screen,
-  // rather than asking someone to zoom-to-fit and hope nothing is cropped first. html-to-image is the same
-  // library React Flow's own "Download Image" example uses for exactly this - canvas-based alternatives
-  // (html2canvas and similar) don't handle this library's own CSS custom properties and transforms as
-  // reliably.
-  const exportPng = useCallback(async () => {
-    const viewportEl = host?.querySelector<HTMLElement>('.react-flow__viewport')
-    if (!viewportEl) return
-    setExportingPng(true)
-    try {
-      const bounds = getNodesBounds(getNodes())
-      if (bounds.width <= 0 || bounds.height <= 0) return
-      const maxDim = 1600
-      const aspect = bounds.width / bounds.height
-      const imageWidth = aspect >= 1 ? maxDim : Math.round(maxDim * aspect)
-      const imageHeight = aspect >= 1 ? Math.round(maxDim / aspect) : maxDim
-      const viewport = getViewportForBounds(bounds, imageWidth, imageHeight, 0.1, 4, 0.06)
-      // The canvas's own dark/light background token (index.css's --color-nb-910, what .react-flow itself
-      // paints behind everything) - read live rather than hardcoded so the export matches whichever theme
-      // is actually on screen. The literal fallback is that same token's default (dark) value, for the
-      // vanishingly unlikely case the variable isn't resolvable at all.
-      const bg = getComputedStyle(document.documentElement).getPropertyValue('--color-nb-910').trim() || '#1b1f25'
-      const dataUrl = await toPng(viewportEl, {
-        backgroundColor: bg,
-        width: imageWidth,
-        height: imageHeight,
-        pixelRatio: 2,
-        style: {
-          width: `${imageWidth}px`,
-          height: `${imageHeight}px`,
-          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
-        },
-      })
-      const a = document.createElement('a')
-      a.download = `topology-${mode}-${new Date().toISOString().slice(0, 10)}.png`
-      a.href = dataUrl
-      a.click()
-    } catch {
-      // Best-effort: a failed export just means no download happened, nothing else on the canvas is
-      // affected (the real DOM/viewport were never touched - only a detached clone toPng renders from).
-    } finally {
-      setExportingPng(false)
-    }
-  }, [host, getNodes, mode])
   // Escape closes whichever one of the toolbar's popovers is open.
   useEffect(() => {
     if (!openMenu) return
@@ -311,45 +257,6 @@ function Canvas() {
   // Discovered records come from the server with the first refresh, after the workspace loads: a link to one waits for them.
   const observedReady = useServer((s) => s.status === 'disconnected' || s.state !== undefined)
 
-  // Local operators: cluster id → the summary the canvas badge needs (nodes.tsx's antenna badge on the
-  // cluster's own group box - see graph.ts's `localTelemetry`). A local operator is just an already-approved
-  // agent with telemetry signals turned on, so this is a view over `agents`, not a fetch of its own; mirrors
-  // operatorsView's joinLocal. Only the first approved agent per cluster counts -
-  // today's model is one discovery agent per cluster, so this never has to merge two operators' worth of
-  // signals into one badge.
-  const rawAgents = useServer((s) => s.state?.agents)
-  // `rawAgents` is a fresh array on every poll - useServer.refresh() just replaces `state` wholesale
-  // (see server.ts), unlike useRawTopology's merge, nothing dedupes it when the response is unchanged. Using
-  // it as a useMemo dependency directly would give `graph` below a new `localOperators` identity every
-  // 2-5s forever, forcing a full canvas re-layout on every poll tick even when no agent's telemetry actually
-  // changed - exactly the "no continuous polling" the operators fetch above was meant to avoid, and by
-  // itself enough to make the canvas feel less and less responsive the longer this page stays open. This
-  // signature is the cheap part (strings only, same idea as `shape` further down), so it's fine to
-  // recompute every poll; the Map below only rebuilds - and only then hands `graph` a new reference - when
-  // the signature's value actually changes.
-  const localOperatorsSig = useMemo(() => {
-    const parts: string[] = []
-    for (const a of agents) {
-      if (a.status !== 'approved' || !a.clusterId) continue
-      const installed = extrasOf(rawAgents, a.id).diagnostics?.installedTelemetry ?? []
-      if (installed.length) parts.push(`${a.clusterId}:${a.id}:${[...installed].sort().join(',')}`)
-    }
-    return parts.sort().join('|')
-  }, [agents, rawAgents])
-  const localOperatorByCluster = useMemo(() => {
-    const layerOf = new Map(TELEMETRY_SIGNALS.map((sig) => [sig.id, sig.layer]))
-    const m = new Map<string, { layers: string[]; agentId: string }>()
-    for (const a of agents) {
-      if (a.status !== 'approved' || !a.clusterId || m.has(a.clusterId)) continue
-      const installed = extrasOf(rawAgents, a.id).diagnostics?.installedTelemetry ?? []
-      if (!installed.length) continue
-      const layers = [...new Set(installed.map((id) => layerOf.get(id)).filter((l): l is 'infrastructure' | 'application' => !!l))]
-      m.set(a.clusterId, { layers, agentId: a.id })
-    }
-    return m
-    // only localOperatorsSig should force a rebuild - see its own comment above
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localOperatorsSig])
   // Set when a selection arrives from search or a shared link: the view then goes to the entity (see the reveal effect below).
   const revealRef = useRef(false)
   // The entity the view just arrived at (from search): it glows for a moment so the eye finds it.
@@ -396,21 +303,12 @@ function Canvas() {
   const graph = useMemo(
     () =>
       buildGraph(shown, {
-        view, groupBy, servicesOnNodes, links, devices: showDevices, noise: showNoise, mesh: showMesh, namespaces: showNamespaces, chain: showChain, paths, hints, localOperators: localOperatorByCluster,
+        view, groupBy, servicesOnNodes, links, devices: showDevices, noise: showNoise, mesh: showMesh, namespaces: showNamespaces, chain: showChain, paths, hints,
         clusterLinks,
       }),
-    [shown, view, groupBy, servicesOnNodes, links, showDevices, showNoise, showMesh, showNamespaces, showChain, paths, hints, localOperatorByCluster, clusterLinks],
+    [shown, view, groupBy, servicesOnNodes, links, showDevices, showNoise, showMesh, showNamespaces, showChain, paths, hints, clusterLinks],
   )
   const nothingMatches = filtering && shown.clusters.length === 0 && shown.devices.length === 0
-
-  // The clusters ringed as peers (see PeerRingContext): those of the network or tunnel chip being hovered or
-  // focused, else those sharing a network or tunnel with the selected cluster.
-  const [chipPeers, setChipPeers] = useState<ReadonlySet<string> | null>(null)
-  const selectedPeers = useMemo(() => {
-    const box = selection?.kind === 'cluster' ? graph.nodes.find((n) => n.type === 'boundary' && n.data.entityId === selection.id) : undefined
-    return peerIds(box?.type === 'boundary' ? box.data.nets : undefined)
-  }, [graph.nodes, selection])
-  const peerRing = useMemo(() => ({ ring: chipPeers ?? selectedPeers, show: setChipPeers }), [chipPeers, selectedPeers])
 
   const [nodes, setNodes, onNodesChange] = useNodesState<TopoNode>(graph.nodes)
 
@@ -844,15 +742,6 @@ function Canvas() {
               setSelection(null)
             }}
           />
-          <ViewsMenu
-            open={openMenu === 'views'}
-            onOpenChange={(o) => setOpenMenu(o ? 'views' : null)}
-            sp={sp}
-            onApply={(params) => {
-              setSp(new URLSearchParams(params), { replace: true })
-              setSelection(null)
-            }}
-          />
             </>
           )}
           {isCanvas && (
@@ -969,70 +858,23 @@ function Canvas() {
             </div>
           )}
 
-          {/* Reset layout and Export PNG are used now and then, so they live in one "more" menu instead of two buttons. */}
           {isCanvas && (
-            <div className="relative">
-              <Button onClick={() => toggleMenu('more')} disabled={empty} aria-expanded={openMenu === 'more'} aria-haspopup="true" aria-label="More canvas actions" title="Reset layout, export as PNG" data-testid="canvas-more">
-                <Ellipsis size={ICON_SM} />
-              </Button>
-              <MenuPanel open={openMenu === 'more'} onClose={() => setOpenMenu(null)} className="w-52 overflow-hidden p-1">
-                <button
-                  disabled={empty}
-                  onClick={() => {
-                    setOpenMenu(null)
-                    setNodes(graph.nodes)
-                    // The `shape` effect above only re-fits when node ids/sizes change, which a layout reset never does
-                    // (same nodes, new positions): without this, a reset whose new positions land outside the current
-                    // viewport looked like the button did nothing at all.
-                    fit(200)
-                  }}
-                  title="Snap every entity back to its computed position. Your view options (filters, grouping, toggles) are untouched."
-                  data-testid="reset-layout"
-                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-nb-300 hover:bg-nb-940 disabled:opacity-40 disabled:hover:bg-transparent"
-                >
-                  <RotateCcw size={ICON_SM} className="text-nb-500" /> Reset layout
-                </button>
-                <button
-                  onClick={() => {
-                    setOpenMenu(null)
-                    exportPng()
-                  }}
-                  disabled={exportingPng || empty}
-                  title="Save the whole canvas as a PNG image, not just what is on screen"
-                  data-testid="export-png"
-                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-nb-300 hover:bg-nb-940 disabled:opacity-40 disabled:hover:bg-transparent"
-                >
-                  <Download size={ICON_SM} className="text-nb-500" /> {exportingPng ? 'Exporting…' : 'Export PNG'}
-                </button>
-              </MenuPanel>
-            </div>
-          )}
-
-          <div className="relative">
-            <Button variant="primary" onClick={() => toggleMenu('add')} disabled={inPast} title={inPast ? 'Return to now to add or change things' : undefined}>
-              <Plus size={ICON_SM} /> Add <ChevronDown size={ICON_SM} />
+            <Button
+              disabled={empty}
+              onClick={() => {
+                setNodes(graph.nodes)
+                // The `shape` effect above only re-fits when node ids/sizes change, which a layout reset never does
+                // (same nodes, new positions): without this, a reset whose new positions land outside the current
+                // viewport looked like the button did nothing at all.
+                fit(200)
+              }}
+              aria-label="Reset layout"
+              title="Snap every entity back to its computed position. Your view options (filters, grouping, toggles) are untouched."
+              data-testid="reset-layout"
+            >
+              <RotateCcw size={ICON_SM} />
             </Button>
-            <MenuPanel open={openMenu === 'add'} onClose={() => setOpenMenu(null)} className="w-48 overflow-hidden p-1">
-              {[
-                { t: 'cluster', label: 'Cluster', icon: Boxes, disabled: false },
-                { t: 'node', label: 'Node', icon: Server, disabled: empty },
-                { t: 'service', label: 'Service', icon: Package, disabled: empty },
-                { t: 'device', label: 'Device', icon: Radio, disabled: false },
-              ].map(({ t, label, icon: Icon, disabled }) => (
-                <button
-                  key={t}
-                  disabled={disabled}
-                  onClick={() => {
-                    setOpenMenu(null)
-                    setForm({ type: t as 'cluster' | 'node' | 'service' | 'device' })
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-nb-300 hover:bg-nb-940 disabled:opacity-40 disabled:hover:bg-transparent"
-                >
-                  <Icon size={ICON_SM} className="text-nb-500" /> {label}
-                </button>
-              ))}
-            </MenuPanel>
-          </div>
+          )}
         </div>
       </div>
 
@@ -1092,7 +934,7 @@ function Canvas() {
               <MapView selection={selection} onSelect={select} filter={filter} />
             </Suspense>
           ) : (
-            <PeerRingContext.Provider value={peerRing}>
+            <>
             <ArrowDefs colors={[...new Set(edges.map((e) => String(e.style?.stroke ?? '')))]} />
             <SquareRoutes edges={edges}>
             <ReactFlow<TopoNode, Edge>
@@ -1101,15 +943,11 @@ function Canvas() {
               nodeTypes={nodeTypes}
               edgeTypes={edgeTypes}
               onNodesChange={onNodesChange}
+              // A dragged box carries its contents: they must move with it at once, not ease after it (index.css).
+              onNodeDragStart={() => host?.classList.add('topo-dragging')}
+              onNodeDragStop={() => host?.classList.remove('topo-dragging')}
               onSelectionChange={onSelectionChange}
               onNodeClick={(e, n) => {
-                // The local-telemetry antenna badge (nodes.tsx) sits inside a cluster's group box, so a
-                // click on it also reaches this handler - check for it first and open that agent's
-                // telemetry wizard instead of the normal group-select behaviour.
-                const badge = (e.target as HTMLElement).closest?.('[data-local-telemetry-cluster]')
-                const clusterId = badge?.getAttribute('data-local-telemetry-cluster')
-                const agentId = clusterId ? localOperatorByCluster.get(clusterId)?.agentId : undefined
-                if (agentId) { telemetry.start(agentId); return }
                 // Same technique, for the per-pod expand panel's own node-name buttons (nodes.tsx's Card):
                 // those live inside a SERVICE card but need to select a DIFFERENT entity (the node that
                 // pod happens to be scheduled on) - something only this handler, not the card component
@@ -1191,19 +1029,12 @@ function Canvas() {
               <AutoMiniMap bounds={graphBounds} hidden={!!selection} className="!hidden sm:!block" pannable zoomable nodeColor={miniColor} nodeStrokeWidth={0} />
               <Panel position="bottom-left" className="!mb-3 !ml-16 hidden sm:block">
                 {/* flex-wrap (plus the max-w below) lets a long legend - everything explained can be on at
-                    once: tiers, cross-group, mesh, traffic, telemetry, measured links - wrap onto a second
+                    once: cross-group, mesh, traffic, measured links - wrap onto a second
                     line on a narrower viewport or with the Inspector open, rather than running off the
                     right edge of the canvas with no way to see the rest of it. whitespace-nowrap is kept on
                     the row so wrapping only ever happens between entries, never mid-label. */}
                 {legendOpen ? (
                   <div className="topo-glass flex max-w-[min(92vw,720px)] flex-wrap items-center gap-x-4 gap-y-1.5 whitespace-nowrap rounded-xl border border-nb-850 px-3.5 py-2 text-xs text-nb-400">
-                  {TIERS.map((t) => (
-                    <span key={t.value} className="flex items-center gap-1.5">
-                      <span className="size-2 rounded-full" style={{ background: TIER_COLOR[t.value] }} />
-                      {t.label}
-                    </span>
-                  ))}
-                  <span className="h-3 w-px bg-nb-800" />
                   <span
                     className="flex items-center gap-1.5"
                     title="A lighter line marks a dependency that crosses a cluster boundary - a separate, independent signal from the solid/dashed traffic styles below. A cross-cluster edge can be either, depending on whether traffic has actually been seen on it."
@@ -1286,15 +1117,6 @@ function Canvas() {
                       <PodLegend />
                     </>
                   )}
-                  {localOperatorByCluster.size > 0 && (
-                    <>
-                      <span className="h-3 w-px bg-nb-800" />
-                      <span className="flex items-center gap-1.5" title="This badge on a cluster box means a local operator (an approved agent with telemetry signals on) is running there - click it to configure">
-                        <Funnel size={ICON_SM} className="text-accent" />
-                        Local telemetry
-                      </span>
-                    </>
-                  )}
                 <button
                     type="button"
                     onClick={() => toggleLegend(false)}
@@ -1320,7 +1142,7 @@ function Canvas() {
               </Panel>
             </ReactFlow>
             </SquareRoutes>
-            </PeerRingContext.Provider>
+            </>
           )}
           <HoverStyle edge={hoveredEdge} />
           {hoveredEdge && hoverPos && (

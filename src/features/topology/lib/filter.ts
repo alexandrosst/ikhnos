@@ -11,6 +11,13 @@ export const NO_APP = '_none'
  * that could legitimately grow or shrink. */
 export const SERVICE_KINDS: ServiceKind[] = ['Deployment', 'StatefulSet', 'DaemonSet', 'Job']
 
+/** "Services": what most people mean by the applications that run - Deployments and StatefulSets. The Application
+ *  view starts on these; DaemonSets (one per node) and Jobs (run once) are the machinery around them, shown on request. */
+export const DEFAULT_KINDS: ServiceKind[] = ['Deployment', 'StatefulSet']
+
+/** Whether a chosen set of kinds is exactly the services (in any order). */
+export const isServicesOnly = (kinds: ServiceKind[]): boolean => kinds.length === DEFAULT_KINDS.length && DEFAULT_KINDS.every((k) => kinds.includes(k))
+
 export interface Filter {
   clusters: string[]
   apps: string[]
@@ -46,18 +53,18 @@ export const encodeList = (ids: string[]): string | null => (ids.length ? ids.ma
 
 export const filterActive = (f: Filter) => f.clusters.length > 0 || f.apps.length > 0 || f.kinds.length > 0
 
-/** The filter in a few words, for the chip next to the Filter button: "Deployments only", "2 clusters · 1 application".
+/** The filter in a few words, for the chip next to the Filter button: "Services only", "2 clusters · 1 application".
  *  Undefined when nothing is filtered. */
 export function filterSummary(f: Filter): string | undefined {
   const parts = [
-    f.kinds.length === 1 ? `${f.kinds[0]}s only` : f.kinds.length > 1 ? count(f.kinds.length, 'kind') : '',
+    isServicesOnly(f.kinds) ? 'Services only' : f.kinds.length === 1 ? `${f.kinds[0]}s only` : f.kinds.length > 1 ? count(f.kinds.length, 'kind') : '',
     f.clusters.length ? count(f.clusters.length, 'cluster') : '',
     f.apps.length ? count(f.apps.length, 'application') : '',
   ].filter(Boolean)
   return parts.length ? parts.join(' \u00b7 ') : undefined
 }
 
-/** Whether the Application view's Kind filter should default to Deployment-only ("real services") - true
+/** Whether the Application view's Kind filter should default to the services (Deployments and StatefulSets) - true
  * only for a page that arrived with no `kinds`, `clusters` or `apps` of its own to lose. Kept as a pure
  * function of the URL rather than inline in the page component so it's cheap to test on its own, and so a
  * caller can check it once, at first mount, without needing React: the whole point of defaulting this way

@@ -1436,35 +1436,16 @@ test("infrastructure view: a machine card reserves height for its own hardware b
   assert.equal(Number(withNic.style?.height), MACHINE_CARD.h + 24, 'the hardware badge row adds its own reserved height, exactly like a service card\'s hint/notReady/mesh row already does')
 })
 
-test('infrastructure view: a single-node cluster\'s box is never narrower than its own header needs, so LoadRow\'s meters/warnings overlap the card below (task: node card missing top spacing)', () => {
-  // A cluster with exactly one node is the exact case this was found on: PAD*2 + MACHINE_CARD.w = 328px,
-  // which is inside LoadRow's flex-wrap danger zone. An earlier version of this fix only accounted for
-  // LoadRow showing CPU+Mem (2 items) and set the floor to 352px - which turned out to still be too narrow:
-  // reported live by a user after that fix had already shipped. LoadRow can carry up to FIVE items at once
-  // (CPU/Mem/Pods mini-bars, plus "N/M nodes ready" and "N services not fully up" warning text once a
-  // cluster is unhealthy), and a real single-node cluster reporting all five wrapped to three lines even at
-  // 352px, overflowing HEADER's 96px budget by over 10px. Direct measurement (forcing this exact worst-case
-  // content through a live, real-browser render and bisecting box width) found the two-line breakpoint at
-  // ~430px, so the floor now sits well past that. n-a2 (not n-a1) is used below because it's the node in
-  // the seed data that actually has allocatable/requested/podCount data - cl-edge-a's `load` is *computed*
-  // from real node metrics (see clusterLoad in metrics.ts), never read back off a `load` field placed
-  // directly on the seed Cluster object, so a test needs a node with real numbers to exercise this at all.
-  const t = {
-    ...seed,
-    nodes: seed.nodes
-      .filter((n) => n.clusterId !== 'cl-edge-a' || n.id === 'n-a2')
-      .map((n) => (n.id === 'n-a2' ? { ...n, status: 'degraded' as const } : n)),
-    services: seed.services.map((s) => (s.id === 'w-sensor-a' ? { ...s, readyReplicas: (s.readyReplicas ?? s.replicas ?? 1) - 1 } : s)),
-  }
+test('infrastructure view: a single-node cluster\'s box is never narrower than its own header needs (name, mesh state, tier and count side by side)', () => {
+  // A cluster with exactly one node would otherwise be PAD*2 + MACHINE_CARD.w = 328px wide, too narrow for
+  // the header's two lines once a long name, a mesh badge and the tier/count column share them.
+  const t = { ...seed, nodes: seed.nodes.filter((n) => n.clusterId !== 'cl-edge-a' || n.id === 'n-a2') }
   const infra = buildGraph(t, { view: 'infrastructure', groupBy: 'cluster', servicesOnNodes: false, links: true, devices: false })
   const group = infra.nodes.find((n) => n.id === groupId('cl-edge-a'))!
   assert.equal(group.data.load?.nodes, 1, 'sanity: this is genuinely the single-node case')
-  assert.ok(group.data.load?.cpuPct !== undefined && group.data.load?.podPct !== undefined, 'sanity: real per-node metrics reached clusterLoad, so LoadRow actually renders all three mini-bars')
-  assert.ok((group.data.load?.ready ?? 1) < (group.data.load?.nodes ?? 0), 'sanity: the degraded node makes LoadRow also render the "nodes ready" warning text')
-  assert.ok((group.data.load?.unready ?? 0) > 0, 'sanity: the not-fully-up service makes LoadRow also render the "services not fully up" warning text')
   assert.ok(
     Number(group.style?.width) >= MIN_GROUP_HEADER_WIDTH,
-    `a single-node cluster's box (${group.style?.width}px) must be at least MIN_GROUP_HEADER_WIDTH (${MIN_GROUP_HEADER_WIDTH}px) - the width LoadRow needs to stay within two wrapped lines even at its fullest`,
+    `a single-node cluster's box (${group.style?.width}px) must be at least MIN_GROUP_HEADER_WIDTH (${MIN_GROUP_HEADER_WIDTH}px)`,
   )
 })
 
@@ -1642,7 +1623,7 @@ test('cluster links: a dependency edge whose own tunnelLink matches the measured
   assert.equal(g2.edges.find((e) => e.id === 'dep-tun-2')?.data?.tunnelLink?.via, 'wg0 (wireguard)')
 })
 
-test("cluster nets: a cluster's box carries what it shares with the others in both layers, and no edge says it", () => {
+test("cluster nets: a shared subnet or an unmeasured tunnel is a fact for the Inspector, not a line on the canvas", () => {
   const base = { view: 'application' as const, groupBy: 'cluster' as const, servicesOnNodes: false, links: true, devices: false }
   const links: ClusterLink[] = [
     { fromCluster: 'cl-edge-a', fromName: 'Edge A', toCluster: 'cl-cloud', toName: 'Cloud', kind: 'subnet', via: '10.30.0.0/16', redundancy: 1 },
@@ -1651,16 +1632,8 @@ test("cluster nets: a cluster's box carries what it shares with the others in bo
   ]
   for (const view of ['application', 'infrastructure'] as const) {
     const g = buildGraph(seed, { ...base, view, clusterLinks: links })
-    const nets = (id: string) => (g.nodes.find((n) => n.id === groupId(id))!.data as { nets?: { kind: string; via: string; peers: { name: string }[] }[] }).nets
-    assert.deepEqual(nets('cl-cloud')?.[0].peers.map((p) => p.name), ['Edge A', 'Edge B'], `${view}: the network is shared with the two other clusters on it`)
-    assert.deepEqual(nets('cl-cloud')?.map((n) => n.via), ['10.30.0.0/16', 'wg0 (wireguard)'], `${view}: the subnet first, then the tunnel`)
-    assert.deepEqual(nets('cl-edge-b')?.map((n) => n.via), ['10.30.0.0/16'], `${view}: a cluster not on the tunnel does not get its chip`)
     assert.ok(!g.edges.some((e) => e.data?.clusterLink), `${view}: neither the shared subnet nor the unmeasured tunnel is drawn`)
   }
-  const none = buildGraph(seed, { ...base, clusterLinks: [] })
-  assert.ok(none.nodes.every((n) => n.type !== 'boundary' || (n.data as { nets?: unknown }).nets === undefined), 'no links, no chips')
-  const byTier = buildGraph(seed, { ...base, groupBy: 'tier' as const, clusterLinks: links })
-  assert.ok(byTier.nodes.every((n) => n.type !== 'boundary' || (n.data as { nets?: unknown }).nets === undefined), 'a tier box is not a cluster: it has no network of its own')
 })
 
 test("edge interface capacity reaches EdgeData alongside its throughput, never guessed when the caller's own nodes disagree", () => {
@@ -1905,6 +1878,7 @@ test('middleTruncate: keeps the start and the end of a long name, leaves a short
 test('filterSummary: says what the filter is doing in a few words, nothing when it does nothing', () => {
   assert.equal(filterSummary({ clusters: [], apps: [], kinds: [] }), undefined)
   assert.equal(filterSummary({ clusters: [], apps: [], kinds: ['Deployment'] }), 'Deployments only')
+  assert.equal(filterSummary({ clusters: [], apps: [], kinds: ['StatefulSet', 'Deployment'] }), 'Services only', 'the services are Deployments and StatefulSets, in any order')
   assert.equal(filterSummary({ clusters: ['a'], apps: ['x', 'y'], kinds: ['Job', 'DaemonSet'] }), '2 kinds \u00b7 1 cluster \u00b7 2 applications')
 })
 

@@ -15,6 +15,8 @@ Everything you see is a projection of a single shared model, kept live by your c
 - **Application view** — your services, grouped by the cluster they run in, with dependencies drawn as edges between them. IoT devices sit in a row per site below the clusters they connect to; anything a service calls that isn't part of your own landscape shows up as an external endpoint.
 - **Infrastructure view** — the nodes underneath (virtual machines, bare metal, edge devices), grouped by cluster, with an optional overlay of which services are scheduled on which node.
 
+The **Filter** menu narrows the picture to some clusters or applications. Under **Workloads** it starts on **Services** (Deployments and StatefulSets); tick **DaemonSets** or **Jobs** to bring the machinery around them in. A cluster box names the cluster, where it is and how many nodes it has, and shows a percentage beside the name only when the busiest resource is past 70% requested; the networks it shares and its CNI are in the Inspector.
+
 Edit something in one place — rename a service, correct a cluster's tier — and it updates everywhere, because there's only one underlying document.
 
 **Platform layer.** **Options → Show → Platform** (off by default; `platform=1` in the URL) adds the telemetry path to the picture: each cluster's agent and local operator, the Regional operators, the Central operator and FUSION. They are joined by dashed telemetry edges, each labelled with the age of the last data and a state glyph. Clicking a platform node opens the Inspector with its state, what it sends to, and an **Open in Pipeline** link. While the layer is on, the **Filter** menu has **Problems only**, which narrows the picture to what has a problem.
@@ -25,7 +27,7 @@ Edit something in one place — rename a service, correct a cluster's tier — a
 - **Hover** a line to see its protocol, throughput and latency; the line thickens and the two things it joins are ringed.
 - **Zoom** runs from 20% to 150%, and panning stops a little way past the graph, so the structure is never lost off screen. Zoomed far out, boxes keep only their names and any warning; the detail returns as you zoom in.
 - **Cards** show a strip of small cells for a service's replicas (green ready, amber not ready) and, with per-pod facts collected, the pod rail. Unhealthy cards carry a faint glow and an offline status dot pulses slowly.
-- The **legend** is a small chip at the bottom left (your choice is remembered), and the **minimap** only appears when part of the graph is off screen. **⋯** holds Reset layout and Export PNG.
+- The **legend** is a small chip at the bottom left (your choice is remembered), and the **minimap** only appears when part of the graph is off screen. The **↺** button next to **Options** puts every box back where the layout placed it.
 
 ## Agents
 

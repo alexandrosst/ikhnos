@@ -9,7 +9,6 @@ import { callerIfaceSpeedMbps, count, placeLabel } from '../../../lib/present'
 import { buildPodsView, type PodsView } from './pods'
 import { MarkerType, Position, type Edge, type Node } from '@xyflow/react'
 import { deepEqual } from '../../../lib/discovered'
-import { clusterNets, type ClusterNet } from './clusterNets'
 import { orderCards, orderRows, wrapRow, type GroupLink, type Pull } from './order'
 import { isObserved } from '../../../lib/observed'
 import { clusterMeshLine, connectionVerdict, inMesh, meshName, proxyWords, type MeshVerdict } from './mesh'
@@ -59,19 +58,6 @@ export type GroupData = {
   load?: ClusterLoad
   /** Service mesh overlay: what mesh the cluster runs, e.g. "Istio 1.22 · sidecar · mTLS permissive". */
   mesh?: { label: string; tone: 'good' | 'warn' | 'bad'; title: string }
-  /** Set on a real cluster box (groupBy 'cluster' only) when one of its approved agents has at least one
-   *  telemetry signal actually running - a "local operator" is a property of that agent, not a separate
-   *  node on the canvas (see nodes.tsx's antenna badge). */
-  localTelemetry?: { layers: string[] }
-  /** CNI and ingress controller the agent detected running in the cluster (Cluster.cni/.ingress -
-   *  interpret.go's detectAddons), when either is known. Surfaced as a small badge on a real cluster box
-   *  (see nodes.tsx) instead of only the inspector's text row, so it's visible without a click - see this
-   *  session's own note on why a full separate networking view isn't warranted yet (no routing-rule data
-   *  behind it to actually draw), but the already-detected name is cheap to show here. */
-  networking?: { cni?: string; ingress?: string }
-  /** The subnets this cluster shares and the tunnels it is joined through, with who is on them - drawn as chips
-   *  on a real cluster box (see nodes.tsx), since that is a fact and no longer a line between clusters. */
-  nets?: ClusterNet[]
 }
 
 export type CardData = {
@@ -250,10 +236,6 @@ export interface GraphOptions {
    * (see the `crossCluster` flag on Dependency), so a chain that also respected cluster boundaries would
    * fight the very ordering this is for. Each card still names its cluster in the subtitle. */
   chain?: boolean
-  /** Cluster id → its active local-operator summary (which layers are actually live, and which agent to
-   *  open when the badge is clicked). Computed by the caller from `agents`/`installedTelemetry`, not part
-   *  of the core Topology model - purely a canvas annotation, the same role `hints` plays for placement. */
-  localOperators?: Map<string, { layers: string[]; agentId: string }>
   /** Confirmed overlay/subnet relationships between cluster pairs - derived server-side fresh on every
    *  poll (see ClusterLink's own doc), passed in the same way `paths` is rather than living on Topology
    *  itself, since neither is ever part of the stored workspace. */
@@ -268,25 +250,15 @@ export const cardId = (id: string) => `c:${id}`
 // they're also the exact margins a card's own drag `extent` reuses (see buildGraph's two card-push sites
 // below), so a test asserting on that extent needs the real constants, not a copy that could quietly drift.
 export const PAD = 20
-// The box header (title, subtitle/country/mesh line, and - when a cluster has load - a fourth load-meter row)
-// runs up to about 72px tall at normal zoom; HEADER is the y where the first row of children starts, so it needs
+// The box header (the name and, under it, the place and mesh state)
+// runs about 44px tall at normal zoom; HEADER is the y where the first row of children starts, so it needs
 // real breathing room past that, not just enough to avoid overlap.
-export const HEADER = 96
-// The header's own subtitle/load-meter row (LoadRow, Load.tsx) is a `flex flex-wrap` line, and it can carry
-// up to five items at once: CPU/Mem/Pods mini-bars plus, when a cluster is unhealthy, "N/M nodes ready" and
-// "N services not fully up" warning text. An earlier pass here only accounted for two items (CPU/Mem) and
-// set this floor to 352px - comfortably wide enough for that case, but a real cluster reporting all three
-// bars *and* both warning strings still wrapped to three lines at 352px, overflowing HEADER's 96px budget
-// by over 10px and landing back on top of the card below (confirmed by forcing that exact worst-case content
-// through a live, real-browser render and bisecting the width where it drops from three wrapped lines to
-// two: measured to need at least ~430px). Rather than chase every future combination of LoadRow content
-// with ever-finer width tuning, or widen HEADER itself (which would waste space in the far more common
-// case where everything fits on one line), the floor is set well past that measured two-line breakpoint -
-// with real margin, same reasoning as before, so a slightly longer subtitle or a different font stack
-// doesn't reopen the gap. This intentionally does not chase full single-line fitment for the five-item
-// worst case (that needs ~650px, wide enough to look absurd on a single-node box) - two wrapped lines fits
-// inside HEADER's budget with room to spare, which is enough.
-export const MIN_GROUP_HEADER_WIDTH = 460
+export const HEADER = 80
+// A cluster box is never narrower than this, whatever it holds: the header's two lines (name and pressure
+// badge, then place and mesh state) beside the tier and count column need about this much, and a single-node
+// cluster would otherwise be as narrow as one card. A little past what they need, so a longer name or another
+// font stack does not reopen the gap.
+export const MIN_GROUP_HEADER_WIDTH = 340
 const GAP_X = 72
 const GAP_Y = 44
 const GROUP_GAP_X = 64
@@ -434,7 +406,6 @@ export function buildGraph(topology: Topology, o: GraphOptions): { nodes: TopoNo
   const serviceById = new Map(t.services.map((w) => [w.id, w]))
   const siteById = new Map(t.sites.map((s) => [s.id, s]))
   const nodeById = new Map(t.nodes.map((n) => [n.id, n]))
-  const clusterNetsById = clusterNets(o.clusterLinks ?? [])
 
   // Per-cluster/per-node indices, built once (O(nodes+services)) instead of the per-group `.filter()` over
   // the FULL nodes/services arrays this used to do below (O(groups * (nodes+services)) - noticeable once a
@@ -636,9 +607,6 @@ export function buildGraph(topology: Topology, o: GraphOptions): { nodes: TopoNo
           status: groupStatus,
           load: cl ? clusterLoad(cl, nodesByCluster.get(cl.id) ?? [], shownServices(cl.id, g.items, o.view, servicesByCluster)) : undefined,
           mesh: o.mesh && o.view === 'application' && cl?.mesh ? groupMesh(cl.mesh) : undefined,
-          localTelemetry: cl && o.groupBy === 'cluster' ? o.localOperators?.get(cl.id) : undefined,
-          networking: cl && o.groupBy === 'cluster' && (cl.cni || cl.ingress) ? { cni: cl.cni, ingress: cl.ingress } : undefined,
-          nets: cl && o.groupBy === 'cluster' ? clusterNetsById.get(cl.id) : undefined,
           stats:
             ex?.kind === 'devices'
               ? count(units, 'device')
@@ -806,8 +774,7 @@ export function buildGraph(topology: Topology, o: GraphOptions): { nodes: TopoNo
   // Cluster links: only a MEASURED one is drawn - a confirmed tunnel whose matched flows carry a round trip
   // or loss figure, shown directly between the two clusters' own group boxes (never a third box, unlike
   // regional operators above). That is a status, and it only exists on the overlay link's flow rollup. That
-  // a pair merely shares a subnet or is joined by a tunnel is a fact, not a line: the cluster's header chips
-  // and the Inspector say it (see clusterNets). Two clusters that collapsed into the very same group (both
+  // a pair merely shares a subnet or is joined by a tunnel is a fact, not a line: the Inspector says it (see clusterNets). Two clusters that collapsed into the very same group (both
   // in the same tier, when groupBy is 'tier') have no distinct "other end" to draw a line to.
   //
   // Suppressed, though, when exactly one already-drawn dependency edge's own tunnelLink (see
