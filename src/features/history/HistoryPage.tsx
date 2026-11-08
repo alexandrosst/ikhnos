@@ -1,31 +1,23 @@
 import clsx from 'clsx'
-import { Bell, CheckCircle2, ChevronRight, CircleAlert, Clock, History as HistoryIcon, Info, Radio, Save, TriangleAlert } from 'lucide-react'
+import { CheckCircle2, Clock, Settings2, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Button, EmptyState, ErrorBanner, Field, ICON_SM, Input, PageHeader, Pill, PulseDot, SavedNote, Select, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
+import { Button, EmptyState, ErrorBanner, ICON_SM, PageHeader, PulseDot, Segmented, Select } from '@/components/ui/primitives'
+import Feed from '@/features/history/components/Feed'
+import RecordingPanel from '@/features/history/components/RecordingPanel'
+import Scrubber from '@/features/history/components/Scrubber'
+import type { FeedFilter } from '@/features/history/lib/feed'
 import { api, atLeast, type Conn, type StorageInfo } from '@/lib/api'
-import { ageOf, EVENT_KINDS, EVENT_RETENTION_MAX, EVENT_RETENTION_MIN, kindLabel, parseEventRetention, pointAt, type AppSettings, type ChangeEvent, type HistoryIndex, type TrafficRate } from '@/lib/history'
+import type { ChangeEvent, HistoryIndex, TrafficRate } from '@/lib/history'
 import { ago, bytesPerSec } from '@/lib/observed'
-import { useHistoryView } from '@/store/history'
 import { useConn, useServer } from '@/store/server'
 import { useSettings } from '@/store/settings'
 import { useTopology } from '@/store/topology'
 
-const WINDOWS = [
-  { hours: 1, label: 'Last hour' },
-  { hours: 6, label: 'Last 6 hours' },
-  { hours: 24, label: 'Last 24 hours' },
-  { hours: 24 * 7, label: 'Last 7 days' },
-  { hours: 24 * 30, label: 'Last 30 days' },
+const FILTERS: { value: FeedFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'changes', label: 'Detected' },
+  { value: 'people', label: 'By people' },
 ]
-
-// Shape carries severity, not just color: a colorblind reader (or a printed screenshot) still tells warning from notice from info.
-const SEVERITY: Record<ChangeEvent['severity'], { dot: string; text: string; icon: typeof Info; label: string }> = {
-  info: { dot: 'bg-nb-500', text: 'text-nb-400', icon: Info, label: 'Info' },
-  notice: { dot: 'bg-info', text: 'text-info', icon: Bell, label: 'Notice' },
-  warning: { dot: 'bg-warn', text: 'text-warn', icon: TriangleAlert, label: 'Warning' },
-}
-const stamp = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' })
 
 export default function HistoryPage() {
   const status = useServer((s) => s.status)
@@ -47,12 +39,13 @@ export default function HistoryPage() {
 
 function Connected({ conn, admin }: { conn: Conn; admin: boolean }) {
   const [hours, setHours] = useState(24)
-  const [kind, setKind] = useState('')
+  const [filter, setFilter] = useState<FeedFilter>('all')
   const [clusterId, setClusterId] = useState('')
   const [index, setIndex] = useState<HistoryIndex | null>(null)
   const [events, setEvents] = useState<ChangeEvent[] | null>(null)
   const [error, setError] = useState<string>()
-  const { clusters } = useTopology()
+  const [recording, setRecording] = useState(false)
+  const { clusters, auditLog } = useTopology()
   const [tick, setTick] = useState(0)
 
   // Only the newest request may land: a slow answer (a poll in flight when a filter changed) must not replace what the current filter asked for.
@@ -61,7 +54,7 @@ function Connected({ conn, admin }: { conn: Conn; admin: boolean }) {
     const mine = ++newest.current
     const since = new Date(Date.now() - hours * 3600_000).toISOString()
     try {
-      const [i, e] = await Promise.all([api.history(conn, since), api.events(conn, { since, kind, cluster: clusterId, limit: 400 })])
+      const [i, e] = await Promise.all([api.history(conn, since), api.events(conn, { since, cluster: clusterId, limit: 400 })])
       if (mine !== newest.current) return
       setIndex(i)
       setEvents(e)
@@ -70,11 +63,11 @@ function Connected({ conn, admin }: { conn: Conn; admin: boolean }) {
       if (mine !== newest.current) return
       setError(err instanceof Error ? err.message : 'The history could not be read.')
     }
-  }, [conn, hours, kind, clusterId])
+  }, [conn, hours, clusterId])
   useEffect(() => {
     void load()
-    // The poll loads here and only then bumps `tick` for the cards that follow it; a second effect that reloaded on `tick`
-    // as well as on `load` sent every request twice once a filter changed after the first tick.
+    // The poll loads here and only then bumps `tick` for the cards beside it; a second effect that reloaded on `tick`
+    // as well as on `load` sent every request twice once a filter changed.
     const id = setInterval(() => {
       if (document.visibilityState !== 'visible') return
       void load()
@@ -83,44 +76,47 @@ function Connected({ conn, admin }: { conn: Conn; admin: boolean }) {
     return () => clearInterval(id)
   }, [load])
 
+  // "Since" is fixed when the window changes, not on every render, so the list does not shift under the reader.
+  const since = useMemo(() => Date.now() - hours * 3600_000, [hours, tick]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <>
       <PageHeader
         title="History"
-        description="Every change Ikhnos noticed, with its likely cause, and a recording of the landscape you can go back to. For who made a change, see Activity; for changes still waiting on a decision, see Discovery."
-        actions={admin ? <RecordNow onDone={() => { void load(); setTick((t) => t + 1) }} conn={conn} /> : undefined}
+        description="What changed, when, and what it looked like, with what people did alongside it."
+        actions={
+          <>
+            <Button onClick={() => setRecording(true)} data-testid="open-recording"><Settings2 size={ICON_SM} /> Recording</Button>
+            {admin && <RecordNow onDone={() => { void load(); setTick((t) => t + 1) }} conn={conn} />}
+          </>
+        }
       />
       {error && <ErrorBanner className="mb-4">{error}</ErrorBanner>}
-      <div className="mb-6 grid gap-4 xl:grid-cols-[1fr_22rem]">
-        <Timeline hours={hours} setHours={setHours} index={index} events={events ?? []} />
-        <Consistency />
+      <div className="mb-6">
+        <Scrubber hours={hours} setHours={setHours} index={index} events={events ?? []} />
       </div>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h2 className="mr-auto text-sm font-medium text-nb-300">Changes</h2>
-        <div className="w-44">
-          <Select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Kind of change">
-            <option value="">All kinds of change</option>
-            {EVENT_KINDS.map((k) => (
-              <option key={k.value} value={k.value}>{k.label}</option>
-            ))}
-          </Select>
+      <div className="grid gap-8 xl:grid-cols-[1fr_20rem]">
+        <div className="min-w-0">
+          <div className="mb-5 flex flex-wrap items-center gap-3">
+            <Segmented label="Show" value={filter} onChange={setFilter} options={FILTERS} />
+            <div className="w-44">
+              <Select value={clusterId} onChange={(e) => setClusterId(e.target.value)} aria-label="Cluster">
+                <option value="">All clusters</option>
+                {clusters.filter((c) => !c.deletedAt).map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          <Feed events={events} audit={auditLog} filter={filter} clusterId={clusterId} since={since} hours={hours} />
         </div>
-        <div className="w-44">
-          <Select value={clusterId} onChange={(e) => setClusterId(e.target.value)} aria-label="Cluster">
-            <option value="">All clusters</option>
-            {clusters.filter((c) => !c.deletedAt).map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </Select>
-        </div>
+        <aside className="space-y-4" aria-label="About this history">
+          <PictureCheck />
+          <BusiestLinks conn={conn} />
+          <Stored conn={conn} tick={tick} />
+        </aside>
       </div>
-      <Events events={events} hours={hours} />
-      <Actions />
-      <div className="mt-8 grid gap-6 xl:grid-cols-2">
-        <Traffic conn={conn} />
-        <RecordingSettings admin={admin} conn={conn} />
-      </div>
-      <StorageCard conn={conn} admin={admin} tick={tick} />
+      {recording && <RecordingPanel admin={admin} conn={conn} onClose={() => setRecording(false)} />}
     </>
   )
 }
@@ -145,315 +141,55 @@ function RecordNow({ conn, onDone }: { conn: Conn; onDone: () => void }) {
   )
 }
 
-/* ---------- the timeline: pick a moment, see the landscape then ---------- */
+const Card = ({ title, children, label }: { title: string; children: React.ReactNode; label: string }) => (
+  <section className="rounded-xl border border-nb-850 bg-nb-925 p-4" aria-label={label}>
+    <h2 className="mb-2.5 text-xs font-medium text-nb-300">{title}</h2>
+    {children}
+  </section>
+)
 
-function Timeline({ hours, setHours, index, events }: { hours: number; setHours: (h: number) => void; index: HistoryIndex | null; events: ChangeEvent[] }) {
-  const conn = useConn()
-  const navigate = useNavigate()
-  const view = useHistoryView((s) => s.view)
-  const loading = useHistoryView((s) => s.loading)
-  const shown = useHistoryView((s) => s.at)
-  const [frac, setFrac] = useState(1)
-  const end = Date.now()
-  const start = end - hours * 3600_000
-  const points = index?.points ?? []
-  const inWindow = points.filter((p) => new Date(p.at).getTime() >= start)
-  const chosen = new Date(start + frac * (end - start)).toISOString()
-  const point = pointAt(inWindow.length ? inWindow : points, chosen)
-  const pos = (iso: string) => Math.min(100, Math.max(0, ((new Date(iso).getTime() - start) / (end - start)) * 100))
-  const oldest = points[0]?.at
-  const viewError = useHistoryView((s) => s.error)
-  const [exact, setExact] = useState('')
-  const open = async (at: string) => {
-    const got = await view(conn, at)
-    if (got) navigate('/topology')
-  }
-
-  return (
-    <section className="rounded-xl border border-nb-850 bg-nb-925 p-5" aria-label="Timeline">
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="mr-auto flex items-center gap-2 text-sm font-medium text-nb-300">
-          <HistoryIcon size={ICON_SM} className="text-accent" aria-hidden /> Go back to a moment
-        </h2>
-        <div className="w-40">
-          <Select value={String(hours)} onChange={(e) => { setHours(Number(e.target.value)); setFrac(1) }} aria-label="Time window">
-            {WINDOWS.map((w) => (
-              <option key={w.hours} value={w.hours}>{w.label}</option>
-            ))}
-          </Select>
-        </div>
-      </div>
-      {points.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-nb-850 px-4 py-6 text-sm text-nb-500">
-          Nothing has been recorded yet. The first recording is made as soon as a cluster is connected and reporting.
-        </p>
-      ) : (
-        <>
-          <div className="relative h-14" data-testid="timeline">
-            <div className="absolute inset-x-0 top-7 h-1 rounded bg-nb-850" />
-            {inWindow.map((p) => (
-              <span key={p.at} className="absolute top-[26px] h-2 w-px bg-nb-600" style={{ left: `${pos(p.at)}%` }} aria-hidden />
-            ))}
-            {events.filter((e) => new Date(e.at).getTime() >= start).map((e) => (
-              <span key={e.id} className={clsx('absolute top-3 size-2 -translate-x-1/2 rounded-full', SEVERITY[e.severity].dot)} style={{ left: `${pos(e.at)}%` }} title={`${SEVERITY[e.severity].label} · ${kindLabel(e.kind)}: ${e.name}`} aria-hidden />
-            ))}
-            <input
-              type="range"
-              min={0}
-              max={1000}
-              value={Math.round(frac * 1000)}
-              onChange={(e) => setFrac(Number(e.target.value) / 1000)}
-              aria-label="Moment to view"
-              className="absolute inset-x-0 top-5 h-4 w-full cursor-pointer appearance-none bg-transparent accent-[var(--color-accent)]"
-            />
-            <div className="absolute inset-x-0 bottom-0 flex justify-between text-[11px] text-nb-500">
-              <span>{new Date(start).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}</span>
-              <span>now</span>
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <div className="min-w-0 flex-1 text-sm text-nb-400">
-              {point ? (
-                <>
-                  Nearest recording: <strong className="font-medium text-nb-300">{stamp(point.at)}</strong> <span className="text-nb-500">({ageOf(point.at)})</span>
-                  {shown === point.at && <span className="ml-2 text-warn">showing now</span>}
-                </>
-              ) : (
-                'Pick a moment on the line.'
-              )}
-              <div className="mt-0.5 text-xs text-nb-500">
-                {points.length} recordings kept{oldest ? `, back to ${new Date(oldest).toLocaleDateString()}` : ''}; one is made every {index?.snapshotMinutes} min and right after any change. Older ones are thinned out after a day.
-              </div>
-            </div>
-            <Button variant="primary" disabled={!point || loading} onClick={() => point && open(point.at)} data-testid="view-moment">
-              View the landscape then
-            </Button>
-          </div>
-          <form
-            className="mt-4 flex flex-wrap items-end gap-2 border-t border-nb-850 pt-4"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (exact) void open(new Date(exact).toISOString())
-            }}
-          >
-            <label className="text-xs text-nb-500">
-              Or type an exact moment
-              <Input
-                type="datetime-local"
-                value={exact}
-                step={1}
-                onChange={(e) => setExact(e.target.value)}
-                className="mt-1 w-56"
-                data-testid="exact-moment"
-              />
-            </label>
-            <Button type="submit" disabled={!exact || loading} data-testid="view-exact">View the landscape then</Button>
-            <span className="min-w-0 flex-1 basis-48 text-xs text-nb-500">You get the newest recording at or before that time; the banner says exactly which.</span>
-          </form>
-          {viewError && <p className="mt-2 text-sm text-bad" role="alert">{viewError}</p>}
-        </>
-      )}
-    </section>
-  )
-}
-
-/* ---------- does the server's picture match the clusters' own? ---------- */
-
-function Consistency() {
+/** Does the server's picture match the clusters' own? One line while it does; the agents that differ, or have not been checked, only when they do not. */
+function PictureCheck() {
   // no `?? []` inside the selector: a fresh array on every read makes the store report a change every time
   const allAgents = useServer((s) => s.state?.agents)
-  const agents = useMemo(() => allAgents ?? [], [allAgents])
+  const live = useMemo(() => (allAgents ?? []).filter((a) => a.status === 'approved'), [allAgents])
   const minutes = useSettings((s) => s.settings.consistencyMinutes)
-  const live = agents.filter((a) => a.status === 'approved')
+  const odd = live.filter((a) => !a.consistency || a.consistency.differences > 0)
+  const last = live.map((a) => a.consistency?.lastCheck).filter((x): x is string => !!x).sort().pop()
   return (
-    <section className="rounded-xl border border-nb-850 bg-nb-925 p-5" aria-label="Consistency checks">
-      <h2 className="mb-1 flex items-center gap-2 text-sm font-medium text-nb-300">
-        <CheckCircle2 size={ICON_SM} className="text-nb-400" aria-hidden /> Is this picture complete?
-      </h2>
-      <p className="mb-3 text-xs leading-5 text-nb-500">
-        Changes arrive as they happen. Every {minutes} min each agent also re-sends everything it sees, and the server compares that with its own picture. A difference means a change was missed; it is corrected and recorded here, never hidden.
-      </p>
-      {live.length === 0 && <p className="text-sm text-nb-500">No cluster is connected yet, so there is no picture to check.</p>}
-      <ul className="space-y-2">
-        {live.map((a) => {
-          const c = a.consistency
-          return (
-            <li key={a.id} className="text-sm" data-testid="consistency-row">
-              <div className="flex items-center gap-2">
-                {!c ? <Clock size={ICON_SM} className="text-nb-500" aria-hidden /> : c.differences === 0 ? <CheckCircle2 size={ICON_SM} className="text-ok" aria-hidden /> : <TriangleAlert size={ICON_SM} className="text-warn" aria-hidden />}
-                <span className="font-medium text-nb-300">{a.name}</span>
-                <span className="ml-auto text-xs text-nb-500">{c ? `checked ${ago(c.lastCheck)}` : 'not checked yet'}</span>
-              </div>
-              {c && c.differences > 0 && <div className="ml-6 mt-0.5 text-xs text-warn/90">Found {c.differences} difference{c.differences === 1 ? '' : 's'}: {c.summary}. Corrected.</div>}
-              {c && c.differences === 0 && <div className="ml-6 text-xs text-nb-500">Matched the cluster ({c.checks} check{c.checks === 1 ? '' : 's'} so far).</div>}
-            </li>
-          )
-        })}
-      </ul>
-    </section>
-  )
-}
-
-/* ---------- the changes ---------- */
-
-function Events({ events, hours }: { events: ChangeEvent[] | null; hours: number }) {
-  const navigate = useNavigate()
-  const conn = useConn()
-  const view = useHistoryView((s) => s.view)
-  if (events === null) return <TableSkeleton colCount={5} />
-  if (events.length === 0) {
-    return <EmptyState title="Nothing changed in this window" description={`No changes were recorded in the last ${hours < 48 ? `${hours} hour${hours === 1 ? '' : 's'}` : `${Math.round(hours / 24)} days`} for this selection.`} />
-  }
-  return (
-    <Table>
-      <thead>
-        <tr>
-          <Th>When</Th>
-          <Th>Change</Th>
-          <Th>What</Th>
-          <Th>Detail</Th>
-          <Th />
-        </tr>
-      </thead>
-      <tbody>
-        {events.map((e) => (
-          <tr key={e.id} className="hover:bg-nb-930/60" data-testid="event-row" data-kind={e.kind}>
-            <Td className="whitespace-nowrap text-nb-400" >
-              <div>{new Date(e.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
-              <div className="text-xs text-nb-500">{new Date(e.at).toLocaleDateString()}</div>
-            </Td>
-            <Td>
-              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                {(() => { const S = SEVERITY[e.severity]; return <S.icon size={ICON_SM} className={clsx('shrink-0', S.text)} aria-label={S.label} /> })()}
-                {kindLabel(e.kind)}
-              </span>
-            </Td>
-            <Td>
-              <div className="font-medium text-nb-300">{e.name || '—'}</div>
-              {e.clusterName && e.clusterName !== e.name && <div className="text-xs text-nb-500">{e.clusterName}</div>}
-            </Td>
-            <Td className="max-w-xl text-nb-400">
-              {e.detail}
-              {e.cause && <div className="mt-0.5 text-xs italic text-nb-500">Likely cause: {e.cause}</div>}
-            </Td>
-            <Td>
-              <Button size="sm" onClick={async () => (await view(conn, e.at)) && navigate('/topology')} title="Show the landscape at the moment of this change">
-                View then
-              </Button>
-            </Td>
-          </tr>
-        ))}
-      </tbody>
-    </Table>
-  )
-}
-
-/* ---------- actions people took (edits, suggestion decisions, saved views) ---------- */
-
-// Only the action kinds the store actually writes today (see topology.ts's `audit`/`editAudit` calls);
-// an unrecognised one still renders, just under its raw name, so a future action never disappears silently.
-const ACTION_LABEL: Record<string, string> = {
-  edit: 'Edited',
-  delete: 'Deleted',
-  'accept-suggestion': 'Accepted a suggestion',
-  'dismiss-suggestion': 'Dismissed a suggestion',
-  'save-view': 'Saved a view',
-}
-const TARGET_LABEL: Record<string, string> = {
-  cluster: 'Cluster',
-  node: 'Node',
-  service: 'Service',
-  device: 'Device',
-  site: 'Site',
-  suggestion: 'Suggestion',
-  view: 'View',
-}
-
-// Actions (unlike Events above) are kept forever, so - unlike the Events timeline - "All time" is the
-// default here: adding a date filter shouldn't itself change what a page nobody has touched shows.
-const ACTION_WINDOWS = [
-  { hours: 0, label: 'All time' },
-  { hours: 24, label: 'Last 24 hours' },
-  { hours: 24 * 7, label: 'Last 7 days' },
-  { hours: 24 * 30, label: 'Last 30 days' },
-  { hours: 24 * 90, label: 'Last 90 days' },
-]
-// 200 matches the page's own old, hardcoded cap, so leaving this control untouched reproduces the exact
-// prior default.
-const ACTION_PAGE_SIZES = [50, 100, 200, 500]
-
-function Actions() {
-  const auditLog = useTopology((s) => s.auditLog)
-  const [hours, setHours] = useState(0)
-  const [limit, setLimit] = useState(200)
-  const inWindow = useMemo(() => {
-    if (hours <= 0) return auditLog
-    const since = Date.now() - hours * 3600_000
-    return auditLog.filter((e) => new Date(e.at).getTime() >= since)
-  }, [auditLog, hours])
-  const rows = useMemo(() => [...inWindow].sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit), [inWindow, limit])
-  return (
-    <section className="mt-8" aria-label="Actions taken in this workspace">
-      <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-nb-300">Actions</h2>
-        <div className="flex items-center gap-2">
-          <Select value={String(hours)} onChange={(e) => setHours(Number(e.target.value))} aria-label="Actions time window" className="h-8 w-32 text-xs" data-testid="audit-window">
-            {ACTION_WINDOWS.map((w) => (
-              <option key={w.hours} value={w.hours}>{w.label}</option>
-            ))}
-          </Select>
-          <Select value={String(limit)} onChange={(e) => setLimit(Number(e.target.value))} aria-label="Actions shown" className="h-8 w-24 text-xs" data-testid="audit-limit">
-            {ACTION_PAGE_SIZES.map((n) => (
-              <option key={n} value={n}>{`Show ${n}`}</option>
-            ))}
-          </Select>
-        </div>
-      </div>
-      <p className="mb-3 text-xs text-nb-500">
-        Edits, suggestion decisions and saved views - kept forever regardless of the history settings below, and synced across browsers along with the changes themselves.
-        {inWindow.length > rows.length && ` Showing the most recent ${rows.length} of ${inWindow.length}.`}
-      </p>
-      {rows.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-nb-850 px-4 py-6 text-sm text-nb-500">
-          {auditLog.length === 0 ? 'Nothing taken yet.' : `Nothing in this window - try a wider one.`}
-        </p>
+    <Card title="Is the picture complete?" label="Consistency checks">
+      {live.length === 0 ? (
+        <p className="text-sm text-nb-500">No cluster is connected yet, so there is no picture to check.</p>
       ) : (
-        <Table>
-          <thead>
-            <tr>
-              <Th>When</Th>
-              <Th>Who</Th>
-              <Th>Action</Th>
-              <Th>What</Th>
-              <Th>Detail</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((e) => (
-              <tr key={e.id} data-testid="audit-row">
-                <Td className="whitespace-nowrap text-nb-400">
-                  <div>{new Date(e.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
-                  <div className="text-xs text-nb-500">{new Date(e.at).toLocaleDateString()}</div>
-                </Td>
-                <Td className="text-nb-400">{e.actor}</Td>
-                <Td className="whitespace-nowrap">{ACTION_LABEL[e.action] ?? e.action}</Td>
-                <Td className="whitespace-nowrap text-nb-400">{TARGET_LABEL[e.targetKind] ?? e.targetKind}</Td>
-                <Td className="max-w-xl text-nb-400">{e.detail || '—'}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <>
+          <p className="flex items-center gap-2 text-sm text-nb-300">
+            {odd.length === 0 ? <CheckCircle2 size={ICON_SM} className="shrink-0 text-ok" aria-hidden /> : <TriangleAlert size={ICON_SM} className="shrink-0 text-warn" aria-hidden />}
+            {odd.length === 0 ? `All ${live.length} agent${live.length === 1 ? '' : 's'} match their cluster${live.length === 1 ? '' : 's'}` : `${odd.length} of ${live.length} need a look`}
+          </p>
+          <p className="mt-1.5 text-xs text-nb-500" title={`Every ${minutes} minutes each agent re-sends everything it sees and the server compares it with its own picture. A difference means a change was missed; it is corrected and listed here.`}>
+            {last ? `Last check ${ago(last)}` : 'Not checked yet'}
+          </p>
+          {odd.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {odd.map((a) => (
+                <li key={a.id} className="text-xs" data-testid="consistency-row">
+                  <span className="font-medium text-nb-300">{a.name}</span>
+                  {a.consistency ? <span className="text-warn/90"> · {a.consistency.differences} difference{a.consistency.differences === 1 ? '' : 's'}: {a.consistency.summary}. Corrected.</span> : <span className="text-nb-500"> · not checked yet</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
-    </section>
+    </Card>
   )
 }
-
-/* ---------- traffic over time ---------- */
 
 /** A link that carries a trickle is not the same as one that carries nothing. */
 const rate = (n: number) => (n > 0 && n < 1 ? '<1 B/s' : bytesPerSec(n))
 
-function Traffic({ conn }: { conn: Conn }) {
+/** The three busiest links over the last day, each with a bar against the busiest. */
+function BusiestLinks({ conn }: { conn: Conn }) {
   const [rates, setRates] = useState<TrafficRate[] | null>(null)
   const [snapshots, setSnapshots] = useState(0)
   const { dependencies, services, devices, externalEndpoints } = useTopology()
@@ -471,262 +207,36 @@ function Traffic({ conn }: { conn: Conn }) {
   }, [conn])
   const names = useMemo(() => new Map<string, string>([...services.map((s) => [s.id, s.name] as const), ...devices.map((d) => [d.id, d.name] as const), ...externalEndpoints.map((e) => [e.id, e.name ?? e.host] as const)]), [services, devices, externalEndpoints])
   const byId = useMemo(() => new Map(dependencies.map((d) => [d.id, d])), [dependencies])
-  const rows = (rates ?? []).filter((r) => r.avgBytesPerSec > 0).sort((a, b) => b.avgBytesPerSec - a.avgBytesPerSec).slice(0, 8)
+  const rows = (rates ?? []).filter((r) => r.avgBytesPerSec > 0).sort((a, b) => b.avgBytesPerSec - a.avgBytesPerSec).slice(0, 3)
+  const top = rows[0]?.avgBytesPerSec ?? 1
   return (
-    <section aria-label="Busiest links">
-      <h2 className="mb-2 text-sm font-medium text-nb-300">Busiest links, last 24 hours</h2>
+    <Card title="Busiest links · 24 h" label="Busiest links">
       {rates === null ? (
-        <TableSkeleton colCount={3} rows={3} />
+        <p className="text-sm text-nb-500">Reading…</p>
       ) : rows.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-nb-850 px-4 py-6 text-sm text-nb-500">
-          No traffic figures over this period. They come from the traffic observer, from at least two recordings; see Discovery to switch it on.
-        </p>
+        <p className="text-sm text-nb-500">No traffic figures yet. They come from the traffic observer, from at least two recordings; see Discovery to switch it on.</p>
       ) : (
-        <Table>
-          <thead>
-            <tr>
-              <Th>Link</Th>
-              <Th>Average</Th>
-              <Th>Peak</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const d = byId.get(r.id)
-              return (
-                <tr key={r.id}>
-                  <Td>{d ? `${names.get(d.from) ?? d.from} → ${names.get(d.to) ?? d.to}` : r.id}{d?.port ? <span className="ml-2 text-xs text-nb-500">:{d.port}</span> : null}</Td>
-                  <Td className="tabular-nums">{rate(r.avgBytesPerSec)}</Td>
-                  <Td className="tabular-nums text-nb-400">{rate(r.peakBytesPerSec)}</Td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </Table>
+        <ul className="space-y-3" title={`Worked out from ${snapshots} recordings; the average covers the time between them, so a link that was busy for a minute in an hour shows a low average.`}>
+          {rows.map((r) => {
+            const d = byId.get(r.id)
+            return (
+              <li key={r.id} className="text-[13px]">
+                <div className="flex justify-between gap-3">
+                  <span className="min-w-0 truncate text-nb-300">{d ? `${names.get(d.from) ?? d.from} → ${names.get(d.to) ?? d.to}` : r.id}</span>
+                  <span className="shrink-0 tabular-nums text-nb-500">{rate(r.avgBytesPerSec)}</span>
+                </div>
+                <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-nb-850"><div className="h-full rounded-full bg-info" style={{ width: `${Math.max(3, (r.avgBytesPerSec / top) * 100)}%` }} /></div>
+              </li>
+            )
+          })}
+        </ul>
       )}
-      <p className="mt-2 text-xs text-nb-500">Worked out from {snapshots} recordings; the average covers the time between them, so a link that was busy for a minute in an hour shows a low average and a higher peak.</p>
-    </section>
+    </Card>
   )
 }
 
-/* ---------- what is recorded and how often (administrators) ---------- */
-
-const FIELDS: { key: keyof Pick<AppSettings, 'snapshotMinutes' | 'retentionDays' | 'maxHistoryMb' | 'tombstoneRetentionDays' | 'consistencyMinutes' | 'staleAfterBeats'>; label: string; unit: string; min: number; max: number; hint: string }[] = [
-  { key: 'snapshotMinutes', label: 'Recording interval', unit: 'minutes', min: 1, max: 1440, hint: 'How often the landscape is recorded. It is also recorded right after a change, and only when something differs (or once an hour).' },
-  { key: 'retentionDays', label: 'Keep history for', unit: 'days', min: 1, max: 365, hint: 'Every recording is kept for a day, then one per hour for a week, then one per day.' },
-  { key: 'maxHistoryMb', label: 'History size limit', unit: 'MB', min: 16, max: 8192, hint: 'When the recordings grow past this, the oldest go first. The newest is always kept.' },
-  { key: 'tombstoneRetentionDays', label: 'Keep removed records visible for', unit: 'days', min: 1, max: 90, hint: "Records that disappear from an agent's report are still shown as gone for this long, then removed." },
-  { key: 'consistencyMinutes', label: 'Consistency check every', unit: 'minutes', min: 1, max: 240, hint: 'How often each agent re-sends its whole picture to be compared with the server’s.' },
-  { key: 'staleAfterBeats', label: 'Mark stale after', unit: 'missed heartbeats', min: 2, max: 20, hint: 'An agent beats every 30 s. Its records are shown as stale once this many are missed.' },
-]
-
-// flowStaleSeconds is the one recording setting whose natural unit varies by how aggressively an
-// administrator wants quiet links to be flagged - anywhere from a few seconds (near-instant feedback
-// after a deliberate change, at the cost of flapping on any dependency with natural gaps between
-// requests) to days (very tolerant of bursty/low-frequency traffic). The backend always stores and
-// validates it in seconds (backend/internal/server/settings.go), so the picker below just changes what
-// unit a typed number is multiplied by before it's sent, not the underlying representation.
-const FLOW_STALE_UNITS: { label: string; seconds: number }[] = [
-  { label: 'seconds', seconds: 1 },
-  { label: 'minutes', seconds: 60 },
-  { label: 'hours', seconds: 3600 },
-  { label: 'days', seconds: 86400 },
-]
-const FLOW_STALE_MIN_SECONDS = 1
-const FLOW_STALE_MAX_SECONDS = 30 * 86400
-
-/** The largest unit that divides the stored seconds evenly, so the field starts out showing a whole
- * number (e.g. 300s shows as "5 minutes", not "300 seconds" or "0.08 hours"). Falls back to seconds,
- * which always divides evenly. */
-function bestFlowStaleUnit(seconds: number): number {
-  for (const u of [...FLOW_STALE_UNITS].reverse()) {
-    if (u.seconds <= seconds && seconds % u.seconds === 0) return u.seconds
-  }
-  return 1
-}
-// The handful of these that most people ever have a reason to touch (how much history to keep, and
-// roughly how much room it can take up); the rest are operational tuning for edge cases, not a policy
-// decision, so they sit behind "Advanced" instead of competing for attention with the two that matter.
-const PRIMARY_KEYS = new Set<(typeof FIELDS)[number]['key']>(['snapshotMinutes', 'retentionDays', 'maxHistoryMb'])
-
-export function RecordingSettings({ admin, conn }: { admin: boolean; conn: Conn }) {
-  const { settings, save, error, loaded } = useSettings()
-  const [draft, setDraft] = useState<Record<string, string>>({})
-  const [eventOn, setEventOn] = useState(false)
-  const [eventDraft, setEventDraft] = useState('')
-  const [flowStaleUnit, setFlowStaleUnit] = useState(60)
-  const [flowStaleDraft, setFlowStaleDraft] = useState('')
-  const [saved, setSaved] = useState(false)
-  useEffect(() => {
-    setDraft(Object.fromEntries(FIELDS.map((f) => [f.key, String(settings[f.key])])))
-    setEventOn(settings.eventRetentionDays > 0)
-    setEventDraft(settings.eventRetentionDays > 0 ? String(settings.eventRetentionDays) : '')
-    const u = bestFlowStaleUnit(settings.flowStaleSeconds)
-    setFlowStaleUnit(u)
-    setFlowStaleDraft(String(settings.flowStaleSeconds / u))
-  }, [settings])
-  const bad = FIELDS.filter((f) => {
-    const n = Number(draft[f.key])
-    return !Number.isInteger(n) || n < f.min || n > f.max
-  })
-  const eventParsed = parseEventRetention(eventOn, eventDraft)
-  // The unit picker lets someone type "5" and mean 5 minutes or 5 seconds depending on the selected
-  // unit; what's actually validated and saved is always the product, in seconds.
-  const flowStaleNum = Number(flowStaleDraft)
-  const flowStaleSeconds = Math.round(flowStaleNum * flowStaleUnit)
-  const flowStaleValid = Number.isFinite(flowStaleNum) && flowStaleNum > 0 && flowStaleSeconds >= FLOW_STALE_MIN_SECONDS && flowStaleSeconds <= FLOW_STALE_MAX_SECONDS
-  const dirty = FIELDS.some((f) => String(settings[f.key]) !== draft[f.key]) || settings.eventRetentionDays !== eventParsed.days || settings.flowStaleSeconds !== flowStaleSeconds
-  const renderField = (f: (typeof FIELDS)[number]) => {
-    const invalid = bad.includes(f)
-    const hintId = `setting-${f.key}-hint`
-    return (
-      <Field key={f.key} label={f.label} hint={invalid ? `Between ${f.min} and ${f.max}.` : f.hint} hintId={hintId}>
-        <div className="flex items-center gap-2">
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={f.min}
-            max={f.max}
-            value={draft[f.key] ?? ''}
-            disabled={!admin}
-            aria-invalid={invalid}
-            aria-describedby={hintId}
-            onChange={(e) => { setSaved(false); setDraft((d) => ({ ...d, [f.key]: e.target.value })) }}
-            className={clsx('w-28', invalid && 'border-bad/60')}
-            data-testid={`setting-${f.key}`}
-          />
-          <span className="whitespace-nowrap text-xs text-nb-500">{f.unit}</span>
-        </div>
-      </Field>
-    )
-  }
-  const flowStaleField = (
-    <Field
-      key="flowStaleSeconds"
-      label="Link is quiet after"
-      hint={!flowStaleValid ? `Between ${FLOW_STALE_MIN_SECONDS} second${FLOW_STALE_MIN_SECONDS === 1 ? '' : 's'} and 30 days.` : 'How long an observed link may go unseen before it is shown as quiet. Pick a smaller unit for near-instant feedback after a deliberate change (a migration, a decommission); a larger one tolerates bursty or low-frequency traffic without flickering.'}
-      hintId="setting-flowStaleSeconds-hint"
-    >
-      <div className="flex items-center gap-2">
-        <Input
-          type="number"
-          inputMode="decimal"
-          min={FLOW_STALE_MIN_SECONDS / flowStaleUnit}
-          max={FLOW_STALE_MAX_SECONDS / flowStaleUnit}
-          value={flowStaleDraft}
-          disabled={!admin}
-          aria-invalid={!flowStaleValid}
-          aria-describedby="setting-flowStaleSeconds-hint"
-          onChange={(e) => { setSaved(false); setFlowStaleDraft(e.target.value) }}
-          className={clsx('w-24', !flowStaleValid && 'border-bad/60')}
-          data-testid="setting-flowStaleSeconds"
-        />
-        <select
-          className="h-9 rounded-md border border-nb-800 bg-nb-925 px-2 text-sm text-nb-300 disabled:cursor-not-allowed disabled:opacity-50"
-          value={flowStaleUnit}
-          disabled={!admin}
-          onChange={(e) => {
-            setSaved(false)
-            const nextUnit = Number(e.target.value)
-            const curSeconds = Number.isFinite(flowStaleNum) ? flowStaleNum * flowStaleUnit : settings.flowStaleSeconds
-            setFlowStaleUnit(nextUnit)
-            setFlowStaleDraft(String(Math.round(curSeconds / nextUnit)))
-          }}
-          data-testid="setting-flowStaleUnit"
-        >
-          {FLOW_STALE_UNITS.map((u) => (
-            <option key={u.label} value={u.seconds}>{u.label}</option>
-          ))}
-        </select>
-      </div>
-    </Field>
-  )
-  const deleteOldEventsField = (
-    <Field
-      label="Delete old events"
-      hint={
-        eventOn && !eventParsed.ok
-          ? `Between ${EVENT_RETENTION_MIN} and ${EVENT_RETENTION_MAX} days.`
-          : 'Only the event/drift log below, never the audit trail: actions people took are kept forever regardless of this setting.'
-      }
-      hintId="setting-eventRetentionDays-hint"
-    >
-      <div className="flex items-center gap-2">
-        <label className="flex items-center gap-1.5 text-xs text-nb-400">
-          <input
-            type="checkbox"
-            className="accent-[var(--color-accent)]"
-            checked={eventOn}
-            disabled={!admin}
-            onChange={(e) => { setSaved(false); setEventOn(e.target.checked) }}
-            data-testid="setting-eventRetentionEnabled"
-          />
-          after
-        </label>
-        <Input
-          type="number"
-          inputMode="numeric"
-          min={EVENT_RETENTION_MIN}
-          max={EVENT_RETENTION_MAX}
-          value={eventDraft}
-          disabled={!admin || !eventOn}
-          placeholder={eventOn ? undefined : 'kept forever'}
-          aria-invalid={eventOn && !eventParsed.ok}
-          aria-describedby="setting-eventRetentionDays-hint"
-          onChange={(e) => { setSaved(false); setEventDraft(e.target.value) }}
-          className={clsx('w-28', eventOn && !eventParsed.ok && 'border-bad/60')}
-          data-testid="setting-eventRetentionDays"
-        />
-        <span className="whitespace-nowrap text-xs text-nb-500">days</span>
-      </div>
-    </Field>
-  )
-  return (
-    <section aria-label="Recording settings">
-      <h2 className="mb-2 text-sm font-medium text-nb-300">Recording and checks</h2>
-      <div className="rounded-xl border border-nb-850 bg-nb-925 p-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          {FIELDS.filter((f) => PRIMARY_KEYS.has(f.key)).map(renderField)}
-        </div>
-        <details className="group mt-4" data-testid="recording-advanced">
-          <summary className="flex cursor-pointer select-none items-center gap-1 text-xs text-nb-500 marker:content-none">
-            <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
-            Advanced
-          </summary>
-          <div className="mt-3 grid gap-4 sm:grid-cols-2">
-            {FIELDS.filter((f) => !PRIMARY_KEYS.has(f.key)).map(renderField)}
-            {flowStaleField}
-            {deleteOldEventsField}
-          </div>
-        </details>
-        {error && <p className="mt-3 text-sm text-bad" role="alert"><CircleAlert size={ICON_SM} className="mr-1 inline" aria-hidden />{error}</p>}
-        <div className="mt-4 flex items-center gap-3">
-          {admin ? (
-            <>
-              <Button
-                variant="primary"
-                disabled={!dirty || bad.length > 0 || !flowStaleValid || (eventOn && !eventParsed.ok) || !loaded}
-                onClick={async () => setSaved(await save(conn, { ...settings, ...Object.fromEntries(FIELDS.map((f) => [f.key, Number(draft[f.key])])), flowStaleSeconds, eventRetentionDays: eventParsed.days }))}
-                data-testid="save-settings"
-              >
-                <Save size={ICON_SM} /> Save
-              </Button>
-              {saved && <SavedNote>Saved. Agents were told.</SavedNote>}
-            </>
-          ) : (
-            <p className="text-xs text-nb-500">Only administrators can change these.</p>
-          )}
-          <Pill><Radio size={ICON_SM} className="mr-1" aria-hidden /> applies to every connected agent within a minute</Pill>
-        </div>
-        <p className="mt-3 text-xs text-nb-500">Measurements between places are set up on the <Link to="/sites" className="text-accent hover:underline">Sites</Link> page.</p>
-      </div>
-    </section>
-  )
-}
-
-/* ---------- where the memory is kept ---------- */
-
-function StorageCard({ conn, admin, tick }: { conn: Conn; admin: boolean; tick: number }) {
+/** Where the recordings are kept, in a few words. */
+function Stored({ conn, tick }: { conn: Conn; tick: number }) {
   const [info, setInfo] = useState<StorageInfo | null>(null)
   useEffect(() => {
     let live = true
@@ -739,41 +249,23 @@ function StorageCard({ conn, admin, tick }: { conn: Conn; admin: boolean; tick: 
   const graph = info.backend === 'neo4j'
   const st = info.stats
   return (
-    <section className="mt-8" aria-label="Where history is kept" data-testid="storage-card">
-      <h2 className="mb-2 text-sm font-medium text-nb-300">Where history is kept</h2>
-      <div className="rounded-xl border border-nb-850 bg-nb-925 p-5 text-sm">
-        {!graph ? (
-          <p className="text-nb-400">
-            History lives in the server’s own database file. It can be scrubbed and searched by time, but questions across time (“what ran on this node last Tuesday”, a record’s full life story) need the graph database.
-            An administrator can connect one when starting the server (<code className="text-nb-300">--neo4j-url</code>).
-          </p>
-        ) : (
-          <>
-            <div className="flex flex-wrap items-center gap-3">
-              <span className={clsx('inline-flex items-center gap-2 font-medium', info.connected ? 'text-ok' : 'text-warn')} data-testid="storage-state">
-                <PulseDot color={info.connected ? 'bg-ok' : 'bg-warn'} pulse={info.connected} />
-                {info.connected ? 'Neo4j connected' : info.ready ? 'Neo4j not reachable' : 'Neo4j starting'}
-              </span>
-              {info.buffering && <Pill>catching up: some recordings are waiting to be moved across</Pill>}
-            </div>
-            <p className="mt-2 text-xs leading-5 text-nb-500">
-              Every recording, change, workspace save and action people took is kept as a graph you can ask about any moment. If the database is away, Ikhnos keeps recording locally and moves everything across when it is back, so nothing is lost.
-            </p>
-            {admin && info.error && !info.connected && <p className="mt-2 text-xs text-warn/90" role="status">{info.error}</p>}
-            {admin && st && (
-              <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-5">
-                {([['Recordings', st.snapshots], ['Record versions', st.versions], ['Records', st.entities], ['Events', st.events], ['Actions', st.audit]] as const).map(([l, v]) => (
-                  <div key={l}>
-                    <dt className="text-nb-500">{l}</dt>
-                    <dd className="text-base font-medium tabular-nums text-nb-300">{v}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-            {admin && st?.oldest && <p className="mt-2 text-xs text-nb-500">Back to {new Date(st.oldest).toLocaleString()}.</p>}
-          </>
-        )}
-      </div>
+    <section className="rounded-xl border border-nb-850 bg-nb-925 p-4" aria-label="Where history is kept" data-testid="storage-card">
+      <h2 className="mb-2.5 text-xs font-medium text-nb-300">Stored</h2>
+      {graph ? (
+        <>
+          <span className={clsx('inline-flex items-center gap-2 text-sm', info.connected ? 'text-nb-300' : 'text-warn')} data-testid="storage-state">
+            <PulseDot color={info.connected ? 'bg-ok' : 'bg-warn'} pulse={info.connected} />
+            {info.connected ? 'In the graph database' : info.ready ? 'Graph database not reachable' : 'Graph database starting'}
+          </span>
+          {info.buffering && <p className="mt-1.5 text-xs text-nb-500">Catching up: some recordings are waiting to be moved across.</p>}
+          {st && <p className="mt-1.5 text-xs text-nb-500">{st.snapshots} recordings{st.oldest ? `, back to ${new Date(st.oldest).toLocaleDateString()}` : ''}.</p>}
+          {info.error && !info.connected && <p className="mt-1.5 text-xs text-warn/90" role="status">{info.error}</p>}
+        </>
+      ) : (
+        <p className="text-xs leading-5 text-nb-500">
+          In the server’s own database file: it can be scrubbed and searched by time. Questions across time, such as what ran on a node last Tuesday, need the graph database (<code className="text-nb-300">--neo4j-url</code>).
+        </p>
+      )}
     </section>
   )
 }

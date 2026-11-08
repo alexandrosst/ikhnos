@@ -1303,6 +1303,26 @@ export function Modal({
 }
 
 /* ---------- Page chrome ---------- */
+/** A few mutually exclusive choices side by side, for a setting or a filter with three to five short options. */
+export function Segmented<T extends string | number>({ value, options, onChange, label, disabled, className }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string; disabled?: boolean; className?: string }) {
+  return (
+    <div role="group" aria-label={label} className={clsx('inline-flex overflow-hidden rounded-lg border border-nb-850', className)}>
+      {options.map((o) => (
+        <button
+          key={String(o.value)}
+          type="button"
+          aria-pressed={o.value === value}
+          disabled={disabled}
+          onClick={() => onChange(o.value)}
+          className={clsx('whitespace-nowrap border-r border-nb-850 px-3 py-1.5 text-xs last:border-r-0 disabled:opacity-60', o.value === value ? 'bg-nb-940 text-nb-200' : 'text-nb-500 enabled:hover:text-nb-300')}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
