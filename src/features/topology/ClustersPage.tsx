@@ -5,16 +5,17 @@ import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import { ClusterForm, ConfirmModal } from '@/components/forms'
 import PlacementHint from '@/features/placement/components/PlacementHint'
 import { DistroIcon, Place, ProviderIcon, WithIcon } from '@/components/ui/brand'
-import { Button, CompletenessBadge, DeclaredMark, EmptyState, GuessDot, ICON_SM, ObservationChip, PageHeader, StatusDot, Table, Td, Th, TierBadge } from '@/components/ui/primitives'
+import { Button, CompletenessBadge, EmptyState, GuessDot, ICON_SM, PageHeader, StatusDot, Table, Td, Th, TierBadge } from '@/components/ui/primitives'
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
+import { OriginLine } from '@/components/entity/parts'
 import { observation } from '@/lib/provenance'
-import { ageLabel, shortVersion } from '@/lib/present'
+import { shortVersion } from '@/lib/present'
 import { completeness } from '@/lib/completeness'
 import { useAutoPlaceClusters, usePlacementSuggestions } from '@/lib/usePlacement'
 import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
 import type { Cluster } from '@/lib/types'
-import { editOnDoubleClick, matches, RowActions, SearchBox } from './shared'
+import { matches, openOnClick, RowActions, SearchBox } from './shared'
 
 const CLUSTER_COLUMNS: ColumnDef[] = [
   { key: 'tier', label: 'Tier' },
@@ -36,10 +37,12 @@ export default function ClustersPage() {
   const weak = useWeakValue('cluster')
   const connect = useConnectFlow()
   const [q, setQ] = useState('')
-  const [editing, setEditing] = useState<Cluster | null | 'new'>(null)
+  // The panel: a cluster to read (or edit straight away from the pencil), or a blank one to add.
+  const [panel, setPanel] = useState<{ cluster: Cluster | null; edit: boolean } | null>(null)
   const [deleting, setDeleting] = useState<Cluster | null>(null)
-  const { isVisible, toggle } = useColumnVisibility('clusters', ['network', 'platform', 'endpoints'])
+  const { isVisible, toggle } = useColumnVisibility('clusters', ['discovered', 'network', 'platform', 'endpoints'])
 
+  const gaps = (c: Cluster) => completeness(c, nodes, services, dependencies).missing
   const rows = clusters.filter((c) => matches(q, c.name, c.distribution, c.provider, c.region, c.tier, sites.find((x) => x.id === c.siteId)?.name))
 
   return (
@@ -48,7 +51,7 @@ export default function ClustersPage() {
         title="Clusters"
         description="Kubernetes clusters across the cloud–edge continuum. Nodes and services belong to a cluster."
         actions={
-          <Button variant="primary" onClick={() => setEditing('new')}>
+          <Button variant="primary" onClick={() => setPanel({ cluster: null, edit: true })}>
             <Plus size={ICON_SM} /> Add cluster
           </Button>
         }
@@ -65,7 +68,7 @@ export default function ClustersPage() {
           action={
             <div className="flex flex-wrap justify-center gap-2">
               {connect.canStart && <Button variant="primary" onClick={connect.start}><Plug size={ICON_SM} /> Connect a cluster</Button>}
-              <Button onClick={() => setEditing('new')}><Plus size={ICON_SM} /> Add manually</Button>
+              <Button onClick={() => setPanel({ cluster: null, edit: true })}><Plus size={ICON_SM} /> Add manually</Button>
             </div>
           }
         />
@@ -95,14 +98,11 @@ export default function ClustersPage() {
                 return w ? <GuessDot level={w.level} why={w.why} /> : null
               }
               return (
-              <tr key={c.id} className="group hover:bg-nb-930/60" {...editOnDoubleClick(() => setEditing(c))}>
-                <Td className="whitespace-nowrap font-medium text-nb-300">
-                  <div>{c.name}</div>
-                  {c.createdAt && <div className="text-xs font-normal text-nb-500" title={`Created ${new Date(c.createdAt).toLocaleDateString()}`}>{ageLabel(c.createdAt)} old</div>}
-                  <div className="mt-1 flex items-center gap-2">
-                    <ObservationChip quiet info={obs} />
-                    {c.source === 'manual' && <DeclaredMark />}
-                  </div>
+              <tr key={c.id} className="group cursor-pointer hover:bg-nb-930/60" {...openOnClick(() => setPanel({ cluster: c, edit: false }))}>
+                <Td className="whitespace-nowrap">
+                  <button className="font-medium text-nb-300 hover:text-accent" onClick={() => setPanel({ cluster: c, edit: false })}>{c.name}</button>
+                  <OriginLine rec={c} createdAt={c.createdAt} />
+                  {c.source === 'discovered' && gaps(c).length > 0 && <div className="mt-0.5 text-xs text-warn">No {gaps(c).join(' or ')} yet</div>}
                 </Td>
                 {isVisible('tier') && (
                   <Td>
@@ -161,7 +161,7 @@ export default function ClustersPage() {
                   </Td>
                 )}
                 <Td><StatusDot status={c.status} withLabel notCurrent={obs && obs.kind !== 'live' ? (obs.reason ?? obs.label) : undefined} /></Td>
-                <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setEditing(c)} onDelete={() => setDeleting(c)} /></Td>
+                <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setPanel({ cluster: c, edit: true })} onDelete={() => setDeleting(c)} /></Td>
               </tr>
               )
             })}
@@ -174,7 +174,15 @@ export default function ClustersPage() {
         </Table>
       )}
 
-      {editing && <ClusterForm initial={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {panel && (
+        <ClusterForm
+          key={panel.cluster?.id ?? 'new'}
+          initial={panel.cluster}
+          edit={panel.edit}
+          onClose={() => setPanel(null)}
+          onDelete={panel.cluster ? () => { setDeleting(panel.cluster); setPanel(null) } : undefined}
+        />
+      )}
       {deleting && (
         <ConfirmModal
           title={`Delete ${deleting.name}?`}

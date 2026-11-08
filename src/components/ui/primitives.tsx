@@ -1196,6 +1196,7 @@ export function Modal({
   onClose,
   title,
   description,
+  headerActions,
   children,
   footer,
   width = 'max-w-xl',
@@ -1205,7 +1206,9 @@ export function Modal({
   open: boolean
   onClose: () => void
   title: string
-  description?: string
+  description?: ReactNode
+  /** Buttons in the header, beside the close button (an Edit button on a panel that shows a record). */
+  headerActions?: ReactNode
   children: ReactNode
   footer?: ReactNode
   width?: string
@@ -1285,13 +1288,16 @@ export function Modal({
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-nb-850 px-6 py-4">
           <div>
             <h2 className="text-base font-medium text-nb-300">{title}</h2>
-            {description && <p className="mt-1 text-sm text-nb-500">{description}</p>}
+            {description && <div className="mt-1 text-sm text-nb-500">{description}</div>}
           </div>
-          {dismissible && (
-            <button onClick={onClose} aria-label="Close" className="rounded p-1 text-nb-500 hover:bg-nb-940 hover:text-nb-300">
-              <X size={ICON_MD} />
-            </button>
-          )}
+          <div className="flex shrink-0 items-start gap-2">
+            {headerActions}
+            {dismissible && (
+              <button onClick={onClose} aria-label="Close" className="rounded p-1 text-nb-500 hover:bg-nb-940 hover:text-nb-300">
+                <X size={ICON_MD} />
+              </button>
+            )}
+          </div>
         </div>
         <div className={clsx('px-6 py-5', side && 'min-h-0 flex-1 overflow-y-auto')}>{children}</div>
         {/* Sticky, so the buttons stay in view while a long form scrolls. A centred dialog sits in 1rem of padding, which sticky does not count, hence -bottom-4: the bar reaches the screen's edge instead of leaving a strip of the form showing under it. */}

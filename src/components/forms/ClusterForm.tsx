@@ -1,142 +1,285 @@
-import { useState } from 'react'
-import { ComboField, GuessDot, Field, Input, LabelsEditor, Modal, Select } from '@/components/ui/primitives'
-import { hasOverrides } from '@/lib/effective'
+import { Pencil, Trash2 } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { DistroIcon, ProviderIcon, WithIcon } from '@/components/ui/brand'
+import { Button, ComboField, GuessDot, ICON_SM, Input, LabelsEditor, Modal, Select, StatusDot, TierBadge } from '@/components/ui/primitives'
+import { FormRow, OriginLine, Row, Section } from '@/components/entity/parts'
+import { completeness } from '@/lib/completeness'
+import { effective, hasOverrides } from '@/lib/effective'
+import { initiallyOpen, isDetected, isLocked, originOf } from '@/lib/fieldOrigin'
 import { CNI_OPTIONS, DISTRIBUTION_OPTIONS, PROVIDER_OPTIONS } from '@/lib/present'
+import { observation } from '@/lib/provenance'
 import { useWeakValue } from '@/store/rowEvidence'
-import { uid, useTopology } from '@/store/topology'
+import { uid, useRawTopology, useTopology } from '@/store/topology'
 import { useServer } from '@/store/server'
 import { DEFAULT_ORG, TIERS, type Cluster } from '@/lib/types'
-import { StatusSelect, TrustSelect, FormFooter, DiscoveredNote } from './shared'
+import { StatusSelect, TrustSelect, DiscoveredNote } from './shared'
 
-/* ---------- Cluster ---------- */
-export function ClusterForm({ initial, onClose }: { initial: Cluster | null; onClose: () => void }) {
+/** Fields that are yours by nature: an agent never reports them, so they are never locked. */
+const YOURS = ['siteId', 'labels', 'trustZone', 'dataResidency']
+
+const blank = (): Cluster => ({
+  id: uid('cl'),
+  orgId: DEFAULT_ORG,
+  name: '',
+  tier: 'cloud',
+  distribution: 'kubeadm',
+  version: '',
+  provider: '',
+  region: '',
+  status: 'unknown',
+  labels: {},
+  source: 'manual',
+})
+
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+
+/**
+ * A cluster in a side panel. It opens read-only, every fact with a mark for where it comes from, and Edit turns it into a form. In the form a
+ * value an agent reports is locked until you choose Override, so you only ever change what you mean to change; the rest stays tracked.
+ * `edit` opens straight into the form (the pencil in a list); a new cluster always does.
+ */
+export function ClusterForm({ initial, onClose, edit, onDelete }: { initial: Cluster | null; onClose: () => void; edit?: boolean; onDelete?: () => void }) {
   const save = useTopology((s) => s.saveCluster)
   const resetOverrides = useTopology((s) => s.resetOverrides)
-  const sites = useTopology((s) => s.sites)
-  const by = useServer((s) => s.user?.username)
-  const [f, setF] = useState<Cluster>(
-    initial ?? {
-      id: uid('cl'),
-      orgId: DEFAULT_ORG,
-      name: '',
-      tier: 'cloud',
-      distribution: 'kubeadm',
-      version: '',
-      provider: '',
-      region: '',
-      status: 'unknown',
-      labels: {},
-      source: 'manual',
-    },
-  )
-  const [labels, setLabels] = useState(f.labels)
-  const set = <K extends keyof Cluster>(k: K, v: Cluster[K]) => setF((p) => ({ ...p, [k]: v }))
-  // Same "is this field a guess, or not known at all" signal the Clusters table already shows per row (see
-  // NodesPage/ClustersPage's own `chip` helper) - reused here so editing a discovered value shows exactly the
-  // confidence a person would already have seen before opening this form, instead of a plain, unqualified input.
-  const weak = useWeakValue('cluster')
   const confirmField = useTopology((s) => s.confirmField)
-  // A "guess" already has a real value showing below, so confirming it is one click - freeze it as a human
-  // override with no value change (see `confirmOverride`). The exact affordance the Inspector's "Guessed or not
-  // known" list already offers (see WeakValues), reused here so an edit form gives the same choice on the spot.
-  // An "unknown" has no value to freeze - it is resolved the ordinary way, by typing one into the field below.
-  const chip = (attr: string, field?: string) => {
-    const w = weak(f as never, attr, field)
+  const sites = useTopology((s) => s.sites)
+  const nodes = useTopology((s) => s.nodes)
+  const services = useTopology((s) => s.services)
+  const dependencies = useTopology((s) => s.dependencies)
+  const by = useServer((s) => s.user?.username)
+  const weak = useWeakValue('cluster')
+  // The stored record, before overrides: what an agent reported, and which fields are yours. The panel shows the live one, so a save is visible at once.
+  const raw = useRawTopology((s) => (initial ? s.clusters.find((c) => c.id === initial.id) : undefined))
+  const current = raw ? effective(raw) : initial
+  const [editing, setEditing] = useState(!initial || !!edit)
+  const [f, setF] = useState<Cluster>(() => current ?? blank())
+  const [labels, setLabels] = useState(f.labels)
+  const [opened, setOpened] = useState<Set<string>>(() => initiallyOpen(raw))
+  const set = <K extends keyof Cluster>(k: K, v: Cluster[K]) => setF((p) => ({ ...p, [k]: v }))
+
+  const startEditing = () => {
+    if (!current) return
+    setF(current)
+    setLabels(current.labels)
+    setOpened(initiallyOpen(raw))
+    setEditing(true)
+  }
+  const done = () => (initial ? setEditing(false) : onClose())
+
+  /* ---------- read-only ---------- */
+  if (!editing && current) {
+    const c = current
+    const obs = observation(c)
+    const gaps = completeness(c, nodes, services, dependencies).missing
+    const site = sites.find((x) => x.id === c.siteId)
+    const row = (label: string, field: string, value: ReactNode, mono?: boolean) => {
+      const w = weak(c as never, field)
+      return (
+        <Row label={label} origin={originOf(raw, field)} by={raw?.overrideMeta?.[field]?.by} mono={mono}>
+          {value === undefined || value === null || value === '' || value === false ? undefined : (
+            <>
+              {value}
+              {w && <span className="ml-1.5 align-middle"><GuessDot level={w.level} why={w.why} /></span>}
+            </>
+          )}
+        </Row>
+      )
+    }
+    return (
+      <Modal
+        open
+        side
+        onClose={onClose}
+        title={c.name}
+        description={
+          <>
+            <OriginLine rec={c} createdAt={c.createdAt} />
+            {gaps.length > 0 && <p className="mt-1 text-xs text-nb-500">Not known yet: {gaps.join(', ')}.</p>}
+          </>
+        }
+        headerActions={
+          <Button size="sm" onClick={startEditing}>
+            <Pencil size={ICON_SM} /> Edit
+          </Button>
+        }
+        footer={
+          <>
+            {onDelete && (
+              <Button variant="ghost" className="mr-auto" onClick={onDelete}>
+                <Trash2 size={ICON_SM} /> Delete
+              </Button>
+            )}
+            <span className="ml-auto text-xs text-nb-500">Lock: detected · Pencil: set by you</span>
+          </>
+        }
+      >
+        <dl>
+          <Section title="Identity">
+            {row('Name', 'name', c.name)}
+            {row('Tier', 'tier', <TierBadge tier={c.tier} />)}
+            <Row label="Status" origin={originOf(raw, 'status')} by={raw?.overrideMeta?.status?.by}>
+              <StatusDot status={c.status} withLabel notCurrent={obs && obs.kind !== 'live' ? (obs.reason ?? obs.label) : undefined} />
+            </Row>
+          </Section>
+          <Section title="Platform">
+            {row('Distribution', 'distribution', c.distribution && <WithIcon icon={<DistroIcon distribution={c.distribution} />}>{c.distribution}</WithIcon>)}
+            {row('Version', 'version', c.version, true)}
+            {row('Provider', 'provider', c.provider && <WithIcon icon={<ProviderIcon provider={c.provider} />}>{c.provider}</WithIcon>)}
+            {row('CNI', 'cni', c.cni)}
+            {row('Ingress', 'ingress', c.ingress)}
+            {row('Storage classes', 'storageClasses', (c.storageClasses ?? []).join(', '))}
+          </Section>
+          <Section title="Network">
+            {row('Pod CIDR', 'podCidr', c.podCidr, true)}
+            {row('Service CIDR', 'serviceCidr', c.serviceCidr, true)}
+            {row('API endpoint', 'apiEndpoint', c.apiEndpoint, true)}
+            {row('Exit IP', 'egressIp', c.egressIp, true)}
+          </Section>
+          <Section title="Location">
+            {row('Site', 'siteId', site?.name)}
+            {row('Region label', 'region', c.region)}
+          </Section>
+          <Section title="Policy">
+            {row('Trust zone', 'trustZone', c.trustZone && c.trustZone[0].toUpperCase() + c.trustZone.slice(1))}
+            {row('Data residency', 'dataResidency', c.dataResidency)}
+            <Row label="Labels" origin={originOf(raw, 'labels')} by={raw?.overrideMeta?.labels?.by}>
+              {Object.keys(c.labels ?? {}).length > 0 && (
+                <span className="flex flex-wrap gap-1.5">
+                  {Object.entries(c.labels).map(([k, v]) => (
+                    <span key={k} className="rounded-md border border-nb-850 bg-nb-930 px-1.5 py-0.5 font-mono text-xs text-nb-400">
+                      {k}={v}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </Row>
+          </Section>
+        </dl>
+      </Modal>
+    )
+  }
+
+  /* ---------- form ---------- */
+  // A discovered value that is only a guess is not locked (confirming it is one click, or type a better one); neither is a field with nothing reported.
+  const locked = (field: string) => isLocked(raw, field, { opened, guess: weak(f as never, field)?.level === 'guess', open: YOURS })
+  const baseOf = (field: string) => (raw as unknown as Record<string, unknown> | undefined)?.[field]
+  const changed = (field: string) => isDetected(raw, field) && !YOURS.includes(field) && !locked(field) && !same((f as unknown as Record<string, unknown>)[field], baseOf(field))
+  const reset = (field: string) => {
+    setF((p) => ({ ...p, [field]: baseOf(field) }))
+    setOpened((p) => {
+      const n = new Set(p)
+      n.delete(field)
+      return n
+    })
+  }
+  const chip = (field: string) => {
+    const w = weak(f as never, field)
     if (!w) return undefined
     return (
       <span className="inline-flex items-center gap-1.5">
         <GuessDot level={w.level} why={w.why} />
         {w.level === 'guess' && initial && by && (
-          <button
-            onClick={() => confirmField('cluster', initial.id, field ?? attr, by)}
-            className="text-[11px] text-accent hover:underline"
-            title="Keep this value as it is; it will not be overwritten by rediscovery."
-          >
+          <button type="button" onClick={() => confirmField('cluster', initial.id, field, by)} className="text-[11px] text-accent hover:underline" title="Keep this value as it is; it will not be overwritten by rediscovery.">
             confirm
           </button>
         )}
       </span>
     )
   }
+  const lock = (field: string, text: ReactNode) => ({
+    locked: locked(field),
+    lockedValue: text,
+    onOverride: () => setOpened((p) => new Set(p).add(field)),
+    changed: changed(field),
+    onReset: changed(field) ? () => reset(field) : undefined,
+    adornment: chip(field),
+  })
 
   return (
     <Modal
       open
+      side
       onClose={onClose}
-      title={initial ? 'Edit cluster' : 'Add cluster'}
-      description="A Kubernetes cluster and where it sits on the cloud–edge continuum."
+      title={initial ? `Edit ${current?.name ?? 'cluster'}` : 'Add cluster'}
+      description={initial ? undefined : 'A Kubernetes cluster and where it sits on the cloud–edge continuum.'}
       footer={
-        <FormFooter
-          isNew={!initial}
-          disabled={!f.name.trim()}
-          onCancel={onClose}
-          onSave={() => {
-            save({ ...f, name: f.name.trim(), labels }, by)
-            onClose()
-          }}
-          onReset={
-            initial && hasOverrides(initial)
-              ? () => {
-                  resetOverrides('cluster', initial.id)
-                  onClose()
-                }
-              : undefined
-          }
-        />
+        <>
+          {initial && hasOverrides(initial) && (
+            <Button
+              variant="ghost"
+              className="mr-auto"
+              onClick={() => {
+                resetOverrides('cluster', initial.id)
+                setEditing(false)
+              }}
+            >
+              Reset to detected values
+            </Button>
+          )}
+          <Button onClick={done}>Cancel</Button>
+          <Button
+            variant="primary"
+            disabled={!f.name.trim()}
+            onClick={() => {
+              save({ ...f, name: f.name.trim(), labels }, by)
+              done()
+            }}
+          >
+            {initial ? 'Save changes' : 'Add'}
+          </Button>
+        </>
       }
     >
-      <DiscoveredNote entity={initial} />
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Name" className="col-span-2">
-          <Input autoFocus value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. edge-patras" />
-        </Field>
-        <Field label="Tier" hint="Drives vertical placement in the topology." adornment={chip('tier')}>
-          <Select value={f.tier} onChange={(e) => set('tier', e.target.value as Cluster['tier'])}>
-            {TIERS.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Status">
-          <StatusSelect value={f.status} onChange={(v) => set('status', v)} />
-        </Field>
-        <Field label="Distribution" adornment={chip('distribution')}>
-          <ComboField value={f.distribution} onChange={(v) => set('distribution', v)} options={DISTRIBUTION_OPTIONS} placeholder="EKS, k3s, kubeadm…" />
-        </Field>
-        <Field label="Version" adornment={chip('version')}>
-          <Input value={f.version} onChange={(e) => set('version', e.target.value)} placeholder="v1.30.2" />
-        </Field>
-        <Field label="Provider" adornment={chip('provider')}>
-          <ComboField value={f.provider} onChange={(v) => set('provider', v)} options={PROVIDER_OPTIONS} placeholder="AWS, On-prem…" />
-        </Field>
-        <Field label="Region label" hint="A cloud region code or a city name. If the cluster is not on a site yet, it is used to suggest where it is." adornment={chip('region')}>
-          <Input value={f.region} onChange={(e) => set('region', e.target.value)} placeholder="eu-central-1" />
-        </Field>
-        <Field label="Site" hint="Where it sits on the map. Manage sites under Sites." className="col-span-2">
-          <Select value={f.siteId ?? ''} onChange={(e) => set('siteId', e.target.value || undefined)}>
-            <option value="">No site</option>
-            {sites.map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="CNI">
-          <ComboField value={f.cni ?? ''} onChange={(v) => set('cni', v || undefined)} options={CNI_OPTIONS} placeholder="calico, flannel, cilium…" />
-        </Field>
-        <Field label="Trust zone" hint="Policy input for placement.">
-          <TrustSelect value={f.trustZone} onChange={(v) => set('trustZone', v)} />
-        </Field>
-        <Field label="Data residency" hint="Jurisdiction data must stay in, e.g. EU." className="col-span-2">
-          <Input value={f.dataResidency ?? ''} onChange={(e) => set('dataResidency', e.target.value || undefined)} placeholder="EU" />
-        </Field>
-        <Field label="Labels" className="col-span-2">
-          <LabelsEditor value={labels} onChange={setLabels} keyPlaceholder="env" valuePlaceholder="prod" />
-        </Field>
-      </div>
+      <DiscoveredNote entity={raw ?? null} />
+      <FormRow label="Name" {...lock('name', f.name)}>
+        <Input autoFocus value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. edge-patras" />
+      </FormRow>
+      <FormRow label="Tier" hint="Drives vertical placement in the topology." {...lock('tier', TIERS.find((t) => t.value === f.tier)?.label)}>
+        <Select value={f.tier} onChange={(e) => set('tier', e.target.value as Cluster['tier'])}>
+          {TIERS.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </Select>
+      </FormRow>
+      <FormRow label="Status" {...lock('status', <span className="capitalize">{f.status}</span>)}>
+        <StatusSelect value={f.status} onChange={(v) => set('status', v)} />
+      </FormRow>
+      <FormRow label="Distribution" {...lock('distribution', f.distribution)}>
+        <ComboField value={f.distribution} onChange={(v) => set('distribution', v)} options={DISTRIBUTION_OPTIONS} placeholder="EKS, k3s, kubeadm…" />
+      </FormRow>
+      <FormRow label="Version" {...lock('version', f.version)}>
+        <Input value={f.version} onChange={(e) => set('version', e.target.value)} placeholder="v1.30.2" />
+      </FormRow>
+      <FormRow label="Provider" {...lock('provider', f.provider)}>
+        <ComboField value={f.provider} onChange={(v) => set('provider', v)} options={PROVIDER_OPTIONS} placeholder="AWS, On-prem…" />
+      </FormRow>
+      <FormRow label="CNI" {...lock('cni', f.cni)}>
+        <ComboField value={f.cni ?? ''} onChange={(v) => set('cni', v || undefined)} options={CNI_OPTIONS} placeholder="calico, flannel, cilium…" />
+      </FormRow>
+      <FormRow label="Region label" hint="A cloud region code or a city name. If the cluster is not on a site yet, it is used to suggest where it is." {...lock('region', f.region)}>
+        <Input value={f.region} onChange={(e) => set('region', e.target.value)} placeholder="eu-central-1" />
+      </FormRow>
+      <FormRow label="Site" hint="Where it sits on the map. Manage sites under Sites.">
+        <Select value={f.siteId ?? ''} onChange={(e) => set('siteId', e.target.value || undefined)}>
+          <option value="">No site</option>
+          {sites.map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.name}
+            </option>
+          ))}
+        </Select>
+      </FormRow>
+      <FormRow label="Trust zone" hint="Policy input for placement.">
+        <TrustSelect value={f.trustZone} onChange={(v) => set('trustZone', v)} />
+      </FormRow>
+      <FormRow label="Data residency" hint="Jurisdiction data must stay in, e.g. EU.">
+        <Input value={f.dataResidency ?? ''} onChange={(e) => set('dataResidency', e.target.value || undefined)} placeholder="EU" />
+      </FormRow>
+      <FormRow label="Labels">
+        <LabelsEditor value={labels} onChange={setLabels} keyPlaceholder="env" valuePlaceholder="prod" />
+      </FormRow>
     </Modal>
   )
 }

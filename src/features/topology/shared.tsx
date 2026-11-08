@@ -25,10 +25,19 @@ export const editOnDoubleClick = (onEdit: () => void) => ({
   },
 })
 
+/** Props for a table row that opens its panel on a click, unless the click lands on a control inside the row (a button, a link, a field). */
+export const openOnClick = (onOpen: () => void) => ({
+  onClick: (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button, a, input, select, textarea, [role="button"], [role="combobox"]')) return
+    if (window.getSelection()?.toString()) return
+    onOpen()
+  },
+})
+
 export function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
   return (
-    <div className="flex justify-end gap-1">
-      <Button variant="ghost" size="sm" aria-label="Edit" title="Edit (or double-click the row)" onClick={onEdit}>
+    <div className="flex justify-end gap-1 opacity-50 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+      <Button variant="ghost" size="sm" aria-label="Edit" title="Edit" onClick={onEdit}>
         <Pencil size={ICON_MD} />
       </Button>
       <Button variant="ghost" size="sm" aria-label="Delete" onClick={onDelete}>
