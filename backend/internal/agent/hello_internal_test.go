@@ -29,8 +29,8 @@ func TestTheHelloStatesTheProtocolVersionAndEveryCapabilityTheRegistryHolds(t *t
 
 func TestTheHelloNamesTheResourceThatAControllerKeepsTheAgentFrom(t *testing.T) {
 	r := newTestRunner()
-	r.cfg = Config{Version: "v9", Tier: 2, ControllerResource: "this-cluster"}
-	if got := r.hello().ControllerResource; got != "this-cluster" {
+	r.cfg = Config{Version: "v9", Tier: 2, ControllerResource: "default"}
+	if got := r.hello().ControllerResource; got != "default" {
 		t.Fatalf("controller resource %q", got)
 	}
 	r.cfg.ControllerResource = ""
@@ -73,7 +73,7 @@ var capabilityProbes = map[string]func(t *testing.T){
 		// A cluster that has not turned the relay on still answers: refused, in words, in its next heartbeat.
 		r := newTestRunner()
 		r.relay = newRelayState()
-		r.cfg = Config{ControllerResource: "this-cluster"}
+		r.cfg = Config{ControllerResource: "default"}
 		r.noteRelayRequest(&ikhnosv1.Config{TelemetryRequest: &ikhnosv1.TelemetryRequest{Revision: 3}})
 		if s := r.relayStatus(); s == nil || s.Revision != 3 || s.State != "refused" || s.Reason == "" {
 			t.Fatalf("a request was not answered: %+v", s)

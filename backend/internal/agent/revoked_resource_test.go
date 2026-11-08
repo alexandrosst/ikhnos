@@ -37,12 +37,12 @@ func TestMarkingTheResourceIsOnePatchOfTheStatusOfOneObject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := agent.MarkResourceRevoked(kube, "ikhnos-system", "this-cluster")(context.Background(), "revoked by an administrator"); err != nil {
+	if err := agent.MarkResourceRevoked(kube, "ikhnos-system", "default")(context.Background(), "revoked by an administrator"); err != nil {
 		t.Fatal(err)
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if method != "PATCH" || path != "/apis/ikhnos.io/v1alpha1/namespaces/ikhnos-system/ikhnosagents/this-cluster/status" || ctype != "application/merge-patch+json" {
+	if method != "PATCH" || path != "/apis/ikhnos.io/v1alpha1/namespaces/ikhnos-system/ikhnosagents/default/status" || ctype != "application/merge-patch+json" {
 		t.Fatalf("%s %s (%s)", method, path, ctype)
 	}
 	if want := `{"status":{"revoked":{"reason":"revoked by an administrator"}}}`; body != want {
@@ -57,7 +57,7 @@ func TestMarkingTheResourceIsOnePatchOfTheStatusOfOneObject(t *testing.T) {
 	}))
 	defer old.Close()
 	kubeOld, _ := kubernetes.NewForConfig(&rest.Config{Host: old.URL})
-	err = agent.MarkResourceRevoked(kubeOld, "ikhnos-system", "this-cluster")(context.Background(), "revoked by an administrator")
+	err = agent.MarkResourceRevoked(kubeOld, "ikhnos-system", "default")(context.Background(), "revoked by an administrator")
 	if err == nil || !strings.Contains(err.Error(), "older than the controller") {
 		t.Fatalf("a field the API server dropped was taken for success: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestMarkingTheResourceIsOnePatchOfTheStatusOfOneObject(t *testing.T) {
 	deny := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "forbidden", http.StatusForbidden) }))
 	defer deny.Close()
 	kube2, _ := kubernetes.NewForConfig(&rest.Config{Host: deny.URL})
-	if err := agent.MarkResourceRevoked(kube2, "ikhnos-system", "this-cluster")(context.Background(), "x"); err == nil {
+	if err := agent.MarkResourceRevoked(kube2, "ikhnos-system", "default")(context.Background(), "x"); err == nil {
 		t.Fatal("a refused patch was not an error")
 	}
 }

@@ -139,18 +139,18 @@ func TestTheClusterIdIsOnePatchOfTheStatusAndAnOlderDefinitionIsSaid(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := ReportResourceIdentity(kube, "ikhnos-system", "this-cluster")(context.Background(), relay.Identity{ClusterID: "cl-a287110206"}); err != nil {
+	if err := ReportResourceIdentity(kube, "ikhnos-system", "default")(context.Background(), relay.Identity{ClusterID: "cl-a287110206"}); err != nil {
 		t.Fatal(err)
 	}
 	mu.Lock()
-	if method != "PATCH" || path != "/apis/ikhnos.io/v1alpha1/namespaces/ikhnos-system/ikhnosagents/this-cluster/status" || body != `{"status":{"identity":{"clusterId":"cl-a287110206"}}}` {
+	if method != "PATCH" || path != "/apis/ikhnos.io/v1alpha1/namespaces/ikhnos-system/ikhnosagents/default/status" || body != `{"status":{"identity":{"clusterId":"cl-a287110206"}}}` {
 		t.Errorf("%s %s %s", method, path, body)
 	}
 	mu.Unlock()
 
 	// An id that is not a plain word is not written at all.
 	for _, bad := range []relay.Identity{{ClusterID: `a"b`}, {ClusterID: "cl-1", OrgID: "o r g"}, {}} {
-		if err := ReportResourceIdentity(kube, "ikhnos-system", "this-cluster")(context.Background(), bad); err == nil {
+		if err := ReportResourceIdentity(kube, "ikhnos-system", "default")(context.Background(), bad); err == nil {
 			t.Errorf("%+v was written", bad)
 		}
 	}
@@ -161,7 +161,7 @@ func TestTheClusterIdIsOnePatchOfTheStatusAndAnOlderDefinitionIsSaid(t *testing.
 	}))
 	defer old.Close()
 	kubeOld, _ := kubernetes.NewForConfig(&rest.Config{Host: old.URL})
-	err = ReportResourceIdentity(kubeOld, "ikhnos-system", "this-cluster")(context.Background(), relay.Identity{ClusterID: "cl-1"})
+	err = ReportResourceIdentity(kubeOld, "ikhnos-system", "default")(context.Background(), relay.Identity{ClusterID: "cl-1"})
 	if err == nil || !strings.Contains(err.Error(), "older than the controller") {
 		t.Errorf("a field the API server dropped was taken for success: %v", err)
 	}

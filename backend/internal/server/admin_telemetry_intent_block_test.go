@@ -290,7 +290,7 @@ func TestForAnAgentAControllerKeepsTheServerAlsoWritesThePatchOfItsResource(t *t
 	patch, _ := c["patch"].(string)
 	secrets, _ := doc["secretCommands"].([]any)
 	block, _ := c["command"].(string)
-	if len(secrets) != 1 || !strings.HasPrefix(block, "{ "+secrets[0].(string)+"\n} && \\\nkubectl --namespace ikhnos-system patch ikhnosagents.ikhnos.io this-cluster --type json -p ") {
+	if len(secrets) != 1 || !strings.HasPrefix(block, "{ "+secrets[0].(string)+"\n} && \\\nkubectl --namespace ikhnos-system patch ikhnosagents.ikhnos.io default --type json -p ") {
 		t.Fatalf("the Secret comes first and the patch last:\n%.500s", block)
 	}
 	// The destination is the operator's, over mutual TLS with the Secret the first command makes. What the page held is not in it.

@@ -39,7 +39,7 @@ func TestAnAgentTheControllerKeepsMayPatchTheStatusOfItsOwnResourceAndNothingEls
 	}
 
 	roles, bindings, rules := marks("--set", "controller.resource="+install.ControllerResourceName)
-	if roles != 1 || bindings != 1 || len(rules) != 1 || rules[0] != "[ikhnos.io][ikhnosagents/status][this-cluster][patch]" {
+	if roles != 1 || bindings != 1 || len(rules) != 1 || rules[0] != "[ikhnos.io][ikhnosagents/status][default][patch]" {
 		t.Fatalf("roles %d, bindings %d, rules %v", roles, bindings, rules)
 	}
 	if roles, bindings, _ = marks(); roles != 0 || bindings != 0 {
@@ -48,7 +48,7 @@ func TestAnAgentTheControllerKeepsMayPatchTheStatusOfItsOwnResourceAndNothingEls
 
 	// With the relay on, the agent also reads that one status, to see what the controller made of a request; still not the object.
 	roles, bindings, rules = marks("--set", "controller.resource="+install.ControllerResourceName, "--set", "controller.relayTelemetry=true")
-	if roles != 1 || bindings != 1 || len(rules) != 1 || rules[0] != "[ikhnos.io][ikhnosagents/status][this-cluster][get patch]" {
+	if roles != 1 || bindings != 1 || len(rules) != 1 || rules[0] != "[ikhnos.io][ikhnosagents/status][default][get patch]" {
 		t.Fatalf("with the relay on: roles %d, bindings %d, rules %v", roles, bindings, rules)
 	}
 }

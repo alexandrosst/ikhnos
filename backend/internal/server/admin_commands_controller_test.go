@@ -58,7 +58,7 @@ func TestAgentUpgradeCommandAlsoWritesThePatchOfTheResource(t *testing.T) {
 	_, cookie := a.user(t, "ed", accounts.RoleEditor)
 
 	out := a.controllerUpgrade(t, cookie, map[string]any{"tier": 1})
-	want := `kubectl --namespace ikhnos-system patch ikhnosagents.ikhnos.io this-cluster --type merge -p '{"spec":{"accessTier":1}}'`
+	want := `kubectl --namespace ikhnos-system patch ikhnosagents.ikhnos.io default --type merge -p '{"spec":{"accessTier":1}}'`
 	if c := out.Controller; c.Patch != want || c.Command != want || c.NeedsTelemetryPermission || len(c.Problems) != 0 {
 		t.Fatalf("a tier: %+v", c)
 	}

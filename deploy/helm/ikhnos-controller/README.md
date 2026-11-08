@@ -15,7 +15,7 @@ helm upgrade --install ikhnos-controller oci://ghcr.io/<owner>/ikhnos-controller
   --set-string bootstrap.token=ikh_...
 ```
 
-Nothing is created first. The chart writes the Secret that holds the token (`ikhnos-enrollment`) and a small ConfigMap that describes the agent; the controller reads that ConfigMap when it starts, makes the `IkhnosAgent` called `this-cluster` from it, and installs the agent. Watch it with `kubectl -n ikhnos-system get ikhnosagents -w`.
+Nothing is created first. The chart writes the Secret that holds the token (`ikhnos-enrollment`) and a small ConfigMap that describes the agent; the controller reads that ConfigMap when it starts, makes the `IkhnosAgent` called `default` from it, and installs the agent. Watch it with `kubectl -n ikhnos-system get ikhnosagents -w`.
 
 The same command works on a cluster that already has the controller: `--reset-then-reuse-values` keeps what it was given (an `allowTelemetry` you turned on stays on) and changes what you say. The page sizes `maxAccessTier` from the access level chosen in its wizard, so the controller holds the permissions of that tier and no more. To raise it later: `helm upgrade ikhnos-controller <chart> -n ikhnos-system --reset-then-reuse-values --set maxAccessTier=2`.
 
@@ -46,7 +46,7 @@ The controller watches the `IkhnosAgent` resources of its own namespace, and ins
 
 ```sh
 kubectl -n ikhnos-system get ikhnosagent
-kubectl -n ikhnos-system get ikhnosagent this-cluster -o jsonpath='{.status.conditions[?(@.type=="WorkloadsReady")].message}'
+kubectl -n ikhnos-system get ikhnosagent default -o jsonpath='{.status.conditions[?(@.type=="WorkloadsReady")].message}'
 # ikhnos-telemetry-kepler: 2 of 3 pods ready
 ```
 
@@ -70,7 +70,7 @@ kubectl -n ikhnos-system apply -f - <<'YAML'
 apiVersion: ikhnos.io/v1alpha1
 kind: IkhnosAgent
 metadata:
-  name: this-cluster
+  name: default
 spec:
   server:
     address: ikhnos.example.com:8443      # host:port of the server's agent listener

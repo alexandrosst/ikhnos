@@ -44,7 +44,7 @@ func statusServer(t *testing.T, doc map[string]any) (*httptest.Server, func() ma
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
-		if r.URL.Path != "/apis/ikhnos.io/v1alpha1/namespaces/ikhnos-system/ikhnosagents/this-cluster/status" {
+		if r.URL.Path != "/apis/ikhnos.io/v1alpha1/namespaces/ikhnos-system/ikhnosagents/default/status" {
 			http.NotFound(w, r)
 			return
 		}
@@ -81,7 +81,7 @@ func relayStoreAt(t *testing.T, url string) agent.RelayStore {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return agent.ResourceRelayStore(kube, "ikhnos-system", "this-cluster")
+	return agent.ResourceRelayStore(kube, "ikhnos-system", "default")
 }
 
 func requestedIn(t *testing.T, doc map[string]any) map[string]any {

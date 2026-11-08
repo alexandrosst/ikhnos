@@ -471,7 +471,7 @@ describe('TelemetryPanel with signal types going to different destinations', () 
 
 
 describe('TelemetryPanel with a regional operator destination, for an agent a controller keeps', () => {
-  const PATCH = `kubectl --namespace ikhnos-system patch ikhnosagents.ikhnos.io this-cluster --type json -p '[{"op":"add","path":"/spec/telemetry","value":{"signals":{"resourceUsage":true}}}]'`
+  const PATCH = `kubectl --namespace ikhnos-system patch ikhnosagents.ikhnos.io default --type json -p '[{"op":"add","path":"/spec/telemetry","value":{"signals":{"resourceUsage":true}}}]'`
   const controller = (over: Record<string, unknown> = {}) => ({ command: `${SECRET} && \\\n${PATCH}`, patch: PATCH, needsTelemetryPermission: true, allowTelemetry: 'helm upgrade ikhnos-controller oci://x --set allowTelemetry=true', problems: [], ...over })
 
   test('shows the Secret and the patch of the resource, with the permission the controller needs, and not the helm upgrade the controller would undo', async () => {
@@ -484,7 +484,7 @@ describe('TelemetryPanel with a regional operator destination, for an agent a co
     await user.click(await generateButton())
     const shown = (await screen.findByTestId('tp-operator-controller-command')).textContent ?? ''
     expect(shown).toContain('kubectl create secret generic op-eu-export-mtls')
-    expect(shown).toContain('patch ikhnosagents.ikhnos.io this-cluster')
+    expect(shown).toContain('patch ikhnosagents.ikhnos.io default')
     expect(screen.getByTestId('tp-operator-controller')).toHaveTextContent('puts back anything a helm upgrade changes')
     expect(screen.getByTestId('tp-operator-controller-allow')).toHaveTextContent('allowTelemetry=true')
     expect(screen.queryByTestId('tp-operator-command')).not.toBeInTheDocument()

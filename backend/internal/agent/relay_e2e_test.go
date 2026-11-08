@@ -49,7 +49,7 @@ func TestTheServerAsksTheAgentHandsOnTheControllerAnswersAndTheServerSaysWhatBec
 	log, _ := newLog()
 	store := &memRelay{}
 	cfg := r.cfg(ids, r.token("e2e"), log)
-	cfg.ControllerResource, cfg.RelayTelemetry, cfg.Relay, cfg.RelayEvery = "this-cluster", true, store, 100*time.Millisecond
+	cfg.ControllerResource, cfg.RelayTelemetry, cfg.Relay, cfg.RelayEvery = "default", true, store, 100*time.Millisecond
 	stop, _ := r.start(cfg)
 	defer stop()
 	code := codeOf(t, ids)
@@ -91,7 +91,7 @@ func TestAClusterWithTheRelayOffTellsTheServerWhyAndWritesNothing(t *testing.T) 
 	log, _ := newLog()
 	store := &memRelay{}
 	cfg := r.cfg(ids, r.token("e2e"), log)
-	cfg.ControllerResource, cfg.RelayTelemetry, cfg.Relay = "this-cluster", false, store // the controller keeps it; the relay is not on
+	cfg.ControllerResource, cfg.RelayTelemetry, cfg.Relay = "default", false, store // the controller keeps it; the relay is not on
 	stop, _ := r.start(cfg)
 	defer stop()
 	code := codeOf(t, ids)

@@ -23,7 +23,7 @@ func TestTheResourceSaysWhatTheCommandSays(t *testing.T) {
 	want := `apiVersion: ikhnos.io/v1alpha1
 kind: IkhnosAgent
 metadata:
-  name: this-cluster
+  name: default
   namespace: ikhnos-system
 spec:
   server:

@@ -15,7 +15,7 @@ const (
 	// watches only its own namespace and installs the agent there.
 	ControllerRelease = "ikhnos-controller"
 	// ControllerResourceName is what the IkhnosAgent resource is called: there is one agent a cluster.
-	ControllerResourceName = "this-cluster"
+	ControllerResourceName = "default"
 	// ControllerTokenSecret is the Secret that holds the one-time token, and ControllerTokenKey the key of it that does.
 	ControllerTokenSecret = "ikhnos-enrollment"
 	ControllerTokenKey    = "token"

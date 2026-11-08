@@ -561,7 +561,7 @@ func TestRevokedAgentSaysWhetherAControllerRemovesIt(t *testing.T) {
 	for _, tc := range []struct {
 		resource string
 		want     bool
-	}{{"this-cluster", true}, {"", false}} {
+	}{{"default", true}, {"", false}} {
 		e := newEnv(t)
 		p := NewPlatform(e.base, nil)
 		tn, err := p.Tenant(e.ctx, "org-1")

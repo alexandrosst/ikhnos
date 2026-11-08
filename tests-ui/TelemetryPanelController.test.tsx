@@ -70,7 +70,7 @@ describe('TelemetryPanel: the resource of a controller', () => {
     expect(screen.queryByTestId('helm-command')).not.toBeInTheDocument()
     const req = JSON.parse(helm.textContent!.replace('stub-command ', '')) as AgentUpgradeRequest
     expect(await screen.findByTestId('tp-controller-command')).toHaveTextContent(patchTo(req))
-    expect(screen.getByTestId('tp-controller-why')).toHaveTextContent('this-cluster')
+    expect(screen.getByTestId('tp-controller-why')).toHaveTextContent('default')
     expect(screen.getByTestId('tp-controller-permission')).toHaveTextContent('allowTelemetry')
     // The note comes with the command that gives the permission, as the server wrote it.
     expect(screen.getByTestId('tp-controller-allow')).toHaveTextContent('--set allowTelemetry=true')

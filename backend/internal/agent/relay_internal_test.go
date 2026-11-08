@@ -49,7 +49,7 @@ func configAsking(rev uint64, traces bool, pct *uint32) *ikhnosv1.Config {
 }
 
 func TestAConfigWithoutARequestSaysNothingAboutOne(t *testing.T) {
-	r := relayRunner("this-cluster", true, &fakeRelay{})
+	r := relayRunner("default", true, &fakeRelay{})
 	r.noteRelayRequest(&ikhnosv1.Config{})
 	if r.relayStatus() != nil || r.relay.req != nil || r.relay.pending {
 		t.Fatalf("a Config with no request started something: %+v", r.relay)
@@ -59,7 +59,7 @@ func TestAConfigWithoutARequestSaysNothingAboutOne(t *testing.T) {
 // A cluster that did not turn the relay on, or that nothing keeps installed, says so in words at once; the request does not wait for ever.
 func TestAClusterThatDoesNotRelaySaysSoInWords(t *testing.T) {
 	for name, r := range map[string]*runner{
-		"off":     relayRunner("this-cluster", false, nil),
+		"off":     relayRunner("default", false, nil),
 		"no-ctrl": relayRunner("", true, &fakeRelay{}),
 	} {
 		r.noteRelayRequest(configAsking(5, true, nil))
@@ -71,14 +71,14 @@ func TestAClusterThatDoesNotRelaySaysSoInWords(t *testing.T) {
 			t.Fatalf("%s: a request that cannot be handed on is waiting to be", name)
 		}
 	}
-	if st := relayRunner("this-cluster", false, nil).relayStatus(); st != nil {
+	if st := relayRunner("default", false, nil).relayStatus(); st != nil {
 		t.Fatalf("no request, yet %+v", st)
 	}
 }
 
 func TestARequestIsWrittenOnceThenFollowedUntilTheControllerSaysWhatBecameOfIt(t *testing.T) {
 	f := &fakeRelay{}
-	r := relayRunner("this-cluster", true, f)
+	r := relayRunner("default", true, f)
 	pct := uint32(20)
 	r.noteRelayRequest(configAsking(7, true, &pct))
 	if r.relayStatus() != nil {
@@ -120,7 +120,7 @@ func TestARequestIsWrittenOnceThenFollowedUntilTheControllerSaysWhatBecameOfIt(t
 // A request that cannot be written is tried again, and the server is told why meanwhile.
 func TestARequestThatCannotBeWrittenIsTriedAgainAndTheServerIsToldWhy(t *testing.T) {
 	f := &fakeRelay{failing: true}
-	r := relayRunner("this-cluster", true, f)
+	r := relayRunner("default", true, f)
 	r.noteRelayRequest(configAsking(2, true, nil))
 	r.relayStep(context.Background())
 	st := r.relayStatus()
@@ -139,7 +139,7 @@ func TestARequestThatCannotBeWrittenIsTriedAgainAndTheServerIsToldWhy(t *testing
 // A newer request while the controller is still on the last one is written in its turn and is the one that is followed.
 func TestANewerRequestIsTheOneFollowed(t *testing.T) {
 	f := &fakeRelay{result: &relay.Result{Revision: 1, State: relay.Applied}}
-	r := relayRunner("this-cluster", true, f)
+	r := relayRunner("default", true, f)
 	r.noteRelayRequest(configAsking(1, true, nil))
 	r.relayStep(context.Background())
 	r.relayStep(context.Background())

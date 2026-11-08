@@ -88,7 +88,7 @@ There is one asymmetry to know about. A regional operator is something the serve
 
 One Helm release, `ikhnos-agent`, holds the discovery agent (one pod) and the local operator (the collectors). They are installed, upgraded and removed together, and they are separate programs with separate permissions. The agent does not carry the collectors' telemetry; it reads their counters, which is how the page can say whether data is arriving, and at which stage it stopped if it is not. It also serves the passive cluster-link series for the cluster collector to scrape, and renews the collectors' client certificates (see [Where the agent touches the data plane today](#where-the-agent-touches-the-data-plane-today)).
 
-Next to it, optionally, sits the controller (its own release, `ikhnos-controller`), and one `IkhnosAgent` resource called `this-cluster`.
+Next to it, optionally, sits the controller (its own release, `ikhnos-controller`), and one `IkhnosAgent` resource called `default`.
 
 | Part | Is | Talks to | Holds |
 | --- | --- | --- | --- |

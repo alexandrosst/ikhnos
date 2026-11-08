@@ -12,7 +12,7 @@ func TestThePatchThatChangesAResourceReplacesTelemetryWholeAndRemovesItByNull(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `kubectl --namespace ikhnos-system patch ikhnosagents.ikhnos.io this-cluster --type json -p '[{"op":"add","path":"/spec/telemetry","value":{"signals":{"resourceUsage":true},"destination":{"endpoint":"otel.example.com:4317"}}}]'`
+	want := `kubectl --namespace ikhnos-system patch ikhnosagents.ikhnos.io default --type json -p '[{"op":"add","path":"/spec/telemetry","value":{"signals":{"resourceUsage":true},"destination":{"endpoint":"otel.example.com:4317"}}}]'`
 	if got != want {
 		t.Errorf("\n%s\nwant\n%s", got, want)
 	}

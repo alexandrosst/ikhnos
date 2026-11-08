@@ -32,7 +32,7 @@ export function ControllerPatch({ command, testId = 'controller-patch' }: { comm
     <div className="mt-1 space-y-2" data-testid={testId}>
       <p className="text-nb-400" data-testid={`${testId}-why`}>
         For an agent that a controller keeps. The controller installs the agent from its <code className="font-mono text-nb-300">IkhnosAgent</code> resource and puts back anything
-        a <code className="font-mono text-nb-300">helm upgrade</code> changes, so the telemetry is patched into the resource (named <code className="font-mono text-nb-300">this-cluster</code>)
+        a <code className="font-mono text-nb-300">helm upgrade</code> changes, so the telemetry is patched into the resource (named <code className="font-mono text-nb-300">default</code>)
         instead.
       </p>
       {problems.length > 0 ? (

@@ -45,7 +45,7 @@ func TestTheBootstrapMakesTheResourceOnceAndSaysSo(t *testing.T) {
 	if err := g.r.Bootstrap(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	u := g.get("this-cluster")
+	u := g.get("default")
 	spec := u.Object["spec"].(map[string]any)
 	if spec["accessTier"] != int64(1) && spec["accessTier"] != float64(1) {
 		t.Errorf("accessTier = %v", spec["accessTier"])
@@ -59,13 +59,13 @@ func TestTheBootstrapMakesTheResourceOnceAndSaysSo(t *testing.T) {
 	}
 
 	// A person deletes the resource: it is not made again, because the same text has already been asked for.
-	if err := g.dyn.Resource(GVR).Namespace(ns).Delete(context.Background(), "this-cluster", metav1.DeleteOptions{}); err != nil {
+	if err := g.dyn.Resource(GVR).Namespace(ns).Delete(context.Background(), "default", metav1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := g.r.Bootstrap(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(context.Background(), "this-cluster", metav1.GetOptions{}); err == nil {
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(context.Background(), "default", metav1.GetOptions{}); err == nil {
 		t.Fatal("a deleted resource was made again from a bootstrap that had been applied")
 	}
 	if !strings.Contains(logs.String(), "not asked for again") || !strings.Contains(logs.String(), BootstrapApplied) {
@@ -80,7 +80,7 @@ func TestANewBootstrapChangesWhatItStatesAndKeepsTheRest(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A person has since turned telemetry on in the resource.
-	u := g.get("this-cluster")
+	u := g.get("default")
 	u.Object["spec"].(map[string]any)["telemetry"] = map[string]any{"signals": map[string]any{"resourceUsage": true}}
 	if _, err := g.dyn.Resource(GVR).Namespace(ns).Update(context.Background(), u, metav1.UpdateOptions{}); err != nil {
 		t.Fatal(err)
@@ -90,7 +90,7 @@ func TestANewBootstrapChangesWhatItStatesAndKeepsTheRest(t *testing.T) {
 	if err := g.r.Bootstrap(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	spec := g.get("this-cluster").Object["spec"].(map[string]any)
+	spec := g.get("default").Object["spec"].(map[string]any)
 	if tier := spec["accessTier"]; tier != int64(0) && tier != float64(0) {
 		t.Errorf("accessTier = %v, want 0", tier)
 	}
@@ -102,7 +102,7 @@ func TestANewBootstrapChangesWhatItStatesAndKeepsTheRest(t *testing.T) {
 	if err := g.r.Bootstrap(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := g.get("this-cluster").Object["spec"].(map[string]any)["accessTier"]; ok {
+	if _, ok := g.get("default").Object["spec"].(map[string]any)["accessTier"]; ok {
 		t.Error("accessTier stayed after a bootstrap that does not state it")
 	}
 }
@@ -149,14 +149,14 @@ func TestTheSameBootstrapWithANewTokenAsksForTheAgentAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The server revoked the agent and the controller removed it.
-	if err := g.dyn.Resource(GVR).Namespace(ns).Delete(context.Background(), "this-cluster", metav1.DeleteOptions{}); err != nil {
+	if err := g.dyn.Resource(GVR).Namespace(ns).Delete(context.Background(), "default", metav1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	// The same command again, with the token it had: nothing is asked for twice.
 	if err := g.r.Bootstrap(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(context.Background(), "this-cluster", metav1.GetOptions{}); err == nil {
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(context.Background(), "default", metav1.GetOptions{}); err == nil {
 		t.Fatal("the same token asked for the agent again")
 	}
 	// A new token: the spec text is the same, and this is a new request.
@@ -168,7 +168,7 @@ func TestTheSameBootstrapWithANewTokenAsksForTheAgentAgain(t *testing.T) {
 	if err := g.r.Bootstrap(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(context.Background(), "this-cluster", metav1.GetOptions{}); err != nil {
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(context.Background(), "default", metav1.GetOptions{}); err != nil {
 		t.Fatalf("a new token did not ask for the agent: %v", err)
 	}
 	// And the token itself is never kept: the ConfigMap holds a digest.
@@ -191,7 +191,7 @@ func TestRemovingTheSpentTokenSecretDoesNotAskForTheAgentAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A person deletes the resource, then cleans up the Secret.
-	if err := g.dyn.Resource(GVR).Namespace(ns).Delete(ctx, "this-cluster", metav1.DeleteOptions{}); err != nil {
+	if err := g.dyn.Resource(GVR).Namespace(ns).Delete(ctx, "default", metav1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := g.kube.CoreV1().Secrets(ns).Delete(ctx, "ikhnos-enrollment", metav1.DeleteOptions{}); err != nil {
@@ -200,7 +200,7 @@ func TestRemovingTheSpentTokenSecretDoesNotAskForTheAgentAgain(t *testing.T) {
 	if err := g.r.Bootstrap(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(ctx, "this-cluster", metav1.GetOptions{}); err == nil {
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(ctx, "default", metav1.GetOptions{}); err == nil {
 		t.Fatal("the agent was asked for again because the Secret of its spent token was removed")
 	}
 }
@@ -214,7 +214,7 @@ func TestRemovingTheSpentTokenSecretDoesNotRevertWhatAPersonEdited(t *testing.T)
 		t.Fatal(err)
 	}
 	// The person raises the tier in the resource itself, then removes the Secret.
-	u := g.get("this-cluster")
+	u := g.get("default")
 	u.Object["spec"].(map[string]any)["accessTier"] = int64(2)
 	if _, err := g.dyn.Resource(GVR).Namespace(ns).Update(ctx, u, metav1.UpdateOptions{}); err != nil {
 		t.Fatal(err)
@@ -225,7 +225,7 @@ func TestRemovingTheSpentTokenSecretDoesNotRevertWhatAPersonEdited(t *testing.T)
 	if err := g.r.Bootstrap(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if got := g.get("this-cluster").Object["spec"].(map[string]any)["accessTier"]; got != int64(2) && got != float64(2) {
+	if got := g.get("default").Object["spec"].(map[string]any)["accessTier"]; got != int64(2) && got != float64(2) {
 		t.Fatalf("what a person set in the resource was put back to the bootstrap's value: accessTier = %v", got)
 	}
 }
@@ -245,7 +245,7 @@ func TestAChangedSpecIsStillANewRequestWhenTheSecretIsGone(t *testing.T) {
 	if err := g.r.Bootstrap(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if got := g.get("this-cluster").Object["spec"].(map[string]any)["accessTier"]; got != int64(2) && got != float64(2) {
+	if got := g.get("default").Object["spec"].(map[string]any)["accessTier"]; got != int64(2) && got != float64(2) {
 		t.Fatalf("a changed spec was not carried out: accessTier = %v", got)
 	}
 }
@@ -271,7 +271,7 @@ func TestWhatAnEarlierControllerRecordedIsStillRecognised(t *testing.T) {
 	if err := g.r.Bootstrap(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(ctx, "this-cluster", metav1.GetOptions{}); err == nil {
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(ctx, "default", metav1.GetOptions{}); err == nil {
 		t.Fatal("a request an earlier controller had carried out was carried out again")
 	}
 	cm, _ = g.kube.CoreV1().ConfigMaps(ns).Get(ctx, bootstrapName, metav1.GetOptions{})
@@ -285,7 +285,7 @@ func TestWhatAnEarlierControllerRecordedIsStillRecognised(t *testing.T) {
 	if err := g.r.Bootstrap(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(ctx, "this-cluster", metav1.GetOptions{}); err == nil {
+	if _, err := g.dyn.Resource(GVR).Namespace(ns).Get(ctx, "default", metav1.GetOptions{}); err == nil {
 		t.Fatal("the agent was asked for again after the Secret was removed")
 	}
 }
