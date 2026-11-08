@@ -1,4 +1,4 @@
-import { Button, Select } from '@/components/ui/primitives'
+import { Select } from '@/components/ui/primitives'
 import { CONNECTIVITY, type Connectivity, type Status, type TrustZone } from '@/lib/types'
 
 const STATUSES: Status[] = ['healthy', 'degraded', 'offline', 'unknown']
@@ -36,35 +36,6 @@ export function ConnectivitySelect({ value, onChange }: { value?: Connectivity; 
         </option>
       ))}
     </Select>
-  )
-}
-
-export function FormFooter({
-  onCancel,
-  onSave,
-  disabled,
-  isNew,
-  onReset,
-}: {
-  onCancel: () => void
-  onSave: () => void
-  disabled: boolean
-  isNew: boolean
-  /** Shown only when a discovered entity carries human overrides. */
-  onReset?: () => void
-}) {
-  return (
-    <>
-      {onReset && (
-        <Button variant="ghost" className="mr-auto" onClick={onReset}>
-          Reset to detected values
-        </Button>
-      )}
-      <Button onClick={onCancel}>Cancel</Button>
-      <Button variant="primary" onClick={onSave} disabled={disabled}>
-        {isNew ? 'Add' : 'Save changes'}
-      </Button>
-    </>
   )
 }
 

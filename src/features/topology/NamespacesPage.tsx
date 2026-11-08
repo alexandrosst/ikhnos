@@ -4,7 +4,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import ColumnPicker from '@/features/topology/components/ColumnPicker'
 import { GoneRecords } from '@/components/Observations'
-import { Button, DeclaredMark, EmptyState, ICON_SM, ObservationChip, PageHeader, Select, Table, Td, Th } from '@/components/ui/primitives'
+import { DeclaredLine, InferredLine, ObservedLine } from '@/components/entity/parts'
+import { Button, EmptyState, ICON_SM, PageHeader, Select, Table, Td, Th } from '@/components/ui/primitives'
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
 import { buildNamespaceRows, excludedWords, rowMatches, scopeLabel, type NamespaceRow } from '@/features/topology/lib/namespaces'
 import { TONE_CLASS } from '@/lib/provenance'
@@ -20,7 +21,6 @@ const NAMESPACE_COLUMNS: ColumnDef[] = [
   { key: 'exposed', label: 'Exposed', width: 'w-24' },
   { key: 'mesh', label: 'Service mesh', width: 'w-52' },
   { key: 'scope', label: 'Agent scope', width: 'w-32' },
-  { key: 'state', label: 'State', width: 'w-32' },
 ]
 
 export default function NamespacesPage() {
@@ -67,7 +67,7 @@ export default function NamespacesPage() {
         />
       ) : (
         <>
-          <Table cols={['w-52', 'w-44', ...NAMESPACE_COLUMNS.filter((c) => isVisible(c.key)).map((c) => c.width!)]}>
+          <Table cols={['w-56', 'w-44', ...NAMESPACE_COLUMNS.filter((c) => isVisible(c.key)).map((c) => c.width!)]}>
             <thead>
               <tr>
                 <Th>Namespace</Th>
@@ -76,7 +76,6 @@ export default function NamespacesPage() {
                 {isVisible('exposed') && <Th>Exposed</Th>}
                 {isVisible('mesh') && <Th>Service mesh</Th>}
                 {isVisible('scope') && <Th>Agent scope</Th>}
-                {isVisible('state') && <Th>State</Th>}
               </tr>
             </thead>
             <tbody>
@@ -95,6 +94,7 @@ export default function NamespacesPage() {
                   <tr key={r.key} className="group cursor-pointer hover:bg-nb-930/60" onClick={() => navigate(servicesOf(r))} data-testid="namespace-row" data-namespace={r.name} data-cluster={r.clusterName}>
                     <Td className="font-medium text-nb-300">
                       <Link to={servicesOf(r)} onClick={(e) => e.stopPropagation()} className="rounded hover:underline" title="Show this namespace’s services">{r.name}</Link>
+                      {r.source === 'discovered' ? <ObservedLine obs={r.observation} /> : r.source === 'services' ? <InferredLine /> : <DeclaredLine />}
                     </Td>
                     <Td className="truncate" title={r.clusterName}>{r.clusterName}</Td>
                     {isVisible('services') && (
@@ -119,11 +119,6 @@ export default function NamespacesPage() {
                     {isVisible('scope') && (
                       <Td className="whitespace-nowrap" data-testid="namespace-scope">
                         <span className={r.scope === 'in' ? 'text-nb-300' : 'text-nb-500'}>{scopeLabel(r)}</span>
-                      </Td>
-                    )}
-                    {isVisible('state') && (
-                      <Td>
-                        {r.observation ? <ObservationChip info={r.observation} /> : <DeclaredMark />}
                       </Td>
                     )}
                   </tr>

@@ -12,19 +12,6 @@ export function SearchBox({ value, onChange, placeholder }: { value: string; onC
   )
 }
 
-/**
- * Props for a table row that opens its edit form on a double-click, so a change always starts with a deliberate gesture and not with a
- * button that sits next to Delete. A double-click on a control inside the row (a link, a button, a field) is left to that control.
- */
-export const editOnDoubleClick = (onEdit: () => void) => ({
-  title: 'Double-click to edit',
-  onDoubleClick: (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button, a, input, select, textarea, [role="button"], [role="combobox"]')) return
-    window.getSelection()?.removeAllRanges()
-    onEdit()
-  },
-})
-
 /** Props for a table row that opens its panel on a click, unless the click lands on a control inside the row (a button, a link, a field). */
 export const openOnClick = (onOpen: () => void) => ({
   onClick: (e: React.MouseEvent) => {

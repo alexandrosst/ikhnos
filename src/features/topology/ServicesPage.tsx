@@ -6,13 +6,14 @@ import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import { ConfirmModal, ServiceForm } from '@/components/forms'
 import { MobilityChip, useMoveModel } from '@/features/placement/components/MobilityPanel'
 import { GoneRecords } from '@/components/Observations'
-import { Button, ChipList, DeclaredMark, EmptyState, GuessDot, ICON_SM, ObservationChip, PageHeader, Pill, Select, StatusDot, Table, Td, Th } from '@/components/ui/primitives'
+import { Button, ChipList, EmptyState, GuessDot, ICON_SM, PageHeader, Pill, Select, StatusDot, Table, Td, Th } from '@/components/ui/primitives'
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
+import { OriginLine } from '@/components/entity/parts'
 import { observation } from '@/lib/provenance'
 import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
 import type { Service } from '@/lib/types'
-import { editOnDoubleClick, matches, RowActions, SearchBox, ServiceTraits } from './shared'
+import { matches, openOnClick, RowActions, SearchBox, ServiceTraits } from './shared'
 
 const SERVICE_COLUMNS: ColumnDef[] = [
   { key: 'cluster', label: 'Cluster' },
@@ -36,7 +37,8 @@ export default function ServicesPage() {
   const clusterFilter = clusters.some((c) => c.id === wantCluster) ? wantCluster : ''
   const nsFilter = sp.get('namespace') ?? ''
   const setParam = (k: string, v: string) => setSp((p) => { const n = new URLSearchParams(p); if (v) n.set(k, v); else n.delete(k); return n }, { replace: true })
-  const [editing, setEditing] = useState<Service | null | 'new'>(null)
+  // The panel: a service to read (or edit straight away from the pencil), or a blank one to add.
+  const [panel, setPanel] = useState<{ service: Service | null; edit: boolean } | null>(null)
   const [deleting, setDeleting] = useState<Service | null>(null)
 
   const clusterName = (id: string) => clusters.find((c) => c.id === id)?.name ?? '—'
@@ -51,7 +53,7 @@ export default function ServicesPage() {
         title="Services"
         description="Microservices and applications, where they run, and which other services they call."
         actions={
-          <Button variant="primary" onClick={() => setEditing('new')} disabled={clusters.length === 0}>
+          <Button variant="primary" onClick={() => setPanel({ service: null, edit: true })} disabled={clusters.length === 0}>
             <Plus size={ICON_SM} /> Add service
           </Button>
         }
@@ -94,11 +96,10 @@ export default function ServicesPage() {
           </thead>
           <tbody>
             {rows.map((w) => (
-              <tr key={w.id} className="group hover:bg-nb-930/60" {...editOnDoubleClick(() => setEditing(w))}>
-                <Td>
-                  <div className="font-medium text-nb-300">{w.name}<ObservationChip quiet info={observation(w)} />{w.source === 'manual' && <> <DeclaredMark /></>}</div>
-                  <div className="font-mono text-xs text-nb-500">{w.image || '—'} · ×{w.replicas}</div>
-                  <ServiceTraits w={w} nodeName={nodeName} />
+              <tr key={w.id} className="group cursor-pointer hover:bg-nb-930/60" {...openOnClick(() => setPanel({ service: w, edit: false }))}>
+                <Td className="whitespace-nowrap">
+                  <button className="font-medium text-nb-300 hover:text-accent" onClick={() => setPanel({ service: w, edit: false })}>{w.name}</button>
+                  <OriginLine rec={w} createdAt={w.createdAt} />
                 </Td>
                 {isVisible('cluster') && (
                   <Td className="whitespace-nowrap">
@@ -112,12 +113,18 @@ export default function ServicesPage() {
                     {(() => { const g = w.applicationId ? weak(w as never, 'applicationId') : undefined; return g ? <GuessDot level={g.level} why={g.why} /> : null })()}
                   </Td>
                 )}
-                {isVisible('kind') && <Td><Pill>{w.kind}</Pill></Td>}
+                {isVisible('kind') && (
+                  <Td>
+                    <Pill>{w.kind}</Pill>
+                    <div className="mt-1 font-mono text-xs text-nb-500">{w.image || '—'} · ×{w.replicas}</div>
+                    <ServiceTraits w={w} nodeName={nodeName} />
+                  </Td>
+                )}
                 {isVisible('runsOn') && <Td><ChipList items={w.nodeIds.map(nodeName)} /></Td>}
                 {isVisible('calls') && <Td>{dependencies.filter((d) => d.from === w.id).length}</Td>}
                 {isVisible('mobility') && <Td><MobilityChip service={w} forService={forService} /></Td>}
                 <Td>{(() => { const o = observation(w); return <StatusDot status={w.status} withLabel notCurrent={o && o.kind !== 'live' ? (o.reason ?? o.label) : undefined} /> })()}</Td>
-                <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setEditing(w)} onDelete={() => setDeleting(w)} /></Td>
+                <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setPanel({ service: w, edit: true })} onDelete={() => setDeleting(w)} /></Td>
               </tr>
             ))}
             {rows.length === 0 && (
@@ -129,7 +136,16 @@ export default function ServicesPage() {
       <GoneRecords kinds={['service', 'namespace']} className="mt-8" />
 
       {connect.dialogs}
-      {editing && <ServiceForm initial={editing === 'new' ? null : editing} defaultClusterId={clusterFilter || undefined} onClose={() => setEditing(null)} />}
+      {panel && (
+        <ServiceForm
+          key={panel.service?.id ?? 'new'}
+          initial={panel.service}
+          edit={panel.edit}
+          defaultClusterId={clusterFilter || undefined}
+          onClose={() => setPanel(null)}
+          onDelete={panel.service ? () => { setDeleting(panel.service); setPanel(null) } : undefined}
+        />
+      )}
       {deleting && (
         <ConfirmModal
           title={`Delete ${deleting.name}?`}

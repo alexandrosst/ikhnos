@@ -52,6 +52,8 @@ describe('NamespacesPage', () => {
 
     const row = screen.getByTestId('namespace-row')
     expect(within(row).getByText('shop')).toBeInTheDocument()
+    // No record of the namespace exists, only its services, and the row says so rather than claiming it was detected or declared.
+    expect(within(row).getByText('Seen in its services')).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Services' })).toBeInTheDocument()
 
     await user.click(screen.getByTestId('columns-button'))

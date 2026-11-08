@@ -1,9 +1,9 @@
 import clsx from 'clsx'
-import { Lock, Pencil, Radar, UserRound } from 'lucide-react'
+import { Lock, Pencil, Radar, Trash2, UserRound } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { ICON_SM } from '@/components/ui/primitives'
+import { Button, ICON_SM } from '@/components/ui/primitives'
 import type { Origin } from '@/lib/fieldOrigin'
-import { ageLabel, observation } from '@/lib/provenance'
+import { ageLabel, observation, type ObsInfo } from '@/lib/provenance'
 import type { Provenance } from '@/lib/types'
 
 /** The small mark at the end of a row: a lock where an agent reports the value, a pencil where you set it. Nothing for a record you declared. */
@@ -40,18 +40,28 @@ export function Row({ label, children, origin, by, mono }: { label: string; chil
 
 /** The second line of a list's name cell: where the record comes from and how fresh it is. One wording for every list. */
 export function OriginLine({ rec, createdAt }: { rec: Pick<Provenance, 'source' | 'state' | 'stateReason' | 'stale' | 'deletedAt' | 'lastSeen'>; createdAt?: string }) {
-  const obs = observation(rec)
-  if (rec.source === 'discovered') {
-    const seen = ageLabel(rec.lastSeen)
-    const live = !obs || obs.kind === 'live'
-    return (
-      <div className={clsx('mt-0.5 flex items-center gap-1.5 text-xs', live ? 'text-nb-500' : obs.tone === 'bad' ? 'text-bad' : obs.tone === 'warn' ? 'text-warn' : 'text-nb-500')} title={obs?.reason}>
-        <Radar size={12} aria-hidden className="shrink-0" />
-        {live ? `Detected${seen ? ` · ${seen} ago` : ''}` : `Detected · ${obs.label}`}
-      </div>
-    )
-  }
-  const age = ageLabel(createdAt)
+  if (rec.source === 'discovered') return <ObservedLine obs={observation(rec)} seen={ageLabel(rec.lastSeen)} />
+  return <DeclaredLine age={ageLabel(createdAt)} />
+}
+
+/** "Detected · 12 s ago", or why a record is not current. */
+export function ObservedLine({ obs, seen }: { obs?: ObsInfo; seen?: string }) {
+  const live = !obs || obs.kind === 'live'
+  return (
+    <div className={clsx('mt-0.5 flex items-center gap-1.5 text-xs', live ? 'text-nb-500' : obs.tone === 'bad' ? 'text-bad' : obs.tone === 'warn' ? 'text-warn' : 'text-nb-500')} title={obs?.reason}>
+      <Radar size={12} aria-hidden className="shrink-0" />
+      {live ? `Detected${seen ? ` · ${seen} ago` : ''}` : `Detected · ${obs.label}`}
+    </div>
+  )
+}
+
+/** "Seen in its services": a record nobody reported or declared, which exists because something refers to it. */
+export function InferredLine() {
+  return <div className="mt-0.5 text-xs text-nb-500">Seen in its services</div>
+}
+
+/** "Declared by you · 3 d old". */
+export function DeclaredLine({ age }: { age?: string }) {
   return (
     <div className="mt-0.5 flex items-center gap-1.5 text-xs text-nb-500">
       <UserRound size={12} aria-hidden className="shrink-0" />
@@ -74,6 +84,7 @@ export function FormRow({
   onOverride,
   changed,
   onReset,
+  group,
 }: {
   label: string
   hint?: string
@@ -85,6 +96,8 @@ export function FormRow({
   /** The field is open and differs from the detected value. */
   changed?: boolean
   onReset?: () => void
+  /** The control holds several buttons (a picker of chips): a group, not one labelled field, so a click on the label does not press the first button. */
+  group?: boolean
 }) {
   const head = (
     <span className="flex flex-wrap items-center gap-1.5 pt-2 text-sm text-nb-400">
@@ -109,20 +122,59 @@ export function FormRow({
       </div>
     )
   }
+  const Wrap = group ? 'div' : 'label'
   return (
     <div className="relative" data-testid="form-row" data-state={changed ? 'overridden' : 'open'}>
-      <label className={clsx('grid grid-cols-[8.25rem_1fr] gap-3 py-1.5', onReset && 'pr-12')}>
+      <Wrap {...(group ? { role: 'group', 'aria-label': label } : {})} className={clsx('grid grid-cols-[8.25rem_1fr] gap-3 py-1.5', onReset && 'pr-12')}>
         {head}
         <span className="block min-w-0">
           <span className={clsx('block rounded-lg', changed && 'ring-1 ring-accent/70')}>{children}</span>
           {hint && <span className="mt-1 block text-xs text-nb-500">{hint}</span>}
         </span>
-      </label>
+      </Wrap>
       {onReset && (
         <button type="button" onClick={onReset} aria-label={`Reset ${label}`} className="absolute right-0 top-3.5 text-xs text-accent hover:underline">
           Reset
         </button>
       )}
     </div>
+  )
+}
+
+/** The labels of a record, as small key=value chips. */
+export function LabelChips({ labels }: { labels?: Record<string, string> }) {
+  const all = Object.entries(labels ?? {})
+  if (all.length === 0) return null
+  return (
+    <span className="flex flex-wrap gap-1.5">
+      {all.map(([k, v]) => (
+        <span key={k} className="rounded-md border border-nb-850 bg-nb-930 px-1.5 py-0.5 font-mono text-xs text-nb-400">
+          {k}={v}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/** The Edit button in a read-only panel's header. */
+export function EditAction({ onClick }: { onClick: () => void }) {
+  return (
+    <Button size="sm" onClick={onClick}>
+      <Pencil size={ICON_SM} /> Edit
+    </Button>
+  )
+}
+
+/** The footer of a read-only panel: Delete on the left, and, for a record that tracks where each value comes from, the key to its marks. */
+export function ViewFooter({ onDelete, legend = true }: { onDelete?: () => void; legend?: boolean }) {
+  return (
+    <>
+      {onDelete && (
+        <Button variant="ghost" className="mr-auto" onClick={onDelete}>
+          <Trash2 size={ICON_SM} /> Delete
+        </Button>
+      )}
+      {legend && <span className="ml-auto text-xs text-nb-500">Lock: detected · Pencil: set by you</span>}
+    </>
   )
 }

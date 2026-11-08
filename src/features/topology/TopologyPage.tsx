@@ -1169,9 +1169,10 @@ function Canvas() {
           onClose={closeForm}
         />
       )}
-      {form?.type === 'device' && <DeviceForm initial={devices.find((d) => d.id === form.id) ?? null} onClose={closeForm} />}
+      {form?.type === 'device' && <DeviceForm initial={devices.find((d) => d.id === form.id) ?? null} edit onClose={closeForm} />}
       {form?.type === 'service' && (
         <ServiceForm
+          edit
           initial={services.find((w) => w.id === form.id) ?? null}
           defaultClusterId={selection?.kind === 'cluster' ? selection.id : undefined}
           onClose={closeForm}

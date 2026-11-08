@@ -2,14 +2,16 @@ import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import ColumnPicker from '@/features/topology/components/ColumnPicker'
 import { ApplicationForm, ConfirmModal } from '@/components/forms'
+import { OriginLine } from '@/components/entity/parts'
 import { Button, ChipList, EmptyState, ICON_SM, PageHeader, Pill, Table, Td, Th } from '@/components/ui/primitives'
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
 import { originLabel } from '@/lib/present'
 import type { Application } from '@/lib/types'
 import { useTopology } from '@/store/topology'
-import { editOnDoubleClick, matches, RowActions, SearchBox } from './shared'
+import { matches, openOnClick, RowActions, SearchBox } from './shared'
 
 const APPLICATION_COLUMNS: ColumnDef[] = [
+  { key: 'description', label: 'Description' },
   { key: 'services', label: 'Services' },
   { key: 'devices', label: 'Devices' },
   { key: 'clusters', label: 'Clusters' },
@@ -19,7 +21,8 @@ const APPLICATION_COLUMNS: ColumnDef[] = [
 export default function ApplicationsPage() {
   const { applications, services, devices, clusters, deleteApplication } = useTopology()
   const [q, setQ] = useState('')
-  const [editing, setEditing] = useState<Application | null | 'new'>(null)
+  // The panel: an application to read (or edit straight away from the pencil), or a blank one to add.
+  const [panel, setPanel] = useState<{ app: Application | null; edit: boolean } | null>(null)
   const [deleting, setDeleting] = useState<Application | null>(null)
   const { isVisible, toggle } = useColumnVisibility('applications')
 
@@ -31,7 +34,7 @@ export default function ApplicationsPage() {
         title="Applications"
         description="Services and devices grouped into the things your users care about. Groupings are declared by you or accepted from a suggestion; no agent observes them."
         actions={
-          <Button variant="primary" onClick={() => setEditing('new')}>
+          <Button variant="primary" onClick={() => setPanel({ app: null, edit: true })}>
             <Plus size={ICON_SM} /> Add application
           </Button>
         }
@@ -45,7 +48,7 @@ export default function ApplicationsPage() {
         <EmptyState
           title="No applications yet"
           description="No grouping exists yet. Discovery suggests one once agents report services, or create an application and assign services to it from the Services page."
-          action={<Button variant="primary" onClick={() => setEditing('new')}><Plus size={ICON_SM} /> Add application</Button>}
+          action={<Button variant="primary" onClick={() => setPanel({ app: null, edit: true })}><Plus size={ICON_SM} /> Add application</Button>}
         />
       ) : (
         <Table>
@@ -64,16 +67,17 @@ export default function ApplicationsPage() {
               const mine = services.filter((s) => s.applicationId === a.id)
               const cIds = [...new Set(mine.map((s) => s.clusterId))]
               return (
-                <tr key={a.id} className="group hover:bg-nb-930/60" {...editOnDoubleClick(() => setEditing(a))}>
-                  <Td>
-                    <div className="font-medium text-nb-300">{a.name}</div>
-                    {a.description && <div className="text-xs text-nb-500">{a.description}</div>}
+                <tr key={a.id} className="group cursor-pointer hover:bg-nb-930/60" {...openOnClick(() => setPanel({ app: a, edit: false }))}>
+                  <Td className="whitespace-nowrap">
+                    <button className="font-medium text-nb-300 hover:text-accent" onClick={() => setPanel({ app: a, edit: false })}>{a.name}</button>
+                    <OriginLine rec={a} />
                   </Td>
+                  {isVisible('description') && <Td className="max-w-xs truncate text-nb-400" title={a.description}>{a.description || <span className="text-nb-600">—</span>}</Td>}
                   {isVisible('services') && <Td>{mine.length}</Td>}
                   {isVisible('devices') && <Td>{devices.filter((d) => d.applicationId === a.id).reduce((s, d) => s + d.count, 0) || '—'}</Td>}
                   {isVisible('clusters') && <Td><ChipList items={cIds.map((id) => clusters.find((c) => c.id === id)?.name).filter((n): n is string => !!n)} /></Td>}
                   {isVisible('grouped') && <Td><Pill title={a.origin}>{originLabel(a.origin)}</Pill></Td>}
-                  <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setEditing(a)} onDelete={() => setDeleting(a)} /></Td>
+                  <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setPanel({ app: a, edit: true })} onDelete={() => setDeleting(a)} /></Td>
                 </tr>
               )
             })}
@@ -84,7 +88,15 @@ export default function ApplicationsPage() {
         </Table>
       )}
 
-      {editing && <ApplicationForm initial={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {panel && (
+        <ApplicationForm
+          key={panel.app?.id ?? 'new'}
+          initial={panel.app}
+          edit={panel.edit}
+          onClose={() => setPanel(null)}
+          onDelete={panel.app ? () => { setDeleting(panel.app); setPanel(null) } : undefined}
+        />
+      )}
       {deleting && (
         <ConfirmModal
           title={`Delete ${deleting.name}?`}

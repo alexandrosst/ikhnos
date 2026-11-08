@@ -12,7 +12,7 @@ import { usePlaceIndex } from '@/lib/places-data'
 import { countryName } from '@/lib/present'
 import { SITE_KINDS, type Site } from '@/lib/types'
 import { useTopology } from '@/store/topology'
-import { editOnDoubleClick, matches, RowActions, SearchBox } from './shared'
+import { matches, openOnClick, RowActions, SearchBox } from './shared'
 
 const SITE_COLUMNS: ColumnDef[] = [
   { key: 'kind', label: 'Kind' },
@@ -24,7 +24,8 @@ export default function SitesPage() {
   const { sites, clusters, deleteSite } = useTopology()
   const [q, setQ] = useState('')
   const { isVisible, toggle } = useColumnVisibility('sites')
-  const [editing, setEditing] = useState<Site | null | 'new'>(null)
+  // The panel: a site to read (or edit straight away from the pencil), or a blank one to add.
+  const [panel, setPanel] = useState<{ site: Site | null; edit: boolean } | null>(null)
   const [deleting, setDeleting] = useState<Site | null>(null)
 
   // Coordinates and country are checked against a table of country outlines; a mismatch is flagged, not fixed.
@@ -39,7 +40,7 @@ export default function SitesPage() {
         title="Sites"
         description="Physical places where clusters live, declared by you or accepted from a suggestion. Coordinates place them on the map; the country is checked against them."
         actions={
-          <Button variant="primary" onClick={() => setEditing('new')}>
+          <Button variant="primary" onClick={() => setPanel({ site: null, edit: true })}>
             <Plus size={ICON_SM} /> Add site
           </Button>
         }
@@ -53,7 +54,7 @@ export default function SitesPage() {
         <EmptyState
           title="No sites yet"
           description="Add a site, then attach clusters to it from the cluster form."
-          action={<Button variant="primary" onClick={() => setEditing('new')}><Plus size={ICON_SM} /> Add site</Button>}
+          action={<Button variant="primary" onClick={() => setPanel({ site: null, edit: true })}><Plus size={ICON_SM} /> Add site</Button>}
         />
       ) : (
         <Table>
@@ -68,8 +69,8 @@ export default function SitesPage() {
           </thead>
           <tbody>
             {rows.map((s) => (
-              <tr key={s.id} className="group hover:bg-nb-930/60" {...editOnDoubleClick(() => setEditing(s))}>
-                <Td className="font-medium text-nb-300">{s.name}</Td>
+              <tr key={s.id} className="group cursor-pointer hover:bg-nb-930/60" {...openOnClick(() => setPanel({ site: s, edit: false }))}>
+                <Td className="whitespace-nowrap"><button className="font-medium text-nb-300 hover:text-accent" onClick={() => setPanel({ site: s, edit: false })}>{s.name}</button></Td>
                 {isVisible('kind') && <Td><Pill>{kindLabel(s.kind)}</Pill></Td>}
                 {isVisible('location') && (
                   <Td>
@@ -83,7 +84,7 @@ export default function SitesPage() {
                   </Td>
                 )}
                 {isVisible('clusters') && <Td><ChipList items={clusters.filter((c) => c.siteId === s.id).map((c) => c.name)} /></Td>}
-                <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setEditing(s)} onDelete={() => setDeleting(s)} /></Td>
+                <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setPanel({ site: s, edit: true })} onDelete={() => setDeleting(s)} /></Td>
               </tr>
             ))}
             {rows.length === 0 && (
@@ -96,7 +97,15 @@ export default function SitesPage() {
       <MeasuredPaths />
       <ClusterLinks />
 
-      {editing && <SiteForm initial={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {panel && (
+        <SiteForm
+          key={panel.site?.id ?? 'new'}
+          initial={panel.site}
+          edit={panel.edit}
+          onClose={() => setPanel(null)}
+          onDelete={panel.site ? () => { setDeleting(panel.site); setPanel(null) } : undefined}
+        />
+      )}
       {deleting && (
         <ConfirmModal
           title={`Delete ${deleting.name}?`}

@@ -2,12 +2,13 @@ import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import ColumnPicker from '@/features/topology/components/ColumnPicker'
 import { ConfirmModal, DeviceForm } from '@/components/forms'
+import { OriginLine } from '@/components/entity/parts'
 import { DEVICE_ICON } from '@/features/topology/components/nodes'
 import { Button, EmptyState, ICON_SM, PageHeader, Pill, Select, StatusDot, Table, Td, Th } from '@/components/ui/primitives'
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
 import { CONNECTIVITY, DEVICE_KINDS, type Device } from '@/lib/types'
 import { useTopology } from '@/store/topology'
-import { editOnDoubleClick, matches, RowActions, SearchBox } from './shared'
+import { matches, openOnClick, RowActions, SearchBox } from './shared'
 
 const DEVICE_COLUMNS: ColumnDef[] = [
   { key: 'kind', label: 'Kind' },
@@ -23,7 +24,8 @@ export default function DevicesPage() {
   const [q, setQ] = useState('')
   const [siteFilter, setSiteFilter] = useState('')
   const { isVisible, toggle } = useColumnVisibility('devices')
-  const [editing, setEditing] = useState<Device | null | 'new'>(null)
+  // The panel: a device group to read (or edit straight away from the pencil), or a blank one to add.
+  const [panel, setPanel] = useState<{ device: Device | null; edit: boolean } | null>(null)
   const [deleting, setDeleting] = useState<Device | null>(null)
 
   const appName = (id?: string) => applications.find((a) => a.id === id)?.name
@@ -40,7 +42,7 @@ export default function DevicesPage() {
         title="Devices"
         description={`Sensors, cameras, PLCs and other things that belong to an application but do not run on Kubernetes. Nothing observes them, so each shows what was declared. ${devices.length ? `${devices.length} groups, ${units} units.` : ''}`}
         actions={
-          <Button variant="primary" onClick={() => setEditing('new')}>
+          <Button variant="primary" onClick={() => setPanel({ device: null, edit: true })}>
             <Plus size={ICON_SM} /> Add device
           </Button>
         }
@@ -61,7 +63,7 @@ export default function DevicesPage() {
         <EmptyState
           title="No devices yet"
           description="Add a device group, for example the temperature sensors at a site. Devices show up in the Application view next to the services they talk to."
-          action={<Button variant="primary" onClick={() => setEditing('new')}><Plus size={ICON_SM} /> Add device</Button>}
+          action={<Button variant="primary" onClick={() => setPanel({ device: null, edit: true })}><Plus size={ICON_SM} /> Add device</Button>}
         />
       ) : (
         <Table>
@@ -84,19 +86,27 @@ export default function DevicesPage() {
               const out = dependencies.filter((x) => x.from === d.id).length
               const gw = nodes.find((n) => n.id === d.gatewayNodeId)
               return (
-                <tr key={d.id} className="group hover:bg-nb-930/60" {...editOnDoubleClick(() => setEditing(d))}>
-                  <Td className="font-medium text-nb-300">
-                    <span className="inline-flex items-center gap-2"><Icon size={ICON_SM} className="text-nb-500" />{d.name}</span>
-                    {gw && <div className="whitespace-nowrap pl-6 text-xs font-normal text-nb-500">attached to {gw.name}</div>}
+                <tr key={d.id} className="group cursor-pointer hover:bg-nb-930/60" {...openOnClick(() => setPanel({ device: d, edit: false }))}>
+                  <Td className="whitespace-nowrap">
+                    <span className="inline-flex items-center gap-2">
+                      <Icon size={ICON_SM} className="text-nb-500" />
+                      <button className="font-medium text-nb-300 hover:text-accent" onClick={() => setPanel({ device: d, edit: false })}>{d.name}</button>
+                    </span>
+                    <div className="pl-6"><OriginLine rec={d} /></div>
                   </Td>
                   {isVisible('kind') && <Td><Pill>{kindLabel(d.kind)}</Pill></Td>}
                   {isVisible('units') && <Td>{d.count}</Td>}
                   {isVisible('application') && <Td>{appName(d.applicationId) ?? <span className="text-nb-600">—</span>}</Td>}
-                  {isVisible('site') && <Td className="whitespace-nowrap text-nb-400">{siteName(d.siteId) ?? '—'}</Td>}
+                  {isVisible('site') && (
+                    <Td className="whitespace-nowrap text-nb-400">
+                      {siteName(d.siteId) ?? '—'}
+                      {gw && <div className="text-xs text-nb-500">on {gw.name}</div>}
+                    </Td>
+                  )}
                   {isVisible('protocol') && <Td className="whitespace-nowrap text-nb-400">{[d.protocol, CONNECTIVITY.find((c) => c.value === d.connectivity)?.label].filter(Boolean).join(' · ')}</Td>}
                   {isVisible('sendsTo') && <Td>{out}</Td>}
                   <Td><StatusDot status={d.status} withLabel /></Td>
-                  <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setEditing(d)} onDelete={() => setDeleting(d)} /></Td>
+                  <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setPanel({ device: d, edit: true })} onDelete={() => setDeleting(d)} /></Td>
                 </tr>
               )
             })}
@@ -107,7 +117,15 @@ export default function DevicesPage() {
         </Table>
       )}
 
-      {editing && <DeviceForm initial={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {panel && (
+        <DeviceForm
+          key={panel.device?.id ?? 'new'}
+          initial={panel.device}
+          edit={panel.edit}
+          onClose={() => setPanel(null)}
+          onDelete={panel.device ? () => { setDeleting(panel.device); setPanel(null) } : undefined}
+        />
+      )}
       {deleting && (
         <ConfirmModal
           title={`Delete ${deleting.name}?`}

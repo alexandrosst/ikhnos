@@ -4,7 +4,7 @@ import { initiallyOpen, isDetected, isLocked } from '@/lib/fieldOrigin'
 import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
 
-type Kind = 'cluster' | 'node' | 'service'
+type Kind = 'cluster' | 'node' | 'service' | 'device'
 type Raw = Parameters<typeof initiallyOpen>[0]
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
@@ -31,7 +31,9 @@ export function useFieldLocks<T extends object>({
   yours: readonly string[]
   by?: string
 }) {
-  const weak = useWeakValue(kind)
+  // Nothing weighs the evidence of a device yet (they are declared far more often than detected), so it never reads as a guess.
+  const weakOf = useWeakValue(kind === 'device' ? 'service' : kind)
+  const weak: typeof weakOf = kind === 'device' ? () => undefined : weakOf
   const confirmField = useTopology((s) => s.confirmField)
   const [opened, setOpened] = useState<Set<string>>(() => initiallyOpen(raw))
   const value = (o: unknown, field: string) => (o as Record<string, unknown> | undefined)?.[field]
