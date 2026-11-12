@@ -176,11 +176,10 @@ async function renewFromWhatToDo(user: User, rowId: string) {
   await confirmRenew(user)
 }
 
-/** The create dialog, step by step. */
+/** The create dialog: one screen, opened with a name typed. */
 async function toDestination(user: User, name = 'athens-regional') {
   await user.click(screen.getByTestId('operator-open'))
   await user.type(screen.getByTestId('operator-name'), name)
-  await user.click(screen.getByTestId('operator-next'))
 }
 async function chooseBackend(user: User, endpoint = 'backend.example.com:4317') {
   await user.click(within(screen.getByTestId('operator-other-backend')).getByText('Not listed? Another backend'))
@@ -191,7 +190,6 @@ async function chooseBackend(user: User, endpoint = 'backend.example.com:4317') 
 async function fillCreateForm(user: User) {
   await toDestination(user)
   await chooseBackend(user)
-  await user.click(screen.getByTestId('operator-next'))
 }
 
 describe('PipelinePage', () => {
@@ -456,52 +454,34 @@ describe('PipelinePage', () => {
     expect(screen.queryByText('Source clusters')).not.toBeInTheDocument()
   })
 
-  test('the dialog is three steps - name, destination, create - and each Next waits for what its step needs', async () => {
+  test('the dialog is one screen - name, destination, how clusters reach it - and Create waits for a name and a destination', async () => {
     const user = userEvent.setup()
     renderPage()
     await user.click(await screen.findByTestId('operator-open'))
-    expect(screen.getByTestId('operator-steps')).toHaveTextContent('Name')
-    expect(screen.getByTestId('operator-steps')).toHaveTextContent('Destination')
-    expect(screen.getByTestId('operator-steps')).toHaveTextContent('Create')
-    const next = screen.getByTestId('operator-next')
-    expect(next).toBeDisabled()
-
+    expect(screen.getByTestId('operator-create')).toBeDisabled()
     await user.type(screen.getByTestId('operator-name'), 'athens-regional')
-    // A name is all this step needs.
-    expect(next).toBeEnabled()
-    await user.click(next)
-
-    // Nothing is chosen yet (FUSION is off, and is never picked for anyone): Next waits for a destination.
-    expect(screen.getByTestId('operator-next')).toBeDisabled()
+    // Nothing is chosen yet (FUSION is off, and is never picked for anyone): Create waits for a destination.
+    expect(screen.getByTestId('operator-create')).toBeDisabled()
+    expect(screen.getByTestId('operator-problems')).toHaveTextContent('Choose where it sends')
     await chooseBackend(user)
-    expect(screen.getByTestId('operator-next')).toBeEnabled()
-    await user.click(screen.getByTestId('operator-next'))
-    expect(screen.getByTestId('operator-step-create')).toBeInTheDocument()
-    expect(screen.getByTestId('operator-summary')).toHaveTextContent('athens-regional')
-    expect(screen.getByTestId('operator-summary')).not.toHaveTextContent('Collects from')
-    expect(screen.getByTestId('operator-summary')).toHaveTextContent('backend.example.com:4317')
     expect(screen.getByTestId('operator-create')).toBeEnabled()
-    // Back keeps what was typed.
-    await user.click(screen.getByTestId('operator-back'))
-    await user.click(screen.getByTestId('operator-back'))
     expect(screen.getByTestId('operator-name')).toHaveValue('athens-regional')
   })
 
-  test('a name alone lets the dialog move on', async () => {
+  test('Enter in the name field does not create anything', async () => {
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByTestId('operator-open'))
-    await user.type(screen.getByTestId('operator-name'), 'athens-regional')
-    expect(screen.getByTestId('operator-next')).toBeEnabled()
+    await fillCreateForm(user)
+    await user.type(screen.getByTestId('operator-name'), '{Enter}')
+    expect(createOperator).not.toHaveBeenCalled()
   })
 
-  test('how other clusters reach it is on the last step in the open, node port first; Heartbeat, Labels and Processors are under Advanced', async () => {
+  test('how other clusters reach it is on the screen in the open, node port first; Heartbeat, Labels and Processors are under Advanced', async () => {
     const user = userEvent.setup()
     renderPage()
     await toDestination(user)
-    expect(screen.queryByTestId('operator-exposure')).not.toBeInTheDocument()
+    expect(screen.getByTestId('operator-exposure')).toBeInTheDocument()
     await chooseBackend(user)
-    await user.click(screen.getByTestId('operator-next'))
     const advanced = screen.getByTestId('operator-advanced')
     expect(within(advanced).getByText('Advanced')).toBeInTheDocument()
     expect(within(advanced).queryByTestId('operator-exposure')).not.toBeInTheDocument()
@@ -512,7 +492,6 @@ describe('PipelinePage', () => {
     const radios = within(screen.getByTestId('operator-exposure')).getAllByRole('radio')
     expect(radios.map((r) => r.getAttribute('data-testid'))).toEqual(['operator-exposure-nodeport', 'operator-exposure-loadbalancer', 'operator-exposure-cluster'])
     expect(screen.getByTestId('operator-exposure-nodeport')).toBeChecked()
-    expect(screen.getByTestId('operator-exposure')).toHaveTextContent('Recommended')
     expect(screen.getByTestId('operator-exposure-note')).toHaveTextContent('port, 4317, on every node')
   })
 
@@ -595,8 +574,8 @@ describe('PipelinePage', () => {
       expect.objectContaining({ endpoint: 'backend.example.com:4317', kind: 'external' }),
       { heartbeat: true, labels: [], exposure: 'nodeport' },
     ))
-    expect(screen.getByText(/kubectl create secret generic op-1-receiver-auth/)).toBeInTheDocument()
-    expect(screen.getByText(/helm install op-1/)).toBeInTheDocument()
+    // One script to copy, and the same commands one by one under "Show step by step".
+    expect(screen.getByTestId('operator-created-script')).toHaveTextContent(/kubectl create secret generic op-1-receiver-auth[\s\S]*helm install op-1/)
     const steps = within(screen.getByTestId('operator-created-steps')).getAllByRole('listitem')
     expect(steps[0]).toHaveTextContent('1Create the receiver token Secret')
     // A node port is the default, so the last step tells where to record the address, after the install.
@@ -645,7 +624,6 @@ describe('PipelinePage - the destination is picked from a list', () => {
     await toDestination(user)
     await waitFor(() => expect(screen.getByTestId('operator-destination-fusion-op-central')).toHaveAttribute('aria-checked', 'true'))
     expect(screen.getByTestId('operator-central')).toHaveTextContent('one door into this server')
-    await user.click(screen.getByTestId('operator-next'))
     await user.click(screen.getByTestId('operator-create'))
     await waitFor(() => expect(createOperator).toHaveBeenCalled())
     expect(enableFusion).not.toHaveBeenCalled()
@@ -660,7 +638,7 @@ describe('PipelinePage - the destination is picked from a list', () => {
     expect(row).toHaveAttribute('data-fusion', 'off')
     expect(row).not.toHaveAttribute('aria-checked')
     expect(within(row).getByText(/Nothing receives data until it is on/)).toBeInTheDocument()
-    expect(screen.getByTestId('operator-next')).toBeDisabled()
+    expect(screen.getByTestId('operator-create')).toBeDisabled()
     expect(enableFusion).not.toHaveBeenCalled()
   })
 
@@ -671,8 +649,7 @@ describe('PipelinePage - the destination is picked from a list', () => {
     await user.click(await screen.findByTestId('operator-destination-fusion-op-central-enable'))
     await waitFor(() => expect(enableFusion).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(screen.getByTestId('operator-destination-fusion-op-central')).toHaveAttribute('aria-checked', 'true'))
-    expect(screen.getByTestId('operator-next')).toBeEnabled()
-    await user.click(screen.getByTestId('operator-next'))
+    expect(screen.getByTestId('operator-create')).toBeEnabled()
     await user.click(screen.getByTestId('operator-create'))
     await waitFor(() => expect(createOperator).toHaveBeenCalled())
     expect(enableFusion).toHaveBeenCalledTimes(1)
@@ -686,7 +663,7 @@ describe('PipelinePage - the destination is picked from a list', () => {
     await toDestination(user)
     await user.click(await screen.findByTestId('operator-destination-fusion-op-central-enable'))
     expect(await within(screen.getByTestId('operator-destination-fusion-op-central')).findByText('no node has room')).toBeInTheDocument()
-    expect(screen.getByTestId('operator-next')).toBeDisabled()
+    expect(screen.getByTestId('operator-create')).toBeDisabled()
   })
 
   test('a server that cannot switch FUSION says why, and offers no switch', async () => {
@@ -698,7 +675,7 @@ describe('PipelinePage - the destination is picked from a list', () => {
     expect(row).toHaveAttribute('data-fusion', 'unavailable')
     expect(row).toHaveTextContent('workloads are not in this release')
     expect(within(row).queryByRole('button')).not.toBeInTheDocument()
-    expect(screen.getByTestId('operator-next')).toBeDisabled()
+    expect(screen.getByTestId('operator-create')).toBeDisabled()
   })
 
   test('FUSION that belongs to another organisation is named as that, and cannot be picked', async () => {
@@ -727,8 +704,7 @@ describe('PipelinePage - the destination is picked from a list', () => {
     renderPage()
     await toDestination(user, 'athens-edge')
     await user.click(await screen.findByTestId('operator-destination-operator-op-eu'))
-    await user.click(screen.getByTestId('operator-next'))
-    expect(screen.getByTestId('operator-summary')).toHaveTextContent('eu-hub')
+    expect(screen.getByTestId('operator-destination-operator-op-eu')).toHaveAttribute('aria-checked', 'true')
     await user.click(screen.getByTestId('operator-create'))
     await waitFor(() => expect(createOperator).toHaveBeenCalled())
     expect(createOperator.mock.calls[0][3]).toMatchObject({ kind: 'operator', targetOperatorId: 'op-eu' })
@@ -743,7 +719,6 @@ describe('PipelinePage - the destination is picked from a list', () => {
     expect(screen.getByTestId('operator-other-backend')).not.toHaveAttribute('open')
     await chooseBackend(user, 'other.example.com:4317')
     expect(screen.getByTestId('operator-destination-fusion-op-central')).toHaveAttribute('aria-checked', 'false')
-    await user.click(screen.getByTestId('operator-next'))
     await user.click(screen.getByTestId('operator-create'))
     await waitFor(() => expect(createOperator).toHaveBeenCalled())
     expect(createOperator.mock.calls[0][3]).toMatchObject({ kind: 'external', endpoint: 'other.example.com:4317' })
@@ -762,10 +737,9 @@ describe('PipelinePage - the destination is picked from a list', () => {
     renderPage()
     await toDestination(user)
     await waitFor(() => expect(screen.getByTestId('operator-destination-fusion-op-central')).toHaveAttribute('aria-checked', 'true'))
-    await user.click(screen.getByTestId('operator-next'))
     await user.click(screen.getByTestId('operator-create'))
     const block = await screen.findByTestId('operator-created-export')
-    expect(block).toHaveTextContent('nothing to install for it')
+    expect(block).toHaveTextContent('Nothing to install for FUSION itself')
     expect(screen.getByTestId('operator-export-secret')).toHaveTextContent('op-central-export-mtls')
     expect(screen.getByTestId('operator-created-export-unreachable')).toHaveTextContent('Reachable at')
     const steps = screen.getByTestId('operator-created-steps').textContent ?? ''
@@ -1481,7 +1455,7 @@ describe('PipelinePage - where other clusters reach an operator', () => {
     await fillCreateForm(user)
     await user.click(screen.getByTestId('operator-exposure-cluster'))
     await user.click(screen.getByTestId('operator-create'))
-    await screen.findByText(/helm install op-1/)
+    await screen.findByTestId('operator-created-script')
     expect(createOperator.mock.calls[0][4]).toMatchObject({ exposure: 'cluster' })
     expect(screen.queryByTestId('operator-created-address')).not.toBeInTheDocument()
   })
@@ -1699,21 +1673,19 @@ describe('PipelinePage - a secret shown once cannot be lost to a stray click', (
     await user.keyboard('{Escape}')
     fireEvent.mouseDown(backdropOf(dialog))
     expect(screen.getByRole('dialog', { name: 'New operator' })).toBeInTheDocument()
-    expect(screen.getByTestId('operator-back')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
     finish(await createOperator.getMockImplementation()!(undefined, 'athens-regional', ['c1'], { endpoint: 'backend.example.com:4317' }))
     await screen.findByRole('dialog', { name: 'athens-regional created' })
   })
 })
 
 describe('PipelinePage - Enter in the create form', () => {
-  test('Enter in a label or a processor field creates nothing; Enter in the name field still moves to the next step', async () => {
+  test('Enter in the name, a label or a processor field creates nothing', async () => {
     const user = userEvent.setup()
     renderPage()
     await user.click(screen.getByTestId('operator-open'))
     await user.type(screen.getByTestId('operator-name'), 'athens-regional{Enter}')
-    expect(screen.getByTestId('operator-step-destination')).toBeInTheDocument()
     await chooseBackend(user)
-    await user.click(screen.getByTestId('operator-next'))
     await user.click(within(screen.getByTestId('operator-advanced')).getByText('Advanced'))
     await user.click(screen.getByTestId('operator-label-tag-add'))
     await user.type(screen.getByTestId('operator-label-tag-key-0'), 'region{Enter}')
@@ -1721,7 +1693,6 @@ describe('PipelinePage - Enter in the create form', () => {
     await user.click(screen.getByTestId('operator-processor-add-filter'))
     await user.keyboard('{Enter}')
     expect(createOperator).not.toHaveBeenCalled()
-    expect(screen.getByTestId('operator-step-create')).toBeInTheDocument()
     expect(screen.getByRole('dialog', { name: 'New operator' })).toBeInTheDocument()
   })
 

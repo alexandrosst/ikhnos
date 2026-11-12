@@ -1,4 +1,4 @@
-import { Plug } from 'lucide-react'
+import { ChevronRight, Plug } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import { FusionDot } from '@/features/fusion/components/useFusion'
@@ -131,6 +131,20 @@ export default function OperatorCreated({
     })
   }
 
+  // The same commands, joined in the order to run them, for one copy: every Secret, then the install, then the restart. Each is headed by what it does.
+  const script = [
+    hasToken && ['Create the receiver token Secret', created.secretCommand!],
+    created.tlsSecretCommand && ['Create the receiver’s TLS certificate Secret', created.tlsSecretCommand],
+    heartbeat && ['Create the health credential Secret', created.heartbeatSecretCommand!],
+    created.heartbeatCaSecretCommand && ['Create the Secret that lets it trust this server', created.heartbeatCaSecretCommand],
+    created.exportSecretCommand && created.exportTarget && [`Create the client certificate Secret for ${created.exportTarget.name}`, created.exportSecretCommand],
+    [renewed ? 'Install it again' : 'Install the operator', install],
+    created.restartCommand && ['Restart the operator', created.restartCommand],
+  ]
+    .filter((x): x is [string, string] => !!x)
+    .map(([title, cmd]) => `# ${title}\n${cmd}`)
+    .join('\n\n')
+
   // Source clusters that have an approved agent can be connected from here; the others are named so nothing is silently left out.
   const sources = created.operator.sourceClusterIds.map((id) => ({
     id,
@@ -140,74 +154,96 @@ export default function OperatorCreated({
 
   return (
     <Modal open onClose={onClose} dismissible={false} title={renewed ? `Renew certificates for ${created.operator.name}` : `${created.operator.name} created`} width="max-w-2xl" footer={<Button variant="primary" onClick={onClose}>Done</Button>}>
-      <p className="text-sm text-nb-400" data-testid="operator-created-intro">
-        {renewed ? 'Run these again where the operator lives: new certificates were issued just now, and the old ones stop being the current ones once its release restarts. ' : 'Run these where the operator itself should live, in this order. '}
-        {shownOnce
-          ? `${shownOnce[0].toUpperCase()}${shownOnce.slice(1)} ${hasToken && heartbeat ? 'are' : 'is'} shown only now - if lost, ${hasToken ? 'revoke this operator and create another' : 'rotate the health credential from the Operators page'}.`
-          : 'There is no secret to keep from this screen.'}
-      </p>
-      {created.exportTarget?.operatorId === CENTRAL_OPERATOR_ID && fusionKind === 'starting' && (
-        <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-nb-400" data-testid="operator-created-fusion-starting">
-          <FusionDot kind="starting" /> FUSION is starting. These steps are safe to run now; the first data can take a few minutes to show.
+      <div className="space-y-4">
+        <p className="text-sm text-nb-300" data-testid="operator-created-intro">
+          {renewed ? 'Run these again where the operator lives: new certificates were issued just now, and the old ones stop being the current ones once its release restarts. ' : 'Run this where the operator itself should live. '}
+          {shownOnce
+            ? `${shownOnce[0].toUpperCase()}${shownOnce.slice(1)} ${hasToken && heartbeat ? 'are' : 'is'} shown only now - if lost, ${hasToken ? 'revoke this operator and create another' : 'rotate the health credential from the Operators page'}.`
+            : 'There is no secret to keep from this screen.'}
         </p>
-      )}
-      {mtls && (
-        <p className="mt-2 text-xs leading-relaxed text-nb-400" data-testid="operator-created-mtls">
-          There is no receiver token for this operator. Its receiver accepts agents that present a client certificate
-          from this operator&apos;s own certificate authority; one is issued per agent when its commands are generated
-          (from the agent&apos;s Telemetry panel). A certificate issued for any other operator, or by the organisation&apos;s own CA, is refused.
-        </p>
-      )}
-      {created.exportTarget && (
-        <div className="mt-2" data-testid="operator-created-export">
-          <p className="text-xs leading-relaxed text-nb-400">
-            This operator sends to <span className="text-nb-200">{created.exportTarget.name}</span>
-            {created.exportTarget.operatorId === CENTRAL_OPERATOR_ID ? ', which saves metrics, logs and traces in FUSION. FUSION is part of this server, so there is nothing to install for it' : ''}.
+        {created.exportTarget?.operatorId === CENTRAL_OPERATOR_ID && fusionKind === 'starting' && (
+          <p className="inline-flex items-center gap-1.5 text-sm text-nb-400" data-testid="operator-created-fusion-starting">
+            <FusionDot kind="starting" /> FUSION is starting. These steps are safe to run now; the first data can take a few minutes to show.
           </p>
-          {!created.exportTarget.reachableFromOtherClusters && (
-            <p role="alert" className="mt-2 rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs leading-relaxed text-warn" data-testid="operator-created-export-unreachable">
-              {created.exportTarget.name} is reachable inside its own cluster only. Install this operator there, or record an address for it (<span className="font-semibold">Reachable at</span> on its row) before one in another cluster can send to it.
-            </p>
-          )}
-        </div>
-      )}
-
-      <ol className="mt-4 space-y-4" data-testid="operator-created-steps">
-        {steps.map((s, i) => <RunStep key={s.key} n={i + 1} title={s.title} testId={`operator-created-step-${s.key}`}>{s.body}</RunStep>)}
-        {created.reminders.length > 0 && (
-          <RunStep n={steps.length + 1} title="Point each source cluster at it" testId="operator-created-step-sources">
-            Informational only - nothing here runs on your behalf. Each source cluster needs its own copy of the client certificate Secret, then its agent&apos;s export endpoint pointed here.
-            <span className="mt-1 block space-y-1.5">
-              {created.reminders.map((r) => <CopyCommand key={r} text={r} label="Copy the reminder command" />)}
-            </span>
-          </RunStep>
         )}
-      </ol>
-
-      {sources.length > 0 && onConnect && (
-        <div className="mt-4 border-t border-nb-850 pt-3" data-testid="operator-created-connect">
-          <div className="mb-2 text-xs text-nb-500">Or let the wizard write each cluster’s command, with this operator already chosen:</div>
-          <div className="flex flex-wrap gap-2">
-            {sources.map((s) =>
-              s.agent ? (
-                <Button key={s.id} size="sm" onClick={() => onConnect(s.agent!.id)} data-testid={`operator-connect-${s.id}`}>
-                  <Plug size={ICON_SM} aria-hidden /> Connect {s.name}
-                </Button>
-              ) : (
-                <span key={s.id} className="rounded-md border border-dashed border-nb-850 px-2 py-1 text-xs text-nb-500" data-testid={`operator-connect-none-${s.id}`}>{s.name}: no connected agent</span>
-              ),
+        {created.exportTarget && (
+          <div className="space-y-2" data-testid="operator-created-export">
+            <p className="text-sm text-nb-400">
+              It sends to <span className="text-nb-200">{created.exportTarget.name}</span>
+              {created.exportTarget.operatorId === CENTRAL_OPERATOR_ID ? ', which saves metrics, logs and traces in FUSION. Nothing to install for FUSION itself' : ''}.
+            </p>
+            {!created.exportTarget.reachableFromOtherClusters && (
+              <p role="alert" className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs leading-relaxed text-warn" data-testid="operator-created-export-unreachable">
+                {created.exportTarget.name} is reachable inside its own cluster only. Install this operator there, or record an address for it (<span className="font-semibold">Reachable at</span> on its row) before one in another cluster can send to it.
+              </p>
             )}
           </div>
-        </div>
-      )}
+        )}
 
-      <p className="mt-4 rounded-md border border-nb-850 bg-nb-930 px-3 py-2 text-xs leading-relaxed text-nb-400" data-testid="operator-no-rbac-note">
-        No Kubernetes RBAC was applied, and none was needed: this chart requests no ServiceAccount token at all
-        (<code className="font-mono">automountServiceAccountToken: false</code>, no ClusterRole, no Role, no binding).
-        {' '}{heartbeat
-          ? 'It contacts this server only to send its health check, nothing else.'
-          : 'It never contacts this server: health reporting is off, and can be turned on later from the Operators page.'}
-      </p>
+        <div className="space-y-2">
+          <CopyCommand text={script} multiline testId="operator-created-script" label="Copy the commands" />
+          {created.heartbeatWarning && heartbeat && <p role="alert" className="text-xs text-warn" data-testid="operator-created-heartbeat-warning">{created.heartbeatWarning}</p>}
+          {exposure !== 'cluster' && <p className="text-sm text-nb-500">Once it is running, record where other clusters reach it with <span className="text-nb-300">Reachable at</span> on its row.</p>}
+        </div>
+
+        <details className="group rounded-lg border border-nb-850 bg-nb-925" data-testid="operator-created-fold">
+          <summary className="flex cursor-pointer select-none items-center gap-1.5 px-4 py-2.5 text-sm text-nb-400 marker:content-none">
+            <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
+            Show step by step ({steps.length + (created.reminders.length > 0 ? 1 : 0)})
+          </summary>
+          <ol className="space-y-4 border-t border-nb-850 p-4" data-testid="operator-created-steps">
+            {steps.map((s, i) => <RunStep key={s.key} n={i + 1} title={s.title} testId={`operator-created-step-${s.key}`}>{s.body}</RunStep>)}
+            {created.reminders.length > 0 && (
+              <RunStep n={steps.length + 1} title="Point each source cluster at it" testId="operator-created-step-sources">
+                Informational only - nothing here runs on your behalf. Each source cluster needs its own copy of the client certificate Secret, then its agent&apos;s export endpoint pointed here.
+                <span className="mt-1 block space-y-1.5">
+                  {created.reminders.map((r) => <CopyCommand key={r} text={r} label="Copy the reminder command" />)}
+                </span>
+              </RunStep>
+            )}
+          </ol>
+        </details>
+
+        {sources.length > 0 && onConnect && (
+          <div data-testid="operator-created-connect">
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-nb-500">Connect source clusters</div>
+            <div className="flex flex-wrap gap-2">
+              {sources.map((s) =>
+                s.agent ? (
+                  <Button key={s.id} size="sm" onClick={() => onConnect(s.agent!.id)} data-testid={`operator-connect-${s.id}`}>
+                    <Plug size={ICON_SM} aria-hidden /> Connect {s.name}
+                  </Button>
+                ) : (
+                  <span key={s.id} className="rounded-md border border-dashed border-nb-850 px-2 py-1 text-xs text-nb-500" data-testid={`operator-connect-none-${s.id}`}>{s.name}: no connected agent</span>
+                ),
+              )}
+            </div>
+          </div>
+        )}
+
+        <details className="group rounded-lg border border-nb-850 bg-nb-925">
+          <summary className="flex cursor-pointer select-none items-center gap-1.5 px-4 py-2.5 text-sm text-nb-400 marker:content-none">
+            <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
+            How it is secured
+          </summary>
+          <div className="space-y-2 border-t border-nb-850 p-4 text-sm leading-relaxed text-nb-400">
+            {mtls && (
+              <p data-testid="operator-created-mtls">
+                There is no receiver token for this operator. Its receiver accepts agents that present a client certificate
+                from this operator&apos;s own certificate authority; one is issued per agent when its commands are generated
+                (from the agent&apos;s Telemetry panel). A certificate issued for any other operator, or by the organisation&apos;s own CA, is refused.
+              </p>
+            )}
+            <p data-testid="operator-no-rbac-note">
+              No Kubernetes RBAC was applied, and none was needed: this chart requests no ServiceAccount token at all
+              (<code className="font-mono">automountServiceAccountToken: false</code>, no ClusterRole, no Role, no binding).
+              {' '}{heartbeat
+                ? 'It contacts this server only to send its health check, nothing else.'
+                : 'It never contacts this server: health reporting is off, and can be turned on later from the Operators page.'}
+            </p>
+          </div>
+        </details>
+      </div>
     </Modal>
   )
 }
