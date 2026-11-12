@@ -1,15 +1,40 @@
-import { ChevronRight, Plug } from 'lucide-react'
+import { CheckCircle2, ChevronRight, Plug } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import { FusionDot } from '@/features/fusion/components/useFusion'
 import { HeartbeatCommands } from '@/features/pipeline/components/operators/HeartbeatCommands'
 import { FindTheAddress } from '@/features/pipeline/components/operators/OperatorAddress'
-import { Button, ICON_SM, Modal, RunStep } from '@/components/ui/primitives'
+import { Button, ICON_SM, Modal, RunStep, Waiting } from '@/components/ui/primitives'
 import type { CreatedOperator, OperatorExposure } from '@/lib/api'
 import { CENTRAL_OPERATOR_ID, type FusionKind } from '@/features/fusion/lib/fusionStatus'
 import { useHoldReload } from '@/lib/useHoldReload'
-import { receiverAuthOf } from '@/features/pipeline/lib/operatorHealth'
+import { operatorLiveness, receiverAuthOf } from '@/features/pipeline/lib/operatorHealth'
+import { useOperators } from '@/lib/useOperators'
 import { useTopology } from '@/store/topology'
+
+/**
+ * One line under the commands: waiting for the operator's first health check, then that it is reporting in. It reads the same list the
+ * Operators page does (polled, so it turns by itself), and only exists while health reporting is on: without it the server never hears
+ * from the operator and there would be nothing to wait for. It says the operator is up, not that any cluster sends through it.
+ */
+function ReportsIn({ id, name }: { id: string; name: string }) {
+  const { operators } = useOperators(true)
+  const op = operators.find((o) => o.id === id)
+  const l = op ? operatorLiveness(op) : undefined
+  if (l?.kind === 'unreported') return null
+  if (l?.kind === 'online') {
+    return (
+      <p className="flex items-center gap-2 rounded-lg border border-ok/40 bg-nb-925 px-4 py-2.5 text-sm text-nb-300" role="status" data-testid="operator-created-reports" data-health="online">
+        <CheckCircle2 size={ICON_SM} className="shrink-0 text-ok" aria-hidden /> <span><span className="text-nb-200">{name}</span> is reporting in.</span>
+      </p>
+    )
+  }
+  return (
+    <div className="rounded-lg border border-nb-850 bg-nb-925 px-4 py-2.5 text-sm text-nb-400" data-testid="operator-created-reports" data-health={l?.kind ?? 'waiting'}>
+      {l?.kind === 'offline' ? <span>{l.text}.</span> : <Waiting>Waiting for {name} to report in. This page updates by itself.</Waiting>}
+    </div>
+  )
+}
 
 /**
  * What to run for an operator, in the order to run it, shown once: the server keeps only a hash of any receiver token and of the
@@ -185,6 +210,8 @@ export default function OperatorCreated({
           {created.heartbeatWarning && heartbeat && <p role="alert" className="text-xs text-warn" data-testid="operator-created-heartbeat-warning">{created.heartbeatWarning}</p>}
           {exposure !== 'cluster' && <p className="text-sm text-nb-500">Once it is running, record where other clusters reach it with <span className="text-nb-300">Reachable at</span> on its row.</p>}
         </div>
+
+        {heartbeat && !renewed && <ReportsIn id={created.operator.id} name={created.operator.name} />}
 
         <details className="group rounded-lg border border-nb-850 bg-nb-925" data-testid="operator-created-fold">
           <summary className="flex cursor-pointer select-none items-center gap-1.5 px-4 py-2.5 text-sm text-nb-400 marker:content-none">

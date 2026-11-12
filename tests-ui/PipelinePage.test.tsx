@@ -1384,6 +1384,39 @@ describe('PipelinePage - creating with and without health reporting', () => {
     expect(screen.queryByTestId('operator-created-heartbeat-once')).not.toBeInTheDocument()
   })
 
+  test('with health reporting on, the created screen waits for the first heartbeat and turns to "reporting in" by itself', async () => {
+    createOperator.mockImplementationOnce(async (_c, name, sourceClusterIds, destination) => ({
+      operator: op({ id: 'op-1', name, sourceClusterIds, destination: destination as RegionalOperator['destination'] }),
+      install: 'INSTALL-CMD',
+      heartbeatToken: 'cnh_x',
+      heartbeatSecretCommand: 'HEARTBEAT-SECRET-CMD',
+      heartbeatUrl: 'https://ikhnos.example.com/api/v1/operator-heartbeat',
+      heartbeatIntervalSeconds: 60,
+      reminders: [] as string[],
+    }))
+    const user = userEvent.setup()
+    renderPage()
+    await fillCreateForm(user)
+    await user.click(screen.getByTestId('operator-create'))
+    // The server has not heard from it yet.
+    listOperators.mockResolvedValue([op({ id: 'op-1', name: 'athens-regional', health: { state: 'waiting', reporting: true } })])
+    const line = await screen.findByTestId('operator-created-reports')
+    expect(line).toHaveTextContent('Waiting for athens-regional to report in')
+    // Its first heartbeat arrives on a later poll.
+    listOperators.mockResolvedValue([op({ id: 'op-1', name: 'athens-regional', health: { state: 'online', lastSeenAt: minutesAgo(0), reporting: true } })])
+    await waitFor(() => expect(screen.getByTestId('operator-created-reports')).toHaveTextContent('athens-regional is reporting in'), { timeout: 20_000 })
+  }, 30_000)
+
+  test('with health reporting off the created screen has no "report in" line', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await fillCreateForm(user)
+    await user.click(screen.getByTestId('operator-heartbeat'))
+    await user.click(screen.getByTestId('operator-create'))
+    await screen.findByTestId('operator-created-script')
+    expect(screen.queryByTestId('operator-created-reports')).not.toBeInTheDocument()
+  })
+
   test('a bearer operator shows its receiver token Secret first, then its TLS Secret, then the install, with no heartbeat block when not requested', async () => {
     createOperator.mockImplementationOnce(async (_c, name, sourceClusterIds, destination) => ({
       operator: op({ id: 'op-b', name, receiverAuth: 'bearer', sourceClusterIds, destination: destination as RegionalOperator['destination'] }),
