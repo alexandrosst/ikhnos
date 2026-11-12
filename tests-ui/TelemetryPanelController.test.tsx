@@ -46,7 +46,6 @@ async function toRun(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByTestId('tp-guided-continue'))
   await user.click(screen.getByTestId('tp-guided-destination-external-preset-honeycomb'))
   await user.click(screen.getByTestId('tp-guided-continue'))
-  await user.click(screen.getByTestId('tp-guided-create-command'))
 }
 
 const renderPanel = () =>

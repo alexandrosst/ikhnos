@@ -92,7 +92,7 @@ describe('GuidedWizard: one destination per signal type', () => {
     expect(screen.getByTestId('t-guided-split')).not.toBeChecked()
     expect(screen.queryByTestId('t-routes')).not.toBeInTheDocument()
     expect(screen.getByTestId('t-guided-destination-list')).toBeInTheDocument()
-    expect(screen.getAllByText('Where should this telemetry go?')).toHaveLength(1)
+    expect(screen.getAllByText('Where should it send it?')).toHaveLength(1)
   })
 
   test('splitting gives each signal type its own picker, filtered to what can carry it', async () => {
@@ -127,9 +127,8 @@ describe('GuidedWizard: one destination per signal type', () => {
     expect(screen.queryByTestId('t-guided-why')).not.toBeInTheDocument()
     await user.click(screen.getByTestId('t-guided-continue'))
     expect(screen.getByTestId('t-review-changes')).toHaveTextContent(/Sends metrics to .*Mimir.* and logs to .*Loki/)
-    expect(screen.getByTestId('t-guided-create-command')).toBeEnabled()
-    await user.click(screen.getByTestId('t-guided-create-command'))
-    expect(screen.getByTestId('t-guided-run-summary')).toHaveTextContent('2 signals to 2 destinations, one per signal type')
+    expect(screen.getByTestId('t-run-section')).toBeInTheDocument()
+    expect(screen.getByTestId('t-guided-run-summary')).toHaveTextContent('2 signals from vradipus-cluster to 2 destinations, one per signal type')
   })
 
   test('until every signal type has a destination, Continue is off and says which are missing', async () => {

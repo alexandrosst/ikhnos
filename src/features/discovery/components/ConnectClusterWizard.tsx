@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Flag } from '@/components/ui/brand'
 import { Button, CopyButton, ErrorBanner, Field, ICON_SM, InfoTip, Input, Modal, SectionLabel, TagsInput, WizardSteps } from '@/components/ui/primitives'
+import { Switch } from '@/components/ui/Switch'
 import TierLevels from '@/components/TierLevels'
 import { api, ApiError, type CreatedToken } from '@/lib/api'
 import { discoveryStatus, extrasOf } from '@/lib/consent'
@@ -114,26 +115,6 @@ function NoRegistryNotice({ onNavigate, newTab }: { onNavigate?: () => void; new
     <p className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn" role="note" data-testid="no-registry-notice">
       No image registry configured: the command below uses the chart’s built-in image names, which you must have published yourself. Set your registry in <SettingsLink onNavigate={onNavigate} newTab={newTab} />.
     </p>
-  )
-}
-
-/** A small on/off switch. A real checkbox underneath (so it is focusable, announced as a switch and has a test id), drawn as a track and a knob. */
-function Switch({ testId, checked, disabled, onChange, label }: { testId: string; checked: boolean; disabled?: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <span className="relative inline-flex shrink-0 items-center">
-      <input
-        type="checkbox"
-        role="switch"
-        className="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-        aria-label={label}
-        data-testid={testId}
-      />
-      <span className="h-5 w-9 rounded-full bg-nb-800 transition-colors peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent/60 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-nb-920" aria-hidden />
-      <span className="pointer-events-none absolute left-0.5 h-4 w-4 rounded-full bg-nb-300 shadow transition-transform peer-checked:translate-x-4 peer-checked:bg-white" aria-hidden />
-    </span>
   )
 }
 

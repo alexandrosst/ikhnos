@@ -1563,11 +1563,11 @@ export function WizardSteps({ steps, currentIndex, failedIndex, testId = 'wizard
   )
 }
 
-/** One numbered step of the "run this" screen: the number in a ring, a title, then whatever the step needs. */
-export function RunStep({ n, title, children, testId }: { n: number; title: string; children?: ReactNode; testId?: string }) {
+/** One step of the "run this" screen: the number in a ring (left out where there is only one thing to do), a title, then whatever the step needs. */
+export function RunStep({ n, title, children, testId }: { n?: number; title: string; children?: ReactNode; testId?: string }) {
   return (
     <li className="flex gap-3" data-testid={testId}>
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-nb-800 bg-nb-930 text-xs font-medium text-nb-300" aria-hidden>{n}</span>
+      {n !== undefined && <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-nb-800 bg-nb-930 text-xs font-medium text-nb-300" aria-hidden>{n}</span>}
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium text-nb-200">{title}</div>
         <div className="text-xs text-nb-500">{children}</div>

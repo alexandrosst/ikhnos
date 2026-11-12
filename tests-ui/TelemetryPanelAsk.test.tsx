@@ -64,7 +64,6 @@ const tree = () => (
 async function toRun(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByTestId('tp-guided-continue'))
   await user.click(screen.getByTestId('tp-guided-continue'))
-  await user.click(screen.getByTestId('tp-guided-create-command'))
 }
 
 beforeEach(() => {
@@ -167,7 +166,6 @@ describe('TelemetryPanel: asking the cluster', () => {
     // Where to send: a different destination from the owner's.
     await user.click(screen.getByTestId('tp-guided-destination-external-preset-honeycomb'))
     await user.click(screen.getByTestId('tp-guided-continue'))
-    await user.click(screen.getByTestId('tp-guided-create-command'))
     const left = await screen.findByTestId('tp-ask-left-out')
     expect(left).toHaveTextContent('Not part of a request')
     expect(left).toHaveTextContent('Sends to')

@@ -320,10 +320,10 @@ interface TelemetryIntentPreset {
 }
 
 export const TELEMETRY_INTENT_PRESETS: TelemetryIntentPreset[] = [
-  { id: 'minimal', label: 'Minimal / cost-aware', description: 'Resource usage and Kubernetes state only - the cheapest useful baseline.', signals: ['resourceUsage', 'kubernetesState'] },
-  { id: 'full-infra', label: 'Full infrastructure', description: 'Every infrastructure-scoped signal: resource usage, energy, cluster state, node runtime, events, system logs.', signals: ['resourceUsage', 'energy', 'kubernetesState', 'nodeRuntime', 'kubernetesEvents', 'systemLogs'] },
-  { id: 'full-infra-app', label: 'Full infrastructure + app tracing', description: 'Everything in "Full infrastructure" plus application metrics, logs and traces.', signals: ['resourceUsage', 'energy', 'kubernetesState', 'nodeRuntime', 'kubernetesEvents', 'systemLogs', 'applicationMetrics', 'applicationLogs', 'traces'] },
-  { id: 'debug-everything', label: 'Debug everything', description: 'Every signal on - for a short-lived, deep-dive investigation, not a steady state.', signals: PICKABLE_SIGNALS.map((s) => s.id) },
+  { id: 'minimal', label: 'Minimal / cost-aware', description: 'Resource usage and cluster state. The cheapest useful baseline.', signals: ['resourceUsage', 'kubernetesState'] },
+  { id: 'full-infra', label: 'Full infrastructure', description: 'Everything about the cluster, its nodes and its events.', signals: ['resourceUsage', 'energy', 'kubernetesState', 'nodeRuntime', 'kubernetesEvents', 'systemLogs'] },
+  { id: 'full-infra-app', label: 'Full infrastructure + app tracing', description: 'Adds application metrics, logs and traces.', signals: ['resourceUsage', 'energy', 'kubernetesState', 'nodeRuntime', 'kubernetesEvents', 'systemLogs', 'applicationMetrics', 'applicationLogs', 'traces'] },
+  { id: 'debug-everything', label: 'Debug everything', description: 'Every signal on, for a short deep-dive and not a steady state.', signals: PICKABLE_SIGNALS.map((s) => s.id) },
 ]
 
 /** Sets every signal to exactly the preset's combination; everything else on the form (export

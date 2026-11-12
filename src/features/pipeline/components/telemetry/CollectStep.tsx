@@ -1,25 +1,16 @@
 import clsx from 'clsx'
 import { useState } from 'react'
-import { Activity, FileText, Waypoints, type LucideIcon } from 'lucide-react'
-import { Button, Field, ICON_SM, InfoTip, Input, Select } from '@/components/ui/primitives'
+import { Bug, Layers, Leaf, Server, type LucideIcon } from 'lucide-react'
+import { Field, ICON_SM, InfoTip, Input, Select } from '@/components/ui/primitives'
+import { Switch } from '@/components/ui/Switch'
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import { LINK_REQUIREMENT } from '@/lib/clusterLinks'
 import { otlpAddress } from '@/lib/exportHealth'
 import { applyIntentPreset, PICKABLE_SIGNALS, TELEMETRY_INTENT_PRESETS, TELEMETRY_SIGNALS } from '@/lib/consent'
 import { isKept, type TelemetryInput } from '@/lib/install'
-import { LAYER_CARDS, LAYER_META, type Layer } from '@/features/pipeline/lib/telemetryLayers'
+import { LAYER_CARDS, type Layer } from '@/features/pipeline/lib/telemetryLayers'
 
 export type SignalId = 'resourceUsage' | 'energy' | 'kubernetesState' | 'nodeRuntime' | 'networkLatency' | 'clusterLinks' | 'applicationMetrics' | 'systemLogs' | 'kubernetesEvents' | 'applicationLogs' | 'traces' | 'accelerators'
-
-/** cluster/node scope needs no form control (cluster: physically unfilterable; node: the chart's own
- * nodeSelector/tolerations values, structured k8s scheduling objects that don't fit this form's --set
- * model) - so those two just get an honest caption here instead. application scope gets a real control,
- * the wizard's namespace scope. */
-const scopeCaption = (s: (typeof TELEMETRY_SIGNALS)[number]): string | undefined => {
-  if (s.scope === 'cluster') return 'Always cluster-wide - cannot be narrowed.'
-  if (s.scope === 'node') return "Runs on every node - narrow which nodes with the chart's own nodeSelector/tolerations values, not from this form."
-  return undefined
-}
 
 /**
  * Energy has no question to answer: turning it on deploys the bundled Kepler, like every other signal deploys what it needs. The one
@@ -168,7 +159,25 @@ export function AcceleratorsFields({ value, onChange, testIdPrefix }: { value: T
   )
 }
 
-/** One signal's checkbox row: the label, its permissions info tip, what it collects, and (cluster/node signals only) the caption explaining why there is no scope control for it. */
+/** One line of what a signal collects, for its row: the fuller account and what it needs are behind the info tip. */
+const SUMMARY: Record<string, string> = {
+  resourceUsage: 'CPU, memory, disk and network per node and container.',
+  energy: 'Power draw per node and pod.',
+  kubernetesState: 'Pod, deployment and replica status.',
+  nodeRuntime: 'Pod lifecycle and volume metrics.',
+  clusterLinks: 'Delay, jitter and loss to paired clusters.',
+  accelerators: 'GPU use, memory, temperature and power.',
+  systemLogs: "Each node's operating system and runtime logs.",
+  kubernetesEvents: 'Cluster events.',
+  applicationMetrics: 'Pushed over OTLP or scraped from Prometheus.',
+  applicationLogs: 'Logs your applications push over OTLP.',
+  traces: 'Traces your applications push over OTLP.',
+}
+
+/** What sets a signal apart from the rest, said on its row: only energy asks for more than reading. */
+const TAG: Record<string, string> = { energy: 'privileged pod' }
+
+/** One signal as a row: its name, one line of what it collects (the fuller account and the access it needs behind the info tip), and a switch. */
 export function SignalRow({
   signal,
   checked,
@@ -180,48 +189,35 @@ export function SignalRow({
   onChange: (v: boolean) => void
   testIdPrefix: string
 }) {
-  const caption = scopeCaption(signal)
+  const tag = TAG[signal.id]
   return (
-    <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-      <input
-        type="checkbox"
-        className="mt-0.5 size-4 accent-[var(--color-accent)]"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        data-testid={`${testIdPrefix}-${signal.id}`}
-      />
-      <span>
-        <span className="text-nb-300">{signal.label}</span>
-        <InfoTip>{signal.permissions}</InfoTip>
-        <span className="block text-xs text-nb-500">{signal.what}</span>
-        {caption && <span className="block text-xs text-nb-600">{caption}</span>}
+    <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5">
+      <span className="min-w-0 flex-1 text-sm">
+        <span className={clsx('font-medium', checked ? 'text-nb-200' : 'text-nb-300')}>{signal.label}</span>
+        {tag && <span className="ml-2 rounded border border-warn/40 px-1.5 py-px text-[11px] text-warn">{tag}</span>}
+        <span className="ml-2 text-nb-500">{SUMMARY[signal.id] ?? signal.what}</span>
+        <InfoTip>{`${signal.what} Access: ${signal.permissions}`}</InfoTip>
       </span>
+      <Switch testId={`${testIdPrefix}-${signal.id}`} checked={checked} onChange={onChange} label={signal.label} />
     </label>
   )
 }
 
-
 type Modality = 'metrics' | 'logs' | 'traces'
-
-const MODALITY_META: Record<Modality, { label: string; icon: LucideIcon }> = {
-  metrics: { label: 'Metrics', icon: Activity },
-  logs: { label: 'Logs', icon: FileText },
-  traces: { label: 'Traces', icon: Waypoints },
-}
 const MODALITY_ORDER: Modality[] = ['metrics', 'logs', 'traces']
+const MODALITY_LABEL: Record<Modality, string> = { metrics: 'Metrics', logs: 'Logs', traces: 'Traces' }
+const LAYER_LABEL: Record<Layer, string> = { infrastructure: 'Infrastructure', application: 'Your applications' }
+
+const PRESET_ICON: Record<string, LucideIcon> = { minimal: Leaf, 'full-infra': Server, 'full-infra-app': Layers, 'debug-everything': Bug }
 
 const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x))
 
 /**
- * Everything this wizard can collect, on one screen: grouped by layer (infrastructure, then application) and
- * inside each by modality (metrics, logs, traces), every signal one checkbox. This replaces the old
- * layer -> modality -> kind walk, which asked three questions to arrive at a list that is eleven rows long
- * in total - short enough to read at once, and much quicker to scan than to click through. Each group has
- * its own "Select all" / "Clear" and an "n of m" count; a handful of starting points (the same presets the
- * flat grid has) fill the whole list in one click and can then be adjusted row by row.
+ * Everything this wizard can collect, on one screen and always in view: four starting points as cards, then every signal as one row with a
+ * switch, grouped by layer (infrastructure, then your applications). A starting point sets the whole list in one click and the switches adjust
+ * it. The few choices that belong to one signal (the source behind energy or GPU, the cluster-link options) open under its row while it is on.
  *
- * Every checkbox writes straight into `value`, exactly like the flat grid does - nothing here is committed
- * later, so leaving the screen never loses a change.
+ * Every switch writes straight into `value`, so leaving the screen never loses a change.
  */
 export default function CollectStep({
   value,
@@ -238,96 +234,76 @@ export default function CollectStep({
   const rec = value as unknown as Record<string, boolean>
   const on = PICKABLE_SIGNALS.filter((s) => rec[s.id])
   const onIds = on.map((s) => s.id)
-  const setMany = (ids: string[], v: boolean) => {
-    const next = { ...value } as unknown as Record<string, unknown>
-    for (const id of ids) next[id] = v
-    onChange(next as unknown as TelemetryInput)
-  }
+  const setOne = (id: string, v: boolean) => onChange({ ...value, [id]: v } as TelemetryInput)
 
   return (
-    <div className="space-y-4" data-testid={`${testIdPrefix}-guided-step-collect`}>
-      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Start from" data-testid={`${testIdPrefix}-collect-presets`}>
-        <span className="mr-1 text-xs text-nb-600">Start from:</span>
+    <div className="space-y-5" data-testid={`${testIdPrefix}-guided-step-collect`}>
+      <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="Start from" data-testid={`${testIdPrefix}-collect-presets`}>
         {TELEMETRY_INTENT_PRESETS.map((p) => {
           const active = sameSet(onIds, p.signals)
+          const Icon = PRESET_ICON[p.id] ?? Layers
           return (
             <button
               key={p.id}
               type="button"
-              title={p.description}
               aria-pressed={active}
               onClick={() => onChange(applyIntentPreset(value, p))}
               data-testid={`${testIdPrefix}-collect-preset-${p.id}`}
-              className={clsx(
-                'rounded-full border px-2.5 py-1 text-xs transition-colors',
-                active ? 'border-accent bg-accent-soft text-accent' : 'border-nb-850 bg-nb-925 text-nb-400 hover:border-nb-800 hover:text-nb-200',
-              )}
+              className={clsx('flex items-start gap-3 rounded-lg border px-4 py-3 text-left transition-colors', active ? 'border-accent/60 bg-accent-soft' : 'border-nb-850 bg-nb-925 hover:border-nb-800')}
             >
-              {p.label}
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-nb-850 bg-nb-930 text-nb-500" aria-hidden>
+                <Icon size={ICON_SM} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-nb-300">{p.label}</span>
+                <span className="block text-sm text-nb-500">{p.description}</span>
+              </span>
             </button>
           )
         })}
       </div>
 
-      {LAYER_CARDS.map((layer: Layer) => {
-        const Icon = LAYER_META[layer].icon
-        return (
-          <section key={layer} className="rounded-xl border border-nb-850 bg-nb-925" data-testid={`${testIdPrefix}-collect-layer-${layer}`}>
-            <header className="flex items-start gap-2.5 border-b border-nb-850 px-4 py-3">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-nb-930 text-nb-500" aria-hidden>
-                <Icon size={ICON_SM} />
-              </span>
-              <div>
-                <h3 className="text-sm font-medium text-nb-200">{LAYER_META[layer].label}</h3>
-                <p className="text-xs text-nb-500">{LAYER_META[layer].hint}</p>
-              </div>
-            </header>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-medium uppercase tracking-wide text-nb-500">Signals</span>
+          <span className="text-nb-500" data-testid={`${testIdPrefix}-collect-count`}>{on.length} of {PICKABLE_SIGNALS.length}</span>
+        </div>
+        {LAYER_CARDS.map((layer: Layer) => (
+          <section key={layer} className="overflow-hidden rounded-lg border border-nb-850 bg-nb-925" data-testid={`${testIdPrefix}-collect-layer-${layer}`} aria-label={LAYER_LABEL[layer]}>
+            <h3 className="border-b border-nb-850 bg-nb-930 px-4 py-1.5 text-[11px] font-medium uppercase tracking-wide text-nb-500">{LAYER_LABEL[layer]}</h3>
             <div className="divide-y divide-nb-850">
               {MODALITY_ORDER.map((m) => {
                 const signals = PICKABLE_SIGNALS.filter((s) => s.layer === layer && s.modality === m)
                 if (signals.length === 0) return null
-                const MIcon = MODALITY_META[m].icon
-                const ids = signals.map((s) => s.id)
                 const count = signals.filter((s) => rec[s.id]).length
                 const base = `${testIdPrefix}-collect-${layer}-${m}`
                 return (
-                  <div key={m} className="space-y-2.5 px-4 py-3" data-testid={base}>
-                    <div className="flex items-center gap-2 text-xs">
-                      <MIcon size={ICON_SM} className="text-nb-500" aria-hidden />
-                      <span className="font-medium text-nb-300">{MODALITY_META[m].label}</span>
-                      <span className="text-nb-600" data-testid={`${base}-count`}>
-                        {count} of {signals.length}
-                      </span>
-                      {signals.length > 1 && (
-                        <span className="ml-auto flex items-center gap-1">
-                          <Button size="sm" variant="ghost" disabled={count === signals.length} onClick={() => setMany(ids, true)} data-testid={`${base}-all`}>
-                            Select all
-                          </Button>
-                          <Button size="sm" variant="ghost" disabled={count === 0} onClick={() => setMany(ids, false)} data-testid={`${base}-none`}>
-                            Clear
-                          </Button>
-                        </span>
-                      )}
-                    </div>
-                    <div className="space-y-2.5">
-                      {signals.map((s) => (
-                        <SignalRow key={s.id} signal={s} checked={rec[s.id]} onChange={(v) => setMany([s.id], v)} testIdPrefix={testIdPrefix} />
-                      ))}
-                    </div>
-                    {signals.some((s) => s.id === 'energy') && value.energy && <EnergyFields value={value} onChange={onChange} testIdPrefix={testIdPrefix} />}
-                    {signals.some((s) => s.id === 'clusterLinks') && value.clusterLinks && <ClusterLinksFields value={value} onChange={onChange} testIdPrefix={testIdPrefix} />}
-                    {signals.some((s) => s.id === 'accelerators') && value.accelerators && <AcceleratorsFields value={value} onChange={onChange} testIdPrefix={testIdPrefix} />}
+                  <div key={m} className="divide-y divide-nb-850" data-testid={base}>
+                    {signals.length > 1 && (
+                      <div className="flex items-center gap-2 px-4 pt-2 pb-1 text-xs text-nb-500">
+                        {MODALITY_LABEL[m]}
+                        <span className="text-nb-600" data-testid={`${base}-count`}>{count} of {signals.length}</span>
+                      </div>
+                    )}
+                    {signals.map((s) => (
+                      <div key={s.id}>
+                        <SignalRow signal={s} checked={rec[s.id]} onChange={(v) => setOne(s.id, v)} testIdPrefix={testIdPrefix} />
+                        {s.id === 'energy' && value.energy && <div className="px-4 pb-3 empty:hidden"><EnergyFields value={value} onChange={onChange} testIdPrefix={testIdPrefix} /></div>}
+                        {s.id === 'clusterLinks' && value.clusterLinks && <div className="px-4 pb-3 empty:hidden"><ClusterLinksFields value={value} onChange={onChange} testIdPrefix={testIdPrefix} /></div>}
+                        {s.id === 'accelerators' && value.accelerators && <div className="px-4 pb-3 empty:hidden"><AcceleratorsFields value={value} onChange={onChange} testIdPrefix={testIdPrefix} /></div>}
+                      </div>
+                    ))}
                   </div>
                 )
               })}
             </div>
           </section>
-        )
-      })}
+        ))}
+      </div>
 
       {on.some((s) => s.layer === 'application') && (
-        <div className="rounded-xl border border-nb-850 bg-nb-925 px-4 py-3 text-xs text-nb-400" data-testid={`${testIdPrefix}-collect-otlp`}>
-          Traces, application logs and application metrics are what your applications push. Point their OTLP exporter at the collector (gRPC; HTTP is port 4318 on the same name):
+        <div className="space-y-1.5 rounded-lg border border-nb-850 bg-nb-925 px-4 py-3 text-sm text-nb-400" data-testid={`${testIdPrefix}-collect-otlp`}>
+          <span>Point your applications' OTLP exporter at this address (gRPC; HTTP is port 4318 on the same name).</span>
           <CopyCommand text={otlpAddress(namespace ?? 'ikhnos-system').grpc} label="Copy the address (gRPC)" testId={`${testIdPrefix}-collect-otlp-address`} />
         </div>
       )}

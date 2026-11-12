@@ -375,8 +375,7 @@ function TelemetryPanelBody({
           )}
         </RunStep>
       )}
-      <RunStep n={needsCredential && mode !== 'ask' ? 2 : 1} title={mode === 'ask' ? 'Ask the cluster' : turningOff ? 'Run the command in that cluster to turn all telemetry off' : 'Run the command in that cluster'}>
-        {mode !== 'ask' && <p>The cluster&apos;s owner runs this. It changes only the telemetry settings and keeps everything else in the release as it is.</p>}
+      <RunStep n={needsCredential && mode !== 'ask' ? 2 : undefined} title={mode === 'ask' ? 'Ask the cluster' : turningOff ? 'Run the command in that cluster to turn all telemetry off' : 'Run the command in that cluster'}>
         {problems.length > 0 ? (
           // Without a complete draft there is nothing to ask the server for, and a bare upgrade would change nothing: showing it as "the command" would let it be copied and run.
           <p role="status" className="mt-1 text-warn" data-testid={`${p}-command-blocked`}>

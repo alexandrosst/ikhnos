@@ -1,7 +1,8 @@
 import clsx from 'clsx'
 import { ChevronDown, Plus, X } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Button, Field, ICON_MD, ICON_SM, InfoTip, Input } from '@/components/ui/primitives'
+import { Button, ICON_MD, ICON_SM, InfoTip, Input } from '@/components/ui/primitives'
+import { Switch } from '@/components/ui/Switch'
 import { scopeTag, tagProblems, TAG_LIMIT, type DebugVerbosity, type TagEntry, type TelemetryInput } from '@/lib/install'
 import ProcessorEditor from './ProcessorEditor'
 
@@ -124,28 +125,55 @@ export function DebugChoice({ value, onChange, testIdPrefix }: { value: Telemetr
 }
 
 /**
- * What happens to telemetry between being collected and leaving the cluster, as options on the "What to collect" step: everything has a
- * sensible default, so most people never open it. First what Ikhnos adds on its own (and why it can be trusted), then what you add,
- * then masking and cost, then a way to check it works. Extra processors - filters, tail sampling - stay behind a disclosure of their own.
+ * What happens to telemetry between being collected and leaving the cluster, beside the destination: everything has a sensible default, so
+ * most people only look at the two `basics` (masking, and how many traces to keep). `more` is what Ikhnos adds on its own, your tags, the
+ * collector environment, a way to check it works, and the extra processors (filters, tail sampling) behind a disclosure of their own.
  */
 export default function ProcessOptions({
   value,
   onChange,
   testIdPrefix,
   clusterName,
+  part = 'all',
 }: {
   value: TelemetryInput
   onChange: (v: TelemetryInput) => void
   testIdPrefix: string
   /** The cluster's name, when known - offered as a one-click `k8s.cluster.name` tag. */
   clusterName?: string
+  /** `basics` is the two choices most people look at (masking, and how many traces to keep); `more` is everything else; `all` is both. */
+  part?: 'all' | 'basics' | 'more'
 }) {
   const p = `${testIdPrefix}-guided`
   const set = <K extends keyof TelemetryInput>(key: K, v: TelemetryInput[K]) => onChange({ ...value, [key]: v })
   const scope = scopeTag(value)
-  return (
+  const basics = (
+    <div className="divide-y divide-nb-850 overflow-hidden rounded-lg border border-nb-850 bg-nb-925" data-testid={`${p}-process-privacy`}>
+      <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5">
+        <span className="min-w-0 flex-1 text-sm">
+          <span className="font-medium text-nb-300">Mask likely secrets</span>
+          <span className="ml-2 text-nb-500">Tokens and passwords in attributes.</span>
+          <InfoTip>Masks the values of attributes whose key looks like a token, password, secret or API key before anything leaves the cluster. The receiver has no authentication of its own unless you set one up separately. Turning this off sends attribute values through unmasked.</InfoTip>
+        </span>
+        <Switch testId={`${testIdPrefix}-redaction`} checked={value.redaction} onChange={(v) => set('redaction', v)} label="Mask likely secrets" />
+      </label>
+      {value.traces && (
+        <label className="flex items-center gap-3 px-4 py-2.5">
+          <span className="min-w-0 flex-1 text-sm">
+            <span className="font-medium text-nb-300">Keep traces</span>
+            <span className="ml-2 text-nb-500">Lower it to cut volume and cost.</span>
+          </span>
+          <span className="flex items-center gap-1.5 text-sm text-nb-500">
+            <Input type="number" min={0} max={100} value={Number.isFinite(value.tracesSamplingPercent) ? value.tracesSamplingPercent : ''} onChange={(e) => set('tracesSamplingPercent', e.target.valueAsNumber)} aria-label="Percent of traces kept" className="w-20" data-testid={`${testIdPrefix}-traces-sampling`} />
+            %
+          </span>
+        </label>
+      )}
+    </div>
+  )
+  const more = (
     <div className="space-y-3" data-testid={`${p}-step-process`}>
-      <Card title="Added to everything" hint="So whoever reads this data can tell where it came from. These win over anything else that sets the same names." testId={`${p}-process-auto`}>
+      <Card title="Added to everything" testId={`${p}-process-auto`}>
         <div className="flex flex-wrap gap-1.5">
           <Fact name="ikhnos.org.id" testId={`${p}-fact-org`} />
           <Fact name="ikhnos.cluster.id" testId={`${p}-fact-cluster`} />
@@ -154,34 +182,17 @@ export default function ProcessOptions({
         {scope === '' && <p className="text-xs text-nb-500">No scope tag: this covers everything the agent can see.</p>}
       </Card>
 
-      <Card title="Your tags" hint="Added only where the telemetry doesn’t already carry that name, so they can never overwrite what an application says about itself." testId={`${p}-process-tags`}>
+      <Card title="Your tags" hint="Added only where the telemetry does not already carry that name." testId={`${p}-process-tags`}>
         <TagEditor value={value} onChange={onChange} testIdPrefix={testIdPrefix} suggestion={clusterName ? { key: 'k8s.cluster.name', value: clusterName } : undefined} />
       </Card>
 
-      <Card title="Privacy and cost" testId={`${p}-process-privacy`}>
-        <div className="space-y-3">
-          <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-            <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" checked={value.redaction} onChange={(e) => set('redaction', e.target.checked)} data-testid={`${testIdPrefix}-redaction`} />
-            <span>
-              <span className="text-nb-300">Mask likely secrets</span>
-              <InfoTip>On by default. Masks the values of attributes whose key looks like a token/password/secret/API key before anything leaves the cluster - the receiver has no auth of its own unless you set one up separately.</InfoTip>
-              <span className="block text-xs text-nb-500">Recommended: turning this off sends attribute values through unmasked.</span>
-            </span>
-          </label>
-          <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-            <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" checked={value.resourceDetection} onChange={(e) => set('resourceDetection', e.target.checked)} data-testid={`${testIdPrefix}-resource-detection`} />
-            <span>
-              <span className="text-nb-300">Enrich with collector environment</span>
-              <span className="block text-xs text-nb-500">Adds resource attributes about the collector’s own runtime environment.</span>
-            </span>
-          </label>
-          {value.traces && (
-            <Field label="Traces sampling %" hint="100 keeps every span (the default). Lower it to cut trace volume and cost.">
-              <Input type="number" min={0} max={100} value={Number.isFinite(value.tracesSamplingPercent) ? value.tracesSamplingPercent : ''} onChange={(e) => set('tracesSamplingPercent', e.target.valueAsNumber)} className="w-28" data-testid={`${testIdPrefix}-traces-sampling`} />
-            </Field>
-          )}
-        </div>
-      </Card>
+      <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-nb-850 bg-nb-925 px-3.5 py-2.5">
+        <span className="min-w-0 flex-1 text-sm">
+          <span className="font-medium text-nb-300">Collector environment</span>
+          <span className="ml-2 text-nb-500">Adds details about where the collector runs.</span>
+        </span>
+        <Switch testId={`${testIdPrefix}-resource-detection`} checked={value.resourceDetection} onChange={(v) => set('resourceDetection', v)} label="Collector environment" />
+      </label>
 
       <Card title="Check that it works" hint="A copy of what is sent, in the collector’s own log." testId={`${p}-process-debug`}>
         <DebugChoice value={value} onChange={onChange} testIdPrefix={testIdPrefix} />
@@ -196,6 +207,14 @@ export default function ProcessOptions({
           <ProcessorEditor entries={value.extraProcessors} onChange={(extraProcessors) => set('extraProcessors', extraProcessors)} testIdPrefix={testIdPrefix} />
         </div>
       </details>
+    </div>
+  )
+  if (part === 'basics') return basics
+  if (part === 'more') return more
+  return (
+    <div className="space-y-3">
+      {basics}
+      {more}
     </div>
   )
 }

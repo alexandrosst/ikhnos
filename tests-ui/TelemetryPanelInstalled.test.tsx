@@ -43,7 +43,6 @@ const tree = (diagnostics?: AgentDiagnostics, agentId = 'a1') => (
 async function toRun(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByTestId('tp-guided-continue'))
   await user.click(screen.getByTestId('tp-guided-continue'))
-  await user.click(screen.getByTestId('tp-guided-create-command'))
 }
 
 beforeEach(() => forgetUpgrades())
@@ -71,10 +70,9 @@ describe('TelemetryPanel on an install that has telemetry', () => {
     const user = userEvent.setup()
     render(tree(KEPLER))
     await user.click(screen.getByTestId('tp-energy'))
-    expect(screen.getByTestId('tp-guided-continue')).toHaveTextContent('Review turning everything off')
+    expect(screen.getByTestId('tp-guided-continue')).toHaveTextContent('Turn everything off')
     await user.click(screen.getByTestId('tp-guided-continue'))
     expect(screen.getByTestId('tp-review-changes')).toHaveTextContent('Turns every telemetry signal off')
-    await user.click(screen.getByTestId('tp-guided-create-command'))
     await screen.findByTestId('helm-command')
     const t = lastUpgrade().telemetry
     // Every signal is stated, off, on an install that had telemetry: that is what turns it off, where a bare upgrade would change nothing.

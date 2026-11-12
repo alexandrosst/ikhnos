@@ -116,11 +116,9 @@ async function pickOperator(user: ReturnType<typeof userEvent.setup>) {
   expect(screen.getByTestId('tp-guided-destination-name')).toHaveTextContent('EU regional operator')
 }
 
-/** On to the last step: Continue from Destination to Review, then "Create the command" - the command, or the
- *  button that generates it, is only on that step. */
+/** On to the last step: Continue from Destination to Install - the command, or the button that generates it, is only on that step. */
 async function toRun(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByTestId('tp-guided-continue'))
-  await user.click(screen.getByTestId('tp-guided-create-command'))
 }
 async function backTo(user: ReturnType<typeof userEvent.setup>, times: number) {
   for (let i = 0; i < times; i++) await user.click(screen.getByTestId('tp-guided-back'))
@@ -256,7 +254,7 @@ describe('TelemetryPanel with a regional operator destination', () => {
     await screen.findByTestId('tp-operator-command')
     expect(screen.getByTestId('tp-operator-fresh')).toBeInTheDocument()
 
-    await backTo(user, 2)
+    await backTo(user, 1)
     await user.type(screen.getByTestId('tp-export-auth-secret'), 'receiver-token')
     await toRun(user)
     expect(screen.getByTestId('tp-operator-stale')).toHaveTextContent('Out of date - generate again')

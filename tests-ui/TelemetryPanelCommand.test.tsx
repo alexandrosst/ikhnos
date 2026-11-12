@@ -39,7 +39,6 @@ async function pickHoneycomb(user: ReturnType<typeof userEvent.setup>) {
 /** Continue from Destination to Review, then "Create the command": the last step. */
 async function toRun(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByTestId('tp-guided-continue'))
-  await user.click(screen.getByTestId('tp-guided-create-command'))
 }
 
 describe('TelemetryPanel command', () => {
@@ -59,7 +58,6 @@ describe('TelemetryPanel command', () => {
     expect(lastUpgrade().telemetry?.destination.authSecret).toBe('')
     expect(screen.queryByTestId('tp-credential-hint')).not.toBeInTheDocument()
 
-    await user.click(screen.getByTestId('tp-guided-back'))
     await user.click(screen.getByTestId('tp-guided-back'))
     await user.type(screen.getByTestId('tp-export-auth-secret'), 'honeycomb-token')
     await toRun(user)

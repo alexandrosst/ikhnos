@@ -47,12 +47,12 @@ describe('TelemetryWizard', () => {
     expect(screen.getByText('agents-page-marker')).toBeInTheDocument()
   })
 
-  test('with no agent named, "Where from" lists the approved clusters; Continue is off until one is picked, then the setup opens', async () => {
+  test('with no agent named, the first screen lists the approved clusters; Continue is off until one is picked, then the setup opens', async () => {
     const user = userEvent.setup()
     topologyState = { agents: [ag(), ag({ id: 'a2', clusterId: 'c2', name: 'edge-2' })], clusters: [cl(), cl({ id: 'c2', name: 'edge-2' })] }
     renderWizard()
     expect(screen.getByRole('dialog', { name: 'Set up telemetry' })).toBeInTheDocument()
-    expect(screen.getByTestId('telemetry-wizard-steps')).toHaveTextContent(/Where from.*What to collect.*Where to send.*Review and install/)
+    expect(screen.queryByTestId('telemetry-wizard-steps')).not.toBeInTheDocument()
     expect(screen.getByTestId('telemetry-wizard-picker')).toBeInTheDocument()
     expect(screen.getByTestId('telemetry-wizard-continue')).toBeDisabled()
     expect(screen.queryByTestId('telemetry-wizard-guided-step-collect')).not.toBeInTheDocument()

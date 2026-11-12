@@ -120,31 +120,30 @@ beforeEach(() => {
 })
 
 describe('GuidedWizard: the command comes last', () => {
-  test('the rail is the four steps, and no command anywhere until Review has been passed: "Create the command" opens the Run phase, Back returns to Review', async () => {
+  test('the rail is three steps, and no command anywhere until Install: the summary and the command are on one screen, Back returns to Where to send', async () => {
     const user = userEvent.setup()
     renderWizard()
-    expect(screen.getByTestId('t-guided-steps')).toHaveTextContent(/Where from.*What to collect.*Where to send.*Review and install/)
+    expect(screen.getByTestId('t-guided-steps')).toHaveTextContent(/What to collect.*Where to send.*Install/)
+    expect(screen.getByTestId('t-guided-steps')).not.toHaveTextContent('Where from')
     await gotoDestination(user)
     await user.click(screen.getByTestId('t-guided-destination-external-preset-honeycomb'))
     expect(screen.queryByTestId('t-run-section')).not.toBeInTheDocument()
     await user.click(screen.getByTestId('t-guided-continue'))
-    expect(screen.getByTestId('t-guided-step-review')).toBeInTheDocument()
-    expect(screen.queryByTestId('t-run-section')).not.toBeInTheDocument()
-    await user.click(screen.getByTestId('t-guided-create-command'))
     expect(screen.getByTestId('t-guided-step-run')).toBeInTheDocument()
-    expect(screen.getByTestId('t-run-section')).toBeInTheDocument()
-    expect(screen.getByTestId('t-guided-run-summary')).toHaveTextContent('1 signal to Honeycomb')
-    await user.click(screen.getByTestId('t-guided-back'))
     expect(screen.getByTestId('t-guided-step-review')).toBeInTheDocument()
+    expect(screen.getByTestId('t-run-section')).toBeInTheDocument()
+    expect(screen.getByTestId('t-guided-run-summary')).toHaveTextContent('1 signal from vradipus-cluster to Honeycomb')
+    await user.click(screen.getByTestId('t-guided-back'))
+    expect(screen.getByTestId('t-guided-step-where')).toBeInTheDocument()
   })
 
-  test('the review says what changes in the cluster, what does not, and how to stop, before the command', async () => {
+  test('the review says what changes in the cluster, what does not, and how to stop, one click below the summary', async () => {
     const user = userEvent.setup()
     renderWizard()
     await gotoDestination(user)
     await user.click(screen.getByTestId('t-guided-destination-external-preset-honeycomb'))
     await user.click(screen.getByTestId('t-guided-continue'))
-    expect(screen.getByTestId('t-review-changes')).toHaveTextContent('What changes in vradipus-cluster')
+    expect(screen.getByTestId('t-review-changes')).toHaveTextContent('Changes in vradipus-cluster')
     expect(screen.getByTestId('t-review-changes')).toHaveTextContent('Sends it to Honeycomb.')
     expect(screen.getByTestId('t-review-unchanged')).toHaveTextContent('access level stays as approved')
     expect(screen.getByTestId('t-review-stop')).toHaveTextContent('nothing picked: the command turns every signal off')
@@ -156,7 +155,6 @@ describe('GuidedWizard: the command comes last', () => {
     await gotoDestination(user)
     await user.click(screen.getByTestId('t-guided-destination-external-preset-honeycomb'))
     await user.click(screen.getByTestId('t-guided-continue'))
-    await user.click(screen.getByTestId('t-guided-create-command'))
     expect(screen.queryByTestId('t-check-section')).not.toBeInTheDocument()
     await user.click(screen.getByTestId('t-guided-check'))
     expect(screen.getByTestId('t-guided-step-check')).toBeInTheDocument()
@@ -187,11 +185,11 @@ describe('GuidedWizard: the command comes last', () => {
 })
 
 describe('GuidedWizard: moving between the three steps', () => {
-  test('What to collect holds the signals, tags and masking in one screen; Continue is off until a signal is picked', async () => {
+  test('What to collect holds the starting points and every signal in one screen; masking and tags are on Where to send; Continue is off until a signal is picked', async () => {
     const user = userEvent.setup()
     renderWizard()
     expect(screen.getByTestId('t-guided-step-collect')).toBeInTheDocument()
-    expect(screen.getByTestId('t-guided-process')).toBeInTheDocument()
+    expect(screen.queryByTestId('t-guided-process')).not.toBeInTheDocument()
     expect(screen.getByTestId('t-guided-continue')).toBeDisabled()
     expect(screen.getByTestId('t-guided-why')).toHaveTextContent('Pick at least one signal.')
     await user.click(screen.getByTestId('t-resourceUsage'))
@@ -711,10 +709,11 @@ describe('GuidedWizard destination step: FUSION', () => {
     await user.click(screen.getByTestId('t-guided-continue'))
     await user.click(screen.getByTestId('t-guided-continue'))
     expect(screen.getByTestId('t-guided-step-review')).toBeInTheDocument()
-    expect(screen.getByTestId('t-guided-create-command')).toBeDisabled()
+    expect(screen.queryByTestId('t-run-section')).not.toBeInTheDocument()
+    expect(screen.getByTestId('t-guided-check')).toBeDisabled()
     expect(screen.getByTestId('t-guided-fusion-blocked')).toHaveTextContent('FUSION is off')
     await user.click(screen.getByTestId('t-guided-fusion-enable'))
-    await waitFor(() => expect(screen.getByTestId('t-guided-create-command')).toBeEnabled())
+    await waitFor(() => expect(screen.getByTestId('t-run-section')).toBeInTheDocument())
     expect(screen.queryByTestId('t-guided-fusion-blocked')).not.toBeInTheDocument()
   })
 
@@ -774,19 +773,16 @@ describe('GuidedWizard destination step: FUSION', () => {
 })
 
 describe('GuidedWizard: an install that has telemetry can be emptied', () => {
-  test('nothing picked on an installed one: "Review turning everything off" goes to Review and on to the Run step', async () => {
+  test('nothing picked on an installed one: "Turn everything off" goes to Review and on to the Run step', async () => {
     const user = userEvent.setup()
     renderWizard({ ...emptyTelemetry, hadTelemetry: true, resourceUsage: true })
     await user.click(screen.getByTestId('t-resourceUsage')) // untick the only signal
-    expect(screen.getByTestId('t-guided-continue')).toHaveTextContent('Review turning everything off')
+    expect(screen.getByTestId('t-guided-continue')).toHaveTextContent('Turn everything off')
     await user.click(screen.getByTestId('t-guided-continue'))
     expect(screen.getByTestId('t-guided-step-review')).toHaveTextContent('Turns every telemetry signal off')
-    expect(screen.getByTestId('t-guided-create-command')).toBeEnabled()
-    await user.click(screen.getByTestId('t-guided-create-command'))
     expect(screen.getByTestId('t-guided-run-summary')).toHaveTextContent('Every signal turned off')
     expect(screen.getByTestId('t-run-section')).toBeInTheDocument()
     expect(screen.getByTestId('t-guided-done')).toBeInTheDocument()
-    await user.click(screen.getByTestId('t-guided-back'))
     await user.click(screen.getByTestId('t-guided-back'))
     expect(screen.getByTestId('t-guided-step-collect')).toBeInTheDocument()
   })

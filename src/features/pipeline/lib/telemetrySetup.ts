@@ -8,8 +8,8 @@ import { type Health, reportIsStale, worstOf } from '../../../lib/status'
  * (Unknown is not a fault: it is what is said when nothing is known, for example before the first data.)
  */
 
-/** The rail of the setup, in the product's words: the same four steps wherever it opens. */
-export const SETUP_STEPS = ['Where from', 'What to collect', 'Where to send', 'Review and install']
+/** The rail of the setup, in the product's words: the same three steps wherever it opens. Which cluster comes before it and has no step of its own. */
+export const SETUP_STEPS = ['What to collect', 'Where to send', 'Install']
 
 /** How long after the command was shown "no data yet" stops being normal and starts being a thing to look at. */
 export const ARRIVAL_PATIENCE_SECONDS = 5 * 60

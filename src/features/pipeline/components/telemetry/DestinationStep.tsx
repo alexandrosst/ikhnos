@@ -171,7 +171,7 @@ export default function DestinationStep({
         }}
         testIdPrefix={p}
         fusion={fusionControls}
-        search={!bare}
+        search={!bare && layout.all.length > 8}
         custom={custom}
         onSetUpOperator={catalog.canDeployOperator ? onSetUpOperator : undefined}
       />
@@ -269,7 +269,7 @@ export default function DestinationStep({
             {isOperator ? (
               <div className="space-y-3">
                 <p className="text-xs text-nb-400" data-testid={`${p}-destination-operator-note`}>
-                  A regional operator takes OTLP/gRPC over mutual TLS, so there is no protocol to set here. The commands that connect this cluster to it are generated on the last step, once you have reviewed everything: administrators only, and each time it issues a fresh client certificate for this cluster (recorded in the audit log). The certificate, its key and the Secret that holds them are part of those commands.
+                  A regional operator takes OTLP/gRPC over mutual TLS, so there is no protocol to set here. The commands that connect this cluster to it are generated on the last step: administrators only, and each time it issues a fresh client certificate for this cluster (recorded in the audit log). The certificate, its key and the Secret that holds them are part of those commands.
                 </p>
                 {operatorBearer ? (
                   <Field label="Receiver token Secret (optional)" hint="This operator was created with a receiver bearer token, which it checks on top of the certificate. Name the Secret that will hold it; the generated commands create it from TELEMETRY_EXPORT_TOKEN, which you set to Bearer followed by the token. The token itself never goes through this page.">

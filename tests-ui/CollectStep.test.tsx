@@ -49,22 +49,11 @@ describe('CollectStep', () => {
     expect(latest.resourceUsage).toBe(false)
   })
 
-  test('Select all and Clear act on one modality group only', async () => {
-    const user = userEvent.setup()
-    render(<Wrapper />)
-    await user.click(screen.getByTestId('c-collect-infrastructure-logs-all'))
-    expect(checked('systemLogs')).toBe(true)
-    expect(checked('kubernetesEvents')).toBe(true)
-    expect(checked('resourceUsage')).toBe(false)
-    expect(screen.getByTestId('c-collect-infrastructure-logs-all')).toBeDisabled()
-    await user.click(screen.getByTestId('c-collect-infrastructure-logs-none'))
-    expect(checked('systemLogs')).toBe(false)
-    expect(screen.getByTestId('c-collect-infrastructure-logs-none')).toBeDisabled()
-  })
-
-  test('a group with a single signal has no Select all / Clear', () => {
-    render(<Wrapper />)
-    expect(screen.queryByTestId('c-collect-application-traces-all')).not.toBeInTheDocument()
+  test('a group of several signals shows its n-of-m count; a lone signal has no header', () => {
+    render(<Wrapper initial={{ ...emptyTelemetry, systemLogs: true }} />)
+    expect(screen.getByTestId('c-collect-infrastructure-logs-count')).toHaveTextContent('1 of 2')
+    expect(screen.queryByTestId('c-collect-application-traces-count')).not.toBeInTheDocument()
+    expect(screen.getByTestId('c-collect-count')).toHaveTextContent(`1 of ${PICKABLE_SIGNALS.length}`)
   })
 
   test('a preset sets exactly its signals, replaces what was there, and shows as the active one', async () => {
@@ -95,7 +84,7 @@ describe('CollectStep', () => {
     expect(latest.energySource).toBe('bundle-kepler')
     expect(screen.queryByTestId('c-energy-source')).not.toBeInTheDocument()
     expect(screen.queryByTestId('c-energy-endpoint')).not.toBeInTheDocument()
-    expect(screen.getByTestId('c-energy').closest('label')).toHaveTextContent('privileged pod on every node')
+    expect(screen.getByTestId('c-energy').closest('label')).toHaveTextContent('privileged pod')
   })
 
   test('a loaded configuration that already scrapes an existing Kepler keeps its picker and endpoint', async () => {

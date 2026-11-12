@@ -1,10 +1,11 @@
 import clsx from 'clsx'
-import { ChevronLeft } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, ChevronRight, Layers } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import CreateOperatorModal from '@/features/pipeline/components/operators/CreateOperatorModal'
 import { useFusion } from '@/features/fusion/components/useFusion'
 import { OperatorAddressModal } from '@/features/pipeline/components/operators/OperatorAddress'
-import { Button, ErrorBanner, ICON_SM, WizardSteps } from '@/components/ui/primitives'
+import { Button, ErrorBanner, ICON_SM, SectionLabel, WizardSteps } from '@/components/ui/primitives'
+import { Switch } from '@/components/ui/Switch'
 import { atLeast, type CreatedOperator } from '@/lib/api'
 import { TELEMETRY_SIGNALS } from '@/lib/consent'
 import { applyDestination, buildDestinationCatalog, catalogOperators, destinationKey, fusionForCatalog, type DestinationCatalog } from '@/features/pipeline/lib/destinationCatalog'
@@ -29,21 +30,16 @@ function sentTo(t: TelemetryInput): string {
   return n === 1 ? 'one destination, set per signal type' : `${n} destinations, one per signal type`
 }
 
-type Phase = 'collect' | 'destination' | 'review' | 'run' | 'check'
-const PHASES: Phase[] = ['collect', 'destination', 'review', 'run', 'check']
-/** Which dot of the rail each phase is on: "Where from" is the first and is done before this opens; the last three phases are all "Review and install". */
-const RAIL: Record<Phase, number> = { collect: 1, destination: 2, review: 3, run: 3, check: 3 }
+type Phase = 'collect' | 'destination' | 'install' | 'check'
+const PHASES: Phase[] = ['collect', 'destination', 'install', 'check']
+/** Which dot of the rail each phase is on: the last two phases are both "Install". */
+const RAIL: Record<Phase, number> = { collect: 0, destination: 1, install: 2, check: 2 }
 
 const APP_SCOPED = ['applicationMetrics', 'applicationLogs', 'traces'] as const
 const SCOPE_OF = { applicationMetrics: 'applicationMetricsScope', applicationLogs: 'applicationLogsScope', traces: 'tracesScope' } as const
 
-function StepHeading({ title, children }: { title: string; children?: ReactNode }) {
-  return (
-    <div>
-      <h3 className="text-sm font-medium text-nb-200">{title}</h3>
-      {children && <p className="mt-0.5 text-xs text-nb-500">{children}</p>}
-    </div>
-  )
+function StepHeading({ title }: { title: string }) {
+  return <h3 className="text-[15px] font-medium text-nb-200">{title}</h3>
 }
 
 /** Back on the left, the one way forward on the right, and - beside it, as words - why that is not available yet. */
@@ -66,11 +62,11 @@ function StepNav({ onBack, next, testIdPrefix, why }: { onBack?: () => void; nex
 }
 
 /**
- * The guided setup, the only way to set telemetry up: Where from, What to collect, Where to send, Review and install. "Where from" (the cluster)
- * is chosen before this mounts, by the dialog that wraps it or by the agent row it sits in, so this walks the other three, one screen at a
- * time with Back/Continue. What to collect holds everything about the data itself - the signals, which namespaces, tags and masking - with the
- * less common parts behind disclosures. Review says in plain words what the command changes, and only then comes the command, followed by a
- * check that data arrives. Every control writes straight into `value`, so leaving mid-flow never loses a change already made.
+ * The guided setup, the only way to set telemetry up, in three steps: What to collect, Where to send, Install. The cluster is chosen before this
+ * mounts, by the dialog that wraps it or by the agent row it sits in. What to collect is a starting point and the signals, always in view, with
+ * the namespace scope under them. Where to send is the destination and what happens to the data before it leaves (masking and the share of
+ * traces, the rest behind a disclosure). Install is one line saying what is about to happen, what it changes one click below, and the command,
+ * followed by a check that data arrives. Every control writes straight into `value`, so leaving mid-flow never loses a change already made.
  */
 export default function GuidedWizard({
   value,
@@ -130,7 +126,7 @@ export default function GuidedWizard({
   const turningOff = onSignals.length === 0 && value.hadTelemetry
   const needsScope = APP_SCOPED.some((k) => value[k])
   const scopeNarrowed = APP_SCOPED.some((k) => scopeNarrows(value[SCOPE_OF[k]]))
-  const processEdited = value.tags.length > 0 || value.extraProcessors.length > 0 || value.resourceDetection || !value.redaction || value.tracesSamplingPercent !== 100 || value.debugVerbosity !== ''
+  const moreEdited = value.tags.length > 0 || value.extraProcessors.length > 0 || value.resourceDetection || value.debugVerbosity !== ''
 
   // Where to send: a modality-filtered merge of FUSION, the regional operators, external-backend presets and already-quick-started
   // backends (see destinationCatalog.ts). An administrator reads the operators and FUSION's own state; an editor reads the same
@@ -231,67 +227,48 @@ export default function GuidedWizard({
   const notes = reviewNotes({ draft: value, diff: review.diff, installed: review.installed, turningOff, destination: destinationName, kept: review.kept, routes })
   const p = testIdPrefix
 
+  const signalsLine = turningOff ? 'Every signal turned off' : `${onSignals.length} ${onSignals.length === 1 ? 'signal' : 'signals'} from ${cluster} to ${destinationName}`
+
   return (
     <div className="space-y-4">
       <WizardSteps steps={SETUP_STEPS} currentIndex={RAIL[phase]} testId={`${p}-guided-steps`} />
+      {clusterName && (
+        <p className="flex flex-wrap items-center gap-2 text-sm text-nb-500">
+          From <span className="rounded-full border border-nb-850 px-2.5 py-0.5 font-mono text-xs text-nb-300">{clusterName}</span>
+          {onBackToCluster && phase === 'collect' && (
+            <button type="button" className="text-accent hover:underline" onClick={onBackToCluster} data-testid={`${p}-guided-change-cluster`}>Change cluster</button>
+          )}
+        </p>
+      )}
 
       <div key={phase} className={clsx('wizard-step-in', direction === 'back' && 'wizard-step-in-back')}>
         {phase === 'collect' && (
           <div className="space-y-4">
-            <StepHeading title="What should be collected?">
-              {clusterName ? <>From <span className="text-nb-300">{clusterName}</span>. </> : null}
-              Pick a starting point or tick signals one by one; you can change this later by running the setup again.
-              {onBackToCluster && (
-                <>
-                  {' '}
-                  <button type="button" className="text-accent hover:underline" onClick={onBackToCluster} data-testid={`${p}-guided-change-cluster`}>Change cluster</button>
-                </>
-              )}
-            </StepHeading>
+            <StepHeading title={`What should ${cluster} report?`} />
             <CollectStep value={value} onChange={onChange} testIdPrefix={p} namespace={namespace} />
             {(needsScope || scopeNarrowed || initialScope) && (
-              <Disclosure title="Limit to some namespaces" hint="applications only" defaultOpen={!!initialScope || scopeNarrowed} testId={`${p}-guided-scope`}>
+              <Disclosure title="Only some namespaces" defaultOpen={!!initialScope || scopeNarrowed} testId={`${p}-guided-scope`}>
                 <div data-testid={`${p}-guided-step-scope`}>
                   <GuidedScope value={value} onChange={onChange} testIdPrefix={p} initialDraft={initialScope} clusterId={clusterId} />
                 </div>
               </Disclosure>
             )}
-            <Disclosure title="Tags, masking and sampling" hint="optional" defaultOpen={processEdited} testId={`${p}-guided-process`}>
-              <ProcessOptions value={value} onChange={onChange} testIdPrefix={p} clusterName={clusterName} />
-            </Disclosure>
             <StepNav
               testIdPrefix={p}
               why={onSignals.length === 0 && !turningOff ? 'Pick at least one signal.' : undefined}
-              next={{ label: turningOff ? 'Review turning everything off' : 'Continue', onClick: () => setPhase(turningOff ? 'review' : 'destination'), disabled: onSignals.length === 0 && !turningOff, testId: `${p}-guided-continue` }}
+              next={{ label: turningOff ? 'Turn everything off' : 'Continue', onClick: () => setPhase(turningOff ? 'install' : 'destination'), disabled: onSignals.length === 0 && !turningOff, testId: `${p}-guided-continue` }}
             />
           </div>
         )}
 
         {phase === 'destination' && (
-          <div className="space-y-3" data-testid={`${p}-guided-step-where`}>
-            <StepHeading title="Where should this telemetry go?">
-              One list: {[...enabledModalitySet].join(', ')} can go to the places that accept them. Anything that does not says why.
-            </StepHeading>
+          <div className="space-y-4" data-testid={`${p}-guided-step-where`}>
+            <StepHeading title="Where should it send it?" />
             {loadError && (
               <div className="flex flex-wrap items-start gap-2" data-testid={`${p}-guided-load-error`}>
                 <ErrorBanner className="min-w-0 flex-1 basis-60">Your regional operators could not be loaded ({loadError}). Other destinations are still listed; try again to see the operators.</ErrorBanner>
                 <Button size="sm" onClick={reloadLists} data-testid={`${p}-guided-load-retry`}>Try again</Button>
               </div>
-            )}
-            {canSplit && (
-              <label className="flex cursor-pointer items-start gap-2.5 text-sm" data-testid={`${p}-guided-mode`}>
-                <input
-                  type="checkbox"
-                  className="mt-0.5 size-4 accent-[var(--color-accent)]"
-                  checked={value.exportSplit}
-                  onChange={(e) => onChange(e.target.checked ? splitDestinations(value) : { ...value, exportSplit: false })}
-                  data-testid={`${p}-guided-split`}
-                />
-                <span>
-                  <span className="text-nb-300">Send each signal type to its own destination</span>
-                  <span className="block text-xs text-nb-500">Metrics, logs and traces each get their own place and credential.</span>
-                </span>
-              </label>
             )}
             {value.exportSplit ? (
               <RoutesStep
@@ -324,21 +301,48 @@ export default function GuidedWizard({
                 onRecordAddress={setAddressFor}
               />
             )}
+            {canSplit && (
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-nb-850 bg-nb-925 px-4 py-2.5" data-testid={`${p}-guided-mode`}>
+                <span className="min-w-0 flex-1 text-sm">
+                  <span className="font-medium text-nb-300">Each signal type to its own destination</span>
+                  <span className="ml-2 text-nb-500">Metrics, logs and traces apart.</span>
+                </span>
+                <Switch
+                  testId={`${p}-guided-split`}
+                  checked={value.exportSplit}
+                  onChange={(on) => onChange(on ? splitDestinations(value) : { ...value, exportSplit: false })}
+                  label="Send each signal type to its own destination"
+                />
+              </label>
+            )}
+            <div className="space-y-2">
+              <SectionLabel>Before it leaves the cluster</SectionLabel>
+              <ProcessOptions value={value} onChange={onChange} testIdPrefix={p} clusterName={clusterName} part="basics" />
+              <Disclosure title="More: tags, environment details, debug copy, custom processors" defaultOpen={moreEdited} testId={`${p}-guided-process`}>
+                <ProcessOptions value={value} onChange={onChange} testIdPrefix={p} clusterName={clusterName} part="more" />
+              </Disclosure>
+            </div>
             <StepNav
               testIdPrefix={p}
               onBack={() => setPhase('collect')}
               why={destinationReady(value) ? undefined : value.exportSplit ? `Choose where ${missingLanes.join(' and ')} should go.` : 'Choose where to send this.'}
-              next={{ label: 'Continue', onClick: () => setPhase('review'), disabled: !destinationReady(value), testId: `${p}-guided-continue` }}
+              next={{ label: 'Continue', onClick: () => setPhase('install'), disabled: !destinationReady(value), testId: `${p}-guided-continue` }}
             />
           </div>
         )}
 
-        {phase === 'review' && (
-          <div className="space-y-3">
-            <StepHeading title="Review before anything is installed">
-              {turningOff ? 'Nothing is changed by looking at this.' : 'This is what the command does. Nothing changes until you run it.'}
-            </StepHeading>
-            <ReviewStep notes={notes} cluster={cluster} testIdPrefix={p}>
+        {phase === 'install' && (
+          <div className="space-y-4" data-testid={`${p}-guided-step-run`}>
+            <div className="flex items-start gap-3 rounded-lg border border-nb-850 bg-nb-925 px-4 py-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-nb-850 bg-nb-930 text-nb-500" aria-hidden>
+                <Layers size={ICON_SM} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-nb-200" data-testid={`${p}-guided-run-summary`}>{signalsLine}</p>
+                <p className="text-sm text-nb-500">Nothing changes until you {asking ? 'ask the cluster' : 'run the command'}.</p>
+              </div>
+            </div>
+            <ReviewStep notes={notes} cluster={cluster} open={review.installed} testIdPrefix={p}>
               {problems.length > 0 && (
                 <ErrorBanner data-testid={`${p}-problems`}>{problems.join('. ')}.</ErrorBanner>
               )}
@@ -353,41 +357,27 @@ export default function GuidedWizard({
                 </div>
               )}
             </ReviewStep>
+            {canCreate && runSection}
             <StepNav
               testIdPrefix={p}
               onBack={() => setPhase(turningOff ? 'collect' : 'destination')}
-              next={{ label: 'Create the command', onClick: () => setPhase('run'), disabled: !canCreate, testId: `${p}-guided-create-command` }}
-            />
-          </div>
-        )}
-
-        {phase === 'run' && (
-          <div className="space-y-4" data-testid={`${p}-guided-step-run`}>
-            <StepHeading title={asking ? `Ask ${cluster}` : `Run it in ${cluster}`}>
-              <span data-testid={`${p}-guided-run-summary`}>
-                {asking
-                  ? 'The server sends the signals and the share of traces. The cluster decides whether to take them, and says what it did.'
-                  : turningOff
-                  ? 'Every signal turned off. Nothing changes until the command is run.'
-                  : `${onSignals.length} ${onSignals.length === 1 ? 'signal' : 'signals'} to ${destinationName}. Nothing changes until the command is run.`}
-              </span>
-            </StepHeading>
-            {runSection}
-            <StepNav
-              testIdPrefix={p}
-              onBack={() => setPhase('review')}
-              next={turningOff ? (onDone ? { label: 'Done', onClick: onDone, testId: `${p}-guided-done` } : undefined) : { label: asking ? 'Check that data arrives' : 'I have run it: check that data arrives', onClick: () => setPhase('check'), testId: `${p}-guided-check` }}
+              next={turningOff ? (onDone ? { label: 'Done', onClick: onDone, testId: `${p}-guided-done` } : undefined) : { label: asking ? 'Check that data arrives' : 'I have run it', onClick: () => setPhase('check'), disabled: !canCreate, testId: `${p}-guided-check` }}
             />
           </div>
         )}
 
         {phase === 'check' && (
-          <div className="space-y-3" data-testid={`${p}-guided-step-check`}>
-            <StepHeading title="Check that data arrives">
-              This reads what the agent in {cluster} reports about its collectors, and updates by itself. The first data usually goes out within a minute or two.
-            </StepHeading>
+          <div className="space-y-4" data-testid={`${p}-guided-step-check`}>
+            <StepHeading title="Waiting for data" />
             {checkSection}
-            <StepNav testIdPrefix={p} onBack={() => setPhase('run')} next={onDone ? { label: 'Done', onClick: onDone, testId: `${p}-guided-done` } : undefined} />
+            <details className="group rounded-lg border border-nb-850 bg-nb-925" data-testid={`${p}-guided-ran`}>
+              <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-2.5 text-sm text-nb-500 marker:content-none">
+                <CheckCircle2 size={ICON_SM} className="text-ok" aria-hidden /> {asking ? 'Cluster asked.' : 'Command run.'}
+                <span className="flex items-center gap-1 text-nb-400">Show it again <ChevronRight size={ICON_SM} className="transition-transform group-open:rotate-90" aria-hidden /></span>
+              </summary>
+              <div className="border-t border-nb-850 p-4">{runSection}</div>
+            </details>
+            <StepNav testIdPrefix={p} onBack={() => setPhase('install')} next={onDone ? { label: 'Done', onClick: onDone, testId: `${p}-guided-done` } : undefined} />
           </div>
         )}
       </div>

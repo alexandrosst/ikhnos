@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { TelemetryPanel } from '@/features/pipeline/components/telemetry/TelemetryPanel'
-import { Button, Modal, WizardSteps } from '@/components/ui/primitives'
+import { Button, Modal } from '@/components/ui/primitives'
 import { extrasOf } from '@/lib/consent'
-import { SETUP_STEPS } from '@/features/pipeline/lib/telemetrySetup'
 import { useServer } from '@/store/server'
 import { useTopology } from '@/store/topology'
 import ClusterStep from './ClusterStep'
@@ -11,8 +10,8 @@ import ClusterStep from './ClusterStep'
 /**
  * "Set up telemetry": the guided setup in a dialog, for the Pipeline page button (no cluster chosen yet), the topology canvas's
  * "Define scope from selection" (a cluster and scope already known) and "Connect <cluster>" on an operator (a cluster and the destination
- * known). Two parts of the same four-step rail: "Where from" picks the cluster when none was named, then the other three steps are the
- * TelemetryPanel's guided setup, the same component the inline panel on an agent row uses.
+ * known). When no cluster was named a first screen picks it; then comes the three-step setup, which is the TelemetryPanel's guided setup, the
+ * same component the inline panel on an agent row uses.
  *
  * Discovery is a prerequisite, not a bundled step: this never creates or approves an agent itself. With no approved agent yet, "Where from"
  * is an empty state pointing at `/agents?connect=1`, the same handoff ConnectClusterWizard's own "View in topology" button already uses in
@@ -68,7 +67,7 @@ export default function TelemetryWizard({
       onClose={onClose}
       width="max-w-2xl"
       title="Set up telemetry"
-      description="Send metrics, logs or traces from a connected cluster to a place you choose. This never changes what the discovery agent itself may see."
+      description="Send metrics, logs or traces from a cluster to a place you choose."
       footer={
         showPicker ? (
           <>
@@ -82,7 +81,6 @@ export default function TelemetryWizard({
     >
       {showPicker ? (
         <div className="space-y-4">
-          <WizardSteps steps={SETUP_STEPS} currentIndex={0} testId="telemetry-wizard-steps" />
           <ClusterStep agents={approved} clusters={clusters} rawAgents={rawAgents} selected={pickedId} onSelect={setPickedId} onConnect={goConnect} testIdPrefix="telemetry-wizard" />
         </div>
       ) : (
