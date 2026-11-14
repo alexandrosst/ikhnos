@@ -41,6 +41,7 @@ function Danger() {
   const conn = useServer((s) => s.conn)
   const info = useServer((s) => s.info)
   const reloadOrgs = useServer((s) => s.reloadOrgs)
+  const renameOrg = useServer((s) => s.renameOrg)
   const [name, setName] = useState('')
   const [confirm, setConfirm] = useState('')
   const [open, setOpen] = useState(false)
@@ -49,15 +50,10 @@ function Danger() {
   useEffect(() => setName(info?.orgName ?? ''), [info?.orgName])
 
   const rename = async () => {
-    const c = conn()
-    if (!c) return
     try {
       setError('')
-      await api.renameOrg(c, name.trim())
+      await renameOrg(name)
       setSaved(true)
-      await reloadOrgs(c.org)
-      const fresh = await api.info(c)
-      useServer.setState({ info: fresh })
     } catch (e) {
       setError(problem(e, 'Could not rename.'))
     }

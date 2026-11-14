@@ -94,6 +94,8 @@ interface ServerStore {
   joinWithInvite: (token: string) => Promise<string>
   /** Re-read the person's organisations (after joining, leaving or being removed). */
   reloadOrgs: (prefer?: string) => Promise<void>
+  /** Rename the organisation in use, then re-read it so every place that shows its name follows. Throws what the server answered. */
+  renameOrg: (name: string) => Promise<void>
   setInvite: (token: string | undefined) => Promise<void>
   changePassword: (current: string, next: string) => Promise<boolean>
   /** Starts turning on two-factor authentication: a fresh secret and its otpauth:// URI, or undefined on failure (see `error`). */
@@ -405,6 +407,14 @@ export const useServer = create<ServerStore>((set, get) => {
       } catch (e) {
         set({ error: messageOf(e) })
       }
+    },
+
+    renameOrg: async (name) => {
+      const c = get().conn()
+      if (!c) return
+      await api.renameOrg(c, name.trim())
+      await get().reloadOrgs(c.org)
+      set({ info: await api.info(c) })
     },
 
     setInvite: async (token) => {

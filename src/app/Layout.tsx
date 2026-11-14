@@ -6,6 +6,7 @@ import { BrandMark, Copyright } from '@/components/ui/brand'
 import { ICON_MD, ICON_SM, PageSkeleton, SkeletonBlock } from '@/components/ui/primitives'
 import AccountMenu from '@/features/accounts/components/AccountMenu'
 import AuthGate from '@/features/accounts/components/AuthGate'
+import NameOrganisation from '@/features/accounts/components/NameOrganisation'
 import SyncNotices from '@/features/accounts/components/SyncNotices'
 import CommandPalette from '@/components/CommandPalette'
 import ErrorBoundary from '@/components/ErrorBoundary'
@@ -411,6 +412,7 @@ function Shell() {
           </ErrorBoundary>
         </main>
       </div>
+      <NameOrganisation />
       <CommandPalette open={searching} onClose={() => setSearching(false)} />
       {shortcuts && <KeyboardShortcutsModal onClose={() => setShortcuts(false)} />}
     </div>
