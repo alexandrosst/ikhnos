@@ -37,8 +37,7 @@ export const PAGES: { to: string; label: string; keywords: string }[] = [
   { to: '/fusion', label: 'FUSION', keywords: 'grafana prometheus loki tempo metrics logs traces dashboards api' },
   { to: '/system-health', label: 'System health', keywords: 'ikhnos self memory cpu goroutines cost grafana' },
   { to: '/placement', label: 'Placement', keywords: 'recommendations what-if deciders capacity' },
-  { to: '/history', label: 'History', keywords: 'past changes events time' },
-  { to: '/activity', label: 'Activity', keywords: 'audit log trail who did what' },
+  { to: '/history', label: 'History', keywords: 'past changes events time people audit log trail who did what' },
   { to: '/team', label: 'Team', keywords: 'members invite roles users people' },
   { to: '/settings', label: 'Settings', keywords: 'preferences server' },
 ]

@@ -10,7 +10,6 @@ const AgentsPage = lazy(routeLoaders['/agents'])
 const ProposalsPage = lazy(routeLoaders['/proposals'])
 const PipelinePage = lazy(routeLoaders['/pipeline'])
 const FusionPage = lazy(routeLoaders['/fusion'])
-const ActivityPage = lazy(routeLoaders['/activity'])
 const ApplicationsPage = lazy(routeLoaders['/applications'])
 const ClustersPage = lazy(routeLoaders['/clusters'])
 const DevicesPage = lazy(routeLoaders['/devices'])
@@ -93,7 +92,7 @@ export default function App() {
           <Route path="/placement" element={<PlacementPage />} />
           <Route path="/workloads" element={<Navigate to="/services" replace />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/activity" element={<ActivityPage />} />
+          <Route path="/activity" element={<Navigate to="/history?view=people" replace />} />
           <Route path="/team" element={<TeamPage />} />
           <Route path="/users" element={<Navigate to="/team" replace />} />
           <Route path="*" element={<Navigate to="/topology" replace />} />

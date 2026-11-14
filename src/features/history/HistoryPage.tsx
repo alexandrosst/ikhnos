@@ -1,8 +1,10 @@
 import clsx from 'clsx'
 import { CheckCircle2, Clock, Settings2, TriangleAlert } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button, EmptyState, ErrorBanner, ICON_SM, PageHeader, PulseDot, Segmented, Select } from '@/components/ui/primitives'
 import Feed from '@/features/history/components/Feed'
+import People from '@/features/history/components/People'
 import RecordingPanel from '@/features/history/components/RecordingPanel'
 import Scrubber from '@/features/history/components/Scrubber'
 import type { FeedFilter } from '@/features/history/lib/feed'
@@ -37,7 +39,34 @@ export default function HistoryPage() {
   return <Connected conn={conn} admin={!!admin} />
 }
 
+type View = 'changes' | 'people'
+const VIEWS: { value: View; label: string }[] = [
+  { value: 'changes', label: 'Changes' },
+  { value: 'people', label: 'People' },
+]
+
+/** Changes is what happened to the landscape; People is what people did, for administrators, and it has its own address (`?view=people`). */
 function Connected({ conn, admin }: { conn: Conn; admin: boolean }) {
+  const [params, setParams] = useSearchParams()
+  const view: View = admin && params.get('view') === 'people' ? 'people' : 'changes'
+  const switcher = admin ? (
+    <div className="mb-5">
+      <Segmented label="View" value={view} onChange={(v) => setParams(v === 'people' ? { view: 'people' } : {}, { replace: true })} options={VIEWS} />
+    </div>
+  ) : null
+  if (view === 'people') {
+    return (
+      <>
+        <PageHeader title="History" description="What changed, when, and what it looked like, with what people did alongside it." />
+        {switcher}
+        <People />
+      </>
+    )
+  }
+  return <Changes conn={conn} admin={admin} switcher={switcher} />
+}
+
+function Changes({ conn, admin, switcher }: { conn: Conn; admin: boolean; switcher: ReactNode }) {
   const [hours, setHours] = useState(24)
   const [filter, setFilter] = useState<FeedFilter>('all')
   const [clusterId, setClusterId] = useState('')
@@ -91,6 +120,7 @@ function Connected({ conn, admin }: { conn: Conn; admin: boolean }) {
           </>
         }
       />
+      {switcher}
       {error && <ErrorBanner className="mb-4">{error}</ErrorBanner>}
       <div className="mb-6">
         <Scrubber hours={hours} setHours={setHours} index={index} events={events ?? []} />

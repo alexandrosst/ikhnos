@@ -12,6 +12,7 @@ import { DEFAULT_SETTINGS, type AppSettings, type ChangeEvent, type HistoryIndex
 
 let settings: AppSettings
 let save: ReturnType<typeof vi.fn>
+let role = 'admin'
 
 vi.mock('@/store/settings', () => ({
   useSettings: Object.assign(
@@ -27,10 +28,11 @@ vi.mock('@/store/settings', () => ({
 const history = vi.fn()
 const events = vi.fn()
 const recordNow = vi.fn(async () => undefined)
+const audit = vi.fn(async () => ({ source: 'local', rows: [] }))
 // One stable object: a fresh one per render would change `load` on every render and refetch forever.
 const CONN = { url: 'https://example.test', org: 'o' }
 vi.mock('@/store/server', () => ({
-  useServer: (selector: (s: unknown) => unknown) => selector({ status: 'connected', role: 'admin', state: undefined }),
+  useServer: (selector: (s: unknown) => unknown) => selector({ status: 'connected', role, state: undefined }),
   useConn: () => CONN,
 }))
 vi.mock('@/lib/api', async (importOriginal) => {
@@ -42,6 +44,8 @@ vi.mock('@/lib/api', async (importOriginal) => {
       history: (...a: unknown[]) => history(...a),
       events: (...a: unknown[]) => events(...a),
       recordNow: (...a: unknown[]) => recordNow(...(a as [])),
+      audit: (...a: unknown[]) => audit(...a),
+      workspaceRevisions: async () => [],
       traffic: async () => ({ hours: 24, snapshots: 0, rates: [] }),
       storage: async () => {
         throw new Error('not under test')
@@ -199,5 +203,55 @@ describe('HistoryPage loading', () => {
     })
     expect(screen.queryByText('older-change')).toBeNull()
     expect(screen.getByText('newer-change')).toBeInTheDocument()
+  })
+})
+
+describe('HistoryPage views', () => {
+  const index: HistoryIndex = { points: [], snapshotMinutes: 5, retentionDays: 30 }
+  const renderAt = (url = '/history') => render(<MemoryRouter initialEntries={[url]}><HistoryPage /></MemoryRouter>)
+  const setup = (r = 'admin') => {
+    role = r
+    settings = { ...DEFAULT_SETTINGS }
+    history.mockReset().mockResolvedValue(index)
+    events.mockReset().mockResolvedValue([])
+    audit.mockClear()
+  }
+
+  test('an administrator gets Changes and People, and opens on Changes without asking for the audit trail', async () => {
+    setup()
+    renderAt()
+    const group = await screen.findByRole('group', { name: 'View' })
+    expect(Array.from(group.querySelectorAll('button')).map((b) => b.textContent)).toEqual(['Changes', 'People'])
+    await waitFor(() => expect(events).toHaveBeenCalled())
+    expect(audit).not.toHaveBeenCalled()
+  })
+
+  test('People shows who did what, with its filters and the CSV export, and Changes brings the feed back', async () => {
+    setup()
+    renderAt()
+    fireEvent.click(await screen.findByRole('button', { name: 'People' }))
+    await waitFor(() => expect(audit).toHaveBeenCalled())
+    expect(screen.getByTestId('audit-actor')).toBeInTheDocument()
+    expect(screen.getByTestId('audit-download-csv')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /record now/i })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Changes' }))
+    expect(await screen.findByRole('button', { name: /record now/i })).toBeInTheDocument()
+    expect(screen.queryByTestId('audit-actor')).toBeNull()
+  })
+
+  test('the address says which view, so /history?view=people opens People', async () => {
+    setup()
+    renderAt('/history?view=people')
+    await waitFor(() => expect(audit).toHaveBeenCalled())
+    expect(screen.getByTestId('audit-actor')).toBeInTheDocument()
+  })
+
+  test('someone who is not an administrator has only Changes, even at the People address', async () => {
+    setup('viewer')
+    renderAt('/history?view=people')
+    await waitFor(() => expect(events).toHaveBeenCalled())
+    expect(screen.queryByRole('group', { name: 'View' })).toBeNull()
+    expect(screen.queryByTestId('audit-actor')).toBeNull()
+    expect(audit).not.toHaveBeenCalled()
   })
 })

@@ -1,9 +1,9 @@
 import { Download, ScrollText } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Button, EmptyState, ErrorBanner, ICON_SM, Input, PageHeader, Select, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
-import { api, atLeast, type AuditRow, type AuditSource, type WorkspaceRevision } from '@/lib/api'
+import { Button, EmptyState, ErrorBanner, ICON_SM, Input, Select, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
+import { api, type AuditRow, type AuditSource, type WorkspaceRevision } from '@/lib/api'
 import { downloadCsv, toCsv } from '@/lib/csv'
-import { useConn, useServer } from '@/store/server'
+import { useConn } from '@/store/server'
 
 const WINDOWS = [
   { hours: 24, label: 'Last 24 hours' },
@@ -16,17 +16,15 @@ const WINDOWS = [
 const words = (a: string) => a.replace(/[-_.]/g, ' ')
 const stamp = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' })
 
-/**
- * Accountability: who did what in this organisation. Every sign-in-backed action that changes something
- * (approving or revoking an agent, changing settings, inviting or removing a person, saving the shared
- * workspace) is written to an audit trail with the person's name. Administrators only.
- */
 /** Both tables share these widths so their columns line up: time, person, action, target, the rest. */
 const COLS = ['w-56', 'w-40', 'w-48', 'w-72', '']
 
-export default function ActivityPage() {
-  const status = useServer((s) => s.status)
-  const role = useServer((s) => s.role)
+/**
+ * History → People: who did what in this organisation. Every sign-in-backed action that changes something (approving or revoking an
+ * agent, changing settings, inviting or removing a person, saving the shared workspace) is written to an audit trail with the person's
+ * name. Administrators only, and read-only.
+ */
+export default function People() {
   const conn = useConn()
   const [actor, setActor] = useState('')
   const [action, setAction] = useState('')
@@ -35,7 +33,6 @@ export default function ActivityPage() {
   const [source, setSource] = useState<AuditSource>('local')
   const [revs, setRevs] = useState<WorkspaceRevision[]>([])
   const [error, setError] = useState<string>()
-  const allowed = status === 'connected' && atLeast(role, 'admin')
 
   // Only the newest request may land: a slow answer for a filter that has since changed must not replace the rows shown for the current one.
   const newest = useRef(0)
@@ -63,22 +60,12 @@ export default function ActivityPage() {
     downloadCsv(`activity-${new Date().toISOString().slice(0, 10)}.csv`, csv)
   }, [rows])
   useEffect(() => {
-    if (!allowed) return
     const t = setTimeout(() => void load(), 250) // typing in the filters should not fire a request per key
     return () => clearTimeout(t)
-  }, [allowed, load])
+  }, [load])
 
-  if (!allowed) {
-    return (
-      <>
-        <PageHeader title="Who did what" description="The record of actions people took in this organisation." />
-        <EmptyState title="Administrators only" description="The activity trail names people and what they changed, so it is limited to administrators and owners of the organisation. Connect to a server and sign in as one to see it." />
-      </>
-    )
-  }
   return (
     <>
-      <PageHeader title="Who did what" description="Every change people made to this organisation: agents approved or revoked, settings changed, people invited or removed, the shared workspace saved. Nothing here can be edited. For what changed in the landscape itself, see History; for what still needs a decision, see Discovery." />
       {error && <ErrorBanner className="mb-4">{error}</ErrorBanner>}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="w-44"><Input value={actor} onChange={(e) => setActor(e.target.value)} placeholder="Person" aria-label="Person" data-testid="audit-actor" /></div>

@@ -33,7 +33,6 @@ export const routeLoaders: Record<string, () => Promise<{ default: ComponentType
   '/system-health': () => import('@/features/health/SystemHealthPage'),
   '/placement': () => import('@/features/placement/PlacementPage'),
   '/settings': () => import('@/features/settings/SettingsPage'),
-  '/activity': () => import('@/features/activity/ActivityPage'),
   '/team': () => import('@/features/accounts/TeamPage'),
 }
 

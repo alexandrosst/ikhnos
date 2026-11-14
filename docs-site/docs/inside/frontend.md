@@ -14,7 +14,7 @@ The interface is a single-page application in `src/`: React, TypeScript and Tail
 
 `src/app/` is the **shell**: routes, layout, and which page loads when. Nothing imports it.
 
-`src/features/<name>/` is one area of the product. Each has its own page, `components/`, `lib/` and `store/`. The features are `topology`, `agents`, `pipeline`, `placement`, `health`, `discovery`, `accounts`, `activity`, `fusion`, `history`, `links`, `proposals` and `settings`.
+`src/features/<name>/` is one area of the product. Each has its own page, `components/`, `lib/` and `store/`. The features are `topology`, `agents`, `pipeline`, `placement`, `health`, `discovery`, `accounts`, `fusion`, `history`, `links`, `proposals` and `settings`.
 
 `src/components/`, `src/lib/` and `src/store/` are **shared**: primitives, the API client, the model, and whatever more than one feature needs. Shared code never imports a feature.
 
@@ -28,7 +28,7 @@ Features are in five layers. A feature may use shared code and any feature in a 
 | 4 | `agents` |
 | 3 | `pipeline` |
 | 2 | `discovery`, `health`, `placement` |
-| 1 (lowest) | `accounts`, `activity`, `fusion`, `history`, `links`, `proposals`, `settings` |
+| 1 (lowest) | `accounts`, `fusion`, `history`, `links`, `proposals`, `settings` |
 
 The map is highest because it may draw on every other feature. The effect to rely on is the other direction: nothing in the lowest layer knows the map exists, so a change in `settings` cannot break the map's code.
 

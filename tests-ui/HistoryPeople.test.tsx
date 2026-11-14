@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import ActivityPage from '@/features/activity/ActivityPage'
+import People from '@/features/history/components/People'
 import type { AuditRow } from '@/lib/api'
 
 const audit = vi.fn(async (): Promise<{ rows: AuditRow[]; source: 'graph' | 'local' }> => ({ source: 'local', rows: [] }))
@@ -38,10 +38,10 @@ beforeEach(() => {
 
 const row = (over: Partial<AuditRow> = {}): AuditRow => ({ id: 1, at: '2026-01-02T03:04:05Z', actor: 'ann', action: 'agent-approved', targetKind: 'agent', targetId: 'a1', detail: '', ...over })
 
-describe('ActivityPage: CSV export', () => {
+describe('History → People: CSV export', () => {
   test('the download button is disabled until rows have loaded, and disabled again when there are none', async () => {
     audit.mockResolvedValueOnce({ source: 'local', rows: [] })
-    render(<ActivityPage />)
+    render(<People />)
     await waitFor(() => expect(audit).toHaveBeenCalled())
     const btn = await screen.findByTestId('audit-download-csv')
     expect(btn).toBeDisabled()
@@ -49,7 +49,7 @@ describe('ActivityPage: CSV export', () => {
 
   test('clicking it downloads a CSV of exactly the loaded rows', async () => {
     audit.mockResolvedValueOnce({ source: 'local', rows: [row(), row({ id: 2, actor: 'bo', action: 'settings-changed', targetKind: undefined, targetId: undefined, detail: 'timezone' })] })
-    render(<ActivityPage />)
+    render(<People />)
     const btn = await screen.findByTestId('audit-download-csv')
     await waitFor(() => expect(btn).toBeEnabled())
 
@@ -68,11 +68,11 @@ describe('ActivityPage: CSV export', () => {
   })
 })
 
-describe('ActivityPage: overlapping requests', () => {
+describe('History → People: overlapping requests', () => {
   test('a slow answer for an earlier filter does not replace the rows for the current one', async () => {
     let finishOld!: (v: { rows: AuditRow[]; source: 'graph' | 'local' }) => void
     audit.mockImplementationOnce(() => new Promise((res) => { finishOld = res }))
-    render(<ActivityPage />)
+    render(<People />)
     await waitFor(() => expect(audit).toHaveBeenCalledTimes(1)) // the unfiltered request, still out
 
     audit.mockResolvedValueOnce({ source: 'local', rows: [row({ id: 2, actor: 'newer-actor' })] })

@@ -1,10 +1,10 @@
-import { ChevronsUpDown, KeyRound, LogOut, Monitor, Moon, Plus, ScrollText, ShieldCheck, Sun, Terminal, Ticket, Users, X } from 'lucide-react'
+import clsx from 'clsx'
+import { Check, ChevronDown, ChevronsUpDown, ChevronUp, LogOut, Plus, Settings, ShieldCheck, Ticket, Users, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
-import { Button, ErrorBanner, Field, ICON_MD, ICON_SM, Input, Modal, Select } from '@/components/ui/primitives'
-import { useSecurityDialogs } from '@/components/SecurityModals'
-import { atLeast, ROLE_LABEL } from '@/lib/api'
-import { getThemePreference, setThemePreference, type ThemePreference } from '@/lib/theme'
+import { Link, NavLink, useLocation } from 'react-router-dom'
+import { Button, ErrorBanner, Field, ICON_MD, ICON_SM, Input, Modal } from '@/components/ui/primitives'
+import { usePresence } from '@/lib/motion'
+import { ROLE_LABEL } from '@/lib/api'
 import { useServer } from '@/store/server'
 import { useWorkspace, type SyncStatus } from '@/store/workspace'
 
@@ -77,11 +77,14 @@ function JoinModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-/** Bottom of the sidebar: who is signed in and where, whether their work is saved, and the account actions. */
+/** Bottom of the sidebar: who is signed in and where, whether their work is saved, and the few places a person goes from their name. */
 // twoFactorNudgeKey namespaces the "don't ask again" flag per account, in this browser only: dismissing it
 // signed in as one person on one machine should not silence it for anyone else, and a shared machine with
 // several accounts should not have one account's dismissal hide the nudge for the next person who signs in.
 const twoFactorNudgeKey = (userId: string) => `ikhnos:2fa-nudge-dismissed:${userId}`
+
+const ITEM = 'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm text-nb-300 hover:bg-nb-940'
+const ICON = 'text-nb-500'
 
 export default function AccountMenu() {
   const user = useServer((s) => s.user)
@@ -93,15 +96,14 @@ export default function AccountMenu() {
   const signOut = useServer((s) => s.signOut)
   const selectOrg = useServer((s) => s.selectOrg)
   const sync = useWorkspace((s) => s.status)
-  const security = useSecurityDialogs()
   const [newOrg, setNewOrg] = useState(false)
   const [join, setJoin] = useState(false)
   const [open, setOpen] = useState(false)
-  const [theme, setTheme] = useState<ThemePreference>(getThemePreference)
-  // Nudges to set up a second sign-in step: shown from first login onward (there is nothing to have
-  // dismissed yet the first time) until either a method is turned on or this account dismisses it on this
-  // browser - a light, ongoing reminder rather than a one-shot that is easy to miss and never see again.
-  // Read directly during render (a plain, synchronous localStorage lookup, not a subscription to anything
+  const [orgsOpen, setOrgsOpen] = useState(false)
+  const { mounted, closing } = usePresence(open)
+  // Nudge to set up a second sign-in step: shown from first login onward until either a method is turned on or
+  // this account dismisses it on this browser - a light, ongoing reminder rather than a one-shot that is easy to
+  // miss. Read directly during render (a plain, synchronous localStorage lookup, not a subscription to anything
   // external) rather than mirrored into state through an effect; `dismissedNow` layers today's own dismiss
   // click on top without waiting for a re-render to see it written back.
   const userId = user?.id
@@ -117,14 +119,15 @@ export default function AccountMenu() {
   if (seenPath !== pathname) { setSeenPath(pathname); setOpen(false) }
   const button = useRef<HTMLButtonElement>(null)
   const menu = useRef<HTMLDivElement>(null)
+  const close = () => { setOpen(false); setOrgsOpen(false) }
   useEffect(() => {
     if (!open) return
-    const items = () => [...(menu.current?.querySelectorAll<HTMLElement>('[role=menuitem]') ?? [])]
+    const items = () => [...(menu.current?.querySelectorAll<HTMLElement>('[role^=menuitem]') ?? [])]
     // A menu takes focus when it opens, moves with the arrow keys, and hands focus back to its button when it closes.
     items()[0]?.focus()
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setOpen(false)
+        close()
         button.current?.focus()
       } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End') {
         const list = items()
@@ -143,7 +146,7 @@ export default function AccountMenu() {
     // page, and clicking anywhere outside the sidebar would never reach it at all.
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node
-      if (!button.current?.contains(t) && !menu.current?.contains(t)) setOpen(false)
+      if (!button.current?.contains(t) && !menu.current?.contains(t)) close()
     }
     window.addEventListener('keydown', onKey)
     document.addEventListener('mousedown', onDown)
@@ -154,7 +157,7 @@ export default function AccountMenu() {
   }, [open])
   if (status !== 'connected' || !user) return null
   const label = SYNC_LABEL[sync]
-  const item = 'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm text-nb-300 hover:bg-nb-940'
+  const orgName = orgs.find((o) => o.id === orgId)?.name
   const twoFactorMethodsOn = [user.twoFactorEnabled, user.emailOtpEnabled, user.passkeys.length > 0].filter(Boolean).length
   const showTwoFactorNudge = twoFactorMethodsOn === 0 && !nudgeDismissed
   const dismissTwoFactorNudge = () => {
@@ -162,7 +165,7 @@ export default function AccountMenu() {
     try { localStorage.setItem(twoFactorNudgeKey(user.id), '1') } catch { /* a private window or blocked storage just means it asks again next time */ }
   }
   const pick = (fn: () => void) => () => {
-    setOpen(false)
+    close()
     fn()
   }
 
@@ -172,101 +175,96 @@ export default function AccountMenu() {
         <div className="mb-2 flex items-start gap-2 rounded-lg border border-warn/30 bg-warn-soft p-2.5 text-xs text-nb-300" data-testid="two-factor-nudge">
           <ShieldCheck size={ICON_SM} className="mt-0.5 shrink-0 text-warn" aria-hidden />
           <p className="flex-1">
-            Add a second sign-in step so a leaked password alone can't get in.{' '}
-            <button type="button" className="font-medium underline hover:text-warn" onClick={security.open.twoFactor} data-testid="two-factor-nudge-setup">Set up now</button>
+            Add a second sign-in step.{' '}
+            <Link to="/settings#account" className="font-medium underline hover:text-warn" data-testid="two-factor-nudge-setup">Set up in Settings</Link>
           </p>
           <button type="button" aria-label="Dismiss" className="shrink-0 text-warn/70 hover:text-warn" onClick={dismissTwoFactorNudge} data-testid="two-factor-nudge-dismiss">
             <X size={ICON_MD} />
           </button>
         </div>
       )}
-      {open && (
-        <div ref={menu} role="menu" aria-label="Account" className="absolute inset-x-0 bottom-full z-20 mb-2 rounded-lg border border-nb-850 bg-nb-920 p-1 shadow-xl" data-testid="account-menu">
-            <div className="px-2.5 pb-1 pt-1 text-[11px] font-medium uppercase tracking-wide text-nb-600" aria-hidden>Organisation</div>
-            {orgId && (
-              <NavLink to="/team" className={item} role="menuitem" data-testid="nav-team">
-                <Users size={ICON_SM} className="text-nb-500" /> Members &amp; access
-              </NavLink>
-            )}
-            {orgId && atLeast(role, 'admin') && (
-              <NavLink to="/activity" className={item} role="menuitem" data-testid="nav-activity">
-                <ScrollText size={ICON_SM} className="text-nb-500" /> Who did what
-              </NavLink>
-            )}
-            {registration === 'open' && (
-              <button onClick={pick(() => setNewOrg(true))} className={item} role="menuitem"><Plus size={ICON_SM} className="text-nb-500" /> New organisation</button>
-            )}
-            <button onClick={pick(() => setJoin(true))} className={item} role="menuitem" data-testid="join-open"><Ticket size={ICON_SM} className="text-nb-500" /> Join with a code</button>
-            <div className="my-1 border-t border-nb-850" />
-            <div className="px-2.5 pb-1 pt-1 text-[11px] font-medium uppercase tracking-wide text-nb-600" aria-hidden>Account &amp; security</div>
-            <button onClick={pick(security.open.password)} className={item} role="menuitem"><KeyRound size={ICON_SM} className="text-nb-500" /> Change password</button>
-            <button onClick={pick(security.open.twoFactor)} className={item} role="menuitem" data-testid="two-factor-open">
-              <ShieldCheck size={ICON_SM} className="text-nb-500" />
-              Two-factor authentication
-              {twoFactorMethodsOn > 0 && <span className="ml-auto text-xs text-nb-500">{twoFactorMethodsOn} on</span>}
-            </button>
-            <button onClick={pick(security.open.tokens)} className={item} role="menuitem" data-testid="api-tokens-open">
-              <Terminal size={ICON_SM} className="text-nb-500" /> Personal API tokens
-            </button>
-            <div className="my-1 border-t border-nb-850" />
-            <div className="px-2.5 pb-1 pt-1 text-[11px] font-medium uppercase tracking-wide text-nb-600" aria-hidden>Appearance</div>
-            <div className="flex gap-1 px-2.5 pb-1.5" role="radiogroup" aria-label="Theme">
-              {(
-                [
-                  { value: 'system' as const, label: 'System', icon: Monitor },
-                  { value: 'light' as const, label: 'Light', icon: Sun },
-                  { value: 'dark' as const, label: 'Dark', icon: Moon },
-                ]
-              ).map(({ value, label, icon: Icon }) => (
+      {mounted && (
+        <div
+          ref={menu}
+          role="menu"
+          aria-label="Account"
+          className={clsx(closing ? 'menu-out' : 'menu-pop', 'absolute inset-x-0 bottom-full z-20 mb-2 rounded-lg border border-nb-850 bg-nb-920 p-1 shadow-xl')}
+          style={{ transformOrigin: 'bottom center' }}
+          data-testid="account-menu"
+        >
+          <div className="flex items-center gap-2.5 px-2.5 pb-2 pt-1.5" data-testid="account-identity">
+            <Avatar name={user.username} />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium text-nb-200">{user.username}</span>
+              <span className="block truncate text-[11px] text-nb-500">{user.email || (role ? ROLE_LABEL[role] : 'No organisation')}</span>
+            </span>
+          </div>
+          <div className="my-1 border-t border-nb-850" />
+          <div className="px-2.5 pb-1 pt-1 text-[11px] font-medium uppercase tracking-wide text-nb-600" aria-hidden>Organisation</div>
+          <button onClick={() => setOrgsOpen((o) => !o)} className={ITEM} role="menuitem" aria-expanded={orgsOpen} data-testid="org-switch">
+            <Users size={ICON_SM} className={ICON} />
+            <span className="min-w-0 flex-1 truncate">{orgName ?? 'No organisation'}</span>
+            {orgsOpen ? <ChevronUp size={ICON_SM} className={ICON} /> : <ChevronDown size={ICON_SM} className={ICON} />}
+          </button>
+          {orgsOpen && (
+            <div className="detail-in pb-1 pl-2" data-testid="org-list">
+              {orgs.map((o) => (
                 <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={theme === value}
-                  onClick={() => { setThemePreference(value); setTheme(value) }}
-                  className={`flex flex-1 flex-col items-center gap-1 rounded-md border py-1.5 text-xs ${theme === value ? 'border-accent/60 bg-accent-soft text-nb-300' : 'border-nb-850 text-nb-500 hover:bg-nb-940 hover:text-nb-300'}`}
-                  data-testid={`theme-${value}`}
+                  key={o.id}
+                  onClick={pick(() => { if (o.id !== orgId) void selectOrg(o.id) })}
+                  className={clsx(ITEM, 'text-[13px]')}
+                  role="menuitemradio"
+                  aria-checked={o.id === orgId}
+                  data-testid="org-option"
                 >
-                  <Icon size={ICON_SM} />
-                  {label}
+                  <span className="min-w-0 flex-1 truncate">{o.name}</span>
+                  {o.id === orgId && <Check size={ICON_SM} className="text-accent" aria-hidden />}
                 </button>
               ))}
+              {registration === 'open' && (
+                <button onClick={pick(() => setNewOrg(true))} className={clsx(ITEM, 'text-[13px]')} role="menuitem" data-testid="new-org-open"><Plus size={ICON_SM} className={ICON} /> New organisation</button>
+              )}
+              <button onClick={pick(() => setJoin(true))} className={clsx(ITEM, 'text-[13px]')} role="menuitem" data-testid="join-open"><Ticket size={ICON_SM} className={ICON} /> Join with a code</button>
             </div>
-            <div className="my-1 border-t border-nb-850" />
-            <button onClick={pick(() => void signOut())} className={item} role="menuitem" data-testid="sign-out"><LogOut size={ICON_SM} className="text-nb-500" /> Sign out</button>
+          )}
+          <div className="my-1 border-t border-nb-850" />
+          {orgId && (
+            <NavLink to="/team" className={ITEM} role="menuitem" data-testid="nav-team">
+              <Users size={ICON_SM} className={ICON} /> Members &amp; access
+            </NavLink>
+          )}
+          <NavLink to="/settings" className={ITEM} role="menuitem" data-testid="nav-settings">
+            <Settings size={ICON_SM} className={ICON} /> Settings
+          </NavLink>
+          <div className="my-1 border-t border-nb-850" />
+          <button onClick={pick(() => void signOut())} className={ITEM} role="menuitem" data-testid="sign-out"><LogOut size={ICON_SM} className={ICON} /> Sign out</button>
         </div>
       )}
       <div className="rounded-lg border border-nb-850 bg-nb-925 p-2">
         <button
           ref={button}
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => (open ? close() : setOpen(true))}
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label="Account menu"
           className="flex w-full items-center gap-2.5 rounded-md p-1 text-left hover:bg-nb-930"
           data-testid="account-button"
         >
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent-soft text-sm font-semibold uppercase text-accent" aria-hidden>{user.username.slice(0, 1)}</span>
+          <Avatar name={user.username} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium text-nb-300" data-testid="account-name">{user.username}</span>
-            <span className="block text-[11px] text-nb-500" data-testid="account-role">{role ? ROLE_LABEL[role] : 'No organisation'}</span>
+            <span className="block truncate text-[11px] text-nb-500" data-testid="account-role">{role ? `${ROLE_LABEL[role]}${orgName ? ` · ${orgName}` : ''}` : 'No organisation'}</span>
           </span>
           <ChevronsUpDown size={ICON_SM} className="shrink-0 text-nb-500" aria-hidden />
         </button>
-        {orgs.length > 0 && (
-          <div className="mt-2">
-            <Select value={orgId ?? ''} onChange={(e) => void selectOrg(e.target.value)} aria-label="Organisation" className="h-8 text-xs" data-testid="org-switch">
-              {orgs.map((o) => (
-                <option key={o.id} value={o.id}>{o.name}</option>
-              ))}
-            </Select>
-          </div>
-        )}
         {label.text && <div className={`mt-2 px-1 text-[11px] ${label.tone}`} role="status" data-testid="sync-status">{label.text}</div>}
       </div>
-      {security.dialogs}
       {newOrg && <NewOrgModal onClose={() => setNewOrg(false)} />}
       {join && <JoinModal onClose={() => setJoin(false)} />}
     </div>
   )
+}
+
+function Avatar({ name }: { name: string }) {
+  return <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent-soft text-sm font-semibold uppercase text-accent" aria-hidden>{name.slice(0, 1)}</span>
 }
