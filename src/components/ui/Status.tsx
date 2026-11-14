@@ -84,7 +84,7 @@ export function StatusPip({ tone, pulse, size = 'size-1.5', className }: { tone:
   return (
     <span className={clsx('relative inline-flex shrink-0 rounded-full', size, changed && 'flash-ring', className)} aria-hidden>
       {pulse && <span className={clsx('absolute inline-flex size-full rounded-full opacity-75 motion-safe:animate-ping', dot)} />}
-      <span className={clsx('relative inline-flex rounded-full', size, hollow ? clsx('border', dot, tone === 'setup' && 'motion-safe:animate-pulse') : dot)} />
+      <span className={clsx('pip relative inline-flex rounded-full', size, tone === 'down' && 'pip-down', hollow ? clsx('border', dot, tone === 'setup' && 'motion-safe:animate-pulse') : dot)} />
     </span>
   )
 }

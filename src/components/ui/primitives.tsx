@@ -1,12 +1,13 @@
 import clsx from 'clsx'
 import { Check, ChevronDown, Cloud, Copy, Cpu, Eye, EyeOff, Loader2, Minus, Plus, Server, X, type LucideIcon } from 'lucide-react'
 import {
-  Children, Fragment, isValidElement, useEffect, useId, useRef, useState,
+  Children, Fragment, isValidElement, useEffect, useId, useLayoutEffect, useRef, useState,
   type ButtonHTMLAttributes, type ChangeEvent, type ComponentProps, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type SelectHTMLAttributes,
 } from 'react'
 import { createPortal } from 'react-dom'
 import { buttonClass, type ButtonVariant } from '@/components/ui/buttonClass'
 import { copyToClipboard } from '@/lib/clipboard'
+import { leaveAsGhost, usePresence } from '@/lib/motion'
 import type { Completeness as CompletenessInfo } from '@/lib/completeness'
 import { IP_SCOPE_HELP, ipScope, ipScopeLabel, loadBand } from '@/lib/present'
 import { rttLabel } from '@/lib/metrics'
@@ -1164,10 +1165,11 @@ export function MenuPanel({
   className?: string
   children: ReactNode
 } & ComponentProps<'div'>) {
-  if (!open) return null
+  const { mounted, closing } = usePresence(open)
+  if (!mounted) return null
   return (
     <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div className={clsx('fixed inset-0 z-40', closing && 'pointer-events-none')} onClick={onClose} />
       {/* A small rotated-square "caret" pointing back at whichever button opened this - a plain sibling,
           not a pseudo-element on the panel itself, specifically so it's never clipped by a caller's own
           `overflow-hidden` (most of MenuPanel's callers pass one, to round/scroll their own content) and
@@ -1178,8 +1180,8 @@ export function MenuPanel({
           every caller right-aligns its panel to its trigger button (`right-0` on this and the panel below,
           both relative to that button's own `relative` wrapper), so this reads as "pointing at the button"
           regardless of the button's or panel's width. */}
-      <div className="menu-pop absolute right-4 top-11 z-[41] size-2.5 -translate-y-1/2 rotate-45 border-l border-t border-nb-850 bg-nb-920" aria-hidden="true" />
-      <div {...aria} className={clsx('menu-pop absolute right-0 top-11 z-[41] max-w-[calc(100vw-2rem)] rounded-lg border border-nb-850 bg-nb-920 shadow-xl', className)}>
+      <div className={clsx(closing ? 'menu-out' : 'menu-pop', 'absolute right-4 top-11 z-[41] size-2.5 -translate-y-1/2 rotate-45 border-l border-t border-nb-850 bg-nb-920')} aria-hidden="true" />
+      <div {...aria} className={clsx(closing ? 'menu-out' : 'menu-pop', 'absolute right-0 top-11 z-[41] max-w-[calc(100vw-2rem)] rounded-lg border border-nb-850 bg-nb-920 shadow-xl', className)}>
         {children}
       </div>
     </>
@@ -1229,6 +1231,16 @@ export function Modal({
     closeRef.current = onClose
     dismissibleRef.current = dismissible
   })
+  // However it is closed (its own X, Escape, a Cancel or Save in the caller), what leaves is not the dialog but a copy of it, which fades out
+  // over the page for EXIT_MS (lib/motion.ts). Callers stay as they are, and nothing is delayed: the real one is gone at once.
+  const root = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (!open) return
+    const el = root.current
+    return () => {
+      if (el) leaveAsGhost(el)
+    }
+  }, [open])
   useEffect(() => {
     if (!open) return
     // Keyboard users must not fall out of a modal: Tab cycles inside it, Escape closes it, and focus goes back to
@@ -1275,7 +1287,7 @@ export function Modal({
   // descendants and confine the dialog to that element's box instead of the viewport - the same reason
   // Select's own list is portaled below.
   return createPortal(
-    <div className={clsx('fixed inset-0 z-50 flex bg-black/60 backdrop-blur-[2px]', side ? 'items-stretch justify-end overflow-hidden' : 'items-start justify-center overflow-y-auto p-4 pt-[8vh]')} onMouseDown={dismissible ? onClose : undefined}>
+    <div ref={root} className={clsx('fade-in fixed inset-0 z-50 flex bg-black/60 backdrop-blur-[2px]', side ? 'items-stretch justify-end overflow-hidden' : 'items-start justify-center overflow-y-auto p-4 pt-[8vh]')} onMouseDown={dismissible ? onClose : undefined}>
       <div
         ref={box}
         tabIndex={-1}

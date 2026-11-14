@@ -53,6 +53,12 @@ The UI works from an in-browser model of the landscape (`src/lib`). Placement an
 
 The map itself is built on React Flow (`@xyflow/react`). Its nodes and edges are computed in `src/features/topology/lib/graph.ts`, which is plain TypeScript and tested without a browser.
 
+## Motion
+
+Everything that moves runs on three durations and one curve, declared once in `src/index.css`: `--dur-fast` (120 ms: a hover, a press, a popover, an exit), `--dur-base` (200 ms: a page, a drawer, a dialog, a row's detail) and `--dur-slow` (360 ms: a meter settling), with `--ease-out`. A new movement uses them rather than a number; a test fails if one of the shared classes does not. Leaving is the same movement run quickly backwards: a popover stays mounted for `EXIT_MS` while it plays, and a dialog closed by its caller leaves as a copy that fades out over the page (`src/lib/motion.ts`), so no caller has to change. Where the person asks for less motion, or there is no way to ask, nothing moves and nothing is delayed.
+
+A status dot eases between colours, a down one breathes slowly, and a healthy one stays still, so the one that is not fine is the one that moves.
+
 ## Testing
 
 | Layer of test | Where | Run with |

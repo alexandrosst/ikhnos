@@ -251,31 +251,41 @@ body {
    touch as a button's own press-down (see buttonClass), not a heavier "sidebar" motion. Anchored top-right,
    where every one of these panels hangs off its button. */
 @keyframes menu-pop { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-.menu-pop { animation: menu-pop 0.12s ease-out; transform-origin: top right; }
+.menu-pop { animation: menu-pop var(--dur-fast) var(--ease-out); transform-origin: top right; }
 
 /* A dialog eases in the same way a popover does, just a touch slower and centred (it is the bigger interruption
-   of the two) - Modal's own box, never its backdrop, which still simply appears: two things fading in at once
-   reads as flicker, not polish. */
+   of the two) - Modal's own box. The backdrop fades with it, in and out, at the quicker --dur-fast. */
 @keyframes modal-pop { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-.modal-pop { animation: modal-pop 0.16s ease-out; }
+.modal-pop { animation: modal-pop var(--dur-base) var(--ease-out); }
+
+/* Leaving is the same movement run backwards and a little quicker (--dur-fast), so a popover, a dialog or a drawer does not arrive softly and then
+   vanish. The component keeps itself mounted for EXIT_MS (lib/motion.ts, the same 120 ms as --dur-fast) while one of these plays. */
+@keyframes menu-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-4px) scale(0.98); } }
+.menu-out { animation: menu-out var(--dur-fast) ease-in forwards; transform-origin: top right; pointer-events: none; }
+@keyframes modal-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px) scale(0.98); } }
+.modal-out { animation: modal-out var(--dur-fast) ease-in forwards; }
+@keyframes drawer-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(24px); } }
+.drawer-out { animation: drawer-out var(--dur-fast) ease-in forwards; }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+.fade-out { animation: fade-out var(--dur-fast) ease-in forwards; pointer-events: none; }
 
 /* A confirmation ("Saved.") or other small status text that replaces nothing - see SavedNote - eases in rather
    than snapping into the layout. */
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-.fade-in { animation: fade-in 0.15s ease-out; }
+.fade-in { animation: fade-in var(--dur-fast) var(--ease-out); }
 
 /* Each screen of the navigable guided telemetry wizard (GuidedWizard.tsx) eases in with a touch of lateral
    motion when the person moves to it - a lighter cue than modal-pop, closer to menu-pop, since this swaps
    content inside an already-open dialog rather than opening one. Keyed by the step's own name so React
    remounts (and replays) it on every transition, forward or back. */
 @keyframes wizard-step-in { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
-.wizard-step-in { animation: wizard-step-in 0.18s ease-out; }
+.wizard-step-in { animation: wizard-step-in var(--dur-base) var(--ease-out); }
 /* The guided telemetry wizard's own back-navigation case (GuidedWizard.tsx): the step content slides in
    from the opposite side of wizard-step-in above, so moving forward and backward through the steps each
    read as motion in their own true direction instead of every step arriving from the same side regardless
    of which way a person is actually going. */
 @keyframes wizard-step-in-back { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
-.wizard-step-in-back { animation: wizard-step-in-back 0.18s ease-out; }
+.wizard-step-in-back { animation: wizard-step-in-back var(--dur-base) var(--ease-out); }
 
 /* A loading placeholder shimmers left to right instead of sitting as flat grey - the same "something is about to
    arrive" cue a spinner gives, without a spinner's rotation, and shaped like what it will become instead of a
@@ -304,13 +314,13 @@ body {
 /* A load gauge's bar eases its width and color to a refreshed reading instead of snapping there - see Meter
    in primitives.tsx. The number beside it uses fade-in (defined above) instead, since a width transition
    doesn't apply to text. */
-.meter-bar { transition: width 500ms ease, background-color 500ms ease; }
+.meter-bar { transition: width var(--dur-slow) var(--ease-out), background-color var(--dur-slow) var(--ease-out); }
 
 /* A dismissed or accepted row eases out instead of vanishing the instant the decision is applied. The caller
    removes the row from its list only after this plays (see DiscoveryPage's ROW_EXIT_MS, kept in sync with the
    200ms below). pointer-events: none guards against a second click mid-exit. */
 @keyframes row-exit { from { opacity: 1; transform: scale(1) translateY(0); } to { opacity: 0; transform: scale(0.98) translateY(-4px); } }
-.row-exit { animation: row-exit 200ms ease-in forwards; pointer-events: none; }
+.row-exit { animation: row-exit var(--dur-base) ease-in forwards; pointer-events: none; }
 
 /* The line under the open tab slides to the one picked (Tabs.tsx); a tab's panel arrives with a short rise. */
 .tab-bar { transition: transform var(--dur-base) var(--ease-out), width var(--dur-base) var(--ease-out); }
@@ -349,6 +359,13 @@ body {
 .auth-card::before { content: ''; position: absolute; left: 1.5rem; right: 1.5rem; top: -1px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--color-accent), transparent); opacity: 0.7; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .auth-card { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .detail-in { animation: none; } .chevron-turn { transition: none; } }
+
+/* A status dot eases between colours instead of snapping, and a down one breathes slowly (the same breath the topology gives an offline
+   cluster) so that, in a table of mostly fine rows, the one that is not is the one that moves. A healthy dot stays still. */
+.pip { transition: background-color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out); }
+@keyframes pip-breathe { 0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-bad) 22%, transparent); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-bad) 0%, transparent); } }
+.pip-down { animation: pip-breathe 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .pip-down { animation: none; } }
 
 /* A table row lifts a little under the pointer and its status cell holds still. */
 .row-hover { transition: background-color var(--dur-fast) var(--ease-out); }
