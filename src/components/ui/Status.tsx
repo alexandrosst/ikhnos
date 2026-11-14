@@ -75,10 +75,11 @@ export function StatusBadge({ tone, label, count, compact, title, className, chi
 }
 
 /**
- * The dot: the same tones as the chip, for the places a chip does not fit (a table cell beside a name, a sidebar row). `pulse` is for the
- * one state that means "alive right now": it should be the only thing that moves while everything is fine.
+ * The dot: the same tones as the chip, for the places a chip does not fit (a table cell beside a name, a sidebar row). A healthy dot sends
+ * out a ring and a down one blinks, because a dot beside a name says "this is how it is right now"; `pulse={false}` keeps a healthy one
+ * still where it records something that is not live (a setting that is on, a check that passed).
  */
-export function StatusPip({ tone, pulse, size = 'size-1.5', className }: { tone: StatusTone; pulse?: boolean; size?: string; className?: string }) {
+export function StatusPip({ tone, pulse = tone === 'healthy', size = 'size-1.5', className }: { tone: StatusTone; pulse?: boolean; size?: string; className?: string }) {
   const { dot, hollow } = LOOK[tone]
   const changed = useChanged(tone)
   return (

@@ -19,9 +19,12 @@ describe('StatusBadge', () => {
     expect(screen.getByText('3')).toBeInTheDocument()
   })
 
-  test('the pip only pulses when asked', () => {
-    expect(render(<StatusPip tone="healthy" />).container.querySelector('[class*="animate-ping"]')).toBeNull()
-    expect(render(<StatusPip tone="healthy" pulse />).container.querySelector('[class*="animate-ping"]')).not.toBeNull()
+  test('a healthy pip sends out a ring unless told to keep still, and no other tone does', () => {
+    const ping = (el: React.ReactElement) => render(el).container.querySelector('[class*="animate-ping"]')
+    expect(ping(<StatusPip tone="healthy" />)).not.toBeNull()
+    expect(ping(<StatusPip tone="healthy" pulse={false} />)).toBeNull()
+    expect(ping(<StatusPip tone="down" />)).toBeNull()
+    expect(ping(<StatusPip tone="attention" />)).toBeNull()
   })
 })
 

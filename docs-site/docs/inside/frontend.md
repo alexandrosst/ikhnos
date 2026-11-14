@@ -57,7 +57,7 @@ The map itself is built on React Flow (`@xyflow/react`). Its nodes and edges are
 
 Everything that moves runs on three durations and one curve, declared once in `src/index.css`: `--dur-fast` (120 ms: a hover, a press, a popover, an exit), `--dur-base` (200 ms: a page, a drawer, a dialog, a row's detail) and `--dur-slow` (360 ms: a meter settling), with `--ease-out`. A new movement uses them rather than a number; a test fails if one of the shared classes does not. Leaving is the same movement run quickly backwards: a popover stays mounted for `EXIT_MS` while it plays, and a dialog closed by its caller leaves as a copy that fades out over the page (`src/lib/motion.ts`), so no caller has to change. Where the person asks for less motion, or there is no way to ask, nothing moves and nothing is delayed.
 
-A status dot eases between colours, a down one breathes slowly, and a healthy one stays still, so the one that is not fine is the one that moves.
+A status dot eases between colours. A healthy one sends out a slow ring and a down one blinks faster, so a dot beside a name reads as "right now"; a dot that only records something (a setting that is on, a check that passed) passes `pulse={false}` and stays still.
 
 ## Testing
 

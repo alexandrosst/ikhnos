@@ -360,11 +360,12 @@ body {
 @media (prefers-reduced-motion: reduce) { .auth-card { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .detail-in { animation: none; } .chevron-turn { transition: none; } }
 
-/* A status dot eases between colours instead of snapping, and a down one breathes slowly (the same breath the topology gives an offline
-   cluster) so that, in a table of mostly fine rows, the one that is not is the one that moves. A healthy dot stays still. */
+/* A status dot eases between colours instead of snapping. A healthy one sends out a ring (animate-ping, set on its own element in Status.tsx) and a
+   down one blinks with a ring behind it, so a dot beside a name reads as "right now". The two keep different rhythms: calm for fine, quick for not. */
 .pip { transition: background-color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out); }
-@keyframes pip-breathe { 0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-bad) 22%, transparent); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-bad) 0%, transparent); } }
-.pip-down { animation: pip-breathe 2.4s ease-in-out infinite; }
+@keyframes pip-breathe { 0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-bad) 30%, transparent); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-bad) 0%, transparent); } }
+@keyframes pip-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.pip-down { animation: pip-breathe 1.4s ease-in-out infinite, pip-blink 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .pip-down { animation: none; } }
 
 /* A table row lifts a little under the pointer and its status cell holds still. */

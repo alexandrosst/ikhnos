@@ -39,7 +39,7 @@ export function SettingRow({
     <div className="flex min-h-[3rem] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5" data-testid={testId}>
       <span className="w-40 shrink-0 text-sm font-medium text-nb-300">{label}</span>
       <span className={clsx('flex min-w-0 flex-1 items-center gap-2 text-sm text-nb-400', mono && 'font-mono text-[13px] text-nb-300')} data-testid={valueTestId}>
-        {tone && <StatusPip tone={tone} />}
+        {tone && <StatusPip tone={tone} pulse={false} />}
         <span className="min-w-0 break-all">{value}</span>
       </span>
       {action && <span className="shrink-0">{action}</span>}

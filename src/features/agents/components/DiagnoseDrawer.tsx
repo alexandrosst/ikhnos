@@ -71,7 +71,7 @@ export function DiagnoseDrawer({ agent, extras, now, onClose }: { agent: Agent; 
             <ChevronRight size={ICON_SM} aria-hidden className={`shrink-0 text-nb-500 transition-transform ${showChecks ? 'rotate-90' : ''}`} />
             <span className="text-nb-300">Checked: {count.text}</span>
             <span className="flex flex-wrap items-center gap-1" aria-hidden>
-              {dx.checks.map((c) => <span key={c.id} className="inline-flex" title={`${c.label}: ${c.value}`}><StatusPip tone={c.tone} /></span>)}
+              {dx.checks.map((c) => <span key={c.id} className="inline-flex" title={`${c.label}: ${c.value}`}><StatusPip tone={c.tone} pulse={false} /></span>)}
             </span>
           </button>
           {showChecks && (
@@ -92,7 +92,7 @@ export function DiagnoseDrawer({ agent, extras, now, onClose }: { agent: Agent; 
                         <li key={c.id} className="px-4 py-2.5 text-sm" data-testid="diagnose-check" data-check={c.id} data-tone={c.tone}>
                           {/* The dot, the name and the value share one line and one centre; a note, when there is one, sits under the name. */}
                           <div className="flex items-center gap-3">
-                            <StatusPip tone={c.tone} />
+                            <StatusPip tone={c.tone} pulse={false} />
                             <span className="min-w-0 flex-1 text-nb-300">{c.label}</span>
                             <span className="max-w-[55%] break-words text-right text-nb-400">{c.value}</span>
                           </div>

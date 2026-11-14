@@ -89,12 +89,13 @@ describe('a closed dialog leaves as a copy', () => {
 })
 
 describe('status dots', () => {
-  test('a down dot breathes and a healthy one stays still', () => {
+  test('a down dot blinks and a healthy one sends out a ring instead', () => {
     const { container, rerender } = render(<StatusDot status="offline" />)
     expect(container.querySelector('.pip-down')).not.toBeNull()
     rerender(<StatusDot status="healthy" />)
     expect(container.querySelector('.pip-down')).toBeNull()
     expect(container.querySelector('.pip')).not.toBeNull()
+    expect(container.querySelector('[class*="animate-ping"]')).not.toBeNull()
   })
 })
 
