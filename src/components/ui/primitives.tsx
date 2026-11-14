@@ -36,6 +36,26 @@ export function Button({
   return <button type="button" {...props} className={buttonClass(variant, size, className)} />
 }
 
+/**
+ * The button that opens a toolbar popover (Filter, Columns, View options): an icon and a label. When something in the popover differs from
+ * its default the icon turns accent - the same quiet signal everywhere, no count. `collapse` hides the label on a narrow screen.
+ */
+export function MenuButton({
+  icon: Icon,
+  label,
+  open,
+  active,
+  collapse,
+  ...props
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & { icon: LucideIcon; label: string; open: boolean; active?: boolean; collapse?: boolean }) {
+  return (
+    <Button aria-haspopup="dialog" aria-expanded={open} {...props}>
+      <Icon size={ICON_SM} className={active ? 'text-accent' : ''} />
+      <span className={collapse ? 'hidden sm:inline' : ''}>{label}</span>
+    </Button>
+  )
+}
+
 /* ---------- Copy to clipboard ---------- */
 /**
  * What a copy button knows about its last press: 'copied' (the browser took the text), 'manual' (it could not - no Clipboard API on a plain-http

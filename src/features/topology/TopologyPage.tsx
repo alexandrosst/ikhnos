@@ -39,7 +39,7 @@ import TelemetryTab from '@/features/topology/components/TelemetryTab'
 import { edgeTypes } from '@/features/topology/components/OffsetEdge'
 import { AutoMiniMap } from '@/features/topology/components/AutoMiniMap'
 import { SquareRoutes } from '@/features/topology/components/SquareRoutes'
-import { Button, EmptyState, ICON_MD, ICON_SM, MenuPanel, Select, SkeletonBlock } from '@/components/ui/primitives'
+import { Button, EmptyState, ICON_MD, ICON_SM, MenuButton, MenuPanel, Select, SkeletonBlock } from '@/components/ui/primitives'
 import { Switch } from '@/components/ui/Switch'
 import { PRESS_CLASS } from '@/components/ui/buttonClass'
 import FilterMenu, { FilterChip } from '@/features/topology/components/FilterMenu'
@@ -740,10 +740,7 @@ function Canvas() {
           )}
           {isCanvas && (
             <div className="relative">
-              <Button onClick={() => toggleMenu('options')} disabled={empty} aria-expanded={openMenu === 'options'} aria-haspopup="true" data-testid="view-options">
-                <SlidersHorizontal size={ICON_SM} /> <span className="hidden sm:inline">Options</span>
-                {changedOptions > 0 && <span className="rounded-full bg-accent-soft px-1.5 text-[11px] font-medium text-accent">{changedOptions}</span>}
-              </Button>
+              <MenuButton icon={SlidersHorizontal} label="Options" collapse open={openMenu === 'options'} active={changedOptions > 0} onClick={() => toggleMenu('options')} disabled={empty} aria-haspopup="true" aria-label="View options" data-testid="view-options" />
               <MenuPanel open={openMenu === 'options'} onClose={() => setOpenMenu(null)} className="w-72 p-2" role="group" aria-label="View options">
                 {/* Three subsections: what's drawn at all, what instead changes which signal the canvas
                     is reading (a "lens" - recolouring/reinterpreting what's already drawn rather than

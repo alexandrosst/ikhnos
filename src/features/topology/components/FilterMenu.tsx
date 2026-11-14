@@ -1,5 +1,5 @@
 import { Filter as FilterIcon, X } from 'lucide-react'
-import { Button, Checkbox, ClearableChip, ICON_SM, MenuPanel } from '@/components/ui/primitives'
+import { Checkbox, ClearableChip, ICON_SM, MenuButton, MenuPanel } from '@/components/ui/primitives'
 import { DEFAULT_KINDS, filterActive, filterSummary, NO_APP, SERVICE_KINDS, type Filter } from '@/features/topology/lib/filter'
 import type { Application, Cluster, ServiceKind } from '@/lib/types'
 
@@ -70,10 +70,7 @@ export default function FilterMenu({
 
   return (
     <div className="relative">
-      <Button onClick={() => onOpenChange(!open)} disabled={disabled} aria-haspopup="dialog" aria-expanded={open} aria-label="Filter the topology" data-testid="filter-button">
-        <FilterIcon size={ICON_SM} className={filterActive(filter) ? 'text-accent' : ''} />
-        <span>Filter</span>
-      </Button>
+      <MenuButton icon={FilterIcon} label="Filter" open={open} active={filterActive(filter)} onClick={() => onOpenChange(!open)} disabled={disabled} aria-label="Filter the topology" data-testid="filter-button" />
       <MenuPanel open={open} onClose={() => onOpenChange(false)} className="w-80 overflow-hidden" role="dialog" aria-label="Filter the topology" data-testid="filter-menu">
         <div className="flex items-center justify-between border-b border-nb-850 px-3 py-2">
           <span className="text-sm font-medium text-nb-200">Show only…</span>
