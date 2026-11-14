@@ -51,6 +51,9 @@ export function Fig({id, height, label, title, subtitle, children, width = 760, 
         <marker id={`${id}-arrow-accent`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M0 0L10 5L0 10z" fill={accent} />
         </marker>
+        <marker id={`${id}-arrow-accent-sm`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+          <path d="M0 0L10 5L0 10z" fill={accent} />
+        </marker>
       </defs>
       {title && (
         <text x="24" y={30 * textScale} fontSize={15 * textScale} fontWeight="600" fill={ink}>
@@ -154,10 +157,12 @@ type ArrowProps = {
   both?: boolean;
   accented?: boolean;
   noHead?: boolean;
+  /** A smaller head, for a line that runs beside many boxes and would be all heads. */
+  small?: boolean;
 };
 
-export function Arrow({d, fig, dashed, both, accented, noHead}: ArrowProps) {
-  const m = `url(#${fig}-arrow${accented ? '-accent' : ''})`;
+export function Arrow({d, fig, dashed, both, accented, noHead, small}: ArrowProps) {
+  const m = `url(#${fig}-arrow${accented ? (small ? '-accent-sm' : '-accent') : ''})`;
   return (
     <path
       d={d}

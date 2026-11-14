@@ -102,7 +102,10 @@ Whatever the part, it is said in the same terms:
 - **Layer**: application or infrastructure.
 - **Scope**: an application, a cluster or a node.
 - **Modality**: traces, logs or metrics.
-- **Kind**: energy, resource usage and so on.
+- **Kind**: the signal itself, eleven in all:
+  - metrics: resource usage, energy, accelerators (GPU), Kubernetes state, node runtime, cluster links, application metrics
+  - logs: system logs, Kubernetes events, application logs
+  - traces: application traces
 
 It can only be narrowed, never widened, and a person approves anything wider. The agent discovers the topology and configures collection: telemetry extractors feed the local operator's collector, and regional collectors feed FUSION.
 
