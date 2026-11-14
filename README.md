@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-<h3 align="center">See your Kubernetes landscape from cloud to far edge, and get placement advice you can check.</h3>
+<h3 align="center">See your Kubernetes landscape from cloud to far edge, one honest picture of it.</h3>
 
 <p align="center">
   <a href="https://github.com/alexandrosst/ikhnos/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alexandrosst/ikhnos/actions/workflows/ci.yml/badge.svg"></a>
@@ -37,7 +37,7 @@
 
 Ikhnos models Kubernetes clusters across the cloud, edge and far-edge continuum and shows them as two views of **one shared model**: an **application view** (services, their dependencies, IoT devices, external endpoints) and an **infrastructure view** (nodes, capacity, cross-cluster links). Edit a service in a table and every view changes with it.
 
-A small read-only **agent** in each cluster dials out to a single **server** and reports what it sees. On top of that picture sit history (what changed, when and why), telemetry you can read back in Grafana, and a **placement advisor** that says where a service would run better, scores how sure it is, and shows the evidence.
+A small read-only **agent** in each cluster dials out to a single **server** and reports what it sees. On top of that picture sit history (what changed, when and why), measured links between clusters, and telemetry you can read back in Grafana.
 
 It is built on four commitments:
 
@@ -46,46 +46,25 @@ It is built on four commitments:
 | **Read-only** | The agent can `list` and `watch`, never write, and never reads Secrets or ConfigMaps. Nothing is deployed or moved, ever, without a person approving it. |
 | **Outbound only** | The agent opens every connection, over mutual TLS. Nothing needs an inbound firewall rule on a cluster, and the server never holds a kubeconfig. |
 | **Narrowing trust** | What an agent reports is a chain (ceiling, approved, effective) that the server can only narrow, never widen. |
-| **Honest uncertainty** | Every answer is *fits*, *does not fit* or *can't tell*, with confidence taken from its weakest fact. Missing data is named, never silently guessed. |
+| **Honest about what it knows** | A value that was seen is shown as seen, and one that was guessed is marked as a guess. Missing data is named, never silently filled in. |
 
 ## Features
 
 - **Topology.** Application, Infrastructure, Map and Telemetry views of the same landscape, with clusters tiered cloud, edge or far edge. Plus Clusters, Applications, Sites, Nodes, Namespaces, Services and Devices as tables.
 - **Discovery that asks first.** Connect a cluster from the UI: it prints the exact `helm install`, and an approval code that only the cluster's own pod log shows turns "someone had a token" into "this is the agent I meant".
 - **History.** Every change to anything is a new version with a reason attached. Ask what a cluster looked like an hour ago, or what depends on a service.
-- **Placement advice.** Hard constraints first (volumes, pinning, data residency, trust zones, capacity), then a cost in points where 1 point is 1 ms of round trip. A *What-if* tab lets you try a move on paper, and pluggable **deciders** are compared on the same landscape.
 - **Telemetry and FUSION.** Opt-in collectors, regional operators and a bundled Prometheus, Loki, Tempo and Grafana stack with nine dashboards (fleet, clusters, workloads, links, delivery and Ikhnos' own health), opened through the server so nothing is exposed.
 - **Cluster links.** Loss, delay and jitter between clusters you choose to pair, from real traffic and active measurement.
 - **Diagnose.** One button per agent explains what is wrong with it, worst first, with the `kubectl` command for each finding.
 - **Accounts.** Organizations and roles, two-factor sign-in (TOTP, email code, passkeys) and an audit trail.
-- **Open interfaces.** A JSON API behind the UI, a token-protected FUSION API with its own reference page, and a decider webhook defined in [OpenAPI 3.1](backend/docs/decider-webhook.openapi.yaml).
-
-## Placement you can argue with
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs-site/static/img/readme/ui-placement-dark.png">
-    <img alt="A placement recommendation that says there is not enough evidence to recommend, listing which inputs are guesses and what could not be checked" src="docs-site/static/img/readme/ui-placement-light.png" width="760">
-  </picture>
-</p>
-
-Most placement tools give you an answer. Ikhnos gives you the answer, how much to trust it, and what would change it. Above, it declines to recommend a move because five of ten inputs are guesses and two are unknown, and says exactly which.
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs-site/static/img/readme/placement-loop-dark.svg">
-    <img alt="Observe, model, advise, decide: agents feed one model, the advisor applies constraints and a cost function and attaches confidence and evidence, and a person decides" src="docs-site/static/img/readme/placement-loop-light.svg" width="900">
-  </picture>
-</p>
-
-The advisor is **pluggable**. Any HTTP service that speaks the [decider webhook](backend/docs/decider-webhook.openapi.yaml) is scored against the built-in *Baseline* and *Follow the heaviest talker* on the same landscape, which makes Ikhnos a testbed for your own placement policy, heuristic or learned. The cost function's exact formulas are in [`backend/docs/advice.md`](backend/docs/advice.md); what is still missing for research use is on the [roadmap](https://alexandrosst.github.io/ikhnos/docs/project/roadmap).
+- **Open interfaces.** A JSON API behind the UI and a token-protected FUSION API with its own reference page.
 
 ## How it works
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs-site/static/img/readme/architecture-dark.svg">
-    <img alt="Agents in cloud, edge and far-edge clusters dial out over mutual TLS to one Ikhnos server; a browser reads the server over HTTPS; an optional decider webhook answers placement questions" src="docs-site/static/img/readme/architecture-light.svg" width="900">
+    <img alt="Agents in cloud, edge and far-edge clusters dial out over mutual TLS to one Ikhnos server; a browser reads the server over HTTPS; FUSION and a regional operator are optional" src="docs-site/static/img/readme/architecture-light.svg" width="900">
   </picture>
 </p>
 
@@ -100,7 +79,7 @@ The **agent** is one small pod per cluster. It authenticates with a certificate 
   </picture>
 </p>
 
-The documentation draws each of these in more detail: [how it works in ten minutes](https://alexandrosst.github.io/ikhnos/docs/learn/how-it-works) for the idea, and [Inside Ikhnos](https://alexandrosst.github.io/ikhnos/docs/inside/) for the layers of the server, the agent's stream, the model, advice and the decision loop.
+The documentation draws each of these in more detail: [how it works in ten minutes](https://alexandrosst.github.io/ikhnos/docs/learn/how-it-works) for the idea, and [Inside Ikhnos](https://alexandrosst.github.io/ikhnos/docs/inside/) for the layers of the server, the agent's stream and the model.
 
 ## Quickstart
 
@@ -140,15 +119,15 @@ The [documentation site](https://alexandrosst.github.io/ikhnos/) is written for 
 | I am... | Start with |
 |---|---|
 | New to Ikhnos and want to know what it is | [What is Ikhnos?](https://alexandrosst.github.io/ikhnos/docs/learn/what-is-ikhnos), then [How it works in ten minutes](https://alexandrosst.github.io/ikhnos/docs/learn/how-it-works) |
-| Ready to try it, and have never seen it | [Your first hour](https://alexandrosst.github.io/ikhnos/docs/journey/): seven steps from nothing to your first advice, with what you should see after each |
+| Ready to try it, and have never seen it | [Your first hour](https://alexandrosst.github.io/ikhnos/docs/journey/): six steps from nothing to a connected cluster and your first look around, with what you should see after each |
 | Running it for real | [Production cluster](https://alexandrosst.github.io/ikhnos/docs/installation/production-cluster), [Connecting a cluster](https://alexandrosst.github.io/ikhnos/docs/installation/connecting-a-cluster), [Troubleshooting](https://alexandrosst.github.io/ikhnos/docs/troubleshooting/common-errors) |
-| Looking something up | [Using the interface](https://alexandrosst.github.io/ikhnos/docs/user-guide/using-the-ui), [Reference](https://alexandrosst.github.io/ikhnos/docs/reference/): Helm values, flags and the decider contract |
+| Looking something up | [Using the interface](https://alexandrosst.github.io/ikhnos/docs/user-guide/using-the-ui), [Reference](https://alexandrosst.github.io/ikhnos/docs/reference/): Helm values, flags and the permissions table |
 | Reading or changing the code | [Inside Ikhnos](https://alexandrosst.github.io/ikhnos/docs/inside/), then the [developer guide](https://alexandrosst.github.io/ikhnos/docs/contributing/developer-guide) |
 | Deciding whether to depend on it | [Status and limits](https://alexandrosst.github.io/ikhnos/docs/project/status-and-limits) and the [roadmap](https://alexandrosst.github.io/ikhnos/docs/project/roadmap) |
 
 ## Status
 
-Ikhnos is **pre-1.0**. It discovers and advises; it never deploys or moves anything. It has been tested end to end on k3s, with real eBPF programs against real loopback traffic, and under `-race`. It has **not** been run on a production cluster, with two live clusters, or against a running service mesh; EKS, GKE and AKS are expected to work and untested. The placement weights are a starting point, not a calibrated model.
+Ikhnos is **pre-1.0**. It discovers and shows; it never deploys or moves anything. It has been tested end to end on k3s, with real eBPF programs against real loopback traffic, and under `-race`. It has **not** been run on a production cluster, with two live clusters, or against a running service mesh; EKS, GKE and AKS are expected to work and untested.
 
 The full, itemised account of what was and was not verified, and what is not built (OIDC, ambient-mesh attribution and more), is on [Status and limits](https://alexandrosst.github.io/ikhnos/docs/project/status-and-limits). Please read it before depending on this.
 
@@ -164,7 +143,7 @@ cd backend && go vet ./... && go test -race ./...                               
 ```
 src/             React 19 + TypeScript + Tailwind 4 frontend (Vite, React Flow, Zustand)
 backend/         Go module "ikhnos": server, agent, node probe, traffic observer, controller, CLI
-backend/docs/    Code-adjacent references: model API, placement formulas, decider webhook, twin design
+backend/docs/    Code-adjacent references: model API, twin design and the early placement research
 deploy/          Helm charts (server, controller), backup notes, policies
 docs-site/       The documentation site (Docusaurus)
 ```

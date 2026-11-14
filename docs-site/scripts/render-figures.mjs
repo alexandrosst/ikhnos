@@ -24,7 +24,6 @@ const React = requireSite('react');
 const PICK = {
   architecture: 'SystemAtAGlance',
   'trust-tiers': 'TrustChain',
-  'placement-loop': 'PlacementPipeline',
 };
 
 const out = path.join(site, 'static', 'img', 'readme');
