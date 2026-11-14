@@ -12,8 +12,9 @@
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 
   /* The NETMODE lab logo's lettering. Its brand navy (#323660) is 1.5:1 on the dark surface, so dark mode uses the neutral nb-400 grey (8+:1) to sit quietly
-   beside the rest of the UI; light mode uses the brand navy itself (11.5:1). The gold of the mark is the same in both. */
+   beside the rest of the UI; light mode uses the brand navy itself (11.5:1). The gold is a little brighter on dark and deeper on light, where the lab's own yellow (#e8ba1b) is 1.7:1 and faint. */
   --color-lab-ink: #a7b1b9;
+  --color-lab-gold: #f4c21b;
   --color-nb-900: #1f2329;
   --color-nb-920: #212630;
   --color-nb-925: #252a33;
@@ -75,6 +76,7 @@
   --auth-node: 0.38;
   --auth-shadow: 0.12;
   --color-lab-ink: #323660;
+  --color-lab-gold: #d29e00;
   --color-nb-900: #ffffff;
   --color-nb-910: #f7f8f9;
   --color-nb-920: #f7f7f8;

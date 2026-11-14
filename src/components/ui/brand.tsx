@@ -23,7 +23,7 @@ export function BrandMark({ className }: { className?: string }) {
   return <img src="/brand/mark/ikhnos-mark.svg" alt="" aria-hidden className={clsx('h-8 w-auto shrink-0', className)} data-testid="brand-mark" />
 }
 
-/** The research lab the work comes from. The logo has no background; its gold mark is fixed and its lettering takes the link's colour (--color-lab-ink, which index.css sets per theme). The file holds the mark and the NETMODE lettering with the lettering centred on the mark; the lab's subtitle is left out, as it cannot be read at this size. */
+/** The research lab the work comes from. The logo has no background. Its gold (--color-lab-gold) and its lettering (the link's colour, --color-lab-ink) are both set per theme in index.css: a deeper gold on light, where the file's own yellow is faint, and a hairline of weight on the dashes, dots and letters so they hold at the footer's size. The drawing is the lab's own, unchanged; that weight is meant for sizes up to about 40 px. The file holds the mark and the NETMODE lettering with the lettering centred on the mark; the lab's subtitle is left out, as it cannot be read at this size. */
 const LAB = { name: 'NETMODE, NTUA', url: 'https://www.netmode.ntua.gr/', logo: '/brand/lab/netmode.svg#netmode', viewBox: '148 424 687 151.5' }
 
 export function Copyright({ className }: { className?: string }) {
