@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, test, vi } from 'vitest'
 import HistoryPage from '@/features/history/HistoryPage'
@@ -217,12 +217,36 @@ describe('HistoryPage views', () => {
     audit.mockClear()
   }
 
-  test('an administrator gets Changes and People, and opens on Changes without asking for the audit trail', async () => {
+  test('an administrator gets Changes and People, and opens on Changes', async () => {
     setup()
     renderAt()
     const group = await screen.findByRole('group', { name: 'View' })
     expect(Array.from(group.querySelectorAll('button')).map((b) => b.textContent)).toEqual(['Changes', 'People'])
     await waitFor(() => expect(events).toHaveBeenCalled())
+    expect(screen.queryByTestId('audit-actor')).toBeNull()
+  })
+
+  test('beside the feed, an administrator sees the last few things people did, and See all opens People', async () => {
+    setup()
+    audit.mockResolvedValueOnce({ source: 'local', rows: [
+      { id: 2, at: new Date().toISOString(), actor: 'sam', action: 'member-invited', targetKind: 'user', targetId: 'kim', detail: '' },
+      { id: 1, at: new Date().toISOString(), actor: 'alex', action: 'agent-approved', targetKind: 'agent', targetId: 'edge-1', detail: '' },
+    ] } as never)
+    renderAt()
+    const card = await screen.findByTestId('recent-people')
+    await waitFor(() => expect(within(card).getAllByTestId('recent-people-row')).toHaveLength(2))
+    expect(within(card).getAllByTestId('recent-people-row')[0]).toHaveTextContent('sam member invited kim')
+    expect(audit).toHaveBeenCalledWith(expect.anything(), { limit: 5 })
+    fireEvent.click(within(card).getByTestId('recent-people-all'))
+    expect(await screen.findByTestId('audit-actor')).toBeInTheDocument()
+    expect(screen.queryByTestId('recent-people')).toBeNull()
+  })
+
+  test('someone who is not an administrator has no such card', async () => {
+    setup('viewer')
+    renderAt()
+    await waitFor(() => expect(events).toHaveBeenCalled())
+    expect(screen.queryByTestId('recent-people')).toBeNull()
     expect(audit).not.toHaveBeenCalled()
   })
 

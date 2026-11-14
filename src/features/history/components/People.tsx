@@ -1,6 +1,7 @@
 import { Download, ScrollText } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button, EmptyState, ErrorBanner, ICON_SM, Input, Select, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
+import { words } from '@/features/history/lib/audit'
 import { api, type AuditRow, type AuditSource, type WorkspaceRevision } from '@/lib/api'
 import { downloadCsv, toCsv } from '@/lib/csv'
 import { useConn } from '@/store/server'
@@ -12,8 +13,6 @@ const WINDOWS = [
   { hours: 0, label: 'Everything kept' },
 ]
 
-/** Audit actions read as sentences: "agent-approved" → "agent approved". */
-const words = (a: string) => a.replace(/[-_.]/g, ' ')
 const stamp = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' })
 
 /** Both tables share these widths so their columns line up: time, person, action, target, the rest. */

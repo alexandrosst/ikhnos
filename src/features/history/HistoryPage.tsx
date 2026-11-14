@@ -5,10 +5,11 @@ import { useSearchParams } from 'react-router-dom'
 import { Button, EmptyState, ErrorBanner, ICON_SM, PageHeader, PulseDot, Segmented, Select } from '@/components/ui/primitives'
 import Feed from '@/features/history/components/Feed'
 import People from '@/features/history/components/People'
+import { words } from '@/features/history/lib/audit'
 import RecordingPanel from '@/features/history/components/RecordingPanel'
 import Scrubber from '@/features/history/components/Scrubber'
 import type { FeedFilter } from '@/features/history/lib/feed'
-import { api, atLeast, type Conn, type StorageInfo } from '@/lib/api'
+import { api, atLeast, type AuditRow, type Conn, type StorageInfo } from '@/lib/api'
 import type { ChangeEvent, HistoryIndex, TrafficRate } from '@/lib/history'
 import { ago, bytesPerSec } from '@/lib/observed'
 import { useConn, useServer } from '@/store/server'
@@ -63,10 +64,10 @@ function Connected({ conn, admin }: { conn: Conn; admin: boolean }) {
       </>
     )
   }
-  return <Changes conn={conn} admin={admin} switcher={switcher} />
+  return <Changes conn={conn} admin={admin} switcher={switcher} onSeeAll={() => setParams({ view: 'people' }, { replace: true })} />
 }
 
-function Changes({ conn, admin, switcher }: { conn: Conn; admin: boolean; switcher: ReactNode }) {
+function Changes({ conn, admin, switcher, onSeeAll }: { conn: Conn; admin: boolean; switcher: ReactNode; onSeeAll: () => void }) {
   const [hours, setHours] = useState(24)
   const [filter, setFilter] = useState<FeedFilter>('all')
   const [clusterId, setClusterId] = useState('')
@@ -141,6 +142,7 @@ function Changes({ conn, admin, switcher }: { conn: Conn; admin: boolean; switch
           <Feed events={events} audit={auditLog} filter={filter} clusterId={clusterId} since={since} hours={hours} />
         </div>
         <aside className="space-y-4" aria-label="About this history">
+          {admin && <RecentPeople conn={conn} tick={tick} onSeeAll={onSeeAll} />}
           <PictureCheck />
           <BusiestLinks conn={conn} />
           <Stored conn={conn} tick={tick} />
@@ -177,6 +179,36 @@ const Card = ({ title, children, label }: { title: string; children: React.React
     {children}
   </section>
 )
+
+/** The last few things people did, for administrators, beside the feed rather than in it: they come from the server's audit trail, a different record from what Ikhnos noticed. The whole trail is the People view. */
+function RecentPeople({ conn, tick, onSeeAll }: { conn: Conn; tick: number; onSeeAll: () => void }) {
+  const [rows, setRows] = useState<AuditRow[] | null>(null)
+  useEffect(() => {
+    let live = true
+    api.audit(conn, { limit: 5 }).then((a) => live && setRows(a.rows), () => live && setRows([]))
+    return () => { live = false }
+  }, [conn, tick])
+  return (
+    <section className="rounded-xl border border-nb-850 bg-nb-925 p-4" aria-label="Recent by people" data-testid="recent-people">
+      <div className="mb-2.5 flex items-baseline justify-between">
+        <h2 className="text-xs font-medium text-nb-300">Recent by people</h2>
+        <button type="button" onClick={onSeeAll} className="text-xs text-accent hover:underline" data-testid="recent-people-all">See all</button>
+      </div>
+      {rows === null ? null : rows.length === 0 ? (
+        <p className="text-sm text-nb-500">Nobody has changed anything yet.</p>
+      ) : (
+        <ul className="divide-y divide-nb-850">
+          {rows.map((r) => (
+            <li key={r.id} className="flex items-baseline justify-between gap-3 py-1.5 text-[13px]" data-testid="recent-people-row">
+              <span className="min-w-0 text-nb-400"><span className="font-medium text-nb-300">{r.actor}</span> {words(r.action)}{r.targetId ? ` ${r.targetId}` : ''}</span>
+              <span className="shrink-0 text-xs text-nb-500">{ago(r.at)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
 
 /** Does the server's picture match the clusters' own? One line while it does; the agents that differ, or have not been checked, only when they do not. */
 function PictureCheck() {
