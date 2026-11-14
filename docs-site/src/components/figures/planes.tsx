@@ -236,6 +236,24 @@ export function ObservabilityPlanes() {
       {lines.map((l, i) => <T key={l} x={x + w / 2} y={y + h / 2 - ((lines.length - 1) * 17) / 2 + i * 17} anchor="middle" bold>{l}</T>)}
     </g>
   );
+  /** An icon over one or two bold lines, the block centred on the box. */
+  const chip = (x: number, y: number, w: number, h: number, color: string, kind: IconKind, lines: string[], op = 0.12) => {
+    const top = y + (h - (19 + 5 + 17 * lines.length)) / 2;
+    return (
+      <g>
+        {box(x, y, w, h, color, op)}
+        <Icon kind={kind} cx={x + w / 2} cy={top + 9.5} color={color} />
+        {lines.map((l, i) => <T key={l} x={x + w / 2} y={top + 34 + i * 17} anchor="middle" bold>{l}</T>)}
+      </g>
+    );
+  };
+  /** A step number on a corner of a box: the order the story is read in. */
+  const badge = (cx: number, cy: number, n: number) => (
+    <g>
+      <circle cx={cx} cy={cy} r="10" fill={accent} />
+      <text x={cx} y={cy + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="#fff">{n}</text>
+    </g>
+  );
   /** An icon in a soft disc on the left, a name and a line under it on the right, the pair centred on the box. */
   const node = (x: number, y: number, w: number, h: number, color: string, kind: IconKind, name: string, sub: string, op = 0.08, hi = false, big = true) => {
     const cy = y + h / 2;
@@ -251,7 +269,13 @@ export function ObservabilityPlanes() {
     );
   };
   return (
-    <Fig id={f} width={1088} textScale={1.2} height={740} label="Ikhnos has a control plane and a data plane. In the control plane, the server holds the observability intent, which covers discovery and the observability posture, and the topology and history. The intent goes down to a discovery agent in each cloud, edge and far-edge cluster, and the topology comes back up. In the data plane, each cluster has a local operator with telemetry extractors feeding an OpenTelemetry collector. Telemetry goes through regional operators to FUSION's central operator, then into Prometheus for metrics, Loki for logs and Tempo for traces. FUSION also holds the topology graph in Neo4j, and a shared API gives outside consumers, models, tools and people, the fused data." title="Inside Ikhnos: control plane and data plane" subtitle="The observability intent goes down to the agents. Telemetry goes up to FUSION.">
+    <Fig id={f} width={1088} textScale={1.2} height={740} label="Ikhnos has a control plane and a data plane. In the control plane, the server holds the observability intent, which covers discovery and the observability posture, and the topology and history. The intent goes down to a discovery agent in each cloud, edge and far-edge cluster, and the topology comes back up. In the data plane, each cluster has a local operator with telemetry extractors feeding an OpenTelemetry collector. Telemetry goes through regional operators to FUSION's central operator, then into Prometheus for metrics, Loki for logs and Tempo for traces. FUSION also holds the topology graph in Neo4j, and a shared API gives outside consumers, models, tools and people, the fused data." title="Inside Ikhnos: control plane and data plane">
+      {[[34, 'Set the intent'], [184, 'Agents discover'], [342, 'Operators collect'], [514, 'FUSION keeps it']].map(([x, label], i) => (
+        <g key={label}>
+          {badge(x as number, 54, i + 1)}
+          <T x={(x as number) + 18} y={58.5} small muted>{label}</T>
+        </g>
+      ))}
       <rect x="24" y="72" width="1040" height="108" rx="14" fill={control} fillOpacity="0.05" stroke={control} strokeOpacity="0.3" />
       <T x={48} y={98} small bold color={control}>CONTROL PLANE · IKHNOS SERVER</T>
       {node(48, 112, 312, 52, control, 'resource', 'Observability intent', 'discovery · observability posture', 0.08, true)}
@@ -268,10 +292,11 @@ export function ObservabilityPlanes() {
           <g key={tier.name}>
             {box(48, t, 392, 136, tier.color, 0.05, true)}
             <Pill x={64} y={t + 10} w={tier.w} color={tier.color}>{tier.name}</Pill>
-            {[0, 1, 2].map((k) => <rect key={k} x={360 + k * 24} y={t + 12} width="16" height="16" rx="4" fill={warn} fillOpacity="0.85" />)}
-            {plain(64, cy - 26, 112, 52, control, ['Discovery', 'agent'], 0.14)}
+            {[0, 1, 2].map((k) => <rect key={k} x={336 + k * 24} y={t + 12} width="16" height="16" rx="4" fill={warn} fillOpacity="0.6" />)}
+            {chip(64, t + 36, 112, 88, control, 'agent', ['Discovery', 'agent'], 0.14)}
             {box(192, t + 36, 232, 88, data, 0.06)}
-            <T x={204} y={t + 57} small bold>Local operator</T>
+            <g transform={`translate(209 ${t + 52}) scale(0.7)`}><Icon kind="local" cx={0} cy={0} color={data} /></g>
+            <T x={220} y={t + 57} small bold>Local operator</T>
             {box(200, t + 66, 96, 48, data, 0.16)}
             <T x={248} y={t + 85.5} anchor="middle" small bold>telemetry</T>
             <T x={248} y={t + 101.5} anchor="middle" small bold>extractors</T>
@@ -279,19 +304,19 @@ export function ObservabilityPlanes() {
             {box(320, t + 66, 96, 48, edge, 0.12)}
             <T x={368} y={t + 85.5} anchor="middle" small bold>OTel</T>
             <T x={368} y={t + 101.5} anchor="middle" small bold>collector</T>
-            <Arrow fig={f} accented both small d={`M36 ${cy}H64`} />
+            <Arrow fig={f} accented both small d={`M37 ${cy}H64`} />
             <Arrow fig={f} d={i === 0 ? `M424 ${cy}H456V382H488` : i === 1 ? `M424 ${cy}H456V414H488` : `M424 ${cy}H488`} />
           </g>
         );
       })}
-      <Arrow fig={f} accented noHead small d="M48 138H36V620" />
+      <Arrow fig={f} accented noHead small d="M48 138H37V620" />
 
-      {plain(488, 372, 104, 52, data, ['Regional', 'operator'])}
-      {plain(488, 594, 104, 52, data, ['Regional', 'operator'])}
+      {chip(488, 360, 104, 76, data, 'regional', ['Regional', 'operator'])}
+      {chip(488, 582, 104, 76, data, 'regional', ['Regional', 'operator'])}
 
       {box(624, 280, 292, 360, data, 0.05)}
       <T x={640} y={308} bold>FUSION Platform</T>
-      {plain(636, 446, 104, 52, data, ['Central', 'operator'])}
+      {chip(636, 434, 104, 76, data, 'regional', ['Central', 'operator'])}
       {node(764, 324, 136, 48, accent, 'graph', 'Neo4j', 'graph', 0.1, false, false)}
       {stores.map(([n, d, kind, y]) => (
         <g key={n}>
@@ -312,6 +337,11 @@ export function ObservabilityPlanes() {
       <Arrow fig={f} d="M592 398H612V456H636" />
       <Arrow fig={f} d="M592 620H612V488H636" />
       <Arrow fig={f} accented d="M832 164V324" />
+
+      {badge(360, 112, 1)}
+      {badge(176, 280, 2)}
+      {badge(424, 280, 3)}
+      {badge(916, 280, 4)}
 
       <rect x="24" y="712" width="14" height="14" rx="4" fill={warn} fillOpacity="0.85" />
       <T x={46} y={724} small muted>microservices</T>
