@@ -219,105 +219,106 @@ export function DistributedPlanes() {
 /** Observability intent at the centre of the two planes: the intent goes down to the agents, telemetry goes up to FUSION. The README's picture. */
 export function ObservabilityPlanes() {
   const f = 'obsplanes';
+  // One grid, 8 units: boxes are sized to what they hold, with 16 units of air at the sides and 10 above and below, and the text in each is centred on its box.
   const tiers: {name: string; color: string; t: number; w: number}[] = [
     {name: 'Cloud', color: cloud, t: 244, w: 70},
-    {name: 'Edge', color: edgeTier, t: 384, w: 62},
-    {name: 'Far edge', color: far, t: 524, w: 84},
+    {name: 'Edge', color: edgeTier, t: 392, w: 62},
+    {name: 'Far edge', color: far, t: 540, w: 84},
   ];
-  const stores: [string, string, IconKind, number][] = [['Prometheus', 'metrics', 'metrics', 352], ['Loki', 'logs', 'logs', 408], ['Tempo', 'traces', 'traces', 464]];
-  const box = (x: number, y: number, w: number, h: number, color: string, op = 0.1, dashed = false) => (
-    <rect x={x} y={y} width={w} height={h} rx="9" fill={dashed ? 'none' : color} fillOpacity={dashed ? 0 : op} stroke={color} strokeWidth={dashed ? 1.25 : 1.75} strokeDasharray={dashed ? '5 4' : undefined} />
+  const stores: [string, string, IconKind, number][] = [['Prometheus', 'metrics', 'metrics', 388], ['Loki', 'logs', 'logs', 448], ['Tempo', 'traces', 'traces', 508]];
+  const box = (x: number, y: number, w: number, h: number, color: string, op = 0.08, dashed = false, sw = 1.25) => (
+    <rect x={x} y={y} width={w} height={h} rx="10" fill={dashed ? 'none' : color} fillOpacity={dashed ? 0 : op} stroke={color} strokeOpacity={dashed ? 0.7 : 0.85} strokeWidth={sw} strokeDasharray={dashed ? '6 4' : undefined} />
   );
-  /** An icon over one or two bold lines, the whole block centred in the box. */
-  const chip = (x: number, y: number, w: number, h: number, color: string, kind: IconKind, lines: string[], op = 0.14) => {
-    const top = y + (h - (25 + 17 * lines.length)) / 2;
+  /** Two lines of bold text, centred on the box both ways. */
+  const plain = (x: number, y: number, w: number, h: number, color: string, lines: string[], op = 0.12) => (
+    <g>
+      {box(x, y, w, h, color, op)}
+      {lines.map((l, i) => <T key={l} x={x + w / 2} y={y + h / 2 - ((lines.length - 1) * 17) / 2 + i * 17} anchor="middle" bold>{l}</T>)}
+    </g>
+  );
+  /** An icon in a soft disc on the left, a name and a line under it on the right, the pair centred on the box. */
+  const node = (x: number, y: number, w: number, h: number, color: string, kind: IconKind, name: string, sub: string, op = 0.08, hi = false, big = true) => {
+    const cy = y + h / 2;
+    const gap = big ? 17 : 16;
     return (
       <g>
-        {box(x, y, w, h, color, op)}
-        <Icon kind={kind} cx={x + w / 2} cy={top + 10} color={color} />
-        {lines.map((l, i) => <T key={l} x={x + w / 2} y={top + 38 + i * 17} anchor="middle" bold>{l}</T>)}
+        <rect x={x} y={y} width={w} height={h} rx="10" fill={color} fillOpacity={hi ? 0.12 : op} stroke={hi ? accent : color} strokeOpacity={hi ? 1 : 0.85} strokeWidth={hi ? 1.75 : 1.25} />
+        <circle cx={x + 22} cy={cy} r="13" fill={color} fillOpacity="0.16" />
+        <Icon kind={kind} cx={x + 22} cy={cy} color={color} />
+        <T x={x + 44} y={cy - 4.5} bold small={!big}>{name}</T>
+        <T x={x + 44} y={cy - 4.5 + gap} small muted>{sub}</T>
       </g>
     );
   };
   return (
-    <Fig id={f} width={1040} textScale={1.2} height={722} label="Ikhnos has a control plane and a data plane. In the control plane, the server holds the observability intent, which covers discovery and the observability posture, and the topology and history. The intent goes down to a discovery agent in each cloud, edge and far-edge cluster, and the topology comes back up. In the data plane, each cluster has a local operator with telemetry extractors feeding an OpenTelemetry collector. Telemetry goes through regional operators to FUSION's central operator, then into Prometheus for metrics, Loki for logs and Tempo for traces. FUSION also holds the topology graph in Neo4j, and a shared API gives outside consumers, models, tools and people, the fused data." title="Inside Ikhnos: control plane and data plane" subtitle="The observability intent goes down to the agents. Telemetry goes up to FUSION.">
-      <rect x="24" y="72" width="992" height="112" rx="14" fill={control} fillOpacity="0.055" stroke={control} strokeOpacity="0.35" />
+    <Fig id={f} width={1088} textScale={1.2} height={740} label="Ikhnos has a control plane and a data plane. In the control plane, the server holds the observability intent, which covers discovery and the observability posture, and the topology and history. The intent goes down to a discovery agent in each cloud, edge and far-edge cluster, and the topology comes back up. In the data plane, each cluster has a local operator with telemetry extractors feeding an OpenTelemetry collector. Telemetry goes through regional operators to FUSION's central operator, then into Prometheus for metrics, Loki for logs and Tempo for traces. FUSION also holds the topology graph in Neo4j, and a shared API gives outside consumers, models, tools and people, the fused data." title="Inside Ikhnos: control plane and data plane" subtitle="The observability intent goes down to the agents. Telemetry goes up to FUSION.">
+      <rect x="24" y="72" width="1040" height="108" rx="14" fill={control} fillOpacity="0.05" stroke={control} strokeOpacity="0.3" />
       <T x={48} y={98} small bold color={control}>CONTROL PLANE · IKHNOS SERVER</T>
-      <Card x={48} y={110} w={420} h={58} name="Observability intent" sub="discovery · observability posture" color={control} icon="resource" hi />
-      <Card x={692} y={110} w={300} h={58} name="Topology & history" sub="what ran where, and when" color={control} icon="server" />
+      {node(48, 112, 312, 52, control, 'resource', 'Observability intent', 'discovery · observability posture', 0.08, true)}
+      {node(708, 112, 248, 52, control, 'server', 'Topology & history', 'what ran where, and when')}
 
-      <rect x="24" y="204" width="992" height="468" rx="14" fill={data} fillOpacity="0.045" stroke={data} strokeOpacity="0.35" />
-      <T x={48} y={230} small bold color={data}>DATA PLANE</T>
-      <T x={150} y={230} small muted>metrics · logs · traces</T>
+      <rect x="24" y="200" width="1040" height="492" rx="14" fill={data} fillOpacity="0.045" stroke={data} strokeOpacity="0.3" />
+      <T x={48} y={228} small bold color={data}>DATA PLANE</T>
+      <T x={150} y={228} small muted>metrics · logs · traces</T>
 
       {tiers.map((tier, i) => {
         const t = tier.t;
+        const cy = t + 80;
         return (
           <g key={tier.name}>
-            <rect x="48" y={t} width="392" height="124" rx="10" fill={tier.color} fillOpacity="0.05" stroke={tier.color} strokeWidth="1.5" strokeDasharray="6 4" />
+            {box(48, t, 392, 136, tier.color, 0.05, true)}
             <Pill x={64} y={t + 10} w={tier.w} color={tier.color}>{tier.name}</Pill>
-            {[0, 1, 2].map((k) => <rect key={k} x={344 + k * 24} y={t + 12} width="16" height="16" rx="3" fill={warn} fillOpacity="0.85" />)}
-            {chip(64, t + 42, 104, 68, control, 'agent', ['Discovery', 'agent'], 0.16)}
-            <rect x="196" y={t + 36} width="232" height="80" rx="9" fill={data} fillOpacity="0.07" stroke={data} strokeWidth="1.75" />
-            <T x={208} y={t + 53} small bold>Local operator</T>
-            {box(206, t + 62, 94, 46, data, 0.2)}
-            <T x={253} y={t + 82} anchor="middle" small bold>telemetry</T>
-            <T x={253} y={t + 98} anchor="middle" small bold>extractors</T>
-            <Arrow fig={f} d={`M300 ${t + 85}H320`} />
-            {box(322, t + 62, 94, 46, edge, 0.14)}
-            <T x={369} y={t + 82} anchor="middle" small bold>OTel</T>
-            <T x={369} y={t + 98} anchor="middle" small bold>collector</T>
-            <Arrow fig={f} accented both small d={`M36 ${t + 76}H64`} />
-            <Arrow fig={f} d={i === 0 ? `M428 ${t + 76}H452V374H472` : i === 1 ? `M428 ${t + 76}H452V406H472` : `M428 ${t + 76}H472`} />
+            {[0, 1, 2].map((k) => <rect key={k} x={360 + k * 24} y={t + 12} width="16" height="16" rx="4" fill={warn} fillOpacity="0.85" />)}
+            {plain(64, cy - 26, 112, 52, control, ['Discovery', 'agent'], 0.14)}
+            {box(192, t + 36, 232, 88, data, 0.06)}
+            <T x={204} y={t + 57} small bold>Local operator</T>
+            {box(200, t + 66, 96, 48, data, 0.16)}
+            <T x={248} y={t + 85.5} anchor="middle" small bold>telemetry</T>
+            <T x={248} y={t + 101.5} anchor="middle" small bold>extractors</T>
+            <Arrow fig={f} d={`M296 ${cy + 10}H320`} />
+            {box(320, t + 66, 96, 48, edge, 0.12)}
+            <T x={368} y={t + 85.5} anchor="middle" small bold>OTel</T>
+            <T x={368} y={t + 101.5} anchor="middle" small bold>collector</T>
+            <Arrow fig={f} accented both small d={`M36 ${cy}H64`} />
+            <Arrow fig={f} d={i === 0 ? `M424 ${cy}H456V382H488` : i === 1 ? `M424 ${cy}H456V414H488` : `M424 ${cy}H488`} />
           </g>
         );
       })}
-      <Arrow fig={f} accented noHead small d="M48 139H36V600" />
+      <Arrow fig={f} accented noHead small d="M48 138H36V620" />
 
-      {chip(472, 354, 104, 72, data, 'regional', ['Regional', 'operator'])}
-      {chip(472, 564, 104, 72, data, 'regional', ['Regional', 'operator'])}
+      {plain(488, 372, 104, 52, data, ['Regional', 'operator'])}
+      {plain(488, 594, 104, 52, data, ['Regional', 'operator'])}
 
-      <rect x="608" y="244" width="276" height="404" rx="10" fill={data} fillOpacity="0.06" stroke={data} strokeWidth="1.5" />
-      <T x={628} y={272} bold>FUSION Platform</T>
-      {chip(620, 410, 92, 76, data, 'regional', ['Central', 'operator'])}
-
-      {box(740, 288, 128, 48, accent, 0.12)}
-      <Icon kind="graph" cx={758} cy={312} color={accent} />
-      <T x={774} y={309} small bold>Neo4j</T>
-      <T x={774} y={325} small muted>graph</T>
+      {box(624, 280, 292, 360, data, 0.05)}
+      <T x={640} y={308} bold>FUSION Platform</T>
+      {plain(636, 446, 104, 52, data, ['Central', 'operator'])}
+      {node(764, 324, 136, 48, accent, 'graph', 'Neo4j', 'graph', 0.1, false, false)}
       {stores.map(([n, d, kind, y]) => (
         <g key={n}>
-          {box(740, y, 128, 48, data, 0.1)}
-          <Icon kind={kind} cx={758} cy={y + 24} color={data} />
-          <T x={774} y={y + 21} small bold>{n}</T>
-          <T x={774} y={y + 37} small muted>{d}</T>
-          <Arrow fig={f} d={`M712 448H726V${y + 24}H740`} />
+          {node(764, y, 136, 48, data, kind, n, d, 0.1, false, false)}
+          <Arrow fig={f} d={`M740 472H752V${y + 24}H764`} />
         </g>
       ))}
-      {box(620, 548, 248, 66, edge, 0.14)}
-      <T x={744} y={573} anchor="middle" bold>Shared API</T>
-      <T x={744} y={592} anchor="middle" small muted>fused objects</T>
-      <T x={744} y={606} anchor="middle" small muted>+ topology graph</T>
+      {node(764, 576, 136, 48, edge, 'api', 'Shared API', 'fused data', 0.1, false, false)}
 
-      <rect x="898" y="500" width="110" height="148" rx="10" fill="none" stroke={edge} strokeWidth="1.25" strokeDasharray="5 4" />
-      <T x={910} y={522} small bold color={quiet}>EXTERNAL</T>
-      {box(906, 534, 94, 104, edge, 0.06)}
-      <Icon kind="person" cx={953} cy={558} color={edge} />
-      <T x={953} y={586} anchor="middle" bold>Consumers</T>
-      <T x={953} y={603} anchor="middle" small muted>models,</T>
-      <T x={953} y={620} anchor="middle" small muted>tools, people</T>
-      <Arrow fig={f} d="M868 586H906" />
+      {box(932, 540, 120, 120, edge, 0, true)}
+      <T x={992} y={560} anchor="middle" small bold color={quiet}>EXTERNAL</T>
+      <Icon kind="person" cx={992} cy={582} color={edge} />
+      <T x={992} y={610} anchor="middle" bold>Consumers</T>
+      <T x={992} y={627} anchor="middle" small muted>models, tools,</T>
+      <T x={992} y={643} anchor="middle" small muted>people</T>
+      <Arrow fig={f} d="M900 600H932" />
 
-      <Arrow fig={f} d="M576 390H598V440H620" />
-      <Arrow fig={f} d="M576 600H598V470H620" />
-      <Arrow fig={f} accented d="M804 168V288" />
+      <Arrow fig={f} d="M592 398H612V456H636" />
+      <Arrow fig={f} d="M592 620H612V488H636" />
+      <Arrow fig={f} accented d="M832 164V324" />
 
-      <rect x="24" y="696" width="14" height="14" rx="3" fill={warn} fillOpacity="0.85" />
-      <T x={46} y={708} small muted>microservices</T>
-      <Arrow fig={f} accented both d="M250 703H290" />
-      <T x={300} y={708} small muted>intent down, topology up</T>
-      <Arrow fig={f} d="M560 703H600" />
-      <T x={610} y={708} small muted>telemetry (OTLP)</T>
+      <rect x="24" y="712" width="14" height="14" rx="4" fill={warn} fillOpacity="0.85" />
+      <T x={46} y={724} small muted>microservices</T>
+      <Arrow fig={f} accented both small d="M250 719H290" />
+      <T x={300} y={724} small muted>intent down, topology up</T>
+      <Arrow fig={f} d="M560 719H600" />
+      <T x={610} y={724} small muted>telemetry (OTLP)</T>
     </Fig>
   );
 }
