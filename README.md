@@ -30,6 +30,16 @@
 </p>
 
 <p align="center">
+  <sub>Developed at</sub><br>
+  <a href="https://www.netmode.ntua.gr/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs-site/static/img/readme/netmode-dark.svg">
+      <img alt="NETMODE, NTUA" src="docs-site/static/img/readme/netmode-light.svg" height="36">
+    </picture>
+  </a>
+</p>
+
+<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs-site/static/img/readme/topology-loop-dark.webp">
     <img alt="Sites in Berlin, Paris and Athens on a map, with the traffic between them moving along the links" src="docs-site/static/img/readme/topology-loop-light.webp" width="920">
