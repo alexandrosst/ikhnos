@@ -2,12 +2,12 @@
 id: intro
 slug: /
 title: Ikhnos documentation
-description: Documentation for Ikhnos, a read-only, agent-observed model of your clusters across the cloud-to-far-edge continuum, across clusters, links, health, trust and telemetry.
+description: "Observability across the cloud–edge computing continuum: topology discovery and telemetry collection for your Kubernetes clusters, driven by an observability intent."
 ---
 
 # Ikhnos documentation
 
-**See everything, touch nothing.** Full-stack observability for your whole landscape, from cloud to far edge.
+**See everything, touch nothing.** Observability across the cloud–edge computing continuum: topology discovery and telemetry collection for your Kubernetes clusters, driven by an observability intent.
 
 <Shot src="readme/topology-loop" ext="webp" alt="The sites of a landscape in Berlin, Paris and Athens on a map, with the traffic between them moving along the links" caption="Berlin, Paris and Athens on the sample landscape. The dashes move with the traffic between sites." />
 

@@ -1,4 +1,4 @@
-import type {ReactNode} from 'react';
+import {createContext, useContext, type ReactNode} from 'react';
 
 /*
  * The drawing kit every Ikhnos figure is made from.
@@ -22,7 +22,14 @@ export const cloud = 'var(--cds-tier-cloud)';
 export const edgeTier = 'var(--cds-tier-edge)';
 export const far = 'var(--cds-tier-far)';
 
+/** How much larger than the usual 13 and 11.5 this figure's text is drawn. A wide, airy figure sets it above 1 so its text stays as big on the page as the others'. */
+const TextScale = createContext(1);
+
 type FigProps = {
+  /** The drawing is 760 units wide unless it says otherwise. */
+  width?: number;
+  /** Multiplies every text size drawn by this kit (T, Lines, Pill). */
+  textScale?: number;
   /** A short unique id: it prefixes the arrow markers, so two figures on one page never share one. */
   id: string;
   height: number;
@@ -33,9 +40,10 @@ type FigProps = {
   children: ReactNode;
 };
 
-export function Fig({id, height, label, title, subtitle, children}: FigProps) {
+export function Fig({id, height, label, title, subtitle, children, width = 760, textScale = 1}: FigProps) {
   return (
-    <svg viewBox={`0 0 760 ${height}`} role="img" aria-label={label} fontSize="13" className="ikh-fig">
+    <TextScale.Provider value={textScale}>
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} fontSize={13 * textScale} className="ikh-fig">
       <defs>
         <marker id={`${id}-arrow`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M0 0L10 5L0 10z" fill={edge} />
@@ -45,17 +53,18 @@ export function Fig({id, height, label, title, subtitle, children}: FigProps) {
         </marker>
       </defs>
       {title && (
-        <text x="24" y="30" fontSize="15" fontWeight="600" fill={ink}>
+        <text x="24" y={30 * textScale} fontSize={15 * textScale} fontWeight="600" fill={ink}>
           {title}
         </text>
       )}
       {subtitle && (
-        <text x="24" y="48" fontSize="11.5" fill={quiet}>
+        <text x="24" y={48 * textScale} fontSize={11.5 * textScale} fill={quiet}>
           {subtitle}
         </text>
       )}
       {children}
     </svg>
+    </TextScale.Provider>
   );
 }
 
@@ -108,11 +117,12 @@ type TextProps = {
 
 /** One line of text. Names are bold at 13, descriptions are 11.5 and muted unless they are the point. */
 export function T({x, y, children, bold, small, muted, anchor, color, mono}: TextProps) {
+  const scale = useContext(TextScale);
   return (
     <text
       x={x}
       y={y}
-      fontSize={small ? 11.5 : undefined}
+      fontSize={small ? 11.5 * scale : undefined}
       fontWeight={bold ? 600 : undefined}
       fill={color ?? (muted ? quiet : ink)}
       textAnchor={anchor}
@@ -180,10 +190,11 @@ export function Step({x, y, n}: {x: number; y: number; n: number | string}) {
 
 /** A pill: a tier or a state, drawn as an outlined capsule with its colour as text. */
 export function Pill({x, y, w, children, color = edge}: {x: number; y: number; w: number; children: ReactNode; color?: string}) {
+  const scale = useContext(TextScale);
   return (
     <g>
       <rect x={x} y={y} width={w} height="20" rx="10" fill={color} fillOpacity="0.12" stroke={color} strokeWidth="1.25" />
-      <text x={x + w / 2} y={y + 14} textAnchor="middle" fontSize="11" fontWeight="600" fill={ink}>
+      <text x={x + w / 2} y={y + 14} textAnchor="middle" fontSize={11 * scale} fontWeight="600" fill={ink}>
         {children}
       </text>
     </g>

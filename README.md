@@ -7,13 +7,16 @@
 
 <h3 align="center">See everything, touch nothing.</h3>
 
-<p align="center">Full-stack observability for your whole landscape, from cloud to far edge.</p>
+<p align="center">Observability across the cloud–edge computing continuum: topology discovery and telemetry collection for your Kubernetes clusters, driven by an observability intent.</p>
 
 <p align="center">
   <a href="https://github.com/alexandrosst/ikhnos/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alexandrosst/ikhnos/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <a href="https://alexandrosst.github.io/ikhnos/"><img alt="Documentation" src="https://img.shields.io/badge/docs-alexandrosst.github.io%2Fikhnos-f68330"></a>
   <a href="LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-blue.svg"></a>
   <a href="backend/go.mod"><img alt="Go 1.26" src="https://img.shields.io/badge/backend-Go%201.26-00ADD8?logo=go&logoColor=white"></a>
+  <a href="https://github.com/alexandrosst/ikhnos/actions/workflows/docs.yml"><img alt="Docs build" src="https://github.com/alexandrosst/ikhnos/actions/workflows/docs.yml/badge.svg?branch=main"></a>
+  <img alt="Kubernetes 1.25+" src="https://img.shields.io/badge/kubernetes-1.25%2B-326CE5?logo=kubernetes&logoColor=white">
+  <img alt="Helm 3.8+" src="https://img.shields.io/badge/helm-3.8%2B-0F1689?logo=helm&logoColor=white">
   <img alt="Status: pre-1.0" src="https://img.shields.io/badge/status-pre--1.0-lightgrey">
 </p>
 

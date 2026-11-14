@@ -189,85 +189,89 @@ export function DistributedPlanes() {
 export function ObservabilityPlanes() {
   const f = 'obsplanes';
   const tiers: {name: string; color: string; y: number; w: number}[] = [
-    {name: 'Cloud', color: cloud, y: 206, w: 62},
-    {name: 'Edge', color: edgeTier, y: 322, w: 56},
-    {name: 'Far edge', color: far, y: 438, w: 72},
+    {name: 'Cloud', color: cloud, y: 240, w: 70},
+    {name: 'Edge', color: edgeTier, y: 384, w: 62},
+    {name: 'Far edge', color: far, y: 528, w: 84},
   ];
-  const stores: [string, string, number][] = [['Prometheus', 'metrics', 280], ['Loki', 'logs', 316], ['Tempo', 'traces', 352]];
+  const stores: [string, string, number][] = [['Prometheus', 'metrics', 346], ['Loki', 'logs', 402], ['Tempo', 'traces', 458]];
+  const box = (x: number, y: number, w: number, h: number, color: string, op = 0.1, dashed = false) => (
+    <rect x={x} y={y} width={w} height={h} rx="9" fill={dashed ? 'none' : color} fillOpacity={op} stroke={color} strokeWidth={dashed ? 1.25 : 1.75} strokeDasharray={dashed ? '5 4' : undefined} />
+  );
   return (
-    <Fig id={f} height={604} label="Ikhnos has a control plane and a data plane. In the control plane, the server holds the observability intent, which says what to observe, where and how well, and the topology and history. The intent goes down to a discovery agent in each cloud, edge and far-edge cluster, and the topology comes back up. In the data plane, each cluster has a local operator with telemetry extractors and an OpenTelemetry collector. Telemetry goes through regional operators to FUSION's central operator, then into Prometheus for metrics, Loki for logs and Tempo for traces. FUSION also holds the topology graph in Neo4j, and a shared API gives models, tools and people the fused data." title="Inside Ikhnos: control plane and data plane" subtitle="The observability intent goes down to the agents. Telemetry goes up to FUSION.">
-      <rect x="24" y="60" width="712" height="96" rx="14" fill={control} fillOpacity="0.055" stroke={control} strokeOpacity="0.35" />
-      <T x={40} y={80} small bold color={control}>CONTROL PLANE · IKHNOS SERVER</T>
-      <Card x={40} y={92} w={380} h={52} name="Observability intent" sub="what to observe, where, and how well" color={control} icon="resource" hi />
-      <Card x={450} y={92} w={270} h={52} name="Topology & history" sub="what ran where, and when" color={control} icon="server" />
+    <Fig id={f} width={960} textScale={1.15} height={732} label="Ikhnos has a control plane and a data plane. In the control plane, the server holds the observability intent, which says what to observe, where and how well, and the topology and history. The intent goes down to a discovery agent in each cloud, edge and far-edge cluster, and the topology comes back up. In the data plane, each cluster has a local operator with telemetry extractors and an OpenTelemetry collector. Telemetry goes through regional operators to FUSION's central operator, then into Prometheus for metrics, Loki for logs and Tempo for traces. FUSION also holds the topology graph in Neo4j, and a shared API gives models, tools and people the fused data." title="Inside Ikhnos: control plane and data plane" subtitle="The observability intent goes down to the agents. Telemetry goes up to FUSION.">
+      <rect x="24" y="76" width="912" height="112" rx="14" fill={control} fillOpacity="0.055" stroke={control} strokeOpacity="0.35" />
+      <T x={48} y={102} small bold color={control}>CONTROL PLANE · IKHNOS SERVER</T>
+      <Card x={48} y={114} w={460} h={56} name="Observability intent" sub="what to observe, where, and how well" color={control} icon="resource" hi />
+      <Card x={580} y={114} w={332} h={56} name="Topology & history" sub="what ran where, and when" color={control} icon="server" />
 
-      <rect x="24" y="172" width="712" height="384" rx="14" fill={data} fillOpacity="0.045" stroke={data} strokeOpacity="0.35" />
-      <T x={40} y={192} small bold color={data}>DATA PLANE</T>
-      <T x={128} y={192} small muted>metrics · logs · traces</T>
+      <rect x="24" y="216" width="912" height="474" rx="14" fill={data} fillOpacity="0.045" stroke={data} strokeOpacity="0.35" />
+      <T x={48} y={242} small bold color={data}>DATA PLANE</T>
+      <T x={150} y={242} small muted>metrics · logs · traces</T>
 
       {tiers.map((t, i) => {
-        const my = t.y + 38;
+        const my = t.y + 54;
         return (
           <g key={t.name}>
-            <rect x="40" y={t.y} width="268" height="108" rx="10" fill={t.color} fillOpacity="0.06" stroke={t.color} strokeWidth="1.5" />
-            <Pill x={52} y={t.y + 10} w={t.w} color={t.color}>{t.name}</Pill>
-            {[0, 1, 2].map((k) => <rect key={k} x={236 + k * 24} y={t.y + 12} width="16" height="16" rx="3" fill={warn} fillOpacity="0.85" />)}
-            <rect x="52" y={my} width="104" height="58" rx="8" fill={control} fillOpacity="0.1" stroke={control} strokeWidth="1.5" />
-            <T x={104} y={my + 26} anchor="middle" bold>Discovery</T>
-            <T x={104} y={my + 44} anchor="middle" bold>agent</T>
-            <rect x="168" y={my} width="128" height="58" rx="8" fill={data} fillOpacity="0.08" stroke={data} strokeWidth="1.5" />
-            <T x={232} y={my + 20} anchor="middle" bold>Local operator</T>
-            <T x={232} y={my + 37} anchor="middle" small muted>telemetry extractors</T>
-            <T x={232} y={my + 51} anchor="middle" small muted>+ OTel collector</T>
-            <Arrow fig={f} accented both d={`M32 ${my + 29}H52`} />
-            <Arrow fig={f} d={i === 0 ? `M296 ${my + 29}H312V312H328` : i === 1 ? `M296 ${my + 29}H312V352H328` : `M296 ${my + 29}H328`} />
+            <rect x="48" y={t.y + 8} width="332" height="124" rx="10" fill={t.color} fillOpacity="0.06" stroke={t.color} strokeWidth="1.5" />
+            <Pill x={64} y={t.y + 20} w={t.w} color={t.color}>{t.name}</Pill>
+            {[0, 1, 2].map((k) => <rect key={k} x={300 + k * 24} y={t.y + 22} width="16" height="16" rx="3" fill={warn} fillOpacity="0.85" />)}
+            {box(64, my, 128, 64, control)}
+            <T x={128} y={my + 28} anchor="middle" bold>Discovery</T>
+            <T x={128} y={my + 48} anchor="middle" bold>agent</T>
+            {box(216, my, 148, 64, data, 0.08)}
+            <T x={290} y={my + 24} anchor="middle" bold>Local operator</T>
+            <T x={290} y={my + 42} anchor="middle" small muted>telemetry extractors</T>
+            <T x={290} y={my + 57} anchor="middle" small muted>+ OTel collector</T>
+            <Arrow fig={f} accented both d={`M32 ${my + 32}H64`} />
+            <Arrow fig={f} d={i === 0 ? `M364 ${my + 32}H412V380H452` : i === 1 ? `M364 ${my + 32}H412V420H452` : `M364 ${my + 32}H452`} />
           </g>
         );
       })}
-      <Arrow fig={f} accented noHead d="M40 118H32V505" />
+      <Arrow fig={f} accented noHead d="M48 142H32V614" />
 
-      <rect x="328" y="300" width="96" height="64" rx="8" fill={data} fillOpacity="0.12" stroke={data} strokeWidth="1.5" />
-      <T x={376} y={328} anchor="middle" bold>Regional</T>
-      <T x={376} y={346} anchor="middle" bold>operator</T>
-      <rect x="328" y="452" width="96" height="64" rx="8" fill={data} fillOpacity="0.12" stroke={data} strokeWidth="1.5" />
-      <T x={376} y={480} anchor="middle" bold>Regional</T>
-      <T x={376} y={498} anchor="middle" bold>operator</T>
+      {box(452, 352, 104, 84, data, 0.12)}
+      <T x={504} y={388} anchor="middle" bold>Regional</T>
+      <T x={504} y={408} anchor="middle" bold>operator</T>
+      {box(452, 568, 104, 84, data, 0.12)}
+      <T x={504} y={604} anchor="middle" bold>Regional</T>
+      <T x={504} y={624} anchor="middle" bold>operator</T>
 
-      <rect x="440" y="206" width="284" height="340" rx="10" fill={data} fillOpacity="0.06" stroke={data} strokeWidth="1.5" />
-      <T x={456} y={228} bold>FUSION</T>
-      <rect x="452" y="330" width="100" height="70" rx="8" fill={data} fillOpacity="0.14" stroke={data} strokeWidth="1.5" />
-      <T x={502} y={358} anchor="middle" bold>Central</T>
-      <T x={502} y={376} anchor="middle" bold>operator</T>
-      <rect x="568" y="238" width="144" height="34" rx="8" fill={accent} fillOpacity="0.12" stroke={accent} strokeWidth="1.5" />
-      <T x={578} y={253} small bold>Neo4j</T>
-      <T x={578} y={267} small muted>topology graph</T>
+      <rect x="620" y="256" width="300" height="420" rx="10" fill={data} fillOpacity="0.06" stroke={data} strokeWidth="1.5" />
+      <T x={640} y={282} bold>FUSION Platform</T>
+      {box(636, 418, 112, 94, data, 0.14)}
+      <T x={692} y={458} anchor="middle" bold>Central</T>
+      <T x={692} y={478} anchor="middle" bold>operator</T>
+
+      {box(780, 284, 124, 44, accent, 0.12)}
+      <T x={792} y={303} small bold>Neo4j</T>
+      <T x={792} y={319} small muted>topology graph</T>
       {stores.map(([n, d, y]) => (
         <g key={n}>
-          <rect x="568" y={y} width="144" height="30" rx="8" fill={data} fillOpacity="0.1" stroke={data} strokeWidth="1.5" />
-          <T x={578} y={y + 19} small bold>{n}</T>
-          <T x={702} y={y + 19} small muted anchor="end">{d}</T>
-          <Arrow fig={f} d={`M552 ${365}H560V${y + 15}H568`} />
+          {box(780, y, 124, 44, data, 0.1)}
+          <T x={792} y={y + 19} small bold>{n}</T>
+          <T x={792} y={y + 35} small muted>{d}</T>
+          <Arrow fig={f} d={`M748 465H764V${y + 22}H780`} />
         </g>
       ))}
-      <rect x="568" y="396" width="144" height="48" rx="8" fill={edge} fillOpacity="0.14" stroke={edge} strokeWidth="1.5" />
-      <T x={640} y={415} anchor="middle" bold>Shared API</T>
-      <T x={640} y={432} anchor="middle" small muted>fused data + topology</T>
-      <rect x="568" y="470" width="144" height="62" rx="8" fill="none" stroke={edge} strokeWidth="1.25" strokeDasharray="5 4" />
-      <T x={640} y={491} anchor="middle" bold>Consumers</T>
-      <T x={640} y={508} anchor="middle" small muted>models, tools,</T>
-      <T x={640} y={522} anchor="middle" small muted>people</T>
-      <Arrow fig={f} d="M640 444V470" />
+      {box(780, 524, 124, 50, edge, 0.14)}
+      <T x={842} y={545} anchor="middle" small bold>Shared API</T>
+      <T x={842} y={561} anchor="middle" small muted>fused data</T>
+      {box(780, 606, 124, 58, edge, 0, true)}
+      <T x={842} y={626} anchor="middle" small bold>Consumers</T>
+      <T x={842} y={642} anchor="middle" small muted>models, tools,</T>
+      <T x={842} y={656} anchor="middle" small muted>people</T>
+      <Arrow fig={f} d="M842 574V606" />
 
-      <Arrow fig={f} d="M424 332H452" />
-      <Arrow fig={f} d="M424 484H434V386H452" />
-      <Arrow fig={f} accented d="M646 144V238" />
+      <Arrow fig={f} d="M556 394H600V450H636" />
+      <Arrow fig={f} d="M556 610H600V482H636" />
+      <Arrow fig={f} accented d="M842 170V284" />
 
-      <rect x="24" y="568" width="14" height="14" rx="3" fill={warn} fillOpacity="0.85" />
-      <T x={46} y={580} small muted>microservices</T>
-      <Arrow fig={f} accented both d="M170 575H206" />
-      <T x={214} y={580} small muted>intent down, topology up</T>
-      <Arrow fig={f} d="M430 575H466" />
-      <T x={474} y={580} small muted>telemetry (OTLP)</T>
+      <rect x="24" y="708" width="14" height="14" rx="3" fill={warn} fillOpacity="0.85" />
+      <T x={46} y={720} small muted>microservices</T>
+      <Arrow fig={f} accented both d="M250 715H290" />
+      <T x={300} y={720} small muted>intent down, topology up</T>
+      <Arrow fig={f} d="M560 715H600" />
+      <T x={610} y={720} small muted>telemetry (OTLP)</T>
     </Fig>
   );
 }

@@ -7,7 +7,6 @@
 // SVG as an image, where page CSS does not apply, so here each variable is replaced by its value for the theme.
 import {createRequire} from 'node:module';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -26,7 +25,8 @@ const PICK = {
 };
 
 const out = path.join(site, 'static', 'img', 'readme');
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ikh-figs-'));
+// Inside docs-site, so the bundle's require('react') finds the same React as react-dom/server (two copies break hooks and context).
+const tmp = fs.mkdtempSync(path.join(site, '.figs-'));
 const bundle = path.join(tmp, 'registry.cjs');
 await build({
   entryPoints: [path.join(site, 'src/components/figures/registry.tsx')],

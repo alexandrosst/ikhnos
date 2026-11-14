@@ -11,7 +11,7 @@ const GITHUB_REPO = 'ikhnos';
 
 const config: Config = {
   title: 'Ikhnos',
-  tagline: 'A read-only, agent-observed view of your clusters — from cloud to edge.',
+  tagline: 'Observability across the cloud–edge computing continuum.',
   favicon: 'img/favicon.svg',
 
   future: {
@@ -159,7 +159,7 @@ const config: Config = {
       additionalLanguages: ['bash', 'go', 'yaml', 'diff'],
     },
     metadata: [
-      {name: 'description', content: 'Documentation for Ikhnos: a read-only, agent-observed control plane for orchestration across the cloud-to-edge continuum.'},
+      {name: 'description', content: 'Observability across the cloud–edge computing continuum: topology discovery and telemetry collection for your Kubernetes clusters, driven by an observability intent.'},
     ],
   } satisfies Preset.ThemeConfig,
 };

@@ -33,15 +33,15 @@ const features: [string, string][] = [
 export default function Home() {
   const logo = useBaseUrl('/img/logo.svg');
   return (
-    <Layout title="Ikhnos" description="Full-stack observability for your whole Kubernetes landscape, from cloud to far edge. One command per cluster, read-only, and you decide how much each agent may see.">
+    <Layout title="Ikhnos" description="Observability across the cloud–edge computing continuum: topology discovery and telemetry collection for your Kubernetes clusters, driven by an observability intent.">
       <header className={styles.hero}>
         <div className={styles.heroInner}>
           <div className={styles.heroText}>
             <img src={logo} alt="" className={styles.mark} />
             <h1>See everything.<br />Touch nothing.</h1>
             <p className={styles.lede}>
-              Full-stack observability for your whole landscape, from cloud to far edge. One command per cluster,
-              read-only, and you decide how much each agent may see.
+              Observability across the cloud–edge computing continuum: topology discovery and telemetry collection for
+              your Kubernetes clusters, driven by an observability intent. One command per cluster, read-only.
             </p>
             <div className={styles.buttons}>
               <Link className="button button--primary button--lg" to="/docs/journey/">Your first hour</Link>

@@ -18,12 +18,12 @@ const BASE = process.env.IKHNOS_SAMPLE_URL ?? 'http://localhost:5173';
 const OUT = process.env.IKHNOS_IMG_OUT ?? path.resolve(here, '..', 'static', 'img', 'readme');
 const SECONDS = 8;
 const FPS = 15;
-const WIDTH = 1440;
-const QUALITY = 92;
+const WIDTH = 1920;
+const QUALITY = 90;
 
 async function loop(browser, scheme) {
   const model = JSON.parse(fs.readFileSync(path.join(here, 'landscape-eu.json'), 'utf8'));
-  const ctx = await browser.newContext({viewport: {width: 1280, height: 765}, deviceScaleFactor: 1.5, colorScheme: scheme, locale: 'en-US'});
+  const ctx = await browser.newContext({viewport: {width: 1280, height: 765}, deviceScaleFactor: 2, colorScheme: scheme, locale: 'en-US'});
   await ctx.addInitScript(([m]) => { if (!localStorage.getItem('ikhnos/v1')) localStorage.setItem('ikhnos/v1', JSON.stringify({state: m, version: m.schemaVersion})); }, [model]);
   const page = await ctx.newPage();
   await page.goto(BASE + '/topology');
@@ -37,33 +37,30 @@ async function loop(browser, scheme) {
   await page.mouse.move(1270, 760);
   await page.waitForTimeout(1500);
 
-  // Frames as the browser draws them, kept with the time they arrived.
+  // The page's own animations (the dashes along the links) are stopped and stepped by hand, and each step is a real screenshot at
+  // twice the pixel density. A screencast would be smooth but always arrives at 1x, which is what made the first loops soft. Each
+  // animation is given a whole number of cycles over the loop, so the last frame runs on into the first.
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ikh-hero-'));
-  const cdp = await ctx.newCDPSession(page);
-  const frames = [];
-  cdp.on('Page.screencastFrame', (f) => {
-    const file = path.join(tmp, `f${String(frames.length).padStart(5, '0')}.jpg`);
-    frames.push({t: performance.now() / 1000, file});
-    fs.writeFileSync(file, Buffer.from(f.data, 'base64'));
-    cdp.send('Page.screencastFrameAck', {sessionId: f.sessionId}).catch(() => {});
-  });
-  await cdp.send('Page.startScreencast', {format: 'jpeg', quality: 100, maxWidth: 1920, maxHeight: 1148, everyNthFrame: 1});
-  await page.waitForTimeout(SECONDS * 1000 + 300);
-  await cdp.send('Page.stopScreencast');
-  const end = performance.now() / 1000;
+  const frames = SECONDS * FPS;
+  await page.evaluate(() => document.getAnimations().forEach((a) => a.pause()));
+  for (let i = 0; i < frames; i++) {
+    await page.evaluate(([t, total]) => {
+      for (const a of document.getAnimations()) {
+        const d = a.effect.getComputedTiming().duration;
+        const cycles = Math.max(1, Math.round(total / d));
+        a.currentTime = (t / total) * cycles * d;
+      }
+    }, [i * (1000 / FPS), SECONDS * 1000]);
+    await page.screenshot({path: path.join(tmp, `f${String(i).padStart(4, '0')}.jpg`), type: 'jpeg', quality: 96});
+  }
   await ctx.close();
 
-  const list = frames.map((f, i) => `file '${f.file}'\nduration ${((frames[i + 1]?.t ?? end) - f.t).toFixed(4)}`);
-  list.push(`file '${frames.at(-1).file}'`);
-  fs.writeFileSync(path.join(tmp, 'frames.txt'), list.join('\n'));
-  const scale = `fps=${FPS},scale=${WIDTH}:-1:flags=lanczos`;
-  const input = ['-f', 'concat', '-safe', '0', '-t', String(SECONDS), '-i', path.join(tmp, 'frames.txt')];
   const out = path.join(OUT, `topology-loop-${scheme}.webp`);
   fs.mkdirSync(OUT, {recursive: true});
   // Animated WebP, not GIF: a GIF has 256 colours, which turns the soft map and the thin lines into noise.
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...input, '-vf', scale, '-c:v', 'libwebp_anim', '-quality', String(QUALITY), '-compression_level', '6', '-loop', '0', out]);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(tmp, 'f%04d.jpg'), '-vf', `scale=${WIDTH}:-1:flags=lanczos`, '-c:v', 'libwebp_anim', '-quality', String(QUALITY), '-compression_level', '6', '-loop', '0', out]);
   fs.rmSync(tmp, {recursive: true, force: true});
-  console.log(`wrote ${path.basename(out)} (${(fs.statSync(out).size / 1024).toFixed(0)} KB, ${frames.length} frames captured)`);
+  console.log(`wrote ${path.basename(out)} (${(fs.statSync(out).size / 1024).toFixed(0)} KB, ${frames} frames)`);
 }
 
 const browser = await chromium.launch();
