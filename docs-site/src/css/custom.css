@@ -348,7 +348,8 @@ div[class*='codeBlockTitle'] {
   overflow: hidden;
   background: var(--ikh-surface);
 }
-.ikh-shot img {
+.ikh-shot img,
+.ikh-video video {
   display: block;
   width: 100%;
   height: auto;

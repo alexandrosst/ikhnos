@@ -8,6 +8,8 @@ description: "A tour of every page of the interface once your server is running:
 
 This assumes you have a server running and at least one cluster connected (see [Connecting a cluster](../installation/connecting-a-cluster.md) if not). It's a tour, not an exhaustive reference — each section below links to a deeper page where one exists.
 
+<Video src="tour" label="A pointer moves through the topology, infrastructure and map views, then the clusters and services tables, agents, history and search" caption="A minute in the interface, on the built-in sample landscape. No sound; the captions say what is on screen." />
+
 ## Two views of one model
 
 Everything you see is a projection of a single shared model, kept live by your connected agents:
