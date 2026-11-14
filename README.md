@@ -54,9 +54,9 @@
 
 ## What it is
 
-Ikhnos (ἴχνος) is Greek for "footprint, trace", which is what it leaves you with: the trace of where things run and how they talk to each other.
+Ikhnos (ἴχνος) is Greek for "trace" or "footprint". It provides visibility across the cloud-edge continuum, revealing where workloads run and how they communicate.
 
-It shows Kubernetes clusters across the cloud, edge and far-edge continuum as one picture: an **application view** (services and the dependencies between them) and an **infrastructure view** (nodes, capacity, links). A small read-only **agent** in each cluster dials out to a single **server** and reports what it sees. On top of that sit history, measured links between clusters, and telemetry you can read in Grafana.
+It shows Kubernetes clusters, from cloud to edge and far edge, as one picture: an **application view** (services and the dependencies between them) and an **infrastructure view** (nodes, capacity, links). A small read-only **agent** in each cluster dials out to a single **server** and reports what it sees. On top of that sit history, measured links between clusters, and telemetry you can read in Grafana.
 
 It is built on four commitments:
 
