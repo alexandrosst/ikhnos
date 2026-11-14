@@ -22,9 +22,10 @@ import { expect, test, type ConsoleMessage, type Page } from '@playwright/test'
  */
 
 async function loadSampleTopology(page: Page) {
-  await page.goto('/settings', { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: /Load sample/i }).click()
-  // ConfirmModal's danger-action button defaults to "Delete" but SettingsPage overrides it with
+  // The sample is a row of the Data pane of Settings (the address says which pane is open).
+  await page.goto('/settings#data', { waitUntil: 'networkidle' })
+  await page.getByTestId('load-sample').click()
+  // ConfirmModal's danger-action button defaults to "Delete" but DataSettings overrides it with
   // confirmLabel for this specific action (it replaces the topology, it doesn't delete anything) - see
   // ConfirmModal.tsx's confirmLabel prop.
   await page.getByRole('button', { name: 'Replace', exact: true }).click()
