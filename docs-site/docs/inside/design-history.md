@@ -50,6 +50,6 @@ The plan followed a single change through seven stops, to find the seams where a
 
 **What became of it.** This is built as an option. The server renders the install, and an optional controller with one custom resource, `IkhnosAgent`, keeps a Helm release of the agent chart to match it. The Connect page offers the same install as a resource in a second tab. Without the controller, the same output is a command a person runs. See [Installing and removing what Ikhnos installs](../architecture/lifecycle.md).
 
-## Where the live status is kept
+## Where things stand
 
-The repository's `REDESIGN.md` is the running record of the restructuring, with a row for each stage, its state, and what was found when the code was audited against the plan on 2026-10-23. Read it when you need the detailed history. The [roadmap](../project/roadmap.md) says what is planned from here.
+The [roadmap](../project/roadmap.md) says what is planned from here.

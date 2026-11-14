@@ -9,8 +9,7 @@ description: One assembled answer to "should I trust this with my infrastructure
 This page exists for one question: *should I trust this software with my infrastructure?* The honest
 answer is split across several places that were each written for a narrower purpose — [Agent trust
 model](./agent-trust-model.md) for the enrollment mechanics, [Regional operators](./regional-operators.md)
-for the second fan-in tier, and the repository's own `SECURITY_REVIEW.md` for an independent adversarial
-pass over the whole codebase. This page pulls the parts of all three that matter for that one question
+for the second fan-in tier. This page pulls the parts of both that matter for that one question
 into a single story, in the order a cluster's trust actually gets established, narrowed, and (sometimes)
 deliberately left alone. Each section below links back to the deeper page it was drawn from; nothing here
 replaces those pages, it just assembles them.

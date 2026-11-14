@@ -27,5 +27,3 @@ These are properties of the design, not guarantees; each is covered by tests and
 - What an agent reports is a chain (Helm ceiling, approved tier, effective tier) that the server can only narrow.
 - Sensitive values in the server's database (second-factor secrets, the mail password, the decider secret) are sealed with a key you provide.
 - Releases are signed with cosign, keylessly; see [Signing and verifying releases](deploy/README.md#signing-and-verifying-releases).
-
-The findings of the last internal security review are in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md).

@@ -54,16 +54,18 @@
 
 ## What it is
 
-Ikhnos shows Kubernetes clusters across the cloud, edge and far-edge continuum as one picture: an **application view** (services and the dependencies between them) and an **infrastructure view** (nodes, capacity, links). A small read-only **agent** in each cluster dials out to a single **server** and reports what it sees. On top of that sit history, measured links between clusters, and telemetry you can read in Grafana.
+Ikhnos (ἴχνος) is Greek for "footprint, trace", which is what it leaves you with: the trace of where things run and how they talk to each other.
+
+It shows Kubernetes clusters across the cloud, edge and far-edge continuum as one picture: an **application view** (services and the dependencies between them) and an **infrastructure view** (nodes, capacity, links). A small read-only **agent** in each cluster dials out to a single **server** and reports what it sees. On top of that sit history, measured links between clusters, and telemetry you can read in Grafana.
 
 It is built on four commitments:
 
-| | |
+| Commitment | In practice |
 |---|---|
-| **Read-only** | The agent can `list` and `watch`, never write, and never reads Secrets or ConfigMaps. Nothing is deployed or moved, ever, without a person approving it. |
-| **Outbound only** | The agent opens every connection, over mutual TLS. Nothing needs an inbound firewall rule on a cluster, and the server never holds a kubeconfig. |
-| **Observability intent** | How far each part may look is a chain (ceiling, approved, effective) that can only be narrowed, never widened. It covers the agent and the telemetry operators. |
-| **Honest about what it knows** | A value that was seen is shown as seen, and one that was guessed is marked as a guess. Missing data is named, never silently filled in. |
+| **Read-only** | The agent can `list` and `watch`, nothing else, and never reads Secrets or ConfigMaps. Nothing changes without a person approving it. |
+| **Outbound only** | The agent dials out over mutual TLS. No inbound firewall rule, and the server never holds a kubeconfig. |
+| **Only narrowed** | The observability intent can shrink along the chain (ceiling, approved, effective), never grow. |
+| **Honest** | What was seen is shown as seen, what was guessed as a guess, and missing data is named. |
 
 ## Features
 
@@ -169,7 +171,7 @@ docs-site/       The documentation site (Docusaurus)
 
 ## Security
 
-Releases are signed with cosign, keylessly. Please report a vulnerability privately through GitHub's *Security → Report a vulnerability*, not in a public issue; see [SECURITY.md](SECURITY.md). The last security review's findings are in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md).
+Releases are signed with cosign, keylessly. Please report a vulnerability privately through GitHub's *Security → Report a vulnerability*, not in a public issue; see [SECURITY.md](SECURITY.md).
 
 ## License
 
@@ -184,5 +186,3 @@ Releases are signed with cosign, keylessly. Please report a vulnerability privat
 - The footer's owner, year and license name are set in `src/components/ui/brand.tsx`.
 
 </details>
-
-> **The name.** Ikhnos (ἴχνος) is Greek for "footprint, trace": what the agents leave you with is the trace of where things run and how they talk to each other.
