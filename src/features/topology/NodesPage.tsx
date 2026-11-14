@@ -36,7 +36,7 @@ export default function NodesPage() {
   // The panel: a node to read (or edit straight away from the pencil), or a blank one to add.
   const [panel, setPanel] = useState<{ node: MachineNode | null; edit: boolean } | null>(null)
   const [deleting, setDeleting] = useState<MachineNode | null>(null)
-  const { isVisible, toggle } = useColumnVisibility('nodes')
+  const columns = useColumnVisibility('nodes')
 
   const clusterName = (id: string) => clusters.find((c) => c.id === id)?.name ?? '—'
   const rows = nodes.filter((n) => (!clusterFilter || n.clusterId === clusterFilter) && matches(q, n.name, n.ip, n.os, clusterName(n.clusterId)))
@@ -60,7 +60,7 @@ export default function NodesPage() {
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </Select>
-        <ColumnPicker columns={NODE_COLUMNS} isVisible={isVisible} onToggle={toggle} />
+        <ColumnPicker columns={NODE_COLUMNS} state={columns} />
       </div>
 
       {nodes.length === 0 ? (
@@ -74,12 +74,12 @@ export default function NodesPage() {
           <thead>
             <tr>
               <Th>Name</Th>
-              {isVisible('cluster') && <Th>Cluster</Th>}
-              {isVisible('type') && <Th>Type · arch</Th>}
-              {isVisible('ip') && <Th>IP</Th>}
-              {isVisible('cpu') && <Th>CPU</Th>}
-              {isVisible('memory') && <Th>Memory</Th>}
-              {isVisible('services') && <Th>Services</Th>}
+              {columns.isVisible('cluster') && <Th>Cluster</Th>}
+              {columns.isVisible('type') && <Th>Type · arch</Th>}
+              {columns.isVisible('ip') && <Th>IP</Th>}
+              {columns.isVisible('cpu') && <Th>CPU</Th>}
+              {columns.isVisible('memory') && <Th>Memory</Th>}
+              {columns.isVisible('services') && <Th>Services</Th>}
               <Th>Status</Th>
               <Th className="sticky right-0 bg-nb-925" />
             </tr>
@@ -98,13 +98,13 @@ export default function NodesPage() {
                   <OriginLine rec={n} createdAt={n.createdAt} />
                   {n.conditions && n.conditions.length > 0 && <div className="mt-0.5 text-xs text-warn" title="Active conditions">{n.conditions.join(', ')}</div>}
                 </Td>
-                {isVisible('cluster') && (
+                {columns.isVisible('cluster') && (
                   <Td className="whitespace-nowrap">
                     <div>{clusterName(n.clusterId)}</div>
                     <div className={n.role === 'control-plane' ? 'text-xs text-accent' : 'text-xs text-nb-500'}>{n.role === 'control-plane' ? 'Control plane' : 'Worker'}</div>
                   </Td>
                 )}
-                {isVisible('type') && (
+                {columns.isVisible('type') && (
                   <Td>
                     {(() => { const K = KIND_ICON[n.kind]; return <WithIcon icon={<K size={ICON_SM} className="text-nb-500" />}><>{KIND_LABEL[n.kind]}{chip('kind')}</></WithIcon> })()}
                     <div className="flex items-center gap-1.5 pl-[23px] text-xs text-nb-500">
@@ -117,13 +117,13 @@ export default function NodesPage() {
                     </div>
                   </Td>
                 )}
-                {isVisible('ip') && <Td><IpAddress ip={n.ip} /></Td>}
+                {columns.isVisible('ip') && <Td><IpAddress ip={n.ip} /></Td>}
                 {(() => {
                   const pct = requestedPercent(n.requested, n.allocatable)
                   return (
                     <>
-                      {isVisible('cpu') && <Td><Meter value={formatCpu(n.cpu)} unit="vCPU" pct={pct.cpu} title={pct.cpu === undefined ? undefined : `${pct.cpu}% of allocatable CPU is requested by pods`} /></Td>}
-                      {isVisible('memory') && (
+                      {columns.isVisible('cpu') && <Td><Meter value={formatCpu(n.cpu)} unit="vCPU" pct={pct.cpu} title={pct.cpu === undefined ? undefined : `${pct.cpu}% of allocatable CPU is requested by pods`} /></Td>}
+                      {columns.isVisible('memory') && (
                         <Td>
                           <Meter value={formatMemory(n.memoryGb).split(' ')[0]} unit={formatMemory(n.memoryGb).split(' ')[1]} pct={pct.memory} title={pct.memory === undefined ? undefined : `${pct.memory}% of allocatable memory is requested by pods`} />
                         </Td>
@@ -131,7 +131,7 @@ export default function NodesPage() {
                     </>
                   )
                 })()}
-                {isVisible('services') && (
+                {columns.isVisible('services') && (
                   <Td className="whitespace-nowrap">
                     <div>{(() => { const c = services.filter((w) => w.nodeIds.includes(n.id)).length; return <>{c} <span className="text-nb-500">{c === 1 ? 'service' : 'services'}</span></> })()}</div>
                     {n.podCount !== undefined && (
@@ -150,7 +150,7 @@ export default function NodesPage() {
               )
             })}
             {rows.length === 0 && (
-              <tr><Td colSpan={3 + NODE_COLUMNS.filter((c) => isVisible(c.key)).length} className="py-8 text-center text-nb-500">No nodes match your filters.</Td></tr>
+              <tr><Td colSpan={3 + NODE_COLUMNS.filter((c) => columns.isVisible(c.key)).length} className="py-8 text-center text-nb-500">No nodes match your filters.</Td></tr>
             )}
           </tbody>
         </Table>

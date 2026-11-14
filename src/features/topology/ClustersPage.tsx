@@ -40,7 +40,7 @@ export default function ClustersPage() {
   // The panel: a cluster to read (or edit straight away from the pencil), or a blank one to add.
   const [panel, setPanel] = useState<{ cluster: Cluster | null; edit: boolean } | null>(null)
   const [deleting, setDeleting] = useState<Cluster | null>(null)
-  const { isVisible, toggle } = useColumnVisibility('clusters', ['discovered', 'network', 'platform', 'endpoints'])
+  const columns = useColumnVisibility('clusters', ['discovered', 'network', 'platform', 'endpoints'])
 
   const gaps = (c: Cluster) => completeness(c, nodes, services, dependencies).missing
   const rows = clusters.filter((c) => matches(q, c.name, c.distribution, c.provider, c.region, c.tier, sites.find((x) => x.id === c.siteId)?.name))
@@ -58,7 +58,7 @@ export default function ClustersPage() {
       />
       <div className="mb-4 flex flex-wrap gap-3">
         <SearchBox value={q} onChange={setQ} placeholder="Search clusters…" />
-        <ColumnPicker columns={CLUSTER_COLUMNS} isVisible={isVisible} onToggle={toggle} />
+        <ColumnPicker columns={CLUSTER_COLUMNS} state={columns} />
       </div>
 
       {clusters.length === 0 ? (
@@ -77,15 +77,15 @@ export default function ClustersPage() {
           <thead>
             <tr>
               <Th>Name</Th>
-              {isVisible('tier') && <Th>Tier</Th>}
-              {isVisible('distro') && <Th>Distribution / provider</Th>}
-              {isVisible('location') && <Th>Location</Th>}
-              {isVisible('nodes') && <Th>Nodes</Th>}
-              {isVisible('services') && <Th>Services</Th>}
-              {isVisible('discovered') && <Th>Discovered</Th>}
-              {isVisible('network') && <Th>Pod / service CIDR</Th>}
-              {isVisible('platform') && <Th>CNI · ingress · storage</Th>}
-              {isVisible('endpoints') && <Th>API endpoint · exit IP</Th>}
+              {columns.isVisible('tier') && <Th>Tier</Th>}
+              {columns.isVisible('distro') && <Th>Distribution / provider</Th>}
+              {columns.isVisible('location') && <Th>Location</Th>}
+              {columns.isVisible('nodes') && <Th>Nodes</Th>}
+              {columns.isVisible('services') && <Th>Services</Th>}
+              {columns.isVisible('discovered') && <Th>Discovered</Th>}
+              {columns.isVisible('network') && <Th>Pod / service CIDR</Th>}
+              {columns.isVisible('platform') && <Th>CNI · ingress · storage</Th>}
+              {columns.isVisible('endpoints') && <Th>API endpoint · exit IP</Th>}
               <Th>Status</Th>
               <Th className="sticky right-0 bg-nb-925" />
             </tr>
@@ -104,12 +104,12 @@ export default function ClustersPage() {
                   <OriginLine rec={c} createdAt={c.createdAt} />
                   {c.source === 'discovered' && gaps(c).length > 0 && <div className="mt-0.5 text-xs text-warn">No {gaps(c).join(' or ')} yet</div>}
                 </Td>
-                {isVisible('tier') && (
+                {columns.isVisible('tier') && (
                   <Td>
                     <span className="inline-flex items-center"><TierBadge tier={c.tier} />{chip('tier')}</span>
                   </Td>
                 )}
-                {isVisible('distro') && (
+                {columns.isVisible('distro') && (
                   <Td>
                     <WithIcon icon={<DistroIcon distribution={c.distribution} />}>
                       <span title={c.version}>{c.distribution || '—'} <span className="text-nb-500">{shortVersion(c.version)}</span></span>
@@ -122,7 +122,7 @@ export default function ClustersPage() {
                     )}
                   </Td>
                 )}
-                {isVisible('location') && (
+                {columns.isVisible('location') && (
                   <Td>
                     {(() => {
                       const site = sites.find((x) => x.id === c.siteId)
@@ -136,10 +136,10 @@ export default function ClustersPage() {
                     })()}
                   </Td>
                 )}
-                {isVisible('nodes') && <Td>{nodes.filter((n) => n.clusterId === c.id).length}</Td>}
-                {isVisible('services') && <Td>{services.filter((w) => w.clusterId === c.id).length}</Td>}
-                {isVisible('discovered') && <Td><CompletenessBadge compact c={completeness(c, nodes, services, dependencies)} /></Td>}
-                {isVisible('network') && (
+                {columns.isVisible('nodes') && <Td>{nodes.filter((n) => n.clusterId === c.id).length}</Td>}
+                {columns.isVisible('services') && <Td>{services.filter((w) => w.clusterId === c.id).length}</Td>}
+                {columns.isVisible('discovered') && <Td><CompletenessBadge compact c={completeness(c, nodes, services, dependencies)} /></Td>}
+                {columns.isVisible('network') && (
                   <Td>
                     <div className="font-mono text-xs text-nb-300">{c.podCidr || '—'}</div>
                     <div className="font-mono text-xs text-nb-500">{c.serviceCidr || '—'}</div>
@@ -148,13 +148,13 @@ export default function ClustersPage() {
                     )}
                   </Td>
                 )}
-                {isVisible('platform') && (
+                {columns.isVisible('platform') && (
                   <Td>
                     <div className="text-sm text-nb-300">{[c.cni, c.ingress].filter(Boolean).join(' · ') || '—'}</div>
                     <div className="text-xs text-nb-500">{(c.storageClasses ?? []).join(', ') || '—'}</div>
                   </Td>
                 )}
-                {isVisible('endpoints') && (
+                {columns.isVisible('endpoints') && (
                   <Td>
                     <div className="font-mono text-xs text-nb-300">{c.apiEndpoint || '—'}</div>
                     <div className="font-mono text-xs text-nb-500">{c.egressIp || '—'}</div>
@@ -167,7 +167,7 @@ export default function ClustersPage() {
             })}
             {rows.length === 0 && (
               <tr>
-                <Td colSpan={3 + CLUSTER_COLUMNS.filter((c) => isVisible(c.key)).length} className="py-8 text-center text-nb-500" >No clusters match “{q}”.</Td>
+                <Td colSpan={3 + CLUSTER_COLUMNS.filter((c) => columns.isVisible(c.key)).length} className="py-8 text-center text-nb-500" >No clusters match “{q}”.</Td>
               </tr>
             )}
           </tbody>

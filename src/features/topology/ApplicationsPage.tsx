@@ -24,7 +24,7 @@ export default function ApplicationsPage() {
   // The panel: an application to read (or edit straight away from the pencil), or a blank one to add.
   const [panel, setPanel] = useState<{ app: Application | null; edit: boolean } | null>(null)
   const [deleting, setDeleting] = useState<Application | null>(null)
-  const { isVisible, toggle } = useColumnVisibility('applications')
+  const columns = useColumnVisibility('applications')
 
   const rows = applications.filter((a) => matches(q, a.name, a.description))
 
@@ -41,7 +41,7 @@ export default function ApplicationsPage() {
       />
       <div className="mb-4 flex flex-wrap gap-3">
         <SearchBox value={q} onChange={setQ} placeholder="Search applications…" />
-        <ColumnPicker columns={APPLICATION_COLUMNS} isVisible={isVisible} onToggle={toggle} />
+        <ColumnPicker columns={APPLICATION_COLUMNS} state={columns} />
       </div>
 
       {applications.length === 0 ? (
@@ -55,10 +55,10 @@ export default function ApplicationsPage() {
           <thead>
             <tr>
               <Th>Name</Th>
-              {isVisible('services') && <Th>Services</Th>}
-              {isVisible('devices') && <Th>Devices</Th>}
-              {isVisible('clusters') && <Th>Clusters</Th>}
-              {isVisible('grouped') && <Th>Grouped by</Th>}
+              {columns.isVisible('services') && <Th>Services</Th>}
+              {columns.isVisible('devices') && <Th>Devices</Th>}
+              {columns.isVisible('clusters') && <Th>Clusters</Th>}
+              {columns.isVisible('grouped') && <Th>Grouped by</Th>}
               <Th className="sticky right-0 bg-nb-925" />
             </tr>
           </thead>
@@ -72,17 +72,17 @@ export default function ApplicationsPage() {
                     <button className="font-medium text-nb-300 hover:text-accent" onClick={() => setPanel({ app: a, edit: false })}>{a.name}</button>
                     <OriginLine rec={a} />
                   </Td>
-                  {isVisible('description') && <Td className="max-w-xs truncate text-nb-400" title={a.description}>{a.description || <span className="text-nb-600">—</span>}</Td>}
-                  {isVisible('services') && <Td>{mine.length}</Td>}
-                  {isVisible('devices') && <Td>{devices.filter((d) => d.applicationId === a.id).reduce((s, d) => s + d.count, 0) || '—'}</Td>}
-                  {isVisible('clusters') && <Td><ChipList items={cIds.map((id) => clusters.find((c) => c.id === id)?.name).filter((n): n is string => !!n)} /></Td>}
-                  {isVisible('grouped') && <Td><Pill title={a.origin}>{originLabel(a.origin)}</Pill></Td>}
+                  {columns.isVisible('description') && <Td className="max-w-xs truncate text-nb-400" title={a.description}>{a.description || <span className="text-nb-600">—</span>}</Td>}
+                  {columns.isVisible('services') && <Td>{mine.length}</Td>}
+                  {columns.isVisible('devices') && <Td>{devices.filter((d) => d.applicationId === a.id).reduce((s, d) => s + d.count, 0) || '—'}</Td>}
+                  {columns.isVisible('clusters') && <Td><ChipList items={cIds.map((id) => clusters.find((c) => c.id === id)?.name).filter((n): n is string => !!n)} /></Td>}
+                  {columns.isVisible('grouped') && <Td><Pill title={a.origin}>{originLabel(a.origin)}</Pill></Td>}
                   <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setPanel({ app: a, edit: true })} onDelete={() => setDeleting(a)} /></Td>
                 </tr>
               )
             })}
             {rows.length === 0 && (
-              <tr><Td colSpan={2 + APPLICATION_COLUMNS.filter((c) => isVisible(c.key)).length} className="py-8 text-center text-nb-500">No applications match “{q}”.</Td></tr>
+              <tr><Td colSpan={2 + APPLICATION_COLUMNS.filter((c) => columns.isVisible(c.key)).length} className="py-8 text-center text-nb-500">No applications match “{q}”.</Td></tr>
             )}
           </tbody>
         </Table>

@@ -54,5 +54,12 @@ export function useColumnVisibility(storageKey: string, defaultHidden: readonly 
       return next
     })
 
-  return { isVisible, toggle }
+  const reset = () => setHidden(new Set(defaultHidden))
+  // Whether the set differs from the page's own default: the picker offers Reset only then.
+  const changed = hidden.size !== defaultHidden.length || defaultHidden.some((k) => !hidden.has(k))
+
+  return { isVisible, toggle, reset, changed }
 }
+
+/** What a list page hands its ColumnPicker. */
+export type ColumnState = ReturnType<typeof useColumnVisibility>

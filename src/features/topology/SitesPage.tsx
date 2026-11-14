@@ -23,7 +23,7 @@ const SITE_COLUMNS: ColumnDef[] = [
 export default function SitesPage() {
   const { sites, clusters, deleteSite } = useTopology()
   const [q, setQ] = useState('')
-  const { isVisible, toggle } = useColumnVisibility('sites')
+  const columns = useColumnVisibility('sites')
   // The panel: a site to read (or edit straight away from the pencil), or a blank one to add.
   const [panel, setPanel] = useState<{ site: Site | null; edit: boolean } | null>(null)
   const [deleting, setDeleting] = useState<Site | null>(null)
@@ -47,7 +47,7 @@ export default function SitesPage() {
       />
       <div className="mb-4 flex flex-wrap gap-3">
         <SearchBox value={q} onChange={setQ} placeholder="Search sites…" />
-        <ColumnPicker columns={SITE_COLUMNS} isVisible={isVisible} onToggle={toggle} />
+        <ColumnPicker columns={SITE_COLUMNS} state={columns} />
       </div>
 
       {sites.length === 0 ? (
@@ -61,9 +61,9 @@ export default function SitesPage() {
           <thead>
             <tr>
               <Th>Name</Th>
-              {isVisible('kind') && <Th>Kind</Th>}
-              {isVisible('location') && <Th>Location</Th>}
-              {isVisible('clusters') && <Th>Clusters</Th>}
+              {columns.isVisible('kind') && <Th>Kind</Th>}
+              {columns.isVisible('location') && <Th>Location</Th>}
+              {columns.isVisible('clusters') && <Th>Clusters</Th>}
               <Th className="sticky right-0 bg-nb-925" />
             </tr>
           </thead>
@@ -71,8 +71,8 @@ export default function SitesPage() {
             {rows.map((s) => (
               <tr key={s.id} className="group cursor-pointer hover:bg-nb-930/60" {...openOnClick(() => setPanel({ site: s, edit: false }))}>
                 <Td className="whitespace-nowrap"><button className="font-medium text-nb-300 hover:text-accent" onClick={() => setPanel({ site: s, edit: false })}>{s.name}</button></Td>
-                {isVisible('kind') && <Td><Pill>{kindLabel(s.kind)}</Pill></Td>}
-                {isVisible('location') && (
+                {columns.isVisible('kind') && <Td><Pill>{kindLabel(s.kind)}</Pill></Td>}
+                {columns.isVisible('location') && (
                   <Td>
                     <Place site={s} />
                     <div className="whitespace-nowrap pl-[26px] font-mono text-xs text-nb-500">{s.lat.toFixed(2)}, {s.lng.toFixed(2)}</div>
@@ -83,12 +83,12 @@ export default function SitesPage() {
                     )}
                   </Td>
                 )}
-                {isVisible('clusters') && <Td><ChipList items={clusters.filter((c) => c.siteId === s.id).map((c) => c.name)} /></Td>}
+                {columns.isVisible('clusters') && <Td><ChipList items={clusters.filter((c) => c.siteId === s.id).map((c) => c.name)} /></Td>}
                 <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setPanel({ site: s, edit: true })} onDelete={() => setDeleting(s)} /></Td>
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><Td colSpan={2 + SITE_COLUMNS.filter((c) => isVisible(c.key)).length} className="py-8 text-center text-nb-500">No sites match “{q}”.</Td></tr>
+              <tr><Td colSpan={2 + SITE_COLUMNS.filter((c) => columns.isVisible(c.key)).length} className="py-8 text-center text-nb-500">No sites match “{q}”.</Td></tr>
             )}
           </tbody>
         </Table>

@@ -31,4 +31,18 @@ describe('useColumnVisibility', () => {
     expect(result.current.isVisible('a')).toBe(false)
     expect(result.current.isVisible('b')).toBe(true)
   })
+
+  test('changed is true only while the choice differs from the page default, and reset goes back to it', () => {
+    const { result } = renderHook(() => useColumnVisibility('t', ['b']))
+    expect(result.current.changed).toBe(false)
+    act(() => result.current.toggle('a'))
+    expect(result.current.changed).toBe(true)
+    act(() => result.current.toggle('a'))
+    expect(result.current.changed).toBe(false)
+    act(() => result.current.toggle('b'))
+    expect(result.current.changed).toBe(true)
+    act(() => result.current.reset())
+    expect(result.current.isVisible('b')).toBe(false)
+    expect(result.current.changed).toBe(false)
+  })
 })

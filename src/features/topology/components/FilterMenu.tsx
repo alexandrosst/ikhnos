@@ -36,7 +36,6 @@ export default function FilterMenu({
   applications: Application[]
   onChange: (f: Filter) => void
 }) {
-  const count = filter.clusters.length + filter.apps.length + (filter.kinds.length ? 1 : 0)
   // Kinds read the other way round from the lists above: nothing chosen is every kind, so what is ticked is what is shown.
   const shownKinds = new Set<ServiceKind>(filter.kinds.length ? filter.kinds : SERVICE_KINDS)
   const toggleKinds = (kinds: ServiceKind[]) => {
@@ -74,11 +73,6 @@ export default function FilterMenu({
       <Button onClick={() => onOpenChange(!open)} disabled={disabled} aria-haspopup="dialog" aria-expanded={open} aria-label="Filter the topology" data-testid="filter-button">
         <FilterIcon size={ICON_SM} className={filterActive(filter) ? 'text-accent' : ''} />
         <span>Filter</span>
-        {count > 0 && (
-          <span className="rounded-full bg-accent/20 px-1.5 text-xs text-accent" data-testid="filter-count">
-            {count}
-          </span>
-        )}
       </Button>
       <MenuPanel open={open} onClose={() => onOpenChange(false)} className="w-80 overflow-hidden" role="dialog" aria-label="Filter the topology" data-testid="filter-menu">
         <div className="flex items-center justify-between border-b border-nb-850 px-3 py-2">
@@ -106,7 +100,7 @@ export default function FilterMenu({
             </label>
           ))}
         </div>
-        <p className="border-t border-nb-850 px-3 py-2 text-xs text-nb-500">Nothing ticked under Clusters or Applications means all of them. A dependency is shown only if both ends are.</p>
+        <p className="border-t border-nb-850 px-3 py-2 text-xs text-nb-500">Nothing ticked shows everything.</p>
       </MenuPanel>
     </div>
   )

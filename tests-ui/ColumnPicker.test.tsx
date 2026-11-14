@@ -10,19 +10,25 @@ const COLUMNS: ColumnDef[] = [
 ]
 
 describe('ColumnPicker', () => {
-  test('shows no hidden-count badge when every column is visible', () => {
-    render(<ColumnPicker columns={COLUMNS} isVisible={() => true} onToggle={() => {}} />)
-    expect(screen.queryByTestId('columns-hidden-count')).not.toBeInTheDocument()
+  test('the button never carries a count, however many columns are hidden', () => {
+    render(<ColumnPicker columns={COLUMNS} state={{ isVisible: (k) => k !== 'ip', toggle: () => {} }} />)
+    expect(screen.getByTestId('columns-button')).toHaveTextContent(/^Columns$/)
   })
 
-  test('counts hidden columns in the badge', () => {
-    render(<ColumnPicker columns={COLUMNS} isVisible={(k) => k !== 'ip'} onToggle={() => {}} />)
-    expect(screen.getByTestId('columns-hidden-count')).toHaveTextContent('1 hidden')
+  test('Reset appears only once the choice differs from the default, and calls reset', async () => {
+    const user = userEvent.setup()
+    const reset = vi.fn()
+    const { rerender } = render(<ColumnPicker columns={COLUMNS} state={{ isVisible: () => true, toggle: () => {}, reset, changed: false }} />)
+    await user.click(screen.getByTestId('columns-button'))
+    expect(screen.queryByTestId('columns-reset')).not.toBeInTheDocument()
+    rerender(<ColumnPicker columns={COLUMNS} state={{ isVisible: () => true, toggle: () => {}, reset, changed: true }} />)
+    await user.click(screen.getByTestId('columns-reset'))
+    expect(reset).toHaveBeenCalledTimes(1)
   })
 
   test('opening the picker lists one checkbox per column, checked to match isVisible', async () => {
     const user = userEvent.setup()
-    render(<ColumnPicker columns={COLUMNS} isVisible={(k) => k !== 'ip'} onToggle={() => {}} />)
+    render(<ColumnPicker columns={COLUMNS} state={{ isVisible: (k) => k !== 'ip', toggle: () => {} }} />)
     await user.click(screen.getByTestId('columns-button'))
     expect(screen.getByTestId('column-cluster')).toBeChecked()
     expect(screen.getByTestId('column-ip')).not.toBeChecked()
@@ -31,7 +37,7 @@ describe('ColumnPicker', () => {
   test('clicking a column\'s checkbox reports that column\'s key, not its checked state', async () => {
     const user = userEvent.setup()
     const onToggle = vi.fn()
-    render(<ColumnPicker columns={COLUMNS} isVisible={() => true} onToggle={onToggle} />)
+    render(<ColumnPicker columns={COLUMNS} state={{ isVisible: () => true, toggle: onToggle }} />)
     await user.click(screen.getByTestId('columns-button'))
     await user.click(screen.getByTestId('column-ip'))
     expect(onToggle).toHaveBeenCalledWith('ip')

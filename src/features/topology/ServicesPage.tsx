@@ -30,7 +30,7 @@ export default function ServicesPage() {
   const weak = useWeakValue('service')
   const connect = useConnectFlow()
   const [q, setQ] = useState('')
-  const { isVisible, toggle } = useColumnVisibility('services')
+  const columns = useColumnVisibility('services')
   // The cluster and namespace filters live in the address (?cluster=…&namespace=…), so the Namespaces page can link here and a filtered view can be shared.
   const [sp, setSp] = useSearchParams()
   const wantCluster = sp.get('cluster') ?? ''
@@ -71,7 +71,7 @@ export default function ServicesPage() {
             Namespace {nsFilter} <X size={ICON_SM} aria-hidden />
           </button>
         )}
-        <ColumnPicker columns={SERVICE_COLUMNS} isVisible={isVisible} onToggle={toggle} />
+        <ColumnPicker columns={SERVICE_COLUMNS} state={columns} />
       </div>
 
       {services.length === 0 ? (
@@ -84,12 +84,12 @@ export default function ServicesPage() {
           <thead>
             <tr>
               <Th>Name</Th>
-              {isVisible('cluster') && <Th>Cluster</Th>}
-              {isVisible('application') && <Th>Application</Th>}
-              {isVisible('kind') && <Th>Kind</Th>}
-              {isVisible('runsOn') && <Th>Runs on</Th>}
-              {isVisible('calls') && <Th>Calls</Th>}
-              {isVisible('mobility') && <Th>Mobility</Th>}
+              {columns.isVisible('cluster') && <Th>Cluster</Th>}
+              {columns.isVisible('application') && <Th>Application</Th>}
+              {columns.isVisible('kind') && <Th>Kind</Th>}
+              {columns.isVisible('runsOn') && <Th>Runs on</Th>}
+              {columns.isVisible('calls') && <Th>Calls</Th>}
+              {columns.isVisible('mobility') && <Th>Mobility</Th>}
               <Th>Status</Th>
               <Th className="sticky right-0 bg-nb-925" />
             </tr>
@@ -101,34 +101,34 @@ export default function ServicesPage() {
                   <button className="font-medium text-nb-300 hover:text-accent" onClick={() => setPanel({ service: w, edit: false })}>{w.name}</button>
                   <OriginLine rec={w} createdAt={w.createdAt} />
                 </Td>
-                {isVisible('cluster') && (
+                {columns.isVisible('cluster') && (
                   <Td className="whitespace-nowrap">
                     {clusterName(w.clusterId)}
                     <div className="text-xs text-nb-500" title="Namespace">{w.namespace}</div>
                   </Td>
                 )}
-                {isVisible('application') && (
+                {columns.isVisible('application') && (
                   <Td className="whitespace-nowrap text-nb-400">
                     {applications.find((a) => a.id === w.applicationId)?.name ?? '—'}
                     {(() => { const g = w.applicationId ? weak(w as never, 'applicationId') : undefined; return g ? <GuessDot level={g.level} why={g.why} /> : null })()}
                   </Td>
                 )}
-                {isVisible('kind') && (
+                {columns.isVisible('kind') && (
                   <Td>
                     <Pill>{w.kind}</Pill>
                     <div className="mt-1 font-mono text-xs text-nb-500">{w.image || '—'} · ×{w.replicas}</div>
                     <ServiceTraits w={w} nodeName={nodeName} />
                   </Td>
                 )}
-                {isVisible('runsOn') && <Td><ChipList items={w.nodeIds.map(nodeName)} /></Td>}
-                {isVisible('calls') && <Td>{dependencies.filter((d) => d.from === w.id).length}</Td>}
-                {isVisible('mobility') && <Td><MobilityChip service={w} forService={forService} /></Td>}
+                {columns.isVisible('runsOn') && <Td><ChipList items={w.nodeIds.map(nodeName)} /></Td>}
+                {columns.isVisible('calls') && <Td>{dependencies.filter((d) => d.from === w.id).length}</Td>}
+                {columns.isVisible('mobility') && <Td><MobilityChip service={w} forService={forService} /></Td>}
                 <Td>{(() => { const o = observation(w); return <StatusDot status={w.status} withLabel notCurrent={o && o.kind !== 'live' ? (o.reason ?? o.label) : undefined} /> })()}</Td>
                 <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setPanel({ service: w, edit: true })} onDelete={() => setDeleting(w)} /></Td>
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><Td colSpan={3 + SERVICE_COLUMNS.filter((c) => isVisible(c.key)).length} className="py-8 text-center text-nb-500">No services match your filters.</Td></tr>
+              <tr><Td colSpan={3 + SERVICE_COLUMNS.filter((c) => columns.isVisible(c.key)).length} className="py-8 text-center text-nb-500">No services match your filters.</Td></tr>
             )}
           </tbody>
         </Table>

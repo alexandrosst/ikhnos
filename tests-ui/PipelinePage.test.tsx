@@ -8,6 +8,9 @@ import PipelinePage from '@/features/pipeline/PipelinePage'
 import type { CreatedOperator, FusionStatus, IssuedCertificate, OperatorHeartbeatEnabled, OperatorRemoval } from '@/lib/api'
 import type { Agent, Cluster, OperatorDestinationEntry, RegionalOperator, TelemetryIntent } from '@/lib/types'
 
+/** The create dialog's own "created" screen, so a query does not also find the same rows on the page behind it. */
+const created = () => screen.getByTestId('operator-created-script').closest('[role=dialog]') as HTMLElement
+
 function Where() {
   const l = useLocation()
   return <output data-testid="where">{l.pathname + l.search}</output>
@@ -1348,7 +1351,8 @@ describe('PipelinePage - creating with and without health reporting', () => {
     await user.click(screen.getByTestId('operator-create'))
     await waitFor(() => expect(createOperator).toHaveBeenCalledTimes(1))
     expect(createOperator.mock.calls[0][4]).toEqual({ heartbeat: false, labels: [], exposure: 'nodeport' })
-    expect(await screen.findByTestId('operator-no-rbac-note')).toHaveTextContent('never contacts this server')
+    await screen.findByTestId('operator-created-script')
+    expect(within(created()).getByTestId('operator-access-server')).toHaveTextContent('Never')
     expect(screen.queryByTestId('operator-created-heartbeat')).not.toBeInTheDocument()
   })
 
@@ -1368,14 +1372,14 @@ describe('PipelinePage - creating with and without health reporting', () => {
     await fillCreateForm(user)
     await user.click(screen.getByTestId('operator-create'))
 
-    const mtls = await screen.findByTestId('operator-created-mtls')
-    expect(mtls).toHaveTextContent('no receiver token')
+    await screen.findByTestId('operator-created-script')
+    const mtls = within(created()).getByTestId('operator-access-receiver')
+    expect(mtls).toHaveTextContent('No token')
     expect(mtls).toHaveTextContent('client certificate')
-    expect(mtls).toHaveTextContent('issued per agent when its commands are generated')
-    expect(mtls).toHaveTextContent('own certificate authority')
+    expect(mtls).toHaveTextContent('own authority')
     expect(screen.queryByText(/receiver token Secret/)).not.toBeInTheDocument()
     expect(screen.queryByTestId('operator-secret-command')).not.toBeInTheDocument()
-    expect(screen.getByTestId('operator-no-rbac-note')).toHaveTextContent('It contacts this server only to send its health check')
+    expect(within(created()).getByTestId('operator-access-server')).toHaveTextContent('A health check, once a minute')
     const text = screen.getByTestId('operator-created-steps').textContent ?? ''
     expect(text.indexOf('TLS-SECRET-CMD')).toBeLessThan(text.indexOf('HEARTBEAT-SECRET-CMD'))
     expect(text.indexOf('HEARTBEAT-SECRET-CMD')).toBeLessThan(text.indexOf('INSTALL-CMD'))
@@ -1436,21 +1440,21 @@ describe('PipelinePage - creating with and without health reporting', () => {
     expect(text).toContain('Create the receiver token Secret')
     expect(text.indexOf('TOKEN-SECRET-CMD')).toBeLessThan(text.indexOf('TLS-SECRET-CMD'))
     expect(text.indexOf('TLS-SECRET-CMD')).toBeLessThan(text.indexOf('INSTALL-CMD'))
-    expect(screen.queryByTestId('operator-created-mtls')).not.toBeInTheDocument()
+    expect(within(created()).getByTestId('operator-access-receiver')).toHaveTextContent('receiver token')
     expect(screen.queryByTestId('operator-created-heartbeat')).not.toBeInTheDocument()
   })
 })
 
 describe('PipelinePage - explanatory notes', () => {
-  test('the access note no longer says it never dials the server or always has a token', async () => {
+  test('the access note is four short rows, and says health reporting is the only thing that reaches the server', async () => {
     renderPage()
     const note = await screen.findByTestId('operator-access-note')
     const text = note.textContent ?? ''
-    expect(text).toContain('unless you turn on health reporting')
-    expect(text).toContain('client certificate alone')
-    expect(text).toContain('its own certificate authority')
-    expect(text).toContain('older operator the bearer token')
-    expect(text).not.toContain('a receiver bearer token (minted')
+    expect(text).toContain('What an operator can access')
+    expect(text).toContain('Only if health reporting is on')
+    expect(text).toContain('client certificate')
+    expect(text).toContain('An older operator also has a token')
+    expect(text.length).toBeLessThan(400)
   })
 })
 

@@ -30,7 +30,7 @@ export default function NamespacesPage() {
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   const [clusterFilter, setClusterFilter] = useState('')
-  const { isVisible, toggle } = useColumnVisibility('namespaces')
+  const columns = useColumnVisibility('namespaces')
 
   const all = useMemo(() => buildNamespaceRows({ clusters, namespaces, services, agents }), [clusters, namespaces, services, agents])
   const rows = all.filter((r) => (!clusterFilter || r.clusterId === clusterFilter) && rowMatches(r, q))
@@ -52,7 +52,7 @@ export default function NamespacesPage() {
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </Select>
-        <ColumnPicker columns={NAMESPACE_COLUMNS} isVisible={isVisible} onToggle={toggle} />
+        <ColumnPicker columns={NAMESPACE_COLUMNS} state={columns} />
       </div>
 
       {count === 0 && left === 0 ? (
@@ -67,15 +67,15 @@ export default function NamespacesPage() {
         />
       ) : (
         <>
-          <Table cols={['w-56', 'w-44', ...NAMESPACE_COLUMNS.filter((c) => isVisible(c.key)).map((c) => c.width!)]}>
+          <Table cols={['w-56', 'w-44', ...NAMESPACE_COLUMNS.filter((c) => columns.isVisible(c.key)).map((c) => c.width!)]}>
             <thead>
               <tr>
                 <Th>Namespace</Th>
                 <Th>Cluster</Th>
-                {isVisible('services') && <Th>Services</Th>}
-                {isVisible('exposed') && <Th>Exposed</Th>}
-                {isVisible('mesh') && <Th>Service mesh</Th>}
-                {isVisible('scope') && <Th>Agent scope</Th>}
+                {columns.isVisible('services') && <Th>Services</Th>}
+                {columns.isVisible('exposed') && <Th>Exposed</Th>}
+                {columns.isVisible('mesh') && <Th>Service mesh</Th>}
+                {columns.isVisible('scope') && <Th>Agent scope</Th>}
               </tr>
             </thead>
             <tbody>
@@ -86,7 +86,7 @@ export default function NamespacesPage() {
                       <span className="font-medium">{r.count} more</span>
                     </Td>
                     <Td className="truncate text-nb-400" title={r.clusterName}>{r.clusterName}</Td>
-                    <Td colSpan={NAMESPACE_COLUMNS.filter((c) => isVisible(c.key)).length} className="text-xs text-nb-500" title={r.description ? `How the scope was set: ${r.description}` : undefined}>
+                    <Td colSpan={NAMESPACE_COLUMNS.filter((c) => columns.isVisible(c.key)).length} className="text-xs text-nb-500" title={r.description ? `How the scope was set: ${r.description}` : undefined}>
                       {excludedWords(r.count)}
                     </Td>
                   </tr>
@@ -97,14 +97,14 @@ export default function NamespacesPage() {
                       {r.source === 'discovered' ? <ObservedLine obs={r.observation} /> : r.source === 'services' ? <InferredLine /> : <DeclaredLine />}
                     </Td>
                     <Td className="truncate" title={r.clusterName}>{r.clusterName}</Td>
-                    {isVisible('services') && (
+                    {columns.isVisible('services') && (
                       <Td className="whitespace-nowrap">
                         {r.services}
                         {r.kinds && <div className="whitespace-normal text-xs text-nb-500">{r.kinds}</div>}
                       </Td>
                     )}
-                    {isVisible('exposed') && <Td>{r.exposed > 0 ? r.exposed : <span className="text-nb-600">none</span>}</Td>}
-                    {isVisible('mesh') && (
+                    {columns.isVisible('exposed') && <Td>{r.exposed > 0 ? r.exposed : <span className="text-nb-600">none</span>}</Td>}
+                    {columns.isVisible('mesh') && (
                       <Td>
                         {r.mesh ? (
                           <span title={r.mesh.detail} className={`inline-flex max-w-full items-center truncate whitespace-nowrap rounded border px-1.5 py-px text-[11px] font-medium leading-4 ${TONE_CLASS[r.mesh.tone]}`} data-testid="namespace-mesh">
@@ -116,7 +116,7 @@ export default function NamespacesPage() {
                         {r.mesh && r.mesh.total > 0 && <div className="mt-0.5 text-xs text-nb-500">{r.mesh.covered} of {r.mesh.total} in mesh</div>}
                       </Td>
                     )}
-                    {isVisible('scope') && (
+                    {columns.isVisible('scope') && (
                       <Td className="whitespace-nowrap" data-testid="namespace-scope">
                         <span className={r.scope === 'in' ? 'text-nb-300' : 'text-nb-500'}>{scopeLabel(r)}</span>
                       </Td>
@@ -125,7 +125,7 @@ export default function NamespacesPage() {
                 ),
               )}
               {rows.length === 0 && (
-                <tr><Td colSpan={2 + NAMESPACE_COLUMNS.filter((c) => isVisible(c.key)).length} className="py-8 text-center text-nb-500">No namespaces match your filters.</Td></tr>
+                <tr><Td colSpan={2 + NAMESPACE_COLUMNS.filter((c) => columns.isVisible(c.key)).length} className="py-8 text-center text-nb-500">No namespaces match your filters.</Td></tr>
               )}
             </tbody>
           </Table>

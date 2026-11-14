@@ -8,7 +8,7 @@ import CreateOperatorModal from '@/features/pipeline/components/operators/Create
 import { useFusion } from '@/features/fusion/components/useFusion'
 import LocalOperatorDetail from '@/features/pipeline/components/operators/LocalOperatorDetail'
 import HealthModal from '@/features/pipeline/components/operators/HealthModal'
-import { HEARTBEAT_WHAT } from '@/features/pipeline/components/operators/HeartbeatCommands'
+import OperatorAccess from '@/features/pipeline/components/operators/OperatorAccess'
 import { OperatorAddressModal } from '@/features/pipeline/components/operators/OperatorAddress'
 import OperatorCertificatesModal from '@/features/pipeline/components/operators/OperatorCertificatesModal'
 import OperatorSendersModal from '@/features/pipeline/components/operators/OperatorSendersModal'
@@ -298,26 +298,10 @@ export default function PipelinePage() {
             <details className="group mt-6 rounded-xl border border-nb-850 bg-nb-925" data-testid="operator-access-note">
               <summary className="flex cursor-pointer select-none items-center gap-1.5 px-4 py-3 text-sm font-medium text-nb-300 marker:content-none">
                 <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
-                What a regional operator needs, and what you grant it
+                What an operator can access
               </summary>
-              <div className="space-y-2 border-t border-nb-850 px-4 py-3 text-xs leading-relaxed text-nb-400">
-                <p>
-                  <span className="font-medium text-nb-200">No Kubernetes API access of any kind.</span> This chart renders no
-                  ClusterRole, Role or RoleBinding, and its ServiceAccount is created with{' '}
-                  <code className="font-mono">automountServiceAccountToken: false</code> - it cannot present a token to the API
-                  server even if it tried. It never dials the Ikhnos server either, unless you turn on health reporting
-                  for it - and then the only thing it sends is {HEARTBEAT_WHAT} It never watches this cluster&apos;s own
-                  objects the way a discovery agent&apos;s RBAC lets it (see the chart&apos;s own README for the full architecture).
-                </p>
-                <p>
-                  What you actually configure, in full: <span className="text-nb-200">how its receiver authenticates agents</span>{' '}
-                  - for an operator created now, the client certificate alone, with no receiver token at all (each operator has its own
-                  certificate authority, so a certificate issued for another operator is refused), and for an
-                  older operator the bearer token it was created with, minted once and kept only as a hash;{' '}
-                  <span className="text-nb-200">the destination</span> it re-exports aggregated telemetry to; and, optionally,{' '}
-                  <span className="text-nb-200">health reporting</span>, which is what lets this page say online or offline.
-                  Nothing else is asked for or needed.
-                </p>
+              <div className="border-t border-nb-850">
+                <OperatorAccess />
               </div>
             </details>
           )}

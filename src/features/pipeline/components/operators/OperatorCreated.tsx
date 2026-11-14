@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import { FusionDot } from '@/features/fusion/components/useFusion'
 import { HeartbeatCommands } from '@/features/pipeline/components/operators/HeartbeatCommands'
+import OperatorAccess from '@/features/pipeline/components/operators/OperatorAccess'
 import { FindTheAddress } from '@/features/pipeline/components/operators/OperatorAddress'
 import { Button, ICON_SM, Modal, RunStep, Waiting } from '@/components/ui/primitives'
 import type { CreatedOperator, OperatorExposure } from '@/lib/api'
@@ -251,23 +252,10 @@ export default function OperatorCreated({
         <details className="group rounded-lg border border-nb-850 bg-nb-925">
           <summary className="flex cursor-pointer select-none items-center gap-1.5 px-4 py-2.5 text-sm text-nb-400 marker:content-none">
             <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
-            How it is secured
+            What it can access
           </summary>
-          <div className="space-y-2 border-t border-nb-850 p-4 text-sm leading-relaxed text-nb-400">
-            {mtls && (
-              <p data-testid="operator-created-mtls">
-                There is no receiver token for this operator. Its receiver accepts agents that present a client certificate
-                from this operator&apos;s own certificate authority; one is issued per agent when its commands are generated
-                (from the agent&apos;s Telemetry panel). A certificate issued for any other operator, or by the organisation&apos;s own CA, is refused.
-              </p>
-            )}
-            <p data-testid="operator-no-rbac-note">
-              No Kubernetes RBAC was applied, and none was needed: this chart requests no ServiceAccount token at all
-              (<code className="font-mono">automountServiceAccountToken: false</code>, no ClusterRole, no Role, no binding).
-              {' '}{heartbeat
-                ? 'It contacts this server only to send its health check, nothing else.'
-                : 'It never contacts this server: health reporting is off, and can be turned on later from the Operators page.'}
-            </p>
+          <div className="border-t border-nb-850">
+            <OperatorAccess heartbeat={heartbeat} receiver={hasToken ? 'token' : mtls ? 'mtls' : undefined} configure={false} />
           </div>
         </details>
       </div>

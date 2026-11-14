@@ -23,7 +23,7 @@ export default function DevicesPage() {
   const { devices, applications, sites, nodes, dependencies, deleteDevice } = useTopology()
   const [q, setQ] = useState('')
   const [siteFilter, setSiteFilter] = useState('')
-  const { isVisible, toggle } = useColumnVisibility('devices')
+  const columns = useColumnVisibility('devices')
   // The panel: a device group to read (or edit straight away from the pencil), or a blank one to add.
   const [panel, setPanel] = useState<{ device: Device | null; edit: boolean } | null>(null)
   const [deleting, setDeleting] = useState<Device | null>(null)
@@ -56,7 +56,7 @@ export default function DevicesPage() {
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </Select>
-        <ColumnPicker columns={DEVICE_COLUMNS} isVisible={isVisible} onToggle={toggle} />
+        <ColumnPicker columns={DEVICE_COLUMNS} state={columns} />
       </div>
 
       {devices.length === 0 ? (
@@ -70,12 +70,12 @@ export default function DevicesPage() {
           <thead>
             <tr>
               <Th>Name</Th>
-              {isVisible('kind') && <Th>Kind</Th>}
-              {isVisible('units') && <Th>Units</Th>}
-              {isVisible('application') && <Th>Application</Th>}
-              {isVisible('site') && <Th>Site</Th>}
-              {isVisible('protocol') && <Th>Protocol · link</Th>}
-              {isVisible('sendsTo') && <Th>Sends to</Th>}
+              {columns.isVisible('kind') && <Th>Kind</Th>}
+              {columns.isVisible('units') && <Th>Units</Th>}
+              {columns.isVisible('application') && <Th>Application</Th>}
+              {columns.isVisible('site') && <Th>Site</Th>}
+              {columns.isVisible('protocol') && <Th>Protocol · link</Th>}
+              {columns.isVisible('sendsTo') && <Th>Sends to</Th>}
               <Th>Status</Th>
               <Th className="sticky right-0 bg-nb-925" />
             </tr>
@@ -94,24 +94,24 @@ export default function DevicesPage() {
                     </span>
                     <div className="pl-6"><OriginLine rec={d} /></div>
                   </Td>
-                  {isVisible('kind') && <Td><Pill>{kindLabel(d.kind)}</Pill></Td>}
-                  {isVisible('units') && <Td>{d.count}</Td>}
-                  {isVisible('application') && <Td>{appName(d.applicationId) ?? <span className="text-nb-600">—</span>}</Td>}
-                  {isVisible('site') && (
+                  {columns.isVisible('kind') && <Td><Pill>{kindLabel(d.kind)}</Pill></Td>}
+                  {columns.isVisible('units') && <Td>{d.count}</Td>}
+                  {columns.isVisible('application') && <Td>{appName(d.applicationId) ?? <span className="text-nb-600">—</span>}</Td>}
+                  {columns.isVisible('site') && (
                     <Td className="whitespace-nowrap text-nb-400">
                       {siteName(d.siteId) ?? '—'}
                       {gw && <div className="text-xs text-nb-500">on {gw.name}</div>}
                     </Td>
                   )}
-                  {isVisible('protocol') && <Td className="whitespace-nowrap text-nb-400">{[d.protocol, CONNECTIVITY.find((c) => c.value === d.connectivity)?.label].filter(Boolean).join(' · ')}</Td>}
-                  {isVisible('sendsTo') && <Td>{out}</Td>}
+                  {columns.isVisible('protocol') && <Td className="whitespace-nowrap text-nb-400">{[d.protocol, CONNECTIVITY.find((c) => c.value === d.connectivity)?.label].filter(Boolean).join(' · ')}</Td>}
+                  {columns.isVisible('sendsTo') && <Td>{out}</Td>}
                   <Td><StatusDot status={d.status} withLabel /></Td>
                   <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setPanel({ device: d, edit: true })} onDelete={() => setDeleting(d)} /></Td>
                 </tr>
               )
             })}
             {rows.length === 0 && (
-              <tr><Td colSpan={3 + DEVICE_COLUMNS.filter((c) => isVisible(c.key)).length} className="py-8 text-center text-nb-500">No devices match your filters.</Td></tr>
+              <tr><Td colSpan={3 + DEVICE_COLUMNS.filter((c) => columns.isVisible(c.key)).length} className="py-8 text-center text-nb-500">No devices match your filters.</Td></tr>
             )}
           </tbody>
         </Table>
