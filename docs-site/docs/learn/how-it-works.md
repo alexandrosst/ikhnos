@@ -64,7 +64,7 @@ If you want more than a picture of the landscape, Ikhnos can also carry the metr
 
 Collectors in each cluster send over OTLP, with mutual TLS, to a regional operator or straight to a backend you run. The central operator of FUSION writes to Prometheus, Loki and Tempo, and nine Grafana dashboards read them. Ikhnos decides what may leave a cluster and where it may go, opens Grafana for you behind your sign-in, and reads the stores back through one token-protected API. All of it is opt-in.
 
-Deeper: [Telemetry intent](../architecture/telemetry-intent.md), [Regional operators](../architecture/regional-operators.md) and [Grafana and the web pages](../architecture/fusion-grafana.md).
+Deeper: [Telemetry internals](../architecture/telemetry-intent.md), [Regional operators](../architecture/regional-operators.md) and [Grafana and the web pages](../architecture/fusion-grafana.md).
 
 ## What to read next
 

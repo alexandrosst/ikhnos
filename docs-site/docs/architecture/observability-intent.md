@@ -1,14 +1,14 @@
 ---
 id: observability-intent
-title: Observability intent
+title: Observability intent, in depth
 description: The three independent ways an agent's scope is narrowed — access tier, paused collectors, excluded namespaces — and how the server enforces all three itself rather than trusting the agent's word for it.
 ---
 
-# Observability intent
+# Observability intent, in depth
 
 <Figure name="TrustChain" caption="The agent applies each limit itself first. The server checks all three again anyway, because the agent already doing it is not the same claim as the server knowing it." />
 
-*Observability intent* is what the [Agent insight panel](../user-guide/using-the-ui.md) calls the sum of these three settings: the scope of what one agent reads and reports, at this moment, from this cluster. It can only ever get narrower than what the cluster's own install allows — never wider — and everything on this page follows from that one rule.
+This page is the detail behind [observability intent](../learn/observability-intent.md). *Observability intent* is what the [Agent insight panel](../user-guide/using-the-ui.md) calls the sum of these three settings: the scope of what one agent reads and reports, at this moment, from this cluster. It can only ever get narrower than what the cluster's own install allows — never wider — and everything on this page follows from that one rule.
 
 ## Three dimensions, not one knob
 

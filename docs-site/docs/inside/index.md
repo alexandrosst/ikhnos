@@ -61,7 +61,7 @@ These pages go deeper on one subject each.
 
 **Trust and security.** [Trust model](../architecture/trust-model.md), [Agent trust model](../architecture/agent-trust-model.md) and [Permissions reference](../architecture/permissions-reference.md).
 
-**Telemetry and FUSION.** [Observability intent](../architecture/observability-intent.md), [Telemetry intent](../architecture/telemetry-intent.md), [Regional operators](../architecture/regional-operators.md), [FUSION API](../architecture/fusion-api.md) and [FUSION and Grafana](../architecture/fusion-grafana.md).
+**Telemetry and FUSION.** [Observability intent](../architecture/observability-intent.md), [Telemetry internals](../architecture/telemetry-intent.md), [Regional operators](../architecture/regional-operators.md), [FUSION API](../architecture/fusion-api.md) and [FUSION and Grafana](../architecture/fusion-grafana.md).
 
 **Links and memory.** [Cluster links](../architecture/cluster-links.md) and [System memory](../architecture/system-memory.md).
 

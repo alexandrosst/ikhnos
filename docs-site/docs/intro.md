@@ -7,13 +7,20 @@ description: Documentation for Ikhnos, a read-only, agent-observed model of your
 
 # Ikhnos documentation
 
-Ikhnos shows you your clusters as one picture: where things run, how healthy each place is, what talks to what, and how far apart your sites really are. A small read-only agent in each cluster keeps the picture current, and it never changes anything. Telemetry, when you want it, is opt-in and carries your consent for each signal.
+**See everything, touch nothing.** Full-stack observability for your whole landscape, from cloud to far edge.
 
-<Figure name="ContinuumOverview" caption="A landscape is wider than any one cluster. Ikhnos is for the part where the places differ and the links between them are weak." />
+<Shot src="readme/topology-loop" ext="gif" alt="The sites of a landscape in Berlin, Paris and Athens on a map, with the traffic between them moving along the links" caption="Berlin, Paris and Athens on the sample landscape. The dashes move with the traffic between sites." />
+
+Ikhnos does this the same way for every cluster:
+
+- **One command per cluster.** Run it, approve the cluster, and it appears. No kubeconfig is handed over, and no inbound port is opened.
+- **Read-only by design.** A small agent looks. It cannot change anything.
+- **You decide how far it looks.** That is your [observability intent](learn/observability-intent.md): per cluster, from "registered only" up to services, and it can only be narrowed, never widened. It covers telemetry too, so metrics, logs and traces are opt-in, one signal at a time.
 
 ## Start where you are
 
 <Cards>
+  <Card to="/docs/learn/observability-intent" kicker="The one idea" title="Observability intent">How far each part may look, in one page. It can only be narrowed, never widened.</Card>
   <Card to="/docs/learn/what-is-ikhnos" kicker="Never heard of it" title="What is Ikhnos?">The problem it solves, what it does and does not do, and who it is for. Five minutes.</Card>
   <Card to="/docs/journey/" kicker="Start here to use it" title="Your first hour">Six steps from nothing to a connected cluster and your first look around. Written for someone who has never seen it.</Card>
   <Card to="/docs/getting-started/quickstart" kicker="I know what I am doing" title="Quickstart">One recipe that works on any cluster. Copy, paste, done.</Card>
@@ -24,14 +31,6 @@ Ikhnos shows you your clusters as one picture: where things run, how healthy eac
 
 ## The idea in one paragraph
 
-The **server** is one program with one database. It has two doors that have little in common: port 8443 for agents over mutual TLS, and port 8080 for you. The **agent** is one pod per cluster with read-only permissions, and it starts every connection itself, so no cluster opens an inbound port. What an agent may see is a chain of three limits (install, approval, effective) that the server can only narrow. Everything else, such as telemetry and the controller, is optional and is added when you need it.
+The **server** is one program with one database. **Agents** are one read-only pod per cluster, and each starts its own connection, so no cluster opens an inbound port. What an agent may see is a chain of three limits that the server can only narrow. Everything else, such as telemetry, is optional.
 
 For the longer version with figures, read [How it works in ten minutes](learn/how-it-works.md).
-
-## If something is wrong
-
-Go to [Common errors](troubleshooting/common-errors.md). It is written in the same words the interface uses, so you can search for the message you see. For what the project does not do yet, read [Status and limits](project/status-and-limits.md); it is meant to be read before you rely on Ikhnos.
-
-:::tip Looking for the code, not the product?
-[Inside Ikhnos](inside/index.md) starts with a tour of the repository, and the [developer guide](contributing/developer-guide.md) covers building from source and running the tests.
-:::

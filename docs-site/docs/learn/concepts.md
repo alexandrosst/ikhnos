@@ -61,7 +61,7 @@ Ikhnos has a small vocabulary and uses it consistently. This page is the one pla
 
 | Term | In plain words | More |
 |---|---|---|
-| **Telemetry intent** | Your named consent for what an agent's collectors do and where they send it. | [Telemetry intent](../architecture/telemetry-intent.md) |
-| **OTLP** | The OpenTelemetry protocol the collectors use to send metrics, logs and traces. | [Telemetry intent](../architecture/telemetry-intent.md) |
+| **Observability intent** | How far each part that watches may look: the discovery agent, local operators and regional operators. It can only be narrowed. | [Observability intent](./observability-intent.md) |
+| **OTLP** | The OpenTelemetry protocol the collectors use to send metrics, logs and traces. | [Telemetry internals](../architecture/telemetry-intent.md) |
 | **Pipeline** | The path telemetry takes: agents, local operators, regional operators, the central operator, FUSION. The Pipeline page shows each hop and whether it works. | [Using the UI](../user-guide/using-the-ui.md) |
 | **Cluster link** | A measured connection between two clusters you pair: loss, delay and jitter. | [Cluster links](../architecture/cluster-links.md) |

@@ -1,16 +1,14 @@
 ---
 id: telemetry-intent
-title: Telemetry intent
+title: Telemetry internals
 description: The four commitments telemetry collection is built on, how a single Helm release fans out across every node (GPU nodes included), the server-side TelemetryIntent grant behind a local operator's own collection and export, the wizard and panel that configure it, and the quick-start backend specs and access gateway.
 ---
 
-# Telemetry intent
+# Telemetry internals
 
 <Figure name="AgentInside" caption="One release per cluster already reaches every node — Kubernetes does that fan-out, not a per-node chart. What it doesn't do yet is coordinate across clusters." />
 
-Where [Observability intent](./observability-intent.md) is about how far an *agent* is allowed to see into a cluster, telemetry intent is a related but separate question: given a signal an agent is already allowed to see, should raw OTel data about it leave the cluster at all, and to where. The two systems share a chart, a philosophy of narrowing rather than widening, and a UI (telemetry sits in the same wizard as access tier and namespace scope), but they don't share a trust model — and that difference, not just a list of toggles, is what this page is actually about.
-
-<Video src="telemetry" label="The Set up telemetry wizard: choose what to collect, where to send it, generate the commands, and run them" caption="Setting up telemetry for a connected cluster. The terminal shows what helm prints for the commands the wizard generates." />
+This is the detail behind the telemetry half of [observability intent](../learn/observability-intent.md); to set telemetry up, follow [Telemetry and FUSION](../user-guide/telemetry-and-fusion.md). [Observability intent in depth](./observability-intent.md) covers how far an *agent* may see into a cluster. Telemetry is a related but separate question: given a signal an agent is already allowed to see, should raw OTel data about it leave the cluster at all, and to where. The two systems share a chart, a philosophy of narrowing rather than widening, and a UI (telemetry sits in the same wizard as access tier and namespace scope), but they don't share a trust model — and that difference, not just a list of toggles, is what this page is actually about.
 
 ## Four commitments
 

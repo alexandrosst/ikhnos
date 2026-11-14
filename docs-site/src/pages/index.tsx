@@ -33,15 +33,15 @@ const features: [string, string][] = [
 export default function Home() {
   const logo = useBaseUrl('/img/logo.svg');
   return (
-    <Layout title="Ikhnos" description="See your Kubernetes landscape from cloud to far edge, with its health, links and history, and change nothing.">
+    <Layout title="Ikhnos" description="Full-stack observability for your whole Kubernetes landscape, from cloud to far edge. One command per cluster, read-only, and you decide how much each agent may see.">
       <header className={styles.hero}>
         <div className={styles.heroInner}>
           <div className={styles.heroText}>
             <img src={logo} alt="" className={styles.mark} />
-            <h1>See your whole landscape.<br />Change nothing.</h1>
+            <h1>See everything.<br />Touch nothing.</h1>
             <p className={styles.lede}>
-              Ikhnos models your Kubernetes clusters from the cloud to the far edge, keeps a history of every change, and
-              shows how healthy each place is and what talks to what, with the evidence behind every value.
+              Full-stack observability for your whole landscape, from cloud to far edge. One command per cluster,
+              read-only, and you decide how much each agent may see.
             </p>
             <div className={styles.buttons}>
               <Link className="button button--primary button--lg" to="/docs/journey/">Your first hour</Link>
@@ -53,7 +53,7 @@ export default function Home() {
           <div className={styles.heroShot}>
             <ThemedImage
               alt="The Ikhnos topology view: a cloud cluster, a regional edge cluster and far-edge clusters with their services and the dependencies between them"
-              sources={{light: useBaseUrl('/img/readme/ui-topology-light.png'), dark: useBaseUrl('/img/readme/ui-topology-dark.png')}}
+              sources={{light: useBaseUrl('/img/readme/topology-loop-light.gif'), dark: useBaseUrl('/img/readme/topology-loop-dark.gif')}}
             />
           </div>
         </div>

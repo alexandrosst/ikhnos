@@ -5,7 +5,9 @@
   </picture>
 </p>
 
-<h3 align="center">See your Kubernetes landscape from cloud to far edge, one honest picture of it.</h3>
+<h3 align="center">See everything, touch nothing.</h3>
+
+<p align="center">Full-stack observability for your whole landscape, from cloud to far edge.</p>
 
 <p align="center">
   <a href="https://github.com/alexandrosst/ikhnos/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alexandrosst/ikhnos/actions/workflows/ci.yml/badge.svg"></a>
@@ -26,18 +28,20 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs-site/static/img/readme/ui-topology-dark.png">
-    <img alt="The Ikhnos topology view: a cloud cluster, a regional edge cluster and two far-edge clusters with their services and the dependencies between them" src="docs-site/static/img/readme/ui-topology-light.png" width="920">
+    <source media="(prefers-color-scheme: dark)" srcset="docs-site/static/img/readme/topology-loop-dark.gif">
+    <img alt="Sites in Berlin, Paris and Athens on a map, with the traffic between them moving along the links" src="docs-site/static/img/readme/topology-loop-light.gif" width="920">
   </picture>
   <br>
-  <sub>The Application view, on the built-in sample landscape (made-up clusters, not real infrastructure).</sub>
+  <sub>Berlin, Paris and Athens on the built-in sample landscape (made-up clusters, not real infrastructure). The dashes move with the traffic between sites.</sub>
 </p>
+
+- **One command per cluster.** Run it, approve the cluster, and it appears. No kubeconfig is handed over, and no inbound port is opened.
+- **Read-only by design.** A small agent looks. It cannot change anything.
+- **You decide how far it looks.** That is your [observability intent](https://alexandrosst.github.io/ikhnos/docs/learn/observability-intent): per cluster, from "registered only" up to services, and it can only be narrowed, never widened. It covers telemetry too, so metrics, logs and traces are opt-in, one signal at a time.
 
 ## What it is
 
-Ikhnos models Kubernetes clusters across the cloud, edge and far-edge continuum and shows them as two views of **one shared model**: an **application view** (services, their dependencies, IoT devices, external endpoints) and an **infrastructure view** (nodes, capacity, cross-cluster links). Edit a service in a table and every view changes with it.
-
-A small read-only **agent** in each cluster dials out to a single **server** and reports what it sees. On top of that picture sit history (what changed, when and why), measured links between clusters, and telemetry you can read back in Grafana.
+Ikhnos shows Kubernetes clusters across the cloud, edge and far-edge continuum as one picture: an **application view** (services and the dependencies between them) and an **infrastructure view** (nodes, capacity, links). A small read-only **agent** in each cluster dials out to a single **server** and reports what it sees. On top of that sit history, measured links between clusters, and telemetry you can read in Grafana.
 
 It is built on four commitments:
 
@@ -45,7 +49,7 @@ It is built on four commitments:
 |---|---|
 | **Read-only** | The agent can `list` and `watch`, never write, and never reads Secrets or ConfigMaps. Nothing is deployed or moved, ever, without a person approving it. |
 | **Outbound only** | The agent opens every connection, over mutual TLS. Nothing needs an inbound firewall rule on a cluster, and the server never holds a kubeconfig. |
-| **Narrowing trust** | What an agent reports is a chain (ceiling, approved, effective) that the server can only narrow, never widen. |
+| **Observability intent** | How far each part may look is a chain (ceiling, approved, effective) that can only be narrowed, never widened. It covers the agent and the telemetry operators. |
 | **Honest about what it knows** | A value that was seen is shown as seen, and one that was guessed is marked as a guess. Missing data is named, never silently filled in. |
 
 ## Features

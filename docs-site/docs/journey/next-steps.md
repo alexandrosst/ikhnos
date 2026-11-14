@@ -12,7 +12,7 @@ You have a server, one connected cluster, and a first look around. Here is what 
   <Card to="/docs/installation/connecting-a-cluster" kicker="Grow" title="Connect more clusters">Same wizard, one per cluster. The more of your landscape it sees, the more complete the picture.</Card>
   <Card to="/docs/installation/production-cluster" kicker="Harden" title="Give the server a real address">A DNS name, a load balancer or a Gateway, and real TLS, so agents can dial from other networks.</Card>
   <Card to="/docs/user-guide/using-the-ui#team-and-roles" kicker="People" title="Invite your team">Roles, two-factor sign-in and the audit trail.</Card>
-  <Card to="/docs/architecture/telemetry-intent" kicker="See more" title="Turn on telemetry">Metrics, logs and traces, and nine Grafana dashboards, with your consent for each.</Card>
+  <Card to="/docs/user-guide/telemetry-and-fusion" kicker="See more" title="Turn on telemetry">Metrics, logs and traces, and nine Grafana dashboards, with your consent for each.</Card>
   <Card to="/docs/architecture/cluster-links" kicker="Measure" title="Pair clusters">Loss, delay and jitter between the clusters you choose.</Card>
   <Card to="/docs/troubleshooting/common-errors" kicker="When stuck" title="Common errors">The handful of mistakes that are easy to make once, with the exact fix.</Card>
 </Cards>

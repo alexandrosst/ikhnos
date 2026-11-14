@@ -13,7 +13,7 @@ Placement advice is early research; see the [roadmap](../project/roadmap.md). **
 
 On a new landscape, the first thing Placement says is often that it cannot recommend anything yet. That is not a failure. It is the point of the design.
 
-<Shot src="readme/ui-placement" alt="A placement recommendation that says there is not enough evidence to recommend, listing which inputs are guesses and what could not be checked" caption="Here Ikhnos declines to recommend a move, because five of ten inputs are guesses and two are unknown, and it says which. The sample landscape is made up." />
+<Shot src="readme/ui-placement" alt="A placement recommendation that says there is not enough evidence to recommend, listing which inputs are guesses and what could not be checked" caption="Here Ikhnos declines to recommend a move, because some inputs are guesses and some are unknown, and it says which. The sample landscape is made up." />
 
 A recommendation is only as good as the facts under it. Ikhnos keeps, for every input, where it came from and how sure it is, and it takes the confidence of an answer from its **weakest deciding fact**, never an average. So an answer that rests on one guess is called a guess, and when too many inputs are missing, it says "not enough evidence to recommend" and names what is missing.
 
