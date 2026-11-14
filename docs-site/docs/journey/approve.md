@@ -10,6 +10,8 @@ description: Read the approval code from the agent's own pod log, type it into I
 
 The agent is running and has asked to join, but nothing it says is trusted yet. You now confirm that **this** agent is the one you meant. Ikhnos does that with a code that only someone who can read the cluster can see.
 
+<Video src="approve" label="The approval code is read from the agent's log, typed into the Agents page, and the cluster appears with its services" caption="Reading the code, approving it, and the cluster arriving in the lists and in Topology." />
+
 ## Why a code, and not just the token
 
 The token in the command proves that someone was allowed to install an agent. It does not prove that the agent that arrived is the one you meant. If two clusters were joining at once, or a token had leaked, the wrong request could be approved by mistake.

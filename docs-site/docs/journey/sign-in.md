@@ -10,6 +10,8 @@ description: Read the one-time admin password from the server's log, open the in
 
 The server has just started on an empty database, so it has one account, `admin`, with a password generated for you. It prints that password once, in its log, the first time it starts.
 
+<Video src="sign-in" label="The server's log shows the one-time password; it is typed in, replaced by one of your own, and the organisation is named" caption="Sign in for the first time: the one-time password, a password of your own, and a name for the organisation. The password on screen is an example." />
+
 ## Get the first password
 
 ```bash

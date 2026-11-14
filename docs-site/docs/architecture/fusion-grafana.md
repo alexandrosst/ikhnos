@@ -8,6 +8,8 @@ description: Grafana ships inside FUSION already connected to Prometheus, Loki a
 
 [FUSION](./regional-operators.md#fusion-where-a-regional-operator-saves-what-it-receives) saves metrics, logs and traces. To look at them you do not need to find an address or port-forward anything: the **FUSION** page (sidebar, Telemetry) has **Open Grafana** (the main button) and **Open Prometheus** at the top, each opening in a new tab once that part is up. Once Grafana is up, the same **Open Grafana** is also a small chart button on the FUSION row of the sidebar, for an administrator who wants the dashboards without opening the page first.
 
+<Video src="grafana" label="Open Grafana from the FUSION page, then three of the dashboards that come with it, scrolled from top to bottom" caption="Open Grafana, then three of its dashboards. The charts are drawn from sample data made up for this video; yours show what your clusters send." />
+
 ## What is in it
 
 **Grafana** is the fifth workload of the bundled FUSION chart (`grafana.enabled`, on by default; a StatefulSet with its own small volume for the dashboards a person saves). It starts with:

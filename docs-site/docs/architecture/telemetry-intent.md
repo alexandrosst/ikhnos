@@ -10,6 +10,8 @@ description: The four commitments telemetry collection is built on, how a single
 
 Where [Observability intent](./observability-intent.md) is about how far an *agent* is allowed to see into a cluster, telemetry intent is a related but separate question: given a signal an agent is already allowed to see, should raw OTel data about it leave the cluster at all, and to where. The two systems share a chart, a philosophy of narrowing rather than widening, and a UI (telemetry sits in the same wizard as access tier and namespace scope), but they don't share a trust model — and that difference, not just a list of toggles, is what this page is actually about.
 
+<Video src="telemetry" label="The Set up telemetry wizard: choose what to collect, where to send it, generate the commands, and run them" caption="Setting up telemetry for a connected cluster. The terminal shows what helm prints for the commands the wizard generates." />
+
 ## Four commitments
 
 Telemetry's philosophy was never written down as a single statement before this page — it existed only as comments scattered across `values.yaml` and `_helpers.tpl`. Reconstructed, it reads as four commitments, and everything else in this chart follows from them:

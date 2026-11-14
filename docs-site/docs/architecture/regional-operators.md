@@ -35,6 +35,8 @@ A regional operator is a real, immediately-persisted record (`store.Operator`), 
 
 `Destination` also models chaining one regional operator into another (`DestinationKind: "operator"`), and the server rejects it outright in this release — creating or updating an operator with that destination kind fails validation. This is named as a real, deliberately deferred capability, not an oversight: this release builds the mechanism for a two-tier fleet (clusters feeding one regional operator that exports onward), and a fleet of regional operators feeding each other, or reassigned dynamically, is exactly the kind of decision a future decision-making layer should make on purpose — not something to bolt on ahead of that layer existing.
 
+<Video src="new-operator" label="Creating a regional operator from the Pipeline page: a name, where it sends, how other clusters reach it, and the commands to run" caption="Creating an operator that sends to FUSION. The commands are shown once; the terminal shows what helm prints for them." />
+
 ## Where other clusters reach it
 
 An operator's receiver is a Service, and a Service only resolves inside its own cluster. Anything elsewhere (another operator, or a cluster's own telemetry) needs an address it can dial, and that address is something only the person who exposed the Service knows. So Ikhnos asks for it once and then remembers it:
@@ -100,6 +102,8 @@ By default the server cannot tell whether a regional operator is alive: the oper
 **Local operators that skip the regional hop.** A telemetry request whose destination is the central operator does not pass through any regional operator. When at least one does, the strip draws a second route: an arc from the Local tile over the Regional one into the Central tile, counted and coloured for those senders alone (the worst state among them, and their newest data), so a failing direct sender shows on its own line and not on the regional one. The line from Local to Regional then speaks only for the local operators that really go there. Clicking the arc lists the direct senders in the table. With none, there is no arc.
 
 ## FUSION: where a regional operator saves what it receives
+
+<Video src="fusion" label="Turning FUSION on from the interface, then its overview, data, access and settings pages" caption="FUSION, from off to healthy, on a running server. The pages show what it holds, who can read it and how long it keeps it." />
 
 A regional operator normally re-exports to one OTLP endpoint you already run. **FUSION** is the other choice: a ready-made place to *save* it, **part of the server itself**, with one store per signal type, each on its own volume and behind its own Service, a **central operator** in front as the one door in, and **Grafana** already connected to the stores:
 

@@ -10,6 +10,8 @@ description: Use the Connect a cluster wizard to get the one install command for
 
 A cluster joins Ikhnos by running a small agent. You do not create the agent anywhere by hand: a wizard in the interface prints the exact command, already filled in with this server's address, the fingerprint of its certificate authority, and a one-time token.
 
+<Video src="connect-a-cluster" label="The Connect a cluster wizard: name the cluster, choose what the agent may read, copy the install command, run it, and wait for the agent" caption="The wizard from start to the moment the agent connects. The helm output is what the chart prints; the token in the command works once." />
+
 ## Open the wizard
 
 On the empty Topology page, press **Connect a cluster**. It is also on the **Agents** page, and it is the first step of the checklist.
