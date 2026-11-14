@@ -1,12 +1,12 @@
 ---
 id: how-it-works
 title: How it works in ten minutes
-description: The parts of Ikhnos, how they come to trust each other, how a cluster becomes a model, and how advice is made. One figure for each idea.
+description: The parts of Ikhnos, how they come to trust each other, how a cluster becomes a model, and how telemetry is carried. One figure for each idea.
 ---
 
 # How it works in ten minutes
 
-This page walks one cluster through Ikhnos from the day it is connected to the day you read advice about it. Each section has a figure, and each ends with a pointer to the page that goes deeper. You do not need to know Kubernetes internals to follow it; you do need to know that a cluster has nodes, and that workloads run on them.
+This page walks one cluster through Ikhnos from the day it is connected to the day you see it in the interface. Each section has a figure, and each ends with a pointer to the page that goes deeper. You do not need to know Kubernetes internals to follow it; you do need to know that a cluster has nodes, and that workloads run on them.
 
 ## The parts
 
@@ -20,7 +20,7 @@ The **agent** is one small pod in each cluster. It can read the cluster and noth
 
 **You**, in a browser.
 
-Everything else on the figure is optional: a **regional operator** and **FUSION** (a bundled Prometheus, Loki, Tempo and Grafana) for telemetry, and a **decider** of your own that answers placement questions. They come later, and each is covered in its own place.
+Everything else on the figure is optional: a **regional operator** and **FUSION** (a bundled Prometheus, Loki, Tempo and Grafana) for telemetry. They come later, and each is covered in its own place.
 
 Deeper: [Inside Ikhnos](../inside/index.md) and the [system overview](../architecture/overview.md).
 
@@ -55,18 +55,6 @@ People add the other half. You say what you know that no agent can: which site a
 The result is **one model**, shown two ways in the interface, and remembered: every change is a new version with a reason, so history is a question, not an export.
 
 Deeper: [From facts to what you see](../inside/data-flow.md) and [System memory](../architecture/system-memory.md).
-
-## How advice is made
-
-<Figure name="PlacementPipeline" caption="Read-only, and honest about what it does not know. A missing fact is named, never silently replaced by a guess." />
-
-For a service that could move, Ikhnos first removes every cluster that cannot work: a local volume, a pinned node, data residency, a trust zone, or not enough CPU and memory. For each cluster left, it answers one of three things: **fits**, **does not fit**, or **can't tell**, because free capacity is an interval, and an unknown is not a zero. It then scores the move in points, where one point is one millisecond of round trip, weighted by how much traffic crosses.
-
-Every answer carries a **confidence**, taken from the weakest fact that decided it. It is never an average, because a recommendation that rests on one guess is a guess. Each input is shown with its source and age, together with the smallest change that would flip the answer. When there is not enough evidence, the page says so and names the missing fact.
-
-A person decides. Nothing is moved by Ikhnos.
-
-Deeper: [Mobility and placement](../user-guide/mobility-and-placement.md) and [How a recommendation is made](../inside/placement-engine.md).
 
 ## Where telemetry goes
 

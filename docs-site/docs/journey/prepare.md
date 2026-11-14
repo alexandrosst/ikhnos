@@ -4,7 +4,7 @@ title: "1. Prepare"
 description: What to have ready before installing Ikhnos, how to make a local cluster for a first try, and how to find the address agents will use.
 ---
 
-<StepBar n={1} of={7} title="Prepare" />
+<StepBar n={1} of={6} title="Prepare" />
 
 # Prepare
 

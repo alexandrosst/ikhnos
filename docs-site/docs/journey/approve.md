@@ -4,7 +4,7 @@ title: "5. Approve it"
 description: Read the approval code from the agent's own pod log, type it into Ikhnos, and watch the cluster become part of your landscape.
 ---
 
-<StepBar n={5} of={7} title="Approve it" />
+<StepBar n={5} of={6} title="Approve it" />
 
 # Approve it
 

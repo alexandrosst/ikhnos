@@ -17,7 +17,7 @@ One replica, one PersistentVolumeClaim. It's deliberately not built to scale hor
 
 Optionally, a Neo4j Community instance (bundled by the chart, or your own external one) holds topology history, change events and the audit trail as a temporal graph — every entity gets versions with a `validFrom`/`validTo`, so "what did this look like an hour ago" is one query away, and a `Dependents`/`Dependencies` walk can answer what would be affected by a change. Without it, the same things live in SQLite; the server keeps working exactly the same either way, and if Neo4j is briefly unreachable, events simply buffer in SQLite and drain in once it's back. [System memory](./system-memory.md) covers this in full.
 
-The server **decides nothing on its own**. The Placement page's recommendations are advice with evidence attached; nothing is ever deployed or moved without a person approving it.
+The server **decides nothing on its own**. Nothing is ever deployed or moved without a person approving it.
 
 ## The agent
 
@@ -27,7 +27,7 @@ Three tiers govern what actually gets reported, always checked in this order: th
 
 ## Clusters and tiers
 
-Every connected cluster is labeled <span className="tier-chip tier-chip--cloud">cloud</span>, <span className="tier-chip tier-chip--edge">edge</span> or <span className="tier-chip tier-chip--far">far-edge</span> — this is what the placement engine's cost function and the topology views group by. There's nothing structurally different about how an agent behaves in each tier; the distinction is about the landscape you're modeling, not the software.
+Every connected cluster is labeled <span className="tier-chip tier-chip--cloud">cloud</span>, <span className="tier-chip tier-chip--edge">edge</span> or <span className="tier-chip tier-chip--far">far-edge</span> — this is what the topology views group by. There's nothing structurally different about how an agent behaves in each tier; the distinction is about the landscape you're modeling, not the software.
 
 ## Images and charts
 

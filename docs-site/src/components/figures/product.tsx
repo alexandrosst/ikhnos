@@ -12,9 +12,9 @@ export function ContinuumOverview() {
     {x: 268, tier: 'Edge', color: edgeTier, name: 'Regional racks and sites', lines: ['Limited capacity', 'Good links to the cloud', 'Close to people and data']},
     {x: 512, tier: 'Far edge', color: far, name: 'Boards, plants, shops, vehicles', lines: ['Scarce capacity', 'Links that can be slow or drop', 'Beside sensors, cameras, PLCs']},
   ];
-  const questions = ['Where is everything?', 'Is it healthy?', 'What talks to what?', 'Where should it run?'];
+  const questions = ['Where is everything?', 'Is it healthy?', 'What talks to what?'];
   return (
-    <Fig id={f} height={392} label="A landscape spreads from the cloud to the edge to far-edge sites, and four questions get harder as it does" title="A landscape is wider than any one cluster" subtitle="From a cloud region to a far-edge site: more places, weaker links, less certainty.">
+    <Fig id={f} height={392} label="A landscape spreads from the cloud to the edge to far-edge sites, and three questions get harder as it does" title="A landscape is wider than any one cluster" subtitle="From a cloud region to a far-edge site: more places, weaker links, less certainty.">
       {cols.map((c) => (
         <g key={c.tier}>
           <Box x={c.x} y={68} w={224} h={150} color={c.color} />
@@ -27,15 +27,15 @@ export function ContinuumOverview() {
       <Arrow fig={f} both dashed d="M492 143H512" />
       <T x={258} y={62} small muted anchor="middle">steady</T>
       <T x={502} y={62} small muted anchor="middle">fragile</T>
-      <T x={24} y={252} bold>Four questions get harder as it spreads</T>
+      <T x={24} y={252} bold>Three questions get harder as it spreads</T>
       {questions.map((q, i) => (
         <g key={q}>
-          <Box x={24 + i * 182} y={266} w={170} h={44} />
-          <T x={24 + i * 182 + 85} y={293} anchor="middle" bold>{q}</T>
+          <Box x={24 + i * 241} y={266} w={230} h={44} />
+          <T x={24 + i * 241 + 115} y={293} anchor="middle" bold>{q}</T>
         </g>
       ))}
       <Box x={24} y={330} w={712} h={44} hi />
-      <T x={380} y={357} anchor="middle" bold>Ikhnos answers all four, and never changes anything.</T>
+      <T x={380} y={357} anchor="middle" bold>Ikhnos answers all three, and never changes anything.</T>
     </Fig>
   );
 }
@@ -50,7 +50,7 @@ export function SystemAtAGlance() {
   ];
   const fusion = ['Grafana', 'Prometheus', 'Loki', 'Tempo', 'Central operator'];
   return (
-    <Fig id={f} height={524} label="Agents in clusters dial out to one Ikhnos server; a browser reads the server; optional FUSION stores telemetry; an optional decider answers placement questions" title="The parts of Ikhnos, and who starts each connection" subtitle="Solid arrows start where they begin. Dashed parts are optional.">
+    <Fig id={f} height={524} label="Agents in clusters dial out to one Ikhnos server; a browser reads the server; optional FUSION stores telemetry" title="The parts of Ikhnos, and who starts each connection" subtitle="Solid arrows start where they begin. Dashed parts are optional.">
       <Box x={24} y={64} w={200} h={420} frame />
       <T x={40} y={84} bold>Your clusters</T>
       {clusters.map(([y, name, color]) => (
@@ -73,7 +73,7 @@ export function SystemAtAGlance() {
       <T x={316} y={194} bold mono color={accent}>:8080</T><T x={366} y={194} bold>admin port</T>
       <T x={316} y={210} small muted>web UI and JSON API</T>
       <T x={304} y={246} small bold>Inside</T>
-      {['Agent hub and per-cluster views', 'Digital twin: declared plus observed', 'History and audit trail', 'Placement advice', 'Accounts, roles, two-factor'].map((l, i) => (
+      {['Agent hub and per-cluster views', 'Digital twin: declared plus observed', 'History and audit trail', 'Consent and access tiers', 'Accounts, roles, two-factor'].map((l, i) => (
         <T key={l} x={304} y={268 + i * 24} small muted>{l}</T>
       ))}
       <Box x={288} y={416} w={248} h={68} frame dashed />
@@ -84,10 +84,6 @@ export function SystemAtAGlance() {
       <Box x={576} y={64} w={160} h={60} />
       <T x={592} y={90} bold>You</T>
       <T x={592} y={108} small muted>browser, HTTPS</T>
-      <Box x={576} y={140} w={160} h={70} frame dashed />
-      <T x={592} y={164} bold>Your decider</T>
-      <T x={592} y={182} small muted>optional webhook</T>
-      <T x={592} y={198} small muted>your placement policy</T>
       <Box x={576} y={232} w={160} h={252} frame dashed />
       <T x={592} y={254} bold>FUSION</T>
       <T x={592} y={270} small muted>optional, same release</T>
@@ -103,7 +99,6 @@ export function SystemAtAGlance() {
       <Arrow fig={f} accented d="M208 391H288" />
       <T x={248} y={137} small anchor="middle" color={accent}>dial out</T>
       <Arrow fig={f} both d="M576 94H536" />
-      <Arrow fig={f} dashed d="M536 175H576" />
       <Arrow fig={f} d="M536 338H576" />
       <T x={556} y={330} small muted anchor="middle">reads</T>
       <Arrow fig={f} dashed d="M224 450H288" />
@@ -123,10 +118,9 @@ export function OnboardingJourney() {
     ['Connect a cluster', 'Connect a cluster, then run the printed helm install', 'An agent waiting for approval'],
     ['Approve it', 'Read the code from the agent’s own pod log', 'Nodes, namespaces and services appear'],
     ['Explore', 'Open Topology, Clusters and Agents', 'Two views of one model, health, history'],
-    ['Ask for advice', 'Open Placement', 'Recommendations with evidence, or an honest can’t tell'],
   ];
   return (
-    <Fig id={f} height={64 + steps.length * 72 + 8} label="Seven steps from an empty cluster to placement advice" title="Your first hour, in seven steps" subtitle="Each step says what you do and what you should see before you go on.">
+    <Fig id={f} height={64 + steps.length * 72 + 8} label="Six steps from an empty cluster to a connected, approved cluster you can explore" title="Your first hour, in six steps" subtitle="Each step says what you do and what you should see before you go on.">
       <T x={84} y={68} small bold>Step</T>
       <T x={290} y={68} small bold>You do</T>
       <T x={520} y={68} small bold>You see</T>

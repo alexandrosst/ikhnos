@@ -4,7 +4,7 @@ title: "4. Connect a cluster"
 description: Use the Connect a cluster wizard to get the one install command for an agent, understand what it contains, and run it.
 ---
 
-<StepBar n={4} of={7} title="Connect a cluster" />
+<StepBar n={4} of={6} title="Connect a cluster" />
 
 # Connect a cluster
 

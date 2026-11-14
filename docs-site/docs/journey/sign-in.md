@@ -4,7 +4,7 @@ title: "3. Sign in"
 description: Read the one-time admin password from the server's log, open the interface, and choose a password of your own.
 ---
 
-<StepBar n={3} of={7} title="Sign in" />
+<StepBar n={3} of={6} title="Sign in" />
 
 # Sign in
 

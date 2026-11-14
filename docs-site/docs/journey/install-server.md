@@ -4,7 +4,7 @@ title: "2. Install the server"
 description: One secret and one Helm command start the Ikhnos server on your cluster. What each line does, and how to know it worked.
 ---
 
-<StepBar n={2} of={7} title="Install the server" />
+<StepBar n={2} of={6} title="Install the server" />
 
 # Install the server
 

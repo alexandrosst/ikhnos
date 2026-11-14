@@ -2,6 +2,7 @@
 id: placement-engine
 title: Placement advice and the decision loop
 description: How a recommendation is made without pretending to know more than it does, and how a proposal to change an agent's access becomes a change only a person can approve.
+unlisted: true
 ---
 
 # Placement advice and the decision loop

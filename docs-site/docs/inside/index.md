@@ -19,7 +19,6 @@ The pages here follow one rule. Every figure draws the system **as it is in the 
   <Card to="/docs/inside/agent" kicker="Agent" title="Inside the agent">What runs in the pod, the stream message by message, and what happens when the link breaks.</Card>
   <Card to="/docs/inside/data-flow" kicker="Model" title="From facts to what you see">How observed and declared stay apart, and how history is kept.</Card>
   <Card to="/docs/inside/config-channel" kicker="Control" title="How the server knows what is in force">Config, digest, echo and the three conditions.</Card>
-  <Card to="/docs/inside/placement-engine" kicker="Advice" title="Placement and the decision loop">Three-valued fit, confidence, and how a proposal becomes a change.</Card>
   <Card to="/docs/inside/frontend" kicker="Frontend" title="The web UI">Feature layers, wire types and how the UI is tested.</Card>
 </Cards>
 
@@ -48,9 +47,9 @@ These are not preferences. Most are held by a test that fails with the rule it e
 
 **Observed is not declared.** What an agent saw and what a person said are stored apart and combined only on request. See [From facts to what you see](data-flow.md).
 
-**An unknown is not a value.** Advice says "can't tell" and names the missing fact instead of guessing. See [Placement](placement-engine.md).
+**An unknown is not a value.** A condition can be true, false or unknown, and the interface names the missing fact instead of guessing. See [How the server knows what is in force](config-channel.md).
 
-**A person decides.** Nothing moves, widens or narrows without a human accepting it. An advisor can only propose.
+**A person decides.** Nothing moves, and nothing widens what an agent shares, without a human accepting it.
 
 **Layers are enforced.** Go packages and the UI's feature folders have import rules, and tests fail when one is broken.
 

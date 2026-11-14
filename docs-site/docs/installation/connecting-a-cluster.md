@@ -38,4 +38,4 @@ Five wrong codes reject the request permanently — install again with a fresh t
 
 Nodes, namespaces and workloads start flowing into the topology within moments. Application groupings show up as suggestions in the **Suggestions** tab of the Agents page rather than being decided for you — accept the ones that look right, correct or dismiss the rest.
 
-From here, the [User guide](../user-guide/using-the-ui.md) covers the rest of the UI: what the Agents page shows you about each connected cluster, how to widen or narrow what an agent shares later, and how the Placement page's recommendations work.
+From here, the [User guide](../user-guide/using-the-ui.md) covers the rest of the UI: what the Agents page shows you about each connected cluster, and how to widen or narrow what an agent shares later.

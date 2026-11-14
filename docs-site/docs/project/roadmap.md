@@ -1,12 +1,18 @@
 ---
 id: roadmap
 title: Roadmap
-description: Where Ikhnos could go next, with the pluggable placement decider as the research testbed, in the order the pieces unlock each other.
+description: Where Ikhnos could go next, in the order the pieces unlock each other, and the early research on placement advice and proposals.
 ---
 
 # Roadmap
 
 Nothing here is a promise or a date. It is the order in which the pieces unlock each other, and none of it changes the posture the project has held throughout: **read-only, and nothing moves without a person's approval.** Each item is additive to the existing `Decider` contract, the history store or the advice engine, not a redesign of them.
+
+## Early research: placement advice and proposals
+
+Two parts of the product are experimental and not yet part of the story the rest of these docs tell: **Placement**, which judges whether a service would fit and cost less elsewhere, and **Proposals**, which carry a suggested change to what an agent shares to a person who decides. Both are read-only advice, and they are deliberately not mature.
+
+The detail is kept, outside the main navigation: [reading placement advice](../journey/advice.md), [mobility and placement](../user-guide/mobility-and-placement.md), and [how a recommendation is made](../inside/placement-engine.md).
 
 ## The pluggable decider is the deliberate gap
 

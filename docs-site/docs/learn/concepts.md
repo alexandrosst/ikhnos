@@ -18,7 +18,6 @@ Ikhnos has a small vocabulary and uses it consistently. This page is the one pla
 | **Admin port** | Port 8080 on the server. The web interface and the JSON API. Put TLS in front of it. | [Production cluster](../installation/production-cluster.md) |
 | **Regional operator** | An optional collector that receives the telemetry several clusters already export and sends it on as one stream. | [Regional operators](../architecture/regional-operators.md) |
 | **FUSION** | The optional bundled stack that stores telemetry (Prometheus, Loki, Tempo) and shows it (Grafana), released together with the server. | [The FUSION API](../architecture/fusion-api.md) |
-| **Decider** | A program of yours, reached by webhook, that answers placement questions so it can be compared with the built-in ones. | [Mobility and placement](../user-guide/mobility-and-placement.md#pluggable-deciders) |
 
 ## The landscape
 
@@ -57,17 +56,6 @@ Ikhnos has a small vocabulary and uses it consistently. This page is the one pla
 | **Config** | What the server tells an agent to do: its tier, what to pause, what to leave out. The agent only applies what narrows. | [Inside: the config channel](../inside/config-channel.md) |
 | **Condition** | A statement about an agent that is true, false or unknown, such as Connected or ConfigInForce. Unknown is an answer: it means the server cannot tell. | [Inside: the config channel](../inside/config-channel.md) |
 
-## Advice
-
-| Term | In plain words | More |
-|---|---|---|
-| **Placement** | Where a service runs. Ikhnos advises on it and never moves anything. | [Mobility and placement](../user-guide/mobility-and-placement.md) |
-| **Fits, does not fit, can't tell** | The three answers to whether a service would work on a cluster. Free capacity is an interval, so an unknown is never taken as zero. | [Inside: the placement engine](../inside/placement-engine.md) |
-| **Confidence** | How much to trust an answer: measured, reported, inferred, guess or unknown. It is the weakest fact that decided it, never an average. | [Inside: the placement engine](../inside/placement-engine.md) |
-| **Cost, in points** | How much a move costs: round trips weighted by traffic, new cross-site traffic, a penalty near full, data to copy. One point is one millisecond of round trip. | [Mobility and placement](../user-guide/mobility-and-placement.md) |
-| **What-if** | Try a move on paper before deciding anything. | [Mobility and placement](../user-guide/mobility-and-placement.md) |
-| **Advisor and proposal** | A program that suggests a change to an agent's access. A proposal waits for a person; an advisor never changes anything. | [Inside: the placement engine](../inside/placement-engine.md) |
-| **Outcome** | What an accepted proposal was predicted to do, recorded beside what was observed. | [Inside: the placement engine](../inside/placement-engine.md) |
 
 ## Telemetry
 

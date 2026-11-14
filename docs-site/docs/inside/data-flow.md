@@ -23,7 +23,7 @@ A node reports a fact. It travels a short, fixed route.
 
 Every value in the effective model says where it came from (declared, observed or computed), how old it is, and how sure the model is. A person's value wins over an observed one, and is flagged when what is observed has since moved, so a correction never hides a change in the world.
 
-Four things read the effective model, all through the same path: the model API, placement advice, your decider, and the web UI. Because they share the path, the UI cannot show a cluster as a target that advice would refuse.
+Two things read the effective model, both through the same path: the model API and the web UI. Because they share the path, the UI cannot show something the API would not.
 
 ## Why observed and declared are kept apart
 
@@ -34,7 +34,7 @@ An earlier version saved everything the browser had merged into one document. Di
 The twin fixes those by rule:
 
 - **The workspace has no observed records.** It cannot go stale, because it holds nothing that can.
-- **Freshness is computed, not stored.** A record is stale when its agent has missed four heartbeats (the window comes from Settings). A stale or revoked cluster is not a valid placement target, and the placement page says why it was left out.
+- **Freshness is computed, not stored.** A record is stale when its agent has missed four heartbeats (the window comes from Settings). A stale or revoked cluster is shown as such, and the page says why.
 - **Identity is stable and not a name.** A cluster is identified by the UID of its `kube-system` namespace, which the agent pins at enrollment. A workload is `cluster/namespace/kind/name`. An identity registry remembers nodes, so the same machine under a new name keeps its record and its history.
 - **Records that vanish become tombstones** on the server, so "gone" is a fact with a time and not an absence. A cluster is never "gone" on its own account: it becomes stale, or revoked.
 

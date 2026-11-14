@@ -37,7 +37,7 @@ From this the server states three conditions about every agent. They are the wor
 
 `Unknown` is a real value and is shown as such. An older agent that never echoes a digest is *not* reported as out of date; the server says it cannot tell.
 
-Because the condition is derived from the digest, it is also what makes outcomes honest in the [decision loop](placement-engine.md): the server only judges whether a change worked once it knows the change was in force.
+Because the condition is derived from the digest, it is also what makes the interface honest: the server only says a change is in force once it knows it was.
 
 ## Where this is in the code
 

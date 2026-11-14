@@ -6,10 +6,10 @@ description: "What to do after your first hour: more clusters, a second sign-in 
 
 # What next
 
-You have a server, one connected cluster, and a first look at advice. Here is what most people do next, roughly in the order they do it.
+You have a server, one connected cluster, and a first look around. Here is what most people do next, roughly in the order they do it.
 
 <Cards>
-  <Card to="/docs/installation/connecting-a-cluster" kicker="Grow" title="Connect more clusters">Same wizard, one per cluster. The more of your landscape it sees, the better the placement advice.</Card>
+  <Card to="/docs/installation/connecting-a-cluster" kicker="Grow" title="Connect more clusters">Same wizard, one per cluster. The more of your landscape it sees, the more complete the picture.</Card>
   <Card to="/docs/installation/production-cluster" kicker="Harden" title="Give the server a real address">A DNS name, a load balancer or a Gateway, and real TLS, so agents can dial from other networks.</Card>
   <Card to="/docs/user-guide/using-the-ui#team-and-roles" kicker="People" title="Invite your team">Roles, two-factor sign-in and the audit trail.</Card>
   <Card to="/docs/architecture/telemetry-intent" kicker="See more" title="Turn on telemetry">Metrics, logs and traces, and nine Grafana dashboards, with your consent for each.</Card>
@@ -25,4 +25,4 @@ Keep a copy of the sealing key somewhere other than the cluster. The install not
 
 ## To see how it works inside
 
-If you came to understand it rather than only to run it, [Inside Ikhnos](../inside/index.md) is next. It draws the server's layers, the agent's stream, how facts become the views, and how advice is made, at the level of the code.
+If you came to understand it rather than only to run it, [Inside Ikhnos](../inside/index.md) is next. It draws the server's layers, the agent's stream, and how facts become the views, at the level of the code.

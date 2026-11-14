@@ -1,14 +1,13 @@
 ---
 id: advice
-title: "7. Ask for advice"
+title: "Reading placement advice"
+unlisted: true
 description: Open Placement, read a recommendation and the evidence under it, try a move on paper, and learn why an honest "not enough evidence" is a normal first answer.
 ---
 
-<StepBar n={7} of={7} title="Ask for advice" />
+# Reading placement advice
 
-# Ask for advice
-
-**Placement** is where Ikhnos tells you whether a service would run better somewhere else. It is advice only. Nothing is deployed or moved, and there is no button that does it.
+Placement advice is early research; see the [roadmap](../project/roadmap.md). **Placement** is where Ikhnos tells you whether a service would run better somewhere else. It is advice only. Nothing is deployed or moved, and there is no button that does it.
 
 ## What you will see first
 

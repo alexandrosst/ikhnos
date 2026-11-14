@@ -26,7 +26,6 @@ const sidebars: SidebarsConfig = {
         'journey/connect-a-cluster',
         'journey/approve',
         'journey/explore',
-        'journey/advice',
         'journey/next-steps',
         'getting-started/quickstart',
       ],
@@ -38,7 +37,6 @@ const sidebars: SidebarsConfig = {
       items: [
         'user-guide/using-the-ui',
         'user-guide/approvals-in-depth',
-        'user-guide/mobility-and-placement',
         'user-guide/namespaces-and-services',
         'installation/index',
         'installation/production-cluster',
@@ -57,7 +55,6 @@ const sidebars: SidebarsConfig = {
         'inside/agent',
         'inside/data-flow',
         'inside/config-channel',
-        'inside/placement-engine',
         'inside/frontend',
         {
           type: 'category',

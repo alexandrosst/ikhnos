@@ -1,7 +1,7 @@
 ---
 id: using-the-ui
 title: Using the interface
-description: "A tour of every page of the interface once your server is running: the topology views, Agents, Proposals, Pipeline, FUSION, Placement, History and Team."
+description: "A tour of every page of the interface once your server is running: the topology views, Agents, Pipeline, FUSION, History and Team."
 ---
 
 # Using the interface
@@ -49,10 +49,6 @@ Telemetry is not set up here. An agent's details say how many signals it sends a
 
 **Set up telemetry** and **New operator** are the two primary buttons. How operators are created, reached and renewed is in [Regional operators](../architecture/regional-operators.md) and [Running regional operators](../architecture/regional-operators-lifecycle.md).
 
-## Proposals
-
-**Proposals** (under *Manage*) lists changes an *advisor* has suggested to what an agent shares. Each shows who proposed it, the evidence, what it predicts, and whether accepting it would widen what the agent shares. Nothing changes until a person accepts: editors can accept a narrowing, and widening takes an administrator. An accepted change is made the same way as one you make by hand and appears in **Who did what**. Later, the page shows how each advisor's predictions held up. How this works is in [Placement advice and the decision loop](../inside/placement-engine.md).
-
 ## System health
 
 **System health** shows the server and each agent as they are right now. For history and comparison it points to the **Ikhnos self** dashboard in Grafana, which draws the server and every cluster's agent over time and marks when agents joined or left. That dashboard comes with FUSION.
@@ -70,9 +66,9 @@ Telemetry is not set up here. An agent's details say how many signals it sends a
 
 **Set up telemetry** is a guided wizard, the only way in, in three steps after you pick the cluster. **What to collect** is four starting points and every signal as a switch, always in view. **Where to send** is one merged list of FUSION, the operators in this system, backends it detected, presets, or another OTLP endpoint (an entry that cannot take a signal you chose says why), with masking and the share of traces kept just below it. **Install** says in one line what is about to happen, what changes and what does not one click below, and shows the command, which you run yourself. It then waits for the first data to arrive. You can start it from the Pipeline and Agents pages, from **Define scope from selection** in the topology, and from **Change what it sends…** in a collector's details on the Pipeline page. The design is in [Telemetry intent](../architecture/telemetry-intent.md).
 
-## Placement
+## Placement and Proposals
 
-The **Placement** page answers "where would this service be better off, and what would that change?" — it's read-only advice, and every recommendation shows its evidence: what the round-trip estimate is based on (measured, declared, or a distance-based guess), how confident the traffic-weight figure is, and what would have to be true for the recommendation to flip. Nothing is ever moved from here; a person applies a change deliberately, elsewhere. See [Mobility and placement](./mobility-and-placement.md) for how the cost function and confidence levels work.
+The **Placement** and **Proposals** pages are early research and are described only in the [roadmap](../project/roadmap.md).
 
 ## Lists and their panels
 
@@ -90,7 +86,7 @@ Every discovered namespace and the services inside it are browsable in their own
 
 ## Approvals
 
-Two different things use the word "approve" and it's worth keeping them straight: approving a **newly enrolling agent** (typing the approval code from its log, confirming it's the cluster you expect — see [Agent trust model](../architecture/agent-trust-model.md)) is a one-time identity check. Approving a **placement recommendation**, by contrast, isn't a single button — it's whatever your own change-management process is; the Placement page's job ends at giving you a well-evidenced recommendation, not at applying it. See [Approvals in depth](./approvals-in-depth.md).
+Two different things use the word "approve" and it's worth keeping them straight: approving a **newly enrolling agent** (typing the approval code from its log, confirming it's the cluster you expect — see [Agent trust model](../architecture/agent-trust-model.md)) is a one-time identity check. Widening what an agent shares is different: it needs an administrator, and it is written to the audit trail. See [Approvals in depth](./approvals-in-depth.md).
 
 ## Team and roles
 

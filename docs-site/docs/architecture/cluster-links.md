@@ -6,7 +6,7 @@ description: How the quality of the connection between two clusters is measured 
 
 # Cluster links
 
-A link is the connection between two onboarded clusters. Knowing it matters to placement and to troubleshooting: an application that calls across a link inherits its loss, delay and jitter, and nothing else in the system sees those directly. The measurements are exported as Prometheus-style metrics through the same collector pipeline as every other [telemetry signal](./telemetry-intent.md), so they follow the same destination, scope and provenance rules and arrive in FUSION like the rest.
+A link is the connection between two onboarded clusters. Knowing it matters for troubleshooting: an application that calls across a link inherits its loss, delay and jitter, and nothing else in the system sees those directly. The measurements are exported as Prometheus-style metrics through the same collector pipeline as every other [telemetry signal](./telemetry-intent.md), so they follow the same destination, scope and provenance rules and arrive in FUSION like the rest.
 
 No single tool covers a link. Real traffic shows what applications actually experience but says nothing about an idle link. A constant probe shows an idle link but travels a path of its own, and a ping is blocked by many networks. A throughput test shows capacity but loads the link. So the design combines sources, and gives each one a job that the others cannot do.
 

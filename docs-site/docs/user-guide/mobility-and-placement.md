@@ -2,6 +2,7 @@
 id: mobility-and-placement
 title: Mobility and placement
 description: How the cost function, evidence classes and pluggable deciders behind the Placement page actually work.
+unlisted: true
 ---
 
 # Mobility and placement

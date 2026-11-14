@@ -86,7 +86,7 @@ export function ServerLayers() {
 export function FactsToViews() {
   const f = 'views';
   return (
-    <Fig id={f} height={520} label="Agent facts go through the hub and interpretation into an observed topology; a person's edits go into a workspace of declared intent; twin.Build combines the two into the effective model, which the API, advice, deciders and the UI read" title="From facts to what you see" subtitle="Observed and declared are kept apart all the way, and combined only when something asks.">
+    <Fig id={f} height={520} label="Agent facts go through the hub and interpretation into an observed topology; a person's edits go into a workspace of declared intent; twin.Build combines the two into the effective model, which the API and the UI read" title="From facts to what you see" subtitle="Observed and declared are kept apart all the way, and combined only when something asks.">
       <Box x={24} y={68} w={128} h={64} />
       <T x={88} y={94} anchor="middle" bold>Agents</T>
       <T x={88} y={112} anchor="middle" small muted>Sync, heartbeat,</T>
@@ -128,7 +128,7 @@ export function FactsToViews() {
       <T x={40} y={342} small>A person’s value wins over an observed one, and is flagged when what is observed has since moved.</T>
       <Arrow fig={f} d="M632 240V284" accented />
 
-      {['The model API', 'Placement advice', 'Your decider', 'The web UI'].map((l, i) => (
+      {['The model API', 'The web UI'].map((l, i) => (
         <g key={l}>
           <Box x={24 + i * 182} y={386} w={170} h={36} />
           <T x={24 + i * 182 + 85} y={409} anchor="middle" small bold>{l}</T>

@@ -10,12 +10,12 @@ const commitments: [string, string][] = [
   ['Read-only', 'The agent can list and watch. It cannot write, and it never reads Secrets or ConfigMaps. Nothing is deployed or moved without a person approving it.'],
   ['Outbound only', 'The agent opens every connection, over mutual TLS. No inbound firewall rule on a cluster, and the server never holds a kubeconfig.'],
   ['Narrowing trust', 'What an agent reports is a chain: ceiling, approved, effective. The server can narrow it. It can never widen it.'],
-  ['Honest uncertainty', 'Every answer is fits, does not fit or can’t tell, with confidence taken from its weakest fact. Missing data is named, never guessed.'],
+  ['Honest uncertainty', 'Every value says whether it was declared, observed or computed, how old it is and how sure the system is. Missing data is named, never guessed.'],
 ];
 
 const paths: [string, string, string, string][] = [
   ['/docs/learn/what-is-ikhnos', 'New here', 'Learn what it is', 'The problem it solves, how it works in ten minutes, and the words it uses, with no prior knowledge assumed.'],
-  ['/docs/journey/', 'Ready to try it', 'Your first hour', 'From an empty cluster to placement advice, one step at a time, with what you should see after each.'],
+  ['/docs/journey/', 'Ready to try it', 'Your first hour', 'From an empty cluster to a connected, approved one you can explore, step by step, with what you should see after each.'],
   ['/docs/inside/', 'Want to build on it', 'Inside Ikhnos', 'How the server, the agent and the interface are put together, and why. Drawn, then explained.'],
 ];
 
@@ -23,7 +23,7 @@ const features: [string, string][] = [
   ['Topology', 'Application, Infrastructure, Map and Telemetry views of one model, with clusters tiered cloud, edge or far edge.'],
   ['Discovery that asks first', 'Connect a cluster from the UI. A code only the cluster’s own pod log shows turns “someone had a token” into “this is the agent I meant”.'],
   ['History', 'Every change is a new version with a reason attached. Ask what a cluster looked like an hour ago, or what depends on a service.'],
-  ['Placement advice', 'Hard constraints, then a cost in points where one point is one millisecond of round trip. Try a move on paper first.'],
+  ['Declared and observed', 'What a person says and what an agent sees are kept apart, and every value says which it is.'],
   ['Telemetry and FUSION', 'Opt-in collectors, regional operators and a bundled Prometheus, Loki, Tempo and Grafana, with nine dashboards.'],
   ['Cluster links', 'Loss, delay and jitter between clusters you choose to pair, from real traffic and active measurement.'],
   ['Diagnose', 'One button per agent says what is wrong, worst first, with the kubectl command for each finding.'],
@@ -33,15 +33,15 @@ const features: [string, string][] = [
 export default function Home() {
   const logo = useBaseUrl('/img/logo.svg');
   return (
-    <Layout title="Ikhnos" description="See your Kubernetes landscape from cloud to far edge, and get placement advice you can check.">
+    <Layout title="Ikhnos" description="See your Kubernetes landscape from cloud to far edge, with its health, links and history, and change nothing.">
       <header className={styles.hero}>
         <div className={styles.heroInner}>
           <div className={styles.heroText}>
             <img src={logo} alt="" className={styles.mark} />
             <h1>See your whole landscape.<br />Change nothing.</h1>
             <p className={styles.lede}>
-              Ikhnos models your Kubernetes clusters from the cloud to the far edge, keeps a history of every change, and gives
-              placement advice you can check: where a service would run better, how sure it is, and the evidence.
+              Ikhnos models your Kubernetes clusters from the cloud to the far edge, keeps a history of every change, and
+              shows how healthy each place is and what talks to what, with the evidence behind every value.
             </p>
             <div className={styles.buttons}>
               <Link className="button button--primary button--lg" to="/docs/journey/">Your first hour</Link>
@@ -114,17 +114,6 @@ export default function Home() {
           </div>
         </section>
 
-        <section className={styles.section}>
-          <div className={styles.wrap}>
-            <h2>Placement you can argue with</h2>
-            <p className={styles.sub}>
-              Most placement tools give you an answer. Ikhnos gives you the answer, how much to trust it, and what would change it.
-              Below it declines to recommend a move, because five of ten inputs are guesses and two are unknown, and it says which.
-            </p>
-            <Shot src="readme/ui-placement" alt="A placement recommendation that says there is not enough evidence to recommend, listing which inputs are guesses and what could not be checked" />
-            <p className={styles.sub}><Link to="/docs/inside/placement-engine">How a recommendation is made →</Link></p>
-          </div>
-        </section>
 
         <section className={styles.cta}>
           <div className={styles.wrap}>

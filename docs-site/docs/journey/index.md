@@ -1,17 +1,17 @@
 ---
 id: index
 title: Your first hour
-description: A guided path from an empty cluster to your first placement advice, in seven steps, with what you should see after each one.
+description: A guided path from an empty cluster to a connected, approved cluster you can explore, in six steps, with what you should see after each one.
 slug: /journey/
 ---
 
 # Your first hour
 
-This is a guided path for someone who has never used Ikhnos. By the end you will have a server running, one cluster connected and approved, and a look at what Ikhnos can tell you about it, including its first placement advice. Allow about an hour, most of it waiting for pods to start.
+This is a guided path for someone who has never used Ikhnos. By the end you will have a server running, one cluster connected and approved, and a look at what Ikhnos can tell you about it. Allow about an hour, most of it waiting for pods to start.
 
 Each step says what to do, what you should see when it worked, and what to try if it did not. If something is unclear, the step before it is where to look.
 
-<Figure name="OnboardingJourney" caption="Seven steps. Steps 4 and 5 are where Ikhnos differs from most tools: the cluster asks to join, and you confirm it with a code only its own log shows." />
+<Figure name="OnboardingJourney" caption="Six steps. Steps 4 and 5 are where Ikhnos differs from most tools: the cluster asks to join, and you confirm it with a code only its own log shows." />
 
 ## What you need
 
@@ -25,7 +25,7 @@ Each step says what to do, what you should see when it worked, and what to try i
 
 You do **not** need to build anything, run a database, hand over a kubeconfig, or open an inbound port on any cluster.
 
-## The seven steps
+## The six steps
 
 <Cards>
   <Card to="/docs/journey/prepare" kicker="Step 1" title="Prepare">A cluster, two tools, and an address.</Card>
@@ -34,7 +34,6 @@ You do **not** need to build anything, run a database, hand over a kubeconfig, o
   <Card to="/docs/journey/connect-a-cluster" kicker="Step 4" title="Connect a cluster">The wizard prints one command. You run it.</Card>
   <Card to="/docs/journey/approve" kicker="Step 5" title="Approve it">Confirm it is the agent you meant.</Card>
   <Card to="/docs/journey/explore" kicker="Step 6" title="Explore">Topology, Clusters, Agents and History.</Card>
-  <Card to="/docs/journey/advice" kicker="Step 7" title="Ask for advice">Read a recommendation, and what it rests on.</Card>
 </Cards>
 
 ## In a hurry

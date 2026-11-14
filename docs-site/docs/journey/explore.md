@@ -4,7 +4,7 @@ title: "6. Explore"
 description: "A tour of what your first connected cluster gives you: Topology, Clusters, Agents and History, and where to look when something looks wrong."
 ---
 
-<StepBar n={6} of={7} title="Explore" />
+<StepBar n={6} of={6} title="Explore" />
 
 # Explore
 
@@ -55,4 +55,4 @@ A past view shows what agents discovered back then, with today's names, sites an
 - Rename a service in a table, then look at the Topology.
 - In **Settings**, add a second sign-in step to your account.
 
-[Next: ask for advice →](./advice.md)
+[Next: what to do after this →](./next-steps.md)
