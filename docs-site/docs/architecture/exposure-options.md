@@ -106,7 +106,7 @@ tcp:
 }
 ```
 
-Whichever you pick, once the real address is live, **Settings → Server address** in the UI turns it into the exact `helm upgrade` command for your release — you don't have to reconstruct it from these docs by hand (see [The two-step address problem](../installation/production-cluster.md#the-two-step-address-problem)).
+Whichever you pick, once the real address is live, **Settings → Server** in the UI turns it into the exact `helm upgrade` command for your release — you don't have to reconstruct it from these docs by hand (see [The two-step address problem](../installation/production-cluster.md#the-two-step-address-problem)).
 
 ### Passthrough loses the client's own address unless the proxy sends it separately
 

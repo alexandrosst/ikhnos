@@ -62,6 +62,15 @@ Telemetry is not set up here. An agent's details say how many signals it sends a
 - **Access** is where API tokens are made, each with a scope and an expiry; the secret is shown once. It also has the API reference and a note on signing in to Grafana and Prometheus. See [The FUSION API](../architecture/fusion-api.md) and [Grafana and the web pages](../architecture/fusion-grafana.md).
 - **Settings** sets retention for each store and shows whether it fits the volume at today's growth; shortening it asks **Delete older data?** first. It is also where FUSION is turned off. See [Running regional operators](../architecture/regional-operators-lifecycle.md#fusion-retention-and-volume-size-from-settings).
 
+
+## Settings
+
+**Settings** (`/settings`) has a short list on the left, and each entry is its own address:
+
+- **Account** (`/settings#account`) is you: who you are signed in as, the theme, your password, two-step sign-in (authenticator app, email code, passkeys) and API tokens.
+- **Server** (`/settings#server`) is the address agents dial and how it is exposed, where the agent image comes from, outgoing email, and the server and chart versions. Everyone signed in can read it; administrators change it.
+- **Data** (`/settings#data`) exports, imports or clears your topology and loads the sample. Signed out, it is the only page.
+
 ## Setting up telemetry
 
 **Set up telemetry** is a guided wizard, the only way in, in three steps after you pick the cluster. **What to collect** is four starting points and every signal as a switch, always in view. **Where to send** is one merged list of FUSION, the operators in this system, backends it detected, presets, or another OTLP endpoint (an entry that cannot take a signal you chose says why), with masking and the share of traces kept just below it. **Install** says in one line what is about to happen, what changes and what does not one click below, and shows the command, which you run yourself. It then waits for the first data to arrive. You can start it from the Pipeline and Agents pages, from **Define scope from selection** in the topology, and from **Change what it sends…** in a collector's details on the Pipeline page. The design is in [Telemetry intent](../architecture/telemetry-intent.md).

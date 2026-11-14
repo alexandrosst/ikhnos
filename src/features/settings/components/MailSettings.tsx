@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { CircleAlert, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button, Field, ICON_SM, Input, SavedNote } from '@/components/ui/primitives'
+import { Group, RowMore, SettingRow } from '@/features/settings/components/SettingsParts'
 import { api, type Conn, type MailConfig } from '@/lib/api'
 
 /**
@@ -24,6 +25,7 @@ export default function MailSettings({ conn }: { conn: Conn }) {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(false)
 
   useEffect(() => {
     let live = true
@@ -50,10 +52,9 @@ export default function MailSettings({ conn }: { conn: Conn }) {
 
   if (loading || !cfg) {
     return (
-      <section id="email" className="mb-8 scroll-mt-6">
-        <h2 className="mb-1 text-sm font-medium text-nb-300">Email (SMTP)</h2>
-        <p className="text-sm text-nb-500">{error || 'Loading…'}</p>
-      </section>
+      <Group title="Email" id="email">
+        <SettingRow label="SMTP" value={error || 'Loading…'} />
+      </Group>
     )
   }
 
@@ -82,76 +83,91 @@ export default function MailSettings({ conn }: { conn: Conn }) {
     }
   }
 
+  const configured = cfg.host !== ''
   return (
-    <section id="email" className="mb-8 scroll-mt-6">
-      <h2 className="mb-1 text-sm font-medium text-nb-300">Email (SMTP)</h2>
-      <p className="mb-3 max-w-2xl text-sm text-nb-500">
-        Used for a sign-in code and address verification - nothing else is ever sent. Only owners of the default organisation can see or change this; leave the host empty to switch email off entirely.
-      </p>
-      <div className="rounded-xl border border-nb-850 bg-nb-925 p-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Host" hint="Leave empty to switch email off.">
-            <Input value={host} onChange={(e) => { setSaved(false); setHost(e.target.value) }} placeholder="smtp.example.com" data-testid="mail-host" />
-          </Field>
-          <Field label="Port" hint={badPort ? 'A number between 1 and 65535.' : 'Usually 587 (STARTTLS) or 465.'} hintId="mail-port-hint">
-            <Input value={port} onChange={(e) => { setSaved(false); setPort(e.target.value) }} placeholder="587" aria-invalid={badPort} aria-describedby="mail-port-hint" className={clsx('w-28', badPort && 'border-bad/60')} data-testid="mail-port" />
-          </Field>
-          <Field label="Username" hint="Leave empty for a relay that needs no authentication.">
-            <Input value={username} onChange={(e) => { setSaved(false); setUsername(e.target.value) }} data-testid="mail-username" />
-          </Field>
-          <Field label="From address" hint={badFrom ? 'Looks incomplete.' : 'What recipients see the code arrive from.'} hintId="mail-from-hint">
-            <Input value={from} onChange={(e) => { setSaved(false); setFrom(e.target.value) }} placeholder="ikhnos@example.com" aria-invalid={badFrom} aria-describedby="mail-from-hint" className={clsx(badFrom && 'border-bad/60')} data-testid="mail-from" />
-          </Field>
-        </div>
-
-        <div className="mt-4">
-          <span className="mb-1.5 block text-sm font-medium text-nb-300">Password</span>
-          {editingPassword ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => { setSaved(false); setPassword(e.target.value) }}
-                placeholder="New password"
-                className="max-w-xs"
-                autoComplete="new-password"
-                data-testid="mail-password"
-              />
-              <Button size="sm" type="button" onClick={() => { setPassword(''); setEditingPassword(false) }}>Cancel</Button>
+    <Group title="Email" id="email">
+      <div data-testid="mail-settings" className="divide-y divide-nb-850">
+        <SettingRow
+          label="SMTP"
+          tone={configured ? 'healthy' : 'off'}
+          mono={configured}
+          value={configured ? `${cfg.host}${cfg.port ? ':' + cfg.port : ''}` : 'Not set up'}
+          action={<Button size="sm" onClick={() => setEditing((e) => !e)} aria-expanded={editing} data-testid="mail-edit">{editing ? 'Close' : configured ? 'Edit' : 'Set up'}</Button>}
+        />
+        {editing && (
+          <RowMore>
+            <p className="text-xs text-nb-500">Used only for sign-in codes and address verification.</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Host" hint="Empty switches email off.">
+                <Input value={host} onChange={(e) => { setSaved(false); setHost(e.target.value) }} placeholder="smtp.example.com" data-testid="mail-host" />
+              </Field>
+              <Field label="Port" hint={badPort ? 'A number between 1 and 65535.' : 'Usually 587 or 465.'} hintId="mail-port-hint">
+                <Input value={port} onChange={(e) => { setSaved(false); setPort(e.target.value) }} placeholder="587" aria-invalid={badPort} aria-describedby="mail-port-hint" className={clsx('w-28', badPort && 'border-bad/60')} data-testid="mail-port" />
+              </Field>
+              <Field label="Username" hint="Empty for a relay with no login.">
+                <Input value={username} onChange={(e) => { setSaved(false); setUsername(e.target.value) }} data-testid="mail-username" />
+              </Field>
+              <Field label="From address" hint={badFrom ? 'Looks incomplete.' : 'Where the code appears to come from.'} hintId="mail-from-hint">
+                <Input value={from} onChange={(e) => { setSaved(false); setFrom(e.target.value) }} placeholder="ikhnos@example.com" aria-invalid={badFrom} aria-describedby="mail-from-hint" className={clsx(badFrom && 'border-bad/60')} data-testid="mail-from" />
+              </Field>
             </div>
-          ) : clearPassword ? (
-            <p className="flex flex-wrap items-center gap-2 text-sm text-warn/90">
-              Removing the password on save.
-              <button type="button" className="text-xs text-accent hover:underline" onClick={() => setClearPassword(false)}>Undo</button>
-            </p>
-          ) : (
-            <p className="flex flex-wrap items-center gap-3 text-sm text-nb-400">
-              {cfg.passwordSet ? 'A password is set.' : 'No password is set.'}
-              <button type="button" className="text-xs text-accent hover:underline" onClick={() => { setSaved(false); setEditingPassword(true) }} data-testid="mail-password-edit">
-                {cfg.passwordSet ? 'Replace' : 'Set one'}
-              </button>
-              {cfg.passwordSet && (
-                <button type="button" className="text-xs text-accent hover:underline" onClick={() => { setSaved(false); setClearPassword(true) }} data-testid="mail-password-remove">
-                  Remove
-                </button>
-              )}
-            </p>
-          )}
-        </div>
 
-        {error && (
-          <p className="mt-3 text-sm text-bad" role="alert">
-            <CircleAlert size={ICON_SM} className="mr-1 inline" aria-hidden />
-            {error}
-          </p>
+            <div className="mt-4">
+              <span className="mb-1.5 block text-sm font-medium text-nb-300">Password</span>
+              {editingPassword ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => { setSaved(false); setPassword(e.target.value) }}
+                    placeholder="New password"
+                    className="max-w-xs"
+                    autoComplete="new-password"
+                    data-testid="mail-password"
+                  />
+                  <Button size="sm" type="button" onClick={() => { setPassword(''); setEditingPassword(false) }}>Cancel</Button>
+                </div>
+              ) : clearPassword ? (
+                <p className="flex flex-wrap items-center gap-2 text-sm text-warn/90">
+                  Removing the password on save.
+                  <button type="button" className="text-xs text-accent hover:underline" onClick={() => setClearPassword(false)}>Undo</button>
+                </p>
+              ) : (
+                <p className="flex flex-wrap items-center gap-3 text-sm text-nb-400">
+                  {cfg.passwordSet ? 'A password is set.' : 'No password is set.'}
+                  <button type="button" className="text-xs text-accent hover:underline" onClick={() => { setSaved(false); setEditingPassword(true) }} data-testid="mail-password-edit">
+                    {cfg.passwordSet ? 'Replace' : 'Set one'}
+                  </button>
+                  {cfg.passwordSet && (
+                    <button type="button" className="text-xs text-accent hover:underline" onClick={() => { setSaved(false); setClearPassword(true) }} data-testid="mail-password-remove">
+                      Remove
+                    </button>
+                  )}
+                </p>
+              )}
+            </div>
+
+            {error && (
+              <p className="mt-3 text-sm text-bad" role="alert">
+                <CircleAlert size={ICON_SM} className="mr-1 inline" aria-hidden />
+                {error}
+              </p>
+            )}
+            {error && (
+              <p className="text-sm text-bad" role="alert">
+                <CircleAlert size={ICON_SM} className="mr-1 inline" aria-hidden />
+                {error}
+              </p>
+            )}
+            <div className="flex items-center gap-3">
+              <Button variant="primary" disabled={!dirty || badFrom || badPort} onClick={save} data-testid="save-mail">
+                <Save size={ICON_SM} /> Save
+              </Button>
+              {saved && <SavedNote>Saved.</SavedNote>}
+            </div>
+          </RowMore>
         )}
-        <div className="mt-4 flex items-center gap-3">
-          <Button variant="primary" disabled={!dirty || badFrom || badPort} onClick={save} data-testid="save-mail">
-            <Save size={ICON_SM} /> Save
-          </Button>
-          {saved && <SavedNote>Saved.</SavedNote>}
-        </div>
       </div>
-    </section>
+    </Group>
   )
 }

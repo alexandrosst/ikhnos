@@ -1,163 +1,89 @@
-import { Download, RotateCcw, Trash2, Upload } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
-import { ConfirmModal } from '@/components/forms'
+import clsx from 'clsx'
+import { Database, Server, UserRound } from 'lucide-react'
+import { useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { ICON_SM, PageHeader } from '@/components/ui/primitives'
+import AboutSettings from '@/features/settings/components/AboutSettings'
+import AccountSettings from '@/features/settings/components/AccountSettings'
+import DataSettings from '@/features/settings/components/DataSettings'
 import InstallationSettings from '@/features/settings/components/InstallationSettings'
 import MailSettings from '@/features/settings/components/MailSettings'
 import ServerAddressSettings from '@/features/settings/components/ServerAddressSettings'
-import { Button, ICON_SM, PageHeader, PulseDot, SavedNote, StatTile } from '@/components/ui/primitives'
-import { atLeast } from '@/lib/api'
-import { declaredNote, rehydrate, toDeclared } from '@/lib/declared'
 import { useConn, useServer } from '@/store/server'
-import { exportTopology, normalize, useRawTopology, useTopology } from '@/store/topology'
 
-function Card({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-6 rounded-xl border border-nb-850 bg-nb-925 p-5">
-      <div>
-        <div className="text-sm font-medium text-nb-300">{title}</div>
-        <div className="mt-1 max-w-lg text-sm text-nb-500">{description}</div>
-      </div>
-      <div className="shrink-0">{children}</div>
-    </div>
-  )
+type Pane = 'account' | 'server' | 'data'
+
+const PANES: { id: Pane; label: string; icon: typeof Server }[] = [
+  { id: 'account', label: 'Account', icon: UserRound },
+  { id: 'server', label: 'Server', icon: Server },
+  { id: 'data', label: 'Data', icon: Database },
+]
+
+/** The older section addresses (the install wizard links to /settings#installation) land on the pane that holds the section. */
+const PANE_OF_HASH: Record<string, Pane> = {
+  account: 'account', you: 'account', 'sign-in': 'account',
+  server: 'server', 'server-address': 'server', installation: 'server', email: 'server', about: 'server',
+  data: 'data', danger: 'data',
 }
 
+/**
+ * Three short pages in a rail rather than one long scroll: what is yours (Account), what this server is and where it sends agents (Server) and
+ * your topology as a file (Data). Each is a list of rows. The address says which one is open, so a link can point at any of them.
+ */
 export default function SettingsPage() {
-  const onServer = useServer((s) => s.status === 'connected' && atLeast(s.role, 'admin'))
-  const canManageMail = useServer((s) => s.status === 'connected' && !!s.user?.canManageMail)
-  const geoip = useServer((s) => s.info?.geoip)
-  const serverVersion = useServer((s) => s.info?.version)
-  const chartVersion = useServer((s) => s.info?.install?.chartVersion)
-  const { replaceAll, reset, clear, clusters, nodes, services, devices, dependencies, applications, sites } = useTopology()
-  const conn = useConn()
   const connected = useServer((s) => s.status === 'connected')
+  const canManageMail = useServer((s) => s.status === 'connected' && !!s.user?.canManageMail)
+  const conn = useConn()
   const { hash } = useLocation()
-  // /settings#installation lands on the section (the wizard links there); the page is lazy, so scroll after it renders.
+  const navigate = useNavigate()
+
+  // Signed out there is only the topology in this browser: no rail, just that page.
+  const panes = connected ? PANES : PANES.filter((p) => p.id === 'data')
+  const wanted = PANE_OF_HASH[hash.slice(1)]
+  const pane: Pane = panes.some((p) => p.id === wanted) ? wanted : panes[0].id
+
+  // The page is lazy, and a pane renders after the address does: scroll to the section a link names once it is there.
   useEffect(() => {
     if (hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' })
-  }, [hash, connected])
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const [confirm, setConfirm] = useState<'clear' | 'reset' | null>(null)
-
-  const download = () => {
-    // A file holds what people declared. What agents observed is not exported: it is the server's to report, and a
-    // copy in a file would come back later as if it were still true.
-    const current = exportTopology()
-    const { model, report } = toDeclared(current)
-    const blob = new Blob([JSON.stringify({ ...model, schemaVersion: current.schemaVersion }, null, 2)], { type: 'application/json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = 'topology.json'
-    a.click()
-    URL.revokeObjectURL(a.href)
-    const note = declaredNote(report)
-    setMsg(note ? { ok: true, text: `Exported the declared workspace. ${note.replace(/^Removed/, 'Left out')}` } : null)
-  }
-
-  const onFile = async (f: File | undefined) => {
-    if (!f) return
-    try {
-      // normalize refuses a file from a newer version with a message saying so. What it accepts is reduced to what
-      // people declared: an older file may carry discovered records, which are not brought in.
-      const { model: t, report } = toDeclared(normalize(JSON.parse(await f.text())))
-      // Signed in, the records this browser already holds from the server stay; on their own the imported file is all there is.
-      replaceAll(connected ? rehydrate(t, useRawTopology.getState()) : t)
-      const note = declaredNote(report)
-      setMsg({ ok: true, text: `${note ? note + ' ' : ''}Imported ${t.clusters.length} clusters, ${t.nodes.length} nodes, ${t.services.length} services, ${t.devices.length} devices, ${t.dependencies.length} dependencies, ${t.applications.length} applications, ${t.sites.length} sites.` })
-    } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'Could not read file.' })
-    }
-    if (fileRef.current) fileRef.current.value = ''
-  }
+  }, [hash, pane, connected])
 
   return (
     <>
-      <PageHeader title="Settings" description={connected ? 'How agents reach this server, where install commands pull the agent from, and your topology as a file.' : 'Your topology is stored in this browser. Export it as JSON to back it up or share it.'} />
-
-      {connected && <ServerAddressSettings />}
-      {connected && <InstallationSettings conn={conn} />}
-      {canManageMail && <MailSettings conn={conn} />}
-
-      {connected && (serverVersion || chartVersion) && (
-        <section id="about" aria-labelledby="about-title" className="mb-8 scroll-mt-6" data-testid="about-server">
-          <h2 id="about-title" className="mb-1 text-sm font-medium text-nb-300">About this server</h2>
-          <p className="mb-3 max-w-2xl text-sm text-nb-500">What this server and the agent chart it hands out report themselves to be.</p>
-          <dl className="grid max-w-md grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border border-nb-850 bg-nb-925 px-4 py-3 text-sm">
-            {serverVersion && (
-              <>
-                <dt className="text-nb-500">Server version</dt>
-                <dd className="break-all font-mono text-nb-300" data-testid="about-server-version">{serverVersion}</dd>
-              </>
-            )}
-            {chartVersion && (
-              <>
-                <dt className="text-nb-500">Agent chart version</dt>
-                <dd className="break-all font-mono text-nb-300" data-testid="about-chart-version">{chartVersion}</dd>
-              </>
-            )}
-          </dl>
-        </section>
-      )}
-
-      <h2 className="mb-1 text-sm font-medium text-nb-300">Import / Export</h2>
-      <p className="mb-3 max-w-2xl text-sm text-nb-500">{onServer ? "Your topology is saved to the server and shared with everyone who signs in. Export it as JSON to keep a copy." : "Your topology is stored in this browser. Export it as JSON to back it up or share it."}</p>
-
-      <div className="mb-6 grid grid-cols-3 gap-3 lg:grid-cols-7">
-        {([['Clusters', clusters.length], ['Nodes', nodes.length], ['Services', services.length], ['Devices', devices.length], ['Dependencies', dependencies.length], ['Applications', applications.length], ['Sites', sites.length]] as [string, number][]).map(([l, v]) => (
-          <StatTile key={l} label={l} value={String(v)} />
-        ))}
+      <PageHeader title="Settings" />
+      <div className={clsx('grid gap-6', panes.length > 1 && 'lg:grid-cols-[10rem_minmax(0,40rem)] lg:gap-10')}>
+        {panes.length > 1 && (
+          <nav aria-label="Settings" className="flex gap-1 lg:sticky lg:top-0 lg:flex-col lg:self-start" data-testid="settings-rail">
+            {panes.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => navigate({ hash: p.id }, { replace: true })}
+                aria-current={p.id === pane ? 'page' : undefined}
+                className={clsx(
+                  'flex items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-sm transition-colors',
+                  p.id === pane ? 'bg-nb-930 text-nb-300' : 'text-nb-500 hover:bg-nb-930 hover:text-nb-300',
+                )}
+                data-testid={`settings-tab-${p.id}`}
+              >
+                <p.icon size={ICON_SM} aria-hidden /> {p.label}
+              </button>
+            ))}
+          </nav>
+        )}
+        {/* Keyed by the pane, so moving between them replays the page's own arrival. */}
+        <div key={pane} className="rise-in min-w-0 space-y-6" data-testid={`settings-pane-${pane}`}>
+          {pane === 'account' && <AccountSettings />}
+          {pane === 'server' && (
+            <>
+              <ServerAddressSettings />
+              <InstallationSettings conn={conn} />
+              {canManageMail && <MailSettings conn={conn} />}
+              <AboutSettings />
+            </>
+          )}
+          {pane === 'data' && <DataSettings />}
+        </div>
       </div>
-
-      <div className="space-y-3">
-        <Card title="Export topology" description="Download clusters, nodes, services and dependencies as a JSON file.">
-          <Button onClick={download}><Download size={ICON_SM} /> Export JSON</Button>
-        </Card>
-        <Card title="Import topology" description="Replace the current topology with a JSON file. References to missing clusters, nodes or services are dropped automatically.">
-          <Button onClick={() => fileRef.current?.click()}><Upload size={ICON_SM} /> Import JSON</Button>
-          <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => onFile(e.target.files?.[0])} />
-        </Card>
-        <Card title="Load sample topology" description="Restore the built-in cloud → edge → far-edge example.">
-          <Button onClick={() => setConfirm('reset')}><RotateCcw size={ICON_SM} /> Load sample</Button>
-        </Card>
-        <Card title="Clear everything" description="Remove all clusters, nodes, services and dependencies to start from a blank canvas.">
-          <Button variant="danger" onClick={() => setConfirm('clear')}><Trash2 size={ICON_SM} /> Clear all</Button>
-        </Card>
-      </div>
-
-      {msg && <SavedNote className="mt-4 block" tone={msg.ok ? 'ok' : 'error'}>{msg.text}</SavedNote>}
-
-      {connected && (
-        <p className="mt-10 flex max-w-2xl items-start gap-2 text-xs leading-5 text-nb-500">
-          <PulseDot size="size-1.5" className="mt-1.5" color={geoip?.enabled ? 'bg-ok' : 'bg-nb-700'} />
-          <span>
-            {geoip?.enabled ? (
-              <>
-                IP-based location suggestions are on, using {geoip.database || 'an offline GeoIP database'}{geoip.builtAt ? `, built ${new Date(geoip.builtAt).toLocaleDateString()}` : ''}. Placement still asks for confirmation before it changes anything.
-                {geoip.publicIpFallback && ' A cluster with a private connecting address (sharing a network with this server) is estimated from this server\'s own public address instead of left unplaced - marked "estimated" and never better than low confidence.'}
-                {geoip.asn && ' Locations also show which network the address belongs to (AS number and organisation), from a second offline database.'}
-              </>
-            ) : (
-              <>IP-based location suggestions are off: this server has no offline GeoIP database configured. Cloud region codes and city names in cluster labels still place clusters automatically; an administrator can turn this on too by pointing the server at a DB-IP or MaxMind file (see the deployment guide).</>
-            )}
-          </span>
-        </p>
-      )}
-
-      <p className="mt-2 max-w-2xl text-xs leading-5 text-nb-500">
-        Place data: city names and coordinates from <a className="underline hover:text-nb-400" href="https://www.geonames.org/" target="_blank" rel="noreferrer">GeoNames</a> (CC BY 4.0), country outlines from Natural Earth. {geoip?.enabled && geoip.attribution ? `${geoip.attribution}.` : <>When the server has a GeoIP database, IP geolocation by <a className="underline hover:text-nb-400" href="https://db-ip.com" target="_blank" rel="noreferrer">DB-IP.com</a> (CC BY 4.0) or MaxMind GeoLite2.</>}
-      </p>
-
-      {confirm && (
-        <ConfirmModal
-          title={confirm === 'clear' ? 'Clear the whole topology?' : 'Replace with the sample topology?'}
-          message={onServer ? "This replaces the shared workspace on the server for everyone. Export first if you want a backup." : "This replaces what is currently stored in this browser. Export first if you want a backup."}
-          confirmLabel={confirm === 'clear' ? 'Clear' : 'Replace'}
-          onConfirm={confirm === 'clear' ? clear : reset}
-          onClose={() => setConfirm(null)}
-        />
-      )}
     </>
   )
 }

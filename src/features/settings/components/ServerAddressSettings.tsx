@@ -1,35 +1,50 @@
 import { useState } from 'react'
 import { CopyCommand } from '@/components/ui/CopyCommand'
-import { Field, Input } from '@/components/ui/primitives'
+import { Button, Field, InfoTip, Input } from '@/components/ui/primitives'
+import { Group, RowMore, SettingRow } from '@/features/settings/components/SettingsParts'
 import { exposureHelp, exposureIsAddressSwap, exposureLabel, serverAddressUpgradeCommand } from '@/features/settings/lib/exposure'
 import { useServer } from '@/store/server'
 
 /**
- * What every agent dials to reach this server, and how it's exposed. Read-only - this page cannot run helm for you -
- * but the point is that you no longer have to reconstruct the upgrade command yourself from three different docs
- * pages: paste the new address and copy the exact command.
+ * What every agent dials to reach this server, and how it is exposed. Read-only: this page cannot run helm for you. Where the address can
+ * be swapped, Change opens a field and the exact upgrade command, so nobody has to rebuild it from three pages of docs.
  */
 export default function ServerAddressSettings() {
   const info = useServer((s) => s.info)
+  const [changing, setChanging] = useState(false)
   const [next, setNext] = useState('')
   const address = info?.agentAddress ?? ''
   const kind = info?.agentExposure ?? ''
+  const swappable = exposureIsAddressSwap(kind)
 
   return (
-    <section id="server-address" aria-labelledby="server-address-title" className="mb-8 scroll-mt-6" data-testid="server-address-settings">
-      <h2 id="server-address-title" className="mb-1 text-sm font-medium text-nb-300">Server address</h2>
-      <p className="mb-3 max-w-2xl text-sm text-nb-500">What every agent dials to reach this server. Changing it re-issues the server's TLS certificate, not its identity - agents trust the CA, not the certificate, so they keep working once they can reach the new address.</p>
-      <div className="rounded-xl border border-nb-850 bg-nb-925 p-5">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-nb-500">Address</dt>
-          <dd className="break-all font-mono text-nb-300" data-testid="server-address">{address || '(not set)'}</dd>
-          <dt className="text-nb-500">Exposed via</dt>
-          <dd className="text-nb-300" data-testid="server-exposure">{exposureLabel(kind)}</dd>
-        </dl>
-        <p className="mt-3 text-xs text-nb-500">{exposureHelp(kind)}</p>
-        {exposureIsAddressSwap(kind) && (
-          <div className="mt-3">
-            <Field label="New address" hint="host:port. Nothing changes until you run the command this fills in.">
+    <Group title="Address" id="server-address">
+      <div data-testid="server-address-settings" className="divide-y divide-nb-850">
+        <SettingRow
+          label="Agents dial"
+          mono
+          value={address || '(not set)'}
+          valueTestId="server-address"
+          action={swappable && <Button size="sm" onClick={() => setChanging((c) => !c)} aria-expanded={changing} data-testid="server-address-change">Change</Button>}
+        />
+        <SettingRow
+          label="Exposed via"
+          value={
+            <>
+              {exposureLabel(kind)}
+              {swappable && <InfoTip>{exposureHelp(kind)}</InfoTip>}
+            </>
+          }
+          valueTestId="server-exposure"
+        />
+        {!swappable && (
+          <RowMore testId="server-exposure-help">
+            <p className="text-xs text-nb-400">{exposureHelp(kind)}</p>
+          </RowMore>
+        )}
+        {swappable && changing && (
+          <RowMore>
+            <Field label="New address" hint="host:port. Nothing changes until you run the command.">
               <Input
                 value={next}
                 onChange={(e) => setNext(e.target.value)}
@@ -44,13 +59,12 @@ export default function ServerAddressSettings() {
             </Field>
             <CopyCommand text={serverAddressUpgradeCommand(info, next.trim())} />
             {/* Helm cannot recall the chart an install used, so <chart> is always the person's to fill in; the release and namespace only when this server could not say. */}
-            <p className="mt-1.5 text-xs text-nb-500">
-              Replace every word in <span className="font-mono">&lt;angle brackets&gt;</span> before running it: <span className="font-mono">&lt;chart&gt;</span> is the chart you installed this server from
-              {!info?.releaseName || !info?.releaseNamespace ? ', and the release and namespace are the ones it was installed under' : ''}. Needs Helm 3.14 or later.
+            <p className="text-xs text-nb-500">
+              Replace the <span className="font-mono">&lt;angle brackets&gt;</span>. Needs Helm 3.14 or later.
             </p>
-          </div>
+          </RowMore>
         )}
       </div>
-    </section>
+    </Group>
   )
 }
