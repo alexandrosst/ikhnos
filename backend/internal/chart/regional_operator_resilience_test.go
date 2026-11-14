@@ -264,7 +264,7 @@ func TestRegionalOperatorNotesSayHowToSeeDeliveryAndWarnAboutTheWrongPort(t *tes
 		return string(out)
 	}
 	n := notes()
-	for _, want := range []string{"Is it delivering?", "port-forward deploy/op-regional-operator 8888", "otelcol_exporter_queue_size", "otelcol_exporter_send_failed"} {
+	for _, want := range []string{"Delivering?", "port-forward deploy/op-regional-operator 8888", "otelcol_exporter_queue_size", "otelcol_exporter_send_failed"} {
 		if !strings.Contains(n, want) {
 			t.Errorf("the notes lack %q:\n%s", want, n)
 		}

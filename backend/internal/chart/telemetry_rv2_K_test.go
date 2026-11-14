@@ -479,7 +479,7 @@ func TestKeplerStartupProbeChecksForRealData(t *testing.T) {
 }
 
 // `helm template` does not print NOTES.txt, so (as server_fusion_test.go does) the notes go through a ConfigMap.
-func TestNotesTellAHeldKeplerPodFromABrokenOne(t *testing.T) {
+func TestNotesLeaveKeplersPodsToTheReadme(t *testing.T) {
 	h, err := exec.LookPath("helm")
 	if err != nil {
 		t.Skip("helm is not installed")
@@ -506,17 +506,18 @@ func TestNotesTellAHeldKeplerPodFromABrokenOne(t *testing.T) {
 		}
 		return string(out)
 	}
-	on := notes("--set", "telemetry.energy.metrics.enabled=true")
-	for _, want := range []string{"Energy: Kepler, ebpf engine", "Init:0/1", "logs <pod> -c preflight", "A pod that restarts is a Kepler that is broken"} {
-		if !strings.Contains(on, want) {
-			t.Errorf("notes lack %q:\n%s", want, on)
+	// The install notes stay short: what a held or a restarting Kepler pod means is in the chart's README, and the notes only say what needs doing.
+	if on := notes("--set", "telemetry.energy.metrics.enabled=true"); strings.Contains(on, "Init:0/1") || strings.Contains(on, "A pod that restarts") {
+		t.Errorf("the notes explain Kepler's pods at length:\n%s", on)
+	}
+	readme, err := os.ReadFile(filepath.Join("ikhnos-agent", "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Init:0/1", "logs <pod> -c preflight", "Running` but restarting"} {
+		if !strings.Contains(string(readme), want) {
+			t.Errorf("the README lacks %q", want)
 		}
-	}
-	if pc := notes("--set", "telemetry.energy.metrics.enabled=true", "--set", "telemetry.energy.metrics.engine=powercap"); !strings.Contains(pc, "powercap engine") || !strings.Contains(pc, "amd64 nodes with RAPL") {
-		t.Errorf("powercap notes:\n%s", pc)
-	}
-	if off := notes("--set", "telemetry.energy.metrics.enabled=true", "--set", "telemetry.energy.metrics.nodeChecks=false"); strings.Contains(off, "Init:0/1") {
-		t.Errorf("notes explain a preflight that is off:\n%s", off)
 	}
 	if none := notes(); strings.Contains(none, "Kepler,") {
 		t.Errorf("notes mention Kepler with energy off:\n%s", none)

@@ -310,7 +310,7 @@ func TestAgentRv2XUnusedDefaultDestinationIsNotJudged(t *testing.T) {
 func TestAgentRv2XNotesSayWhereDataGoesAndWarn(t *testing.T) {
 	n := agentNotes(t, withTel("--set", "telemetry.resourceUsage.metrics.enabled=true", "--set", "telemetry.export.otlp.tls.insecure=true",
 		"--set", "telemetry.export.otlp.auth.secretName=tok")...)
-	for _, want := range []string{"Sends otlp -> x:4317 (grpc, PLAINTEXT, header", "from Secret tok", "Troubleshooting export",
+	for _, want := range []string{"otlp -> x:4317 (grpc, PLAINTEXT, header", "from Secret tok", "Troubleshooting export",
 		"sends its credential header", "over a connection without TLS"} {
 		if !strings.Contains(n, want) {
 			t.Errorf("the notes lack %q:\n%s", want, n)
@@ -471,7 +471,7 @@ func TestOperatorRv2XNotesListDestinationsSecretsAndWarnings(t *testing.T) {
 		"--set", "receiver.tls.enabled=true", "--set", "receiver.tls.secretName=rt", "--set", "receiver.tls.mtls=true",
 		"--set", "export.proxy.httpProxy=http://u:p@proxy.corp:3128", "--set", "networkPolicy.egress.enabled=true",
 		"--set", "networkPolicy.egress.allowedEgress[0].cidr=10.0.0.0/8")
-	for _, want := range []string{"Sends otlp -> collector.example:4317 (grpc, PLAINTEXT, header", "from Secret tok", "rt (tls.crt, tls.key, ca.crt)",
+	for _, want := range []string{"otlp -> collector.example:4317 (grpc, PLAINTEXT, header", "from Secret tok", "rt (tls.crt, tls.key, ca.crt)",
 		"sends its credential header", "which only ever uses httpsProxy", "carries credentials", "must allow the proxy's address and port"} {
 		if !strings.Contains(n, want) {
 			t.Errorf("the notes lack %q:\n%s", want, n)

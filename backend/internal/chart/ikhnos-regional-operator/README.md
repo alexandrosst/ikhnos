@@ -165,6 +165,32 @@ kubectl -n <namespace> logs deploy/ikhnos-regional-operator
 There's no approval wait or enrollment state to watch for — once the pod is `Running`, it's already
 receiving on `:4317`/`:4318` (grpc/http) and re-exporting to `export.otlp.endpoint`.
 
+### Is it delivering?
+
+A Ready pod only means the collector process is up; no collector health setting can say more. Two places do:
+
+```
+kubectl -n <namespace> logs deploy/<operator> | grep "Exporting failed"
+kubectl -n <namespace> port-forward deploy/<operator> 8888      # selfMetrics.port, then read http://127.0.0.1:8888/metrics
+```
+
+With `selfMetrics.enabled`, `otelcol_exporter_queue_size` above 0 and staying there means it cannot send, and
+`otelcol_exporter_send_failed_*` or `_enqueue_failed_*` increasing means data was lost. The cause is in the log line.
+With `selfMetrics.enabled=false` only the log shows it.
+
+### When the destination is down
+
+The operator retries for `export.queue.retryMaxElapsedTime` and holds up to `export.queue.size` requests: in memory
+(lost if the pod restarts), or, with `export.queue.persistent.enabled`, in memory and on an `emptyDir`, which survives a
+container restart but not a rescheduled pod. Once the queue is full it stops answering its senders, who keep their data
+and see the failure. What the destination refuses for good (a CA or token that does not match, the wrong protocol for the
+port) is dropped at once and logged at error level.
+
+### Exposure by NodePort
+
+With `service.type=NodePort` the address is one node's, which may be private, and stops working if that node goes away.
+Without `service.nodePort` Kubernetes assigns the port and a recreated Service gets a new one: set it to pin it.
+
 ## Connecting a source cluster
 
 This chart's own install does not reach into any other cluster. Each source cluster's own
