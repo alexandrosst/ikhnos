@@ -1,0 +1,1611 @@
+{
+  "clusters": [
+    {
+      "distribution": "RKE2",
+      "version": "v1.30.2",
+      "provider": "IONOS",
+      "region": "Berlin",
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "cl-cloud",
+      "siteId": "site-ber",
+      "name": "berlin-cloud",
+      "tier": "cloud",
+      "cni": "cilium",
+      "ingress": "ingress-nginx",
+      "podCidr": "10.0.0.0/16",
+      "serviceCidr": "10.43.0.0/16",
+      "trustZone": "private",
+      "dataResidency": "EU"
+    },
+    {
+      "distribution": "kubeadm",
+      "version": "v1.30.2",
+      "provider": "On-prem",
+      "region": "Athens DC",
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "cl-region",
+      "siteId": "site-ath",
+      "name": "athens-regional",
+      "tier": "edge",
+      "cni": "calico",
+      "ingress": "ingress-nginx",
+      "podCidr": "192.168.0.0/16",
+      "serviceCidr": "10.96.0.0/12",
+      "storageClasses": [
+        "local-path",
+        "nfs"
+      ],
+      "trustZone": "private",
+      "dataResidency": "EU"
+    },
+    {
+      "distribution": "k3s",
+      "version": "v1.29.6+k3s1",
+      "provider": "On-prem",
+      "region": "Paris",
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "discovered",
+      "id": "cl-edge-a",
+      "siteId": "site-par",
+      "lastSeen": "2026-09-19T08:00:00.000Z",
+      "detectedAt": "2026-09-19T08:00:00.000Z",
+      "agentId": "ag-patras",
+      "revision": 42,
+      "key": "kube-system:0d5c8b1e-6f3a-4c0e-9b52-7a1f0e2d4c11",
+      "evidence": {
+        "distribution": {
+          "signal": "server version v1.29.6+k3s1",
+          "confidence": "high",
+          "detail": "+k3s suffix"
+        }
+      },
+      "name": "paris-edge",
+      "tier": "far-edge",
+      "cni": "flannel",
+      "ingress": "traefik",
+      "podCidr": "10.42.0.0/16",
+      "serviceCidr": "10.43.0.0/16",
+      "storageClasses": [
+        "local-path"
+      ],
+      "createdAt": "2025-11-03T09:00:00.000Z",
+      "trustZone": "restricted",
+      "dataResidency": "EU"
+    },
+    {
+      "distribution": "k3s",
+      "version": "v1.29.6+k3s1",
+      "provider": "On-prem",
+      "region": "Athens lab",
+      "status": "degraded",
+      "labels": {},
+      "orgId": "default",
+      "source": "discovered",
+      "id": "cl-edge-b",
+      "siteId": "site-lab",
+      "lastSeen": "2026-09-19T08:00:00.000Z",
+      "detectedAt": "2026-09-19T08:00:00.000Z",
+      "agentId": "ag-thess",
+      "revision": 17,
+      "key": "kube-system:9a4be7d0-31c8-4f5a-8e26-c5d0b7a93f02",
+      "evidence": {
+        "distribution": {
+          "signal": "server version v1.29.6+k3s1",
+          "confidence": "high",
+          "detail": "+k3s suffix"
+        }
+      },
+      "overrides": {
+        "region": "Athens lab lab"
+      },
+      "name": "athens-lab",
+      "tier": "far-edge",
+      "cni": "flannel",
+      "ingress": "traefik",
+      "podCidr": "10.42.0.0/16",
+      "serviceCidr": "10.43.0.0/16",
+      "storageClasses": [
+        "local-path"
+      ],
+      "trustZone": "restricted",
+      "dataResidency": "EU",
+      "pendingPodCount": 2
+    }
+  ],
+  "nodes": [
+    {
+      "role": "control-plane",
+      "kind": "vm",
+      "ip": "10.0.1.10",
+      "os": "Ubuntu 22.04",
+      "cpu": 4,
+      "memoryGb": 16,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "n-c1",
+      "name": "ber-cp-1",
+      "clusterId": "cl-cloud",
+      "arch": "amd64",
+      "zone": "berlin-1a"
+    },
+    {
+      "role": "worker",
+      "kind": "vm",
+      "ip": "10.0.2.11",
+      "os": "Ubuntu 22.04",
+      "cpu": 16,
+      "memoryGb": 64,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "n-c2",
+      "name": "ber-worker-1",
+      "clusterId": "cl-cloud",
+      "diskGb": 100,
+      "arch": "amd64",
+      "zone": "berlin-1a",
+      "runtime": "containerd 1.7.13",
+      "kernel": "5.10.215",
+      "allocatable": {
+        "cpu": 15.8,
+        "memoryGb": 61,
+        "diskGb": 92
+      },
+      "requested": {
+        "cpu": 6.2,
+        "memoryGb": 22
+      },
+      "podCount": 38,
+      "podCapacity": 234,
+      "createdAt": "2026-02-10T08:00:00.000Z"
+    },
+    {
+      "role": "worker",
+      "kind": "vm",
+      "ip": "10.0.2.12",
+      "os": "Ubuntu 22.04",
+      "cpu": 16,
+      "memoryGb": 64,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "n-c3",
+      "name": "ber-worker-2",
+      "clusterId": "cl-cloud",
+      "arch": "amd64",
+      "zone": "berlin-1b"
+    },
+    {
+      "role": "worker",
+      "kind": "vm",
+      "ip": "10.0.3.20",
+      "os": "Ubuntu 22.04",
+      "cpu": 32,
+      "memoryGb": 128,
+      "status": "healthy",
+      "labels": {
+        "accelerator": "nvidia-a10"
+      },
+      "orgId": "default",
+      "source": "manual",
+      "id": "n-c4",
+      "name": "ber-gpu-1",
+      "clusterId": "cl-cloud",
+      "arch": "amd64",
+      "zone": "berlin-1b",
+      "accelerators": [
+        {
+          "vendor": "NVIDIA",
+          "model": "A10G",
+          "count": 1
+        }
+      ],
+      "taints": [
+        "nvidia.com/gpu=present:NoSchedule"
+      ]
+    },
+    {
+      "role": "control-plane",
+      "kind": "bare-metal",
+      "ip": "192.168.10.2",
+      "os": "Ubuntu 22.04",
+      "cpu": 8,
+      "memoryGb": 32,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "n-r1",
+      "name": "ath-cp-1",
+      "clusterId": "cl-region",
+      "arch": "amd64"
+    },
+    {
+      "role": "worker",
+      "kind": "bare-metal",
+      "ip": "192.168.10.11",
+      "os": "Ubuntu 22.04",
+      "cpu": 16,
+      "memoryGb": 64,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "n-r2",
+      "name": "ath-worker-1",
+      "clusterId": "cl-region",
+      "arch": "amd64",
+      "hardwareModel": "Dell PowerEdge R650",
+      "kernel": "5.15.0-118",
+      "runtime": "containerd 1.7.13",
+      "evidence": {
+        "kind": {
+          "signal": "DMI vendor Dell Inc., no hypervisor flag",
+          "confidence": "high"
+        }
+      }
+    },
+    {
+      "role": "worker",
+      "kind": "bare-metal",
+      "ip": "192.168.10.12",
+      "os": "Ubuntu 22.04",
+      "cpu": 16,
+      "memoryGb": 64,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "n-r3",
+      "name": "ath-worker-2",
+      "clusterId": "cl-region",
+      "arch": "amd64",
+      "hardwareModel": "Dell PowerEdge R650"
+    },
+    {
+      "role": "control-plane",
+      "kind": "edge-device",
+      "ip": "172.16.1.2",
+      "os": "Debian 12",
+      "cpu": 4,
+      "memoryGb": 8,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "n-a1",
+      "name": "paris-gw-1",
+      "clusterId": "cl-edge-a",
+      "arch": "amd64",
+      "connectivity": "cellular",
+      "networkInterfaces": [
+        {
+          "name": "eth0",
+          "kind": "ethernet",
+          "speedMbps": 1000,
+          "mtu": 1500
+        }
+      ]
+    },
+    {
+      "role": "worker",
+      "kind": "edge-device",
+      "ip": "172.16.1.11",
+      "os": "JetPack 6",
+      "cpu": 6,
+      "memoryGb": 8,
+      "status": "healthy",
+      "labels": {
+        "accelerator": "jetson-orin"
+      },
+      "orgId": "default",
+      "source": "discovered",
+      "id": "n-a2",
+      "lastSeen": "2026-09-19T08:00:00.000Z",
+      "detectedAt": "2026-09-19T08:00:00.000Z",
+      "agentId": "ag-patras",
+      "revision": 42,
+      "key": "machine-id:6c1f0a52d3e94b7d8a90b1c2e3f40516",
+      "evidence": {
+        "kind": {
+          "signal": "device-tree model: NVIDIA Jetson Orin Nano",
+          "confidence": "high"
+        }
+      },
+      "name": "paris-jetson-1",
+      "clusterId": "cl-edge-a",
+      "diskGb": 64,
+      "arch": "arm64",
+      "hardwareModel": "NVIDIA Jetson Orin Nano",
+      "kernel": "5.15.136-tegra",
+      "runtime": "containerd 1.7.13",
+      "connectivity": "ethernet",
+      "accelerators": [
+        {
+          "vendor": "NVIDIA",
+          "model": "Orin (integrated GPU)",
+          "count": 1
+        }
+      ],
+      "allocatable": {
+        "cpu": 5.9,
+        "memoryGb": 7.2,
+        "diskGb": 51
+      },
+      "requested": {
+        "cpu": 3.1,
+        "memoryGb": 4.4
+      },
+      "podCount": 9,
+      "podCapacity": 110,
+      "createdAt": "2025-11-03T09:30:00.000Z"
+    },
+    {
+      "role": "control-plane",
+      "kind": "edge-device",
+      "ip": "172.16.2.2",
+      "os": "Debian 12",
+      "cpu": 4,
+      "memoryGb": 8,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "n-b1",
+      "name": "lab-gw-1",
+      "clusterId": "cl-edge-b",
+      "arch": "amd64",
+      "connectivity": "cellular"
+    },
+    {
+      "role": "worker",
+      "kind": "edge-device",
+      "ip": "172.16.2.11",
+      "os": "Raspberry Pi OS",
+      "cpu": 4,
+      "memoryGb": 4,
+      "status": "degraded",
+      "labels": {},
+      "orgId": "default",
+      "source": "discovered",
+      "id": "n-b2",
+      "lastSeen": "2026-09-19T08:00:00.000Z",
+      "detectedAt": "2026-09-19T08:00:00.000Z",
+      "agentId": "ag-thess",
+      "revision": 17,
+      "key": "machine-id:b7e2c9d14a0f4e6a9c3d5e7f81920a3b",
+      "evidence": {
+        "kind": {
+          "signal": "device-tree model: Raspberry Pi 4 Model B",
+          "confidence": "high"
+        }
+      },
+      "name": "lab-rpi-1",
+      "clusterId": "cl-edge-b",
+      "arch": "arm64",
+      "hardwareModel": "Raspberry Pi 4 Model B",
+      "connectivity": "wifi",
+      "conditions": [
+        "MemoryPressure"
+      ],
+      "allocatable": {
+        "cpu": 3.9,
+        "memoryGb": 3.6
+      },
+      "requested": {
+        "cpu": 2.2,
+        "memoryGb": 3.4
+      },
+      "podCount": 28,
+      "podCapacity": 30,
+      "createdAt": "2026-03-21T14:10:00.000Z"
+    }
+  ],
+  "namespaces": [
+    {
+      "id": "ns-cl-cloud-platform",
+      "orgId": "default",
+      "clusterId": "cl-cloud",
+      "name": "platform",
+      "labels": {},
+      "applicationId": "app-api",
+      "source": "manual"
+    },
+    {
+      "id": "ns-cl-cloud-ml",
+      "orgId": "default",
+      "clusterId": "cl-cloud",
+      "name": "ml",
+      "labels": {},
+      "applicationId": "app-ml",
+      "source": "manual"
+    },
+    {
+      "id": "ns-cl-region-streaming",
+      "orgId": "default",
+      "clusterId": "cl-region",
+      "name": "streaming",
+      "labels": {},
+      "applicationId": "app-ingest",
+      "source": "manual"
+    },
+    {
+      "id": "ns-cl-region-ml",
+      "orgId": "default",
+      "clusterId": "cl-region",
+      "name": "ml",
+      "labels": {},
+      "applicationId": "app-ml",
+      "source": "manual"
+    },
+    {
+      "id": "ns-cl-edge-a-iot",
+      "orgId": "default",
+      "clusterId": "cl-edge-a",
+      "name": "iot",
+      "labels": {},
+      "applicationId": "app-ingest",
+      "source": "manual"
+    },
+    {
+      "id": "ns-cl-edge-a-ml",
+      "orgId": "default",
+      "clusterId": "cl-edge-a",
+      "name": "ml",
+      "labels": {},
+      "applicationId": "app-ml",
+      "source": "manual"
+    },
+    {
+      "id": "ns-cl-edge-b-iot",
+      "orgId": "default",
+      "clusterId": "cl-edge-b",
+      "name": "iot",
+      "labels": {},
+      "applicationId": "app-ingest",
+      "source": "manual"
+    },
+    {
+      "id": "ns-cl-edge-b-ml",
+      "orgId": "default",
+      "clusterId": "cl-edge-b",
+      "name": "ml",
+      "labels": {},
+      "applicationId": "app-ml",
+      "source": "manual"
+    }
+  ],
+  "services": [
+    {
+      "namespace": "platform",
+      "kind": "Deployment",
+      "image": "envoy:1.30",
+      "replicas": 2,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "w-gw",
+      "applicationId": "app-api",
+      "name": "api-gateway",
+      "clusterId": "cl-cloud",
+      "autoscaler": {
+        "min": 2,
+        "max": 6,
+        "current": 2,
+        "targets": [
+          "cpu 80%"
+        ]
+      },
+      "disruption": {
+        "minAvailable": "1",
+        "allowed": 1
+      },
+      "readyReplicas": 2,
+      "nodeIds": [
+        "n-c2",
+        "n-c3"
+      ],
+      "exposure": "ingress",
+      "hosts": [
+        "api.example.org"
+      ],
+      "ports": [
+        443
+      ],
+      "managedBy": "helm",
+      "sensitivity": "public"
+    },
+    {
+      "namespace": "platform",
+      "kind": "Deployment",
+      "image": "ghcr.io/acme/orchestrator:0.4",
+      "replicas": 2,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "w-orch",
+      "applicationId": "app-api",
+      "name": "orchestrator",
+      "clusterId": "cl-cloud",
+      "readyReplicas": 2,
+      "nodeIds": [
+        "n-c2",
+        "n-c3"
+      ],
+      "managedBy": "argo",
+      "ports": [
+        9000
+      ],
+      "cpuRequestM": 500,
+      "memRequestMi": 512,
+      "sensitivity": "internal"
+    },
+    {
+      "namespace": "ml",
+      "kind": "Job",
+      "image": "ghcr.io/acme/trainer:1.2",
+      "replicas": 1,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "w-train",
+      "applicationId": "app-ml",
+      "name": "model-training",
+      "clusterId": "cl-cloud",
+      "nodeIds": [
+        "n-c4"
+      ],
+      "nodeSelector": {
+        "accelerator": "nvidia-a10"
+      },
+      "tolerations": [
+        "nvidia.com/gpu=present:NoSchedule"
+      ],
+      "cpuRequestM": 8000,
+      "memRequestMi": 32768,
+      "sensitivity": "confidential"
+    },
+    {
+      "namespace": "ml",
+      "kind": "StatefulSet",
+      "image": "mlflow:2.14",
+      "replicas": 1,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "w-registry",
+      "applicationId": "app-ml",
+      "name": "model-registry",
+      "clusterId": "cl-cloud",
+      "nodeIds": [
+        "n-c3"
+      ],
+      "volumes": [
+        {
+          "name": "artifacts",
+          "storageClass": "gp3",
+          "sizeGb": 200,
+          "accessModes": [
+            "ReadWriteOnce"
+          ],
+          "phase": "Bound"
+        }
+      ],
+      "ports": [
+        5000
+      ],
+      "managedBy": "helm",
+      "sensitivity": "confidential"
+    },
+    {
+      "namespace": "streaming",
+      "kind": "StatefulSet",
+      "image": "bitnami/kafka:3.7",
+      "replicas": 3,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "w-kafka",
+      "applicationId": "app-ingest",
+      "name": "kafka",
+      "clusterId": "cl-region",
+      "readyReplicas": 3,
+      "nodeIds": [
+        "n-r2",
+        "n-r3"
+      ],
+      "volumes": [
+        {
+          "name": "data-kafka-0",
+          "storageClass": "local-nvme",
+          "sizeGb": 500,
+          "accessModes": [
+            "ReadWriteOnce"
+          ],
+          "phase": "Bound",
+          "pinnedNodeIds": [
+            "n-r2"
+          ]
+        },
+        {
+          "name": "data-kafka-1",
+          "storageClass": "local-nvme",
+          "sizeGb": 500,
+          "accessModes": [
+            "ReadWriteOnce"
+          ],
+          "phase": "Bound",
+          "pinnedNodeIds": [
+            "n-r3"
+          ]
+        }
+      ],
+      "disruption": {
+        "maxUnavailable": "1",
+        "allowed": 1
+      },
+      "ports": [
+        9092
+      ],
+      "managedBy": "helm"
+    },
+    {
+      "namespace": "streaming",
+      "kind": "Deployment",
+      "image": "ghcr.io/acme/aggregator:2.0",
+      "replicas": 2,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "w-agg",
+      "applicationId": "app-ingest",
+      "name": "stream-aggregator",
+      "clusterId": "cl-region",
+      "readyReplicas": 2,
+      "nodeIds": [
+        "n-r2",
+        "n-r3"
+      ],
+      "ports": [
+        8883
+      ],
+      "exposure": "load-balancer"
+    },
+    {
+      "namespace": "ml",
+      "kind": "Deployment",
+      "image": "ghcr.io/acme/infer:1.2",
+      "replicas": 1,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "w-infer-r",
+      "applicationId": "app-ml",
+      "name": "inference-regional",
+      "clusterId": "cl-region",
+      "nodeIds": [
+        "n-r3"
+      ]
+    },
+    {
+      "namespace": "iot",
+      "kind": "Deployment",
+      "image": "eclipse-mosquitto:2",
+      "replicas": 1,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "w-mqtt-a",
+      "applicationId": "app-ingest",
+      "name": "mqtt-broker",
+      "clusterId": "cl-edge-a",
+      "nodeIds": [
+        "n-a1"
+      ],
+      "volumes": [
+        {
+          "name": "mosquitto-data",
+          "storageClass": "local-path",
+          "sizeGb": 1,
+          "accessModes": [
+            "ReadWriteOnce"
+          ],
+          "phase": "Bound",
+          "pinnedNodeIds": [
+            "n-a1"
+          ]
+        }
+      ],
+      "readyReplicas": 1,
+      "exposure": "node-port",
+      "ports": [
+        1883,
+        8883
+      ],
+      "managedBy": "helm",
+      "imageDigest": "sha256:4f1c9a7be2d84c36a0b5e79d1f2a63c8",
+      "sensitivity": "internal"
+    },
+    {
+      "namespace": "ml",
+      "kind": "Deployment",
+      "image": "ghcr.io/acme/infer-lite:1.2",
+      "replicas": 1,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "w-infer-a",
+      "applicationId": "app-ml",
+      "name": "inference-edge",
+      "clusterId": "cl-edge-a",
+      "nodeIds": [
+        "n-a2"
+      ],
+      "readyReplicas": 1,
+      "managedBy": "argo",
+      "nodeSelector": {
+        "accelerator": "jetson-orin"
+      },
+      "tolerations": [
+        "edge=true:NoSchedule"
+      ],
+      "cpuRequestM": 2000,
+      "memRequestMi": 2048,
+      "cpuLimitM": 3000,
+      "memLimitMi": 3072
+    },
+    {
+      "namespace": "iot",
+      "kind": "DaemonSet",
+      "image": "ghcr.io/acme/ingest:0.9",
+      "replicas": 2,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "w-sensor-a",
+      "applicationId": "app-ingest",
+      "name": "sensor-ingest",
+      "clusterId": "cl-edge-a",
+      "readyReplicas": 2,
+      "nodeIds": [
+        "n-a1",
+        "n-a2"
+      ],
+      "managedBy": "helm"
+    },
+    {
+      "namespace": "iot",
+      "kind": "Deployment",
+      "image": "eclipse-mosquitto:2",
+      "replicas": 1,
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "w-mqtt-b",
+      "applicationId": "app-ingest",
+      "name": "mqtt-broker",
+      "clusterId": "cl-edge-b",
+      "nodeIds": [
+        "n-b1"
+      ],
+      "readyReplicas": 1,
+      "exposure": "node-port",
+      "ports": [
+        1883,
+        8883
+      ]
+    },
+    {
+      "namespace": "iot",
+      "kind": "DaemonSet",
+      "image": "ghcr.io/acme/ingest:0.9",
+      "replicas": 2,
+      "status": "degraded",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "w-sensor-b",
+      "applicationId": "app-ingest",
+      "name": "sensor-ingest",
+      "clusterId": "cl-edge-b",
+      "readyReplicas": 1,
+      "restarts": 14,
+      "oomKills": 3,
+      "nodeIds": [
+        "n-b1",
+        "n-b2"
+      ]
+    },
+    {
+      "namespace": "ml",
+      "kind": "Deployment",
+      "image": "ghcr.io/acme/infer-lite:1.2",
+      "replicas": 1,
+      "status": "degraded",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "w-infer-b",
+      "applicationId": "app-ml",
+      "name": "inference-edge",
+      "clusterId": "cl-edge-b",
+      "nodeIds": [
+        "n-b2"
+      ],
+      "readyReplicas": 0,
+      "restarts": 9,
+      "nodeSelector": {
+        "kubernetes.io/arch": "arm64"
+      }
+    }
+  ],
+  "devices": [
+    {
+      "count": 48,
+      "protocol": "MQTT",
+      "connectivity": "lora",
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "discovered",
+      "id": "dev-temp-a",
+      "name": "Temperature sensors",
+      "kind": "sensor",
+      "applicationId": "app-ingest",
+      "siteId": "site-par",
+      "gatewayNodeId": "n-a1",
+      "hardwareModel": "LoRa temperature node",
+      "lastSeen": "2026-09-19T08:00:00.000Z",
+      "detectedAt": "2026-09-19T08:00:00.000Z",
+      "agentId": "ag-patras",
+      "revision": 42,
+      "key": "mqtt-clients:paris-edge/temp-*",
+      "evidence": {
+        "kind": {
+          "signal": "48 MQTT client IDs match temp-*",
+          "confidence": "medium",
+          "detail": "Read from the broker; the units themselves are not scanned."
+        }
+      }
+    },
+    {
+      "count": 6,
+      "protocol": "RTSP",
+      "connectivity": "ethernet",
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "dev-cam-a",
+      "name": "Line cameras",
+      "kind": "camera",
+      "applicationId": "app-ml",
+      "siteId": "site-par",
+      "gatewayNodeId": "n-a2",
+      "hardwareModel": "IP camera, 1080p"
+    },
+    {
+      "count": 12,
+      "protocol": "MQTT",
+      "connectivity": "zigbee",
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "dev-act-a",
+      "name": "Valve actuators",
+      "kind": "actuator",
+      "applicationId": "app-ml",
+      "siteId": "site-par"
+    },
+    {
+      "count": 24,
+      "protocol": "MQTT",
+      "connectivity": "wifi",
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "dev-vib-b",
+      "name": "Vibration sensors",
+      "kind": "sensor",
+      "applicationId": "app-ingest",
+      "siteId": "site-lab"
+    },
+    {
+      "count": 2,
+      "protocol": "OPC UA",
+      "connectivity": "ethernet",
+      "status": "healthy",
+      "labels": {},
+      "orgId": "default",
+      "source": "manual",
+      "id": "dev-plc-b",
+      "name": "Packaging PLCs",
+      "kind": "plc",
+      "applicationId": "app-ingest",
+      "siteId": "site-lab",
+      "gatewayNodeId": "n-b1"
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "d1",
+      "orgId": "default",
+      "from": "w-gw",
+      "fromKind": "service",
+      "to": "w-orch",
+      "toKind": "service",
+      "protocol": "gRPC",
+      "port": 9000,
+      "sources": [
+        "declared"
+      ],
+      "confidence": "medium",
+      "firstSeen": "2026-09-19T08:00:00.000Z",
+      "lastSeen": "2026-09-19T08:00:00.000Z"
+    },
+    {
+      "id": "d2",
+      "orgId": "default",
+      "from": "w-orch",
+      "fromKind": "service",
+      "to": "w-registry",
+      "toKind": "service",
+      "protocol": "HTTP",
+      "port": 5000,
+      "sources": [
+        "declared"
+      ],
+      "confidence": "medium",
+      "firstSeen": "2026-09-19T08:00:00.000Z",
+      "lastSeen": "2026-09-19T08:00:00.000Z"
+    },
+    {
+      "id": "d3",
+      "orgId": "default",
+      "from": "w-train",
+      "fromKind": "service",
+      "to": "w-registry",
+      "toKind": "service",
+      "protocol": "HTTP",
+      "port": 5000,
+      "sources": [
+        "manual"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "d4",
+      "orgId": "default",
+      "from": "w-agg",
+      "fromKind": "service",
+      "to": "w-kafka",
+      "toKind": "service",
+      "protocol": "Kafka",
+      "port": 9092,
+      "sources": [
+        "manual"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "d5",
+      "orgId": "default",
+      "from": "w-train",
+      "fromKind": "service",
+      "to": "w-kafka",
+      "toKind": "service",
+      "protocol": "Kafka",
+      "port": 9092,
+      "sources": [
+        "manual"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "d6",
+      "orgId": "default",
+      "from": "w-infer-r",
+      "fromKind": "service",
+      "to": "w-registry",
+      "toKind": "service",
+      "protocol": "HTTP",
+      "port": 5000,
+      "sources": [
+        "manual"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "d7",
+      "orgId": "default",
+      "from": "w-infer-a",
+      "fromKind": "service",
+      "to": "w-registry",
+      "toKind": "service",
+      "protocol": "HTTP",
+      "port": 5000,
+      "sources": [
+        "declared"
+      ],
+      "confidence": "medium",
+      "firstSeen": "2026-09-19T08:00:00.000Z",
+      "lastSeen": "2026-09-19T08:00:00.000Z",
+      "crossCluster": true
+    },
+    {
+      "id": "d8",
+      "orgId": "default",
+      "from": "w-infer-b",
+      "fromKind": "service",
+      "to": "w-registry",
+      "toKind": "service",
+      "protocol": "HTTP",
+      "port": 5000,
+      "sources": [
+        "declared"
+      ],
+      "confidence": "medium",
+      "firstSeen": "2026-09-19T08:00:00.000Z",
+      "lastSeen": "2026-09-19T08:00:00.000Z"
+    },
+    {
+      "id": "d9",
+      "orgId": "default",
+      "from": "w-sensor-a",
+      "fromKind": "service",
+      "to": "w-mqtt-a",
+      "toKind": "service",
+      "protocol": "MQTT",
+      "port": 1883,
+      "sources": [
+        "observed",
+        "declared"
+      ],
+      "confidence": "high",
+      "firstSeen": "2026-09-19T08:00:00.000Z",
+      "lastSeen": "2026-09-19T08:00:00.000Z",
+      "stats": {
+        "reqPerSec": 42,
+        "errorRate": 0.002,
+        "p95Ms": 8,
+        "windowSec": 300
+      }
+    },
+    {
+      "id": "d10",
+      "orgId": "default",
+      "from": "w-infer-a",
+      "fromKind": "service",
+      "to": "w-mqtt-a",
+      "toKind": "service",
+      "protocol": "MQTT",
+      "port": 1883,
+      "sources": [
+        "observed",
+        "declared"
+      ],
+      "confidence": "high",
+      "firstSeen": "2026-09-19T08:00:00.000Z",
+      "lastSeen": "2026-09-19T08:00:00.000Z"
+    },
+    {
+      "id": "d11",
+      "orgId": "default",
+      "from": "w-mqtt-a",
+      "fromKind": "service",
+      "to": "w-agg",
+      "toKind": "service",
+      "protocol": "MQTT",
+      "port": 8883,
+      "sources": [
+        "observed"
+      ],
+      "confidence": "high",
+      "firstSeen": "2026-09-19T08:00:00.000Z",
+      "lastSeen": "2026-09-19T08:00:00.000Z",
+      "crossCluster": true,
+      "via": "ebpf",
+      "iface": "eth0",
+      "stats": {
+        "bytesPerSec": 180000,
+        "errorRate": 0,
+        "p95Ms": 31,
+        "windowSec": 300
+      }
+    },
+    {
+      "id": "d12",
+      "orgId": "default",
+      "from": "w-sensor-b",
+      "fromKind": "service",
+      "to": "w-mqtt-b",
+      "toKind": "service",
+      "protocol": "MQTT",
+      "port": 1883,
+      "sources": [
+        "declared"
+      ],
+      "confidence": "medium",
+      "firstSeen": "2026-09-19T08:00:00.000Z",
+      "lastSeen": "2026-09-19T08:00:00.000Z"
+    },
+    {
+      "id": "d13",
+      "orgId": "default",
+      "from": "w-infer-b",
+      "fromKind": "service",
+      "to": "w-mqtt-b",
+      "toKind": "service",
+      "protocol": "MQTT",
+      "port": 1883,
+      "sources": [
+        "declared"
+      ],
+      "confidence": "medium",
+      "firstSeen": "2026-09-19T08:00:00.000Z",
+      "lastSeen": "2026-09-19T08:00:00.000Z"
+    },
+    {
+      "id": "d14",
+      "orgId": "default",
+      "from": "w-mqtt-b",
+      "fromKind": "service",
+      "to": "w-agg",
+      "toKind": "service",
+      "protocol": "MQTT",
+      "port": 8883,
+      "sources": [
+        "manual"
+      ],
+      "confidence": "high",
+      "crossCluster": true
+    },
+    {
+      "id": "d15",
+      "orgId": "default",
+      "from": "w-orch",
+      "fromKind": "service",
+      "to": "w-infer-a",
+      "toKind": "service",
+      "protocol": "gRPC",
+      "port": 9001,
+      "sources": [
+        "manual"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "d16",
+      "orgId": "default",
+      "from": "w-orch",
+      "fromKind": "service",
+      "to": "w-infer-b",
+      "toKind": "service",
+      "protocol": "gRPC",
+      "port": 9001,
+      "sources": [
+        "manual"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "d17",
+      "orgId": "default",
+      "from": "w-orch",
+      "fromKind": "service",
+      "to": "w-infer-r",
+      "toKind": "service",
+      "protocol": "gRPC",
+      "port": 9001,
+      "sources": [
+        "manual"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "d18",
+      "orgId": "default",
+      "from": "dev-temp-a",
+      "fromKind": "device",
+      "to": "w-mqtt-a",
+      "toKind": "service",
+      "protocol": "MQTT",
+      "port": 1883,
+      "sources": [
+        "observed"
+      ],
+      "confidence": "medium",
+      "firstSeen": "2026-09-19T08:00:00.000Z",
+      "lastSeen": "2026-09-19T08:00:00.000Z"
+    },
+    {
+      "id": "d19",
+      "orgId": "default",
+      "from": "dev-cam-a",
+      "fromKind": "device",
+      "to": "w-infer-a",
+      "toKind": "service",
+      "protocol": "RTSP",
+      "port": 8554,
+      "sources": [
+        "manual"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "d20",
+      "orgId": "default",
+      "from": "w-infer-a",
+      "fromKind": "service",
+      "to": "dev-act-a",
+      "toKind": "device",
+      "protocol": "MQTT",
+      "port": 1883,
+      "sources": [
+        "manual"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "d21",
+      "orgId": "default",
+      "from": "dev-vib-b",
+      "fromKind": "device",
+      "to": "w-mqtt-b",
+      "toKind": "service",
+      "protocol": "MQTT",
+      "port": 1883,
+      "sources": [
+        "manual"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "d22",
+      "orgId": "default",
+      "from": "dev-plc-b",
+      "fromKind": "device",
+      "to": "w-sensor-b",
+      "toKind": "service",
+      "protocol": "OPC UA",
+      "port": 4840,
+      "sources": [
+        "manual"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "applications": [
+    {
+      "id": "app-api",
+      "orgId": "default",
+      "name": "Platform API",
+      "description": "Public entry point and orchestration.",
+      "origin": "explicit",
+      "confidence": "high",
+      "source": "manual"
+    },
+    {
+      "id": "app-ml",
+      "orgId": "default",
+      "name": "ML platform",
+      "description": "Training, registry and inference across the continuum.",
+      "origin": "explicit",
+      "confidence": "high",
+      "source": "manual"
+    },
+    {
+      "id": "app-ingest",
+      "orgId": "default",
+      "name": "Sensor ingestion",
+      "description": "Edge brokers, sensors and the streaming pipeline.",
+      "origin": "part-of",
+      "confidence": "high",
+      "source": "manual"
+    }
+  ],
+  "sites": [
+    {
+      "id": "site-ber",
+      "orgId": "default",
+      "name": "Berlin",
+      "kind": "cloud-region",
+      "lat": 52.52,
+      "lng": 13.405,
+      "country": "DE",
+      "city": "Berlin",
+      "dataResidency": "EU"
+    },
+    {
+      "id": "site-ath",
+      "orgId": "default",
+      "name": "Athens DC",
+      "kind": "data-center",
+      "lat": 37.98,
+      "lng": 23.73,
+      "country": "GR",
+      "dataResidency": "EU",
+      "city": "Athens"
+    },
+    {
+      "id": "site-par",
+      "orgId": "default",
+      "name": "Paris edge site",
+      "kind": "edge-site",
+      "lat": 48.8566,
+      "lng": 2.3522,
+      "country": "FR",
+      "city": "Paris",
+      "dataResidency": "EU",
+      "trustZone": "restricted"
+    },
+    {
+      "id": "site-lab",
+      "orgId": "default",
+      "name": "Athens lab",
+      "kind": "edge-site",
+      "lat": 38.02,
+      "lng": 23.82,
+      "country": "GR",
+      "city": "Athens",
+      "dataResidency": "EU",
+      "trustZone": "restricted"
+    }
+  ],
+  "siteLinks": [
+    {
+      "id": "sl1",
+      "orgId": "default",
+      "a": "site-ber",
+      "b": "site-ath",
+      "rttMs": 38,
+      "lossPct": 0.1,
+      "mbps": 200,
+      "measuredAt": "2026-09-19T08:00:00.000Z",
+      "source": "measured"
+    },
+    {
+      "id": "sl2",
+      "orgId": "default",
+      "a": "site-ath",
+      "b": "site-par",
+      "rttMs": 49,
+      "lossPct": 0.2,
+      "mbps": 100,
+      "measuredAt": "2026-09-19T08:00:00.000Z",
+      "source": "measured"
+    },
+    {
+      "id": "sl3",
+      "orgId": "default",
+      "a": "site-ath",
+      "b": "site-lab",
+      "rttMs": 4,
+      "lossPct": 0.1,
+      "mbps": 1000,
+      "measuredAt": "2026-09-19T08:00:00.000Z",
+      "source": "measured"
+    },
+    {
+      "id": "sl4",
+      "orgId": "default",
+      "a": "site-ber",
+      "b": "site-par",
+      "rttMs": 16,
+      "lossPct": 0.1,
+      "mbps": 200,
+      "measuredAt": "2026-09-19T08:00:00.000Z",
+      "source": "measured"
+    }
+  ],
+  "externalEndpoints": [],
+  "agents": [
+    {
+      "id": "ag-patras",
+      "orgId": "default",
+      "name": "agent-paris-edge",
+      "clusterId": "cl-edge-a",
+      "version": "0.1.0",
+      "accessTier": 3,
+      "status": "approved",
+      "fingerprint": "kube-system:0d5c8b1e-6f3a-4c0e-9b52-7a1f0e2d4c11",
+      "connectingIp": "203.0.113.24",
+      "certExpiresAt": "2026-09-20T08:00:00.000Z",
+      "lastHeartbeat": "2026-09-19T08:00:00.000Z",
+      "modules": [
+        {
+          "name": "infrastructure",
+          "status": "ok"
+        },
+        {
+          "name": "services",
+          "status": "ok"
+        },
+        {
+          "name": "dependencies",
+          "status": "ok"
+        },
+        {
+          "name": "geo",
+          "status": "ok"
+        }
+      ],
+      "overlayPeers": []
+    },
+    {
+      "id": "ag-thess",
+      "orgId": "default",
+      "name": "agent-athens-lab",
+      "clusterId": "cl-edge-b",
+      "version": "0.1.0",
+      "accessTier": 2,
+      "status": "approved",
+      "fingerprint": "kube-system:9a4be7d0-31c8-4f5a-8e26-c5d0b7a93f02",
+      "connectingIp": "198.51.100.9",
+      "certExpiresAt": "2026-09-20T08:00:00.000Z",
+      "lastHeartbeat": "2026-09-19T08:00:00.000Z",
+      "modules": [
+        {
+          "name": "infrastructure",
+          "status": "ok"
+        },
+        {
+          "name": "services",
+          "status": "ok"
+        },
+        {
+          "name": "dependencies",
+          "status": "skipped",
+          "reason": "Needs access tier 3 (dependencies)"
+        },
+        {
+          "name": "geo",
+          "status": "ok"
+        }
+      ],
+      "overlayPeers": []
+    }
+  ],
+  "suggestions": [
+    {
+      "id": "sg-door",
+      "orgId": "default",
+      "kind": "device",
+      "agentId": "ag-patras",
+      "createdAt": "2026-09-19T08:00:00.000Z",
+      "status": "open",
+      "title": "Add “Door contacts” as a device group?",
+      "detail": "17 MQTT client IDs matching door-* connected to mqtt-broker on paris-edge in the last 24 h. They are not in the model yet.",
+      "apply": {
+        "type": "add-device",
+        "device": {
+          "count": 17,
+          "protocol": "MQTT",
+          "connectivity": "zigbee",
+          "status": "healthy",
+          "labels": {},
+          "orgId": "default",
+          "source": "discovered",
+          "id": "dev-door-a",
+          "name": "Door contacts",
+          "kind": "sensor",
+          "applicationId": "app-ingest",
+          "siteId": "site-pat",
+          "lastSeen": "2026-09-19T08:00:00.000Z",
+          "detectedAt": "2026-09-19T08:00:00.000Z",
+          "agentId": "ag-patras",
+          "key": "mqtt-clients:paris-edge/door-*",
+          "evidence": {
+            "kind": {
+              "signal": "17 MQTT client IDs match door-*",
+              "confidence": "medium"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "sg-weather",
+      "orgId": "default",
+      "kind": "external-endpoint",
+      "agentId": "ag-patras",
+      "createdAt": "2026-09-19T08:00:00.000Z",
+      "status": "open",
+      "title": "orchestrator calls api.weather.example:443",
+      "detail": "Seen on the wire 212 times in 24 h. No service or cluster in the model owns this address, so it would be added as an external endpoint.",
+      "apply": {
+        "type": "add-external",
+        "endpoint": {
+          "id": "ext-weather",
+          "orgId": "default",
+          "host": "api.weather.example",
+          "port": 443,
+          "kind": "saas",
+          "source": "discovered",
+          "lastSeen": "2026-09-19T08:00:00.000Z"
+        },
+        "dependency": {
+          "id": "d-ext-weather",
+          "orgId": "default",
+          "from": "w-orch",
+          "fromKind": "service",
+          "to": "ext-weather",
+          "toKind": "external",
+          "protocol": "HTTPS",
+          "port": 443,
+          "sources": [
+            "observed"
+          ],
+          "confidence": "medium",
+          "firstSeen": "2026-09-19T08:00:00.000Z",
+          "lastSeen": "2026-09-19T08:00:00.000Z"
+        }
+      }
+    }
+  ],
+  "auditLog": [
+    {
+      "id": "ev1",
+      "orgId": "default",
+      "at": "2026-09-18T09:12:00.000Z",
+      "actor": "you",
+      "action": "approve-agent",
+      "targetKind": "agent",
+      "targetId": "ag-patras",
+      "detail": "Fingerprint confirmed"
+    },
+    {
+      "id": "ev2",
+      "orgId": "default",
+      "at": "2026-09-18T09:40:00.000Z",
+      "actor": "you",
+      "action": "approve-agent",
+      "targetKind": "agent",
+      "targetId": "ag-thess",
+      "detail": "Fingerprint confirmed, tier 2"
+    }
+  ],
+  "savedViews": [
+    {
+      "id": "view-where",
+      "orgId": "default",
+      "name": "Where everything is",
+      "params": "view=map",
+      "createdAt": "2026-09-19T08:00:00.000Z"
+    },
+    {
+      "id": "view-tiers",
+      "orgId": "default",
+      "name": "Machines by tier",
+      "params": "view=infrastructure&group=tier",
+      "createdAt": "2026-09-19T08:00:00.000Z"
+    }
+  ],
+  "refs": {},
+  "schemaVersion": 4
+}
