@@ -1,7 +1,7 @@
-import { Cpu, HardDrive, Plug, Plus, Server } from 'lucide-react'
+import { Cpu, HardDrive, Plus, Server } from 'lucide-react'
 import { useState } from 'react'
+import GoToAgents from '@/components/GoToAgents'
 import ColumnPicker from '@/features/topology/components/ColumnPicker'
-import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import { ConfirmModal, NodeForm } from '@/components/forms'
 import { WithIcon } from '@/components/ui/brand'
 import { GoneRecords } from '@/components/Observations'
@@ -30,7 +30,6 @@ const NODE_COLUMNS: ColumnDef[] = [
 export default function NodesPage() {
   const { clusters, nodes, services, deleteNode } = useTopology()
   const weak = useWeakValue('node')
-  const connect = useConnectFlow()
   const [q, setQ] = useState('')
   const [clusterFilter, setClusterFilter] = useState('')
   // The panel: a node to read (or edit straight away from the pencil), or a blank one to add.
@@ -66,8 +65,8 @@ export default function NodesPage() {
       {nodes.length === 0 ? (
         <EmptyState
           title="No node is known yet"
-          description={clusters.length ? 'No machine is on record for these clusters. An agent reads nodes at the Infrastructure access level or above; or describe them by hand.' : 'No cluster is connected or declared yet, so there are no machines to list. Connect a cluster and its agent reports its nodes, or add a cluster by hand first.'}
-          action={!clusters.length && connect.canStart ? <Button variant="primary" onClick={connect.start}><Plug size={ICON_SM} /> Connect a cluster</Button> : undefined}
+          description={clusters.length ? 'No machine is on record for these clusters. An agent reads nodes at the Infrastructure access level or above; or describe them by hand.' : 'No cluster is connected or declared yet, so there are no machines to list. Start from Agents: once a cluster is connected, its agent reports its nodes. Or add a cluster by hand first.'}
+          action={!clusters.length ? <GoToAgents /> : undefined}
         />
       ) : (
         <Table>

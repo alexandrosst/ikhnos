@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Check, ChevronDown, ChevronsUpDown, ChevronUp, LogOut, Plus, Settings, ShieldCheck, Ticket, Users, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronsUpDown, ChevronUp, LogOut, Plus, ShieldCheck, Ticket, Users, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { Button, ErrorBanner, Field, ICON_MD, ICON_SM, Input, Modal } from '@/components/ui/primitives'
@@ -77,7 +77,7 @@ function JoinModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-/** Bottom of the sidebar: who is signed in and where, whether their work is saved, and the few places a person goes from their name. */
+/** Bottom of the sidebar: who is signed in and where, whether their work is saved, and where a person goes from their name: their organisation, the team and signing out. Settings is in the sidebar only, so it is not there twice. */
 // twoFactorNudgeKey namespaces the "don't ask again" flag per account, in this browser only: dismissing it
 // signed in as one person on one machine should not silence it for anyone else, and a shared machine with
 // several accounts should not have one account's dismissal hide the nudge for the next person who signs in.
@@ -233,9 +233,6 @@ export default function AccountMenu() {
               <Users size={ICON_SM} className={ICON} /> Members &amp; access
             </NavLink>
           )}
-          <NavLink to="/settings" className={ITEM} role="menuitem" data-testid="nav-settings">
-            <Settings size={ICON_SM} className={ICON} /> Settings
-          </NavLink>
           <div className="my-1 border-t border-nb-850" />
           <button onClick={pick(() => void signOut())} className={ITEM} role="menuitem" data-testid="sign-out"><LogOut size={ICON_SM} className={ICON} /> Sign out</button>
         </div>

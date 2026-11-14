@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom'
 import { feature } from 'topojson-client'
 import type { GeometryCollection, Topology } from 'topojson-specification'
 import type { Selection } from '@/features/topology/components/Inspector'
-import { EmptyState, ICON_MD, Pill, StatusDot, TierBadge } from '@/components/ui/primitives'
+import { Checkbox, EmptyState, ICON_MD, Pill, StatusDot, TierBadge } from '@/components/ui/primitives'
 import { buildMapSites, type SiteConnection, clampPan, dominantTier, groupByProximity, groupLabel, siteConnections, unplacedClusters, type MapSite } from '@/features/topology/lib/geo'
 import { applyFilter, filterActive, knownOnly, type Filter } from '@/features/topology/lib/filter'
 import { lossBand, rttLabel, clusterLoad, type ClusterLoad } from '@/lib/metrics'
@@ -519,7 +519,7 @@ export default function MapView({ selection, onSelect, filter }: { selection: Se
           <span>Numbers: sites close together, click to zoom</span>
         </div>
         <label className="pointer-events-auto flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-nb-850 bg-nb-925/95 px-3 py-1.5 text-xs text-nb-400">
-          <input type="checkbox" className="accent-[var(--color-accent)]" checked={connections} onChange={(e) => setConnections(e.target.checked)} />
+          <Checkbox checked={connections} onChange={(e) => setConnections(e.target.checked)} />
           Connections between sites
         </label>
       </div>

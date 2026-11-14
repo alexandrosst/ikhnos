@@ -491,9 +491,8 @@ export function CheckboxList({
     <div className={clsx(control, 'h-auto max-h-48 space-y-0.5 overflow-y-auto p-1.5')}>
       {options.map((o) => (
         <label key={o.value} className="flex cursor-pointer items-start gap-2 rounded px-1.5 py-1 text-sm hover:bg-nb-940">
-          <input
-            type="checkbox"
-            className="mt-0.5 size-4 shrink-0 accent-[var(--color-accent)]"
+          <Checkbox
+            className="mt-0.5"
             checked={value.includes(o.value)}
             onChange={() => toggle(o.value)}
             data-testid={`checkbox-${o.value}`}
@@ -1353,14 +1352,35 @@ export function PageHeader({ title, description, actions }: { title: string; des
   )
 }
 
-export function EmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
+/** The dashed box a list shows when it has nothing. `title` is optional: a short note inside a card ("No API tokens yet.") is the same box in a smaller size, so there is one empty look. */
+export function EmptyState({ title, description, action, 'data-testid': testId }: { title?: string; description: ReactNode; action?: ReactNode; 'data-testid'?: string }) {
   return (
-    <div className="flex flex-col items-center rounded-xl border border-dashed border-nb-850 px-6 py-14 text-center">
-      <h3 className="text-base font-medium text-nb-300">{title}</h3>
-      <p className="mt-1 max-w-md text-sm text-nb-500">{description}</p>
+    <div className={clsx('flex flex-col items-center rounded-xl border border-dashed border-nb-850 text-center', title ? 'px-6 py-14' : 'px-5 py-8')} data-testid={testId}>
+      {title && <h3 className="text-base font-medium text-nb-300">{title}</h3>}
+      <p className={clsx('max-w-md text-sm text-nb-500', title && 'mt-1')}>{description}</p>
       {action && <div className="mt-5">{action}</div>}
     </div>
   )
+}
+
+/* ---------- Filter chip ---------- */
+/** A filter that is on, shown as one chip that clears it when pressed. `label` says so for a screen reader. */
+export function ClearableChip({ children, onClear, label, testId, className }: { children: ReactNode; onClear: () => void; label: string; testId?: string; className?: string }) {
+  return (
+    <button type="button" onClick={onClear} aria-label={label} data-testid={testId} className={clsx('inline-flex h-8 max-w-64 items-center gap-1.5 rounded-lg border border-accent/40 bg-accent-soft pl-2.5 pr-2 text-xs text-accent transition-colors hover:bg-accent/20', className)}>
+      <span className="truncate">{children}</span>
+      <X size={ICON_SM} className="shrink-0" aria-hidden />
+    </button>
+  )
+}
+
+/* ---------- Checkbox and radio ---------- */
+/** The one checkbox and the one radio: the same size and the brand colour everywhere. Put the words in a <label> around it. */
+export function Checkbox({ className, ...p }: Omit<ComponentProps<'input'>, 'type'>) {
+  return <input type="checkbox" {...p} className={clsx('size-4 shrink-0 accent-[var(--color-accent)]', className)} />
+}
+export function Radio({ className, ...p }: Omit<ComponentProps<'input'>, 'type'>) {
+  return <input type="radio" {...p} className={clsx('size-4 shrink-0 accent-[var(--color-accent)]', className)} />
 }
 
 /* ---------- Table ---------- */

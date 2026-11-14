@@ -104,12 +104,12 @@ describe('AccountMenu: what opens from your name', () => {
     )
   beforeEach(() => seedConnected())
 
-  it('is short: who you are, your organisation, Members & access, Settings and Sign out', () => {
+  it('is short: who you are, your organisation, Members & access and Sign out (Settings is in the sidebar)', () => {
     renderMenu()
     open()
     const menu = screen.getByTestId('account-menu')
     expect(within(menu).getByTestId('account-identity')).toHaveTextContent('alexandrosst')
-    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent?.trim())).toEqual(['Acme', 'Members & access', 'Settings', 'Sign out'])
+    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent?.trim())).toEqual(['Acme', 'Members & access', 'Sign out'])
   })
 
   it('has moved what is personal to Settings: no password, two-factor, tokens, theme or activity entries', () => {
@@ -169,20 +169,10 @@ describe('AccountMenu: what opens from your name', () => {
     expect(screen.queryByTestId('org-switch')).toBeNull()
   })
 
-  it('Settings goes to Settings', () => {
-    function Where() {
-      return <span data-testid="where">{useLocation().pathname}</span>
-    }
-    render(
-      <MemoryRouter>
-        <Routes>
-          <Route path="*" element={<><AccountMenu /><Where /></>} />
-        </Routes>
-      </MemoryRouter>,
-    )
+  it('has no Settings item, the sidebar holds it', () => {
+    renderMenu()
     open()
-    fireEvent.click(screen.getByTestId('nav-settings'))
-    expect(screen.getByTestId('where')).toHaveTextContent('/settings')
+    expect(screen.queryByTestId('nav-settings')).toBeNull()
   })
 
   it('the second-step nudge points to Settings, and dismissing it is remembered', () => {

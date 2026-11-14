@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { useState } from 'react'
-import { Button, Field, Input, SectionLabel, TagsInput } from '@/components/ui/primitives'
+import { Button, Checkbox, Field, Input, SectionLabel, Select, TagsInput } from '@/components/ui/primitives'
 import { combinedScope, emptyScopeOverride, scopeNarrows, scopeOverlap, type ScopeOverrideInput, type TelemetryInput, type WorkloadScope } from '@/lib/install'
 import { useTopology } from '@/store/topology'
 
@@ -276,8 +276,9 @@ export default function GuidedScope({
                 <div key={kind} className="space-y-2 rounded-lg border border-nb-850 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-sm text-nb-300">{KIND_LABEL[kind]}</span>
-                    <select
-                      className="h-8 rounded-md border border-nb-800 bg-nb-925 px-2 text-xs text-nb-300"
+                    <Select
+                      className="h-8 w-72 text-xs"
+                      aria-label={`Scope for ${KIND_LABEL[kind]}`}
                       value={choice}
                       onChange={(e) => setAttachFor(kind, e.target.value)}
                       data-testid={`${testIdPrefix}-guided-attach-${kind}`}
@@ -289,7 +290,7 @@ export default function GuidedScope({
                         </option>
                       ))}
                       <option value="custom">Custom, just for this signal</option>
-                    </select>
+                    </Select>
                   </div>
                   {choice === 'custom' && (
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -419,9 +420,8 @@ function InfraScope({ value, onChange, testIdPrefix }: { value: TelemetryInput; 
   return (
     <div className="space-y-2 rounded-lg border border-nb-850 p-3" data-testid={`${testIdPrefix}-guided-infra`}>
       <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-        <input
-          type="checkbox"
-          className="mt-0.5 size-4 accent-[var(--color-accent)]"
+        <Checkbox
+          className="mt-0.5"
           checked={value.scopeInfrastructure}
           onChange={(e) => onChange({ ...value, scopeInfrastructure: e.target.checked })}
           data-testid={`${testIdPrefix}-guided-infra-follow`}

@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { ChevronRight, Plus, Radio, X } from 'lucide-react'
+import { ChevronRight, Plus, Radio } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '@/components/forms'
@@ -19,7 +19,7 @@ import type { RowMenuItem } from '@/features/pipeline/components/operators/RowMe
 import StateChip from '@/features/pipeline/components/operators/StateChip'
 import WhatToDoModal from '@/features/pipeline/components/operators/WhatToDoModal'
 import { useTelemetryFlow } from '@/features/pipeline/components/telemetry/TelemetryFlow'
-import { Button, EmptyState, ErrorBanner, ICON_SM, PageHeader, TableSkeleton } from '@/components/ui/primitives'
+import { Button, EmptyState, ErrorBanner, ClearableChip, ICON_SM, PageHeader, TableSkeleton } from '@/components/ui/primitives'
 import { api, ApiError, type CreatedOperator } from '@/lib/api'
 import { operatorFromDestination } from '@/features/pipeline/lib/destinationCatalog'
 import { CENTRAL_OPERATOR_ID, fusionSentence } from '@/features/fusion/lib/fusionStatus'
@@ -285,9 +285,7 @@ export default function PipelinePage() {
               </button>
             ))}
             {directOnly && (
-              <button onClick={() => setFilter('local')} className="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent-soft px-3 py-1 text-xs text-accent" aria-label="Stop showing only those sending direct to central" data-testid="pipeline-filter-direct">
-                Sending direct to central <X size={ICON_SM} aria-hidden />
-              </button>
+              <ClearableChip onClear={() => setFilter('local')} testId="pipeline-filter-direct" label="Stop showing only those sending direct to central">Sending direct to central</ClearableChip>
             )}
           </div>
 

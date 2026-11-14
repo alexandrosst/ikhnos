@@ -1271,7 +1271,7 @@ export default function Inspector({
               {d.stale && <p className="mt-1 text-xs text-warn">No traffic since {ago(d.lastSeen)}.</p>}
             </>
           ) : (
-            <p className="text-sm text-nb-500">{seen ? 'Seen, but no rates were reported.' : 'No traffic has been seen for this; it comes from what was declared. Turn on the traffic observer in Discovery to check it.'}</p>
+            <p className="text-sm text-nb-500">{seen ? 'Seen, but no rates were reported.' : 'No traffic has been seen for this; it comes from what was declared. Turn on the traffic observer in the options of the agent on the Agents page to check it.'}</p>
           )}
           <Maybe label="TLS server name">
             {d.sniHost ? (

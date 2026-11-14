@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { FusionDot } from '@/features/fusion/components/useFusion'
 import { withDefaultPort } from '@/features/pipeline/components/operators/OperatorAddress'
 import { OperatorHealth } from '@/features/pipeline/components/operators/OperatorHealth'
-import { Button, Field, ICON_SM, InfoTip, Input, SectionLabel, Select, Waiting } from '@/components/ui/primitives'
+import { Button, Checkbox, Field, ICON_SM, InfoTip, Input, SectionLabel, Select, Waiting } from '@/components/ui/primitives'
 import { applyDestination, defaultDestination, destinationEndpoint, destinationIsPlain, destinationKey, destinationNeedsCredential, layoutDestinations, type DestinationCatalog, type DestinationCatalogEntry } from '@/features/pipeline/lib/destinationCatalog'
 import { fusionLabel } from '@/features/fusion/lib/fusionStatus'
 import { exportProtocolLabel, type TelemetryInput } from '@/lib/install'
@@ -300,7 +300,7 @@ export default function DestinationStep({
                 </div>
                 {preset?.note && <p className="text-xs text-nb-500" data-testid={`${p}-destination-preset-note`}>{preset.note}</p>}
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input type="checkbox" className="size-4 accent-[var(--color-accent)]" checked={value.exportInsecure} onChange={(e) => set('exportInsecure', e.target.checked)} data-testid={`${testIdPrefix}-export-insecure`} />
+                  <Checkbox checked={value.exportInsecure} onChange={(e) => set('exportInsecure', e.target.checked)} data-testid={`${testIdPrefix}-export-insecure`} />
                   <span className="text-nb-300">Send without TLS (plain connection)</span>
                   <InfoTip>Only for an endpoint inside your own cluster or network. Nothing is encrypted: gRPC goes in plain text and HTTP uses http://, so anything on the path can read the data and any credential header. It does not mean &apos;trust a self-signed certificate&apos; - for that, the endpoint&apos;s CA has to be trusted by the collector.</InfoTip>
                 </label>

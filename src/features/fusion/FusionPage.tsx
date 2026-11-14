@@ -82,7 +82,7 @@ export default function FusionPage({ hops = [] }: { hops?: SendingHop[] }) {
     <>
       <PageHeader
         title="FUSION"
-        description="Prometheus, Loki and Tempo, with Grafana and a data API."
+        description="The FUSION Platform: Prometheus, Loki and Tempo, with Grafana and a data API."
         actions={on ? <OpenPages links={status.links} opening={page.opening} onOpen={(p) => void page.open(p)} /> : undefined}
       />
       <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2">

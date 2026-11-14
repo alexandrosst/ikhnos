@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { ChevronDown, Plus, X } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Button, ICON_MD, ICON_SM, InfoTip, Input } from '@/components/ui/primitives'
+import { Button, ICON_MD, ICON_SM, InfoTip, Input, Radio } from '@/components/ui/primitives'
 import { Switch } from '@/components/ui/Switch'
 import { scopeTag, tagProblems, TAG_LIMIT, type DebugVerbosity, type TagEntry, type TelemetryInput } from '@/lib/install'
 import ProcessorEditor from './ProcessorEditor'
@@ -107,7 +107,7 @@ export function DebugChoice({ value, onChange, testIdPrefix }: { value: Telemetr
       <div className="grid gap-2 sm:grid-cols-3">
         {DEBUG_CHOICES.map((c) => (
           <label key={c.id || 'off'} className={clsx('flex cursor-pointer items-start gap-2 rounded-lg border p-2.5 text-sm transition-colors', value.debugVerbosity === c.id ? 'border-accent bg-accent-soft' : 'border-nb-850 hover:border-nb-800')}>
-            <input type="radio" name={`${testIdPrefix}-debug`} className="mt-0.5 accent-[var(--color-accent)]" checked={value.debugVerbosity === c.id} onChange={() => onChange({ ...value, debugVerbosity: c.id })} data-testid={`${testIdPrefix}-debug-${c.id || 'off'}`} />
+            <Radio name={`${testIdPrefix}-debug`} className="mt-0.5" checked={value.debugVerbosity === c.id} onChange={() => onChange({ ...value, debugVerbosity: c.id })} data-testid={`${testIdPrefix}-debug-${c.id || 'off'}`} />
             <span>
               <span className="block text-nb-200">{c.label}{c.id === 'basic' && <span className="ml-1.5 text-[11px] text-nb-500">default</span>}</span>
               <span className="block text-xs text-nb-500">{c.hint}</span>

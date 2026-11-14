@@ -8,7 +8,7 @@ import { EXPOSURE_OPTIONS } from '@/features/pipeline/components/operators/Opera
 import DestinationPicker, { useEnableAndUse } from '@/features/pipeline/components/telemetry/DestinationPicker'
 import { TagRows } from '@/features/pipeline/components/telemetry/ProcessOptions'
 import ProcessorEditor from '@/features/pipeline/components/telemetry/ProcessorEditor'
-import { Button, ComboField, ErrorBanner, Field, ICON_SM, Input, Modal, SectionLabel } from '@/components/ui/primitives'
+import { Button, Checkbox, ComboField, ErrorBanner, Field, ICON_SM, Input, Modal, SectionLabel } from '@/components/ui/primitives'
 import { Switch } from '@/components/ui/Switch'
 import { api, ApiError, type CreatedOperator, type OperatorExposure } from '@/lib/api'
 import { buildDestinationCatalog, catalogOperators, destinationKey, fusionForCatalog, layoutDestinations, type DestinationCatalogEntry } from '@/features/pipeline/lib/destinationCatalog'
@@ -223,7 +223,7 @@ export default function CreateOperatorModal({
               </Field>
               {note && <p role="alert" className="text-xs text-warn sm:col-span-2">{note}</p>}
               <label className="flex cursor-pointer items-center gap-2 text-sm sm:col-span-2">
-                <input type="checkbox" className="size-4 accent-[var(--color-accent)]" checked={!!draft.destination.insecure} onChange={(e) => set({ destination: { ...draft.destination, kind: 'external', insecure: e.target.checked } })} data-testid="operator-export-insecure" />
+                <Checkbox checked={!!draft.destination.insecure} onChange={(e) => set({ destination: { ...draft.destination, kind: 'external', insecure: e.target.checked } })} data-testid="operator-export-insecure" />
                 <span className="text-nb-300">Send without TLS (plain connection)</span>
               </label>
               <Field label="Credential header" hint="Which header the destination expects its credential in.">

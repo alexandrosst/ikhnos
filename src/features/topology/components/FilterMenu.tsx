@@ -1,5 +1,5 @@
 import { Filter as FilterIcon, X } from 'lucide-react'
-import { Button, ICON_SM, MenuPanel } from '@/components/ui/primitives'
+import { Button, Checkbox, ClearableChip, ICON_SM, MenuPanel } from '@/components/ui/primitives'
 import { DEFAULT_KINDS, filterActive, filterSummary, NO_APP, SERVICE_KINDS, type Filter } from '@/features/topology/lib/filter'
 import type { Application, Cluster, ServiceKind } from '@/lib/types'
 
@@ -60,7 +60,7 @@ export default function FilterMenu({
       {items.length === 0 && <p className="px-3 py-2 text-xs text-nb-500">{empty}</p>}
       {items.map((it) => (
         <label key={it.id} className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm text-nb-300 hover:bg-nb-940">
-          <input type="checkbox" className="accent-[var(--color-accent,#f68330)]" checked={(filter[key] as string[]).includes(it.id)} onChange={() => toggle(key, it.id)} data-testid={`filter-${key}-${it.id}`} />
+          <Checkbox checked={(filter[key] as string[]).includes(it.id)} onChange={() => toggle(key, it.id)} data-testid={`filter-${key}-${it.id}`} />
           <span className="min-w-0 flex-1 truncate">{it.name}</span>
           {it.hint && <span className="shrink-0 text-xs text-nb-500">{it.hint}</span>}
         </label>
@@ -94,7 +94,7 @@ export default function FilterMenu({
           <div className="px-3 pb-1 pt-3 text-xs uppercase tracking-wide text-nb-500">Workloads</div>
           {KIND_CHOICES.map((c) => (
             <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm text-nb-300 hover:bg-nb-940">
-              <input type="checkbox" className="accent-[var(--color-accent,#f68330)]" checked={c.kinds.every((k) => shownKinds.has(k))} onChange={() => toggleKinds(c.kinds)} data-testid={`filter-kinds-${c.id}`} />
+              <Checkbox checked={c.kinds.every((k) => shownKinds.has(k))} onChange={() => toggleKinds(c.kinds)} data-testid={`filter-kinds-${c.id}`} />
               <span className="min-w-0 flex-1 truncate">{c.name}</span>
               {c.hint && <span className="shrink-0 text-xs text-nb-500">{c.hint}</span>}
             </label>
@@ -112,11 +112,6 @@ export function FilterChip({ filter, onClear }: { filter: Filter; onClear: () =>
   const text = filterSummary(filter)
   if (!text) return null
   return (
-    <span className="inline-flex h-8 max-w-48 items-center gap-1 rounded-lg bg-accent-soft pl-2.5 pr-1 text-xs text-accent" data-testid="filter-chip">
-      <span className="truncate" title={text}>{text}</span>
-      <button type="button" onClick={onClear} className="grid size-5 shrink-0 place-items-center rounded hover:bg-accent/20" aria-label={`Clear the filter (${text})`} data-testid="filter-chip-clear">
-        <X size={12} />
-      </button>
-    </span>
+    <ClearableChip onClear={onClear} testId="filter-chip" label={`Clear the filter (${text})`}>{text}</ClearableChip>
   )
 }

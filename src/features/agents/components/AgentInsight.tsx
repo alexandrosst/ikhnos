@@ -4,6 +4,7 @@ import { Info } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Field, TagsInput } from '@/components/ui/primitives'
 import { CopyCommand } from '@/components/ui/CopyCommand'
+import { Switch } from '@/components/ui/Switch'
 import { ServerCommand } from '@/components/ui/ServerCommand'
 import TierLevels from '@/components/TierLevels'
 import { upgradeRequest, useAgentUpgradeCommand } from '@/lib/agentUpgrade'
@@ -74,22 +75,6 @@ const TONE: Record<string, string> = { ok: 'text-ok', warn: 'text-warn', paused:
 
 const INTENT_WORDS =
   "This is the agent's observability intent: the scope of what it reads and reports. It can only reduce what this agent shares. What it may read at most is set by whoever owns the cluster, when it was installed (its access tier, permissions and scope), and this server cannot exceed it: the agent checks that itself and ignores anything that would widen it."
-
-function Switch({ on, onChange, label, testId }: { on: boolean; onChange: (on: boolean) => void; label: string; testId?: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      onClick={() => onChange(!on)}
-      className={clsx('relative h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent', on ? 'bg-accent' : 'bg-nb-700')}
-      data-testid={testId}
-    >
-      <span className={clsx('absolute top-0.5 size-4 rounded-full bg-white transition-all', on ? 'left-[18px]' : 'left-0.5')} aria-hidden />
-    </button>
-  )
-}
 
 /**
  * What an agent may read and report, and what it does now, in one place. The level it is approved for, what that leaves in view (namespaces,
@@ -248,7 +233,7 @@ export function AccessPanel({ agent, diagnostics: d, consent, editable }: { agen
               </span>
               {editable && (
                 <Switch
-                  on={!paused.includes(c.id)}
+                  checked={!paused.includes(c.id)}
                   onChange={(on) => {
                     setPaused(on ? paused.filter((x) => x !== c.id) : [...paused, c.id])
                     setSaved(false)

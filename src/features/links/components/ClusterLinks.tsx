@@ -2,7 +2,8 @@ import clsx from 'clsx'
 import { ArrowLeftRight, Check as CheckIcon, ChevronRight, CircleAlert, CircleDashed, HelpCircle, Pencil, Plus } from 'lucide-react'
 import { useEffect, useId, useMemo, useState } from 'react'
 import { ConfirmModal } from '@/components/forms/ConfirmModal'
-import { Button, ErrorBanner, Field, ICON_MD, ICON_SM, Modal, Pill, Select, SkeletonLines, Table, Td, Th } from '@/components/ui/primitives'
+import { Button, EmptyState, ErrorBanner, Field, ICON_MD, ICON_SM, Modal, Pill, Select, SkeletonLines, Table, Td, Th } from '@/components/ui/primitives'
+import { Switch } from '@/components/ui/Switch'
 import { api, atLeast } from '@/lib/api'
 import {
   LINK_REQUIREMENT, PRESETS, STEP_MARK, VIA_HINT, VIA_OPTIONS, clockWords, clusterChecks, costLine, firstLines, hasPair, latestView, newPair, pairKey, presetOf, probeRecent, removePair, replacePair, runnerOf, runsFromWords, setupSummary, throughputChecks, throughputFor, throughputOn, throughputSummary, uncoveredChecks, uncoveredNotes,
@@ -113,9 +114,7 @@ export default function ClusterLinks() {
           <SkeletonLines lines={3} />
         )
       ) : pairs.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-nb-850 px-5 py-8 text-center text-sm text-nb-400" data-testid="no-pairs">
-          No cluster pair is being measured yet.{admin ? ' Add one to see delay, loss and capacity between two clusters.' : ' An administrator can add one.'}
-        </div>
+        <EmptyState data-testid="no-pairs" description={`No cluster pair is being measured yet.${admin ? ' Add one to see delay, loss and capacity between two clusters.' : ' An administrator can add one.'}`} />
       ) : (
         <Table>
           <thead>
@@ -336,17 +335,7 @@ function Choice({ label, text, on, onChange, fixed }: { label: string; text: str
         <div className="text-sm font-medium text-nb-300">{label}</div>
         <p id={textId} className="mt-1 text-xs leading-relaxed text-nb-500">{text}</p>
       </div>
-      <button
-        role="switch"
-        aria-checked={on}
-        aria-label={label}
-        aria-describedby={textId}
-        disabled={fixed}
-        onClick={() => onChange?.(!on)}
-        className={clsx('relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-60', on ? 'bg-ok' : 'bg-nb-700')}
-      >
-        <span className={clsx('absolute top-0.5 size-4 rounded-full transition-all', on ? 'left-[18px] bg-nb-900' : 'left-0.5 bg-nb-300')} />
-      </button>
+      <span className="mt-0.5"><Switch checked={on} label={label} describedBy={textId} disabled={fixed} onChange={(v) => onChange?.(v)} tone="ok" /></span>
     </div>
   )
 }

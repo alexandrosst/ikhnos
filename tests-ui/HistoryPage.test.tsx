@@ -64,27 +64,32 @@ function renderField(over: Partial<AppSettings> = {}) {
   )
 }
 
+const unitIs = (label: string) => {
+  fireEvent.click(screen.getByTestId('setting-flowStaleUnit'))
+  fireEvent.click(screen.getByRole('option', { name: label }))
+}
+
 describe('RecordingPanel · Link is quiet after (flowStaleSeconds)', () => {
   test('300s shows as "5 minutes", not "300 seconds" or a fraction of an hour', () => {
     renderField({ flowStaleSeconds: 300 })
     expect(screen.getByTestId('setting-flowStaleSeconds')).toHaveValue(5)
-    expect(screen.getByTestId('setting-flowStaleUnit')).toHaveValue('60')
+    expect(screen.getByTestId('setting-flowStaleUnit')).toHaveTextContent('minutes')
   })
 
   test('a value that does not divide evenly into a larger unit falls back to seconds', () => {
     renderField({ flowStaleSeconds: 97 })
     expect(screen.getByTestId('setting-flowStaleSeconds')).toHaveValue(97)
-    expect(screen.getByTestId('setting-flowStaleUnit')).toHaveValue('1')
+    expect(screen.getByTestId('setting-flowStaleUnit')).toHaveTextContent('seconds')
   })
 
   test('switching the unit converts the displayed number, keeping the underlying seconds the same', () => {
     renderField({ flowStaleSeconds: 300 })
-    fireEvent.change(screen.getByTestId('setting-flowStaleUnit'), { target: { value: '1' } })
+    unitIs('seconds')
     expect(screen.getByTestId('setting-flowStaleSeconds')).toHaveValue(300)
-    fireEvent.change(screen.getByTestId('setting-flowStaleUnit'), { target: { value: '3600' } })
+    unitIs('hours')
     // 300s doesn't divide evenly into hours; the nearest whole hour is what a real person would expect
     // from a unit switch, not a blocked/invalid field.
-    expect(screen.getByTestId('setting-flowStaleUnit')).toHaveValue('3600')
+    expect(screen.getByTestId('setting-flowStaleUnit')).toHaveTextContent('hours')
   })
 
   test('typing 0 (or leaving it non-positive) is rejected and blocks Save', () => {
@@ -102,7 +107,7 @@ describe('RecordingPanel · Link is quiet after (flowStaleSeconds)', () => {
 
   test('Save sends the product of the typed number and the selected unit, in seconds', async () => {
     renderField({ flowStaleSeconds: 86400 }) // starts at 1 day
-    fireEvent.change(screen.getByTestId('setting-flowStaleUnit'), { target: { value: '1' } }) // switch to seconds
+    unitIs('seconds') // switch to seconds
     fireEvent.change(screen.getByTestId('setting-flowStaleSeconds'), { target: { value: '90' } })
     fireEvent.click(screen.getByTestId('save-settings'))
     await waitFor(() =>

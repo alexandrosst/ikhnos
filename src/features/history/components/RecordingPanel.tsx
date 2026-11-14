@@ -145,8 +145,9 @@ export default function RecordingPanel({ admin, conn, onClose }: { admin: boolea
           <Field label="Link is quiet after" hint={quietValid ? 'How long an observed link may go unseen before it is shown as quiet.' : 'Between 1 second and 30 days.'} hintId="setting-flowStaleSeconds-hint">
             <div className="flex items-center gap-2">
               <Input type="number" inputMode="decimal" value={quiet} disabled={!admin} aria-invalid={!quietValid} aria-describedby="setting-flowStaleSeconds-hint" onChange={(e) => { touch(); setQuiet(e.target.value) }} className="w-24" data-testid="setting-flowStaleSeconds" />
-              <select
-                className="h-9 rounded-md border border-nb-800 bg-nb-925 px-2 text-sm text-nb-300 disabled:cursor-not-allowed disabled:opacity-50"
+              <Select
+                className="w-32"
+                aria-label="Unit"
                 value={unit}
                 disabled={!admin}
                 onChange={(e) => {
@@ -159,7 +160,7 @@ export default function RecordingPanel({ admin, conn, onClose }: { admin: boolea
                 data-testid="setting-flowStaleUnit"
               >
                 {FLOW_STALE_UNITS.map((u) => <option key={u.label} value={u.seconds}>{u.label}</option>)}
-              </select>
+              </Select>
             </div>
           </Field>
         </div>

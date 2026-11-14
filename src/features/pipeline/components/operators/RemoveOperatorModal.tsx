@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CopyCommand } from '@/components/ui/CopyCommand'
-import { Button, ErrorBanner, Modal } from '@/components/ui/primitives'
+import { Button, Checkbox, ErrorBanner, Modal } from '@/components/ui/primitives'
 import { api, ApiError, type OperatorRemoval } from '@/lib/api'
 import type { OperatorUsedBy, RegionalOperator } from '@/lib/types'
 import { useServer } from '@/store/server'
@@ -95,7 +95,7 @@ export default function RemoveOperatorModal({ operator, mode, onClose, onDone }:
       )}
       {needsAck && (
         <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm">
-          <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" checked={ack} onChange={(e) => setAck(e.target.checked)} data-testid="operator-remove-force" />
+          <Checkbox className="mt-0.5" checked={ack} onChange={(e) => setAck(e.target.checked)} data-testid="operator-remove-force" />
           <span className="text-nb-300">I understand that what depends on it stops working</span>
         </label>
       )}

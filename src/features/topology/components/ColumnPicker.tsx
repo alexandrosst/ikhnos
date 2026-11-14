@@ -1,6 +1,6 @@
 import { Columns3 } from 'lucide-react'
 import { useState } from 'react'
-import { Button, ICON_SM, MenuPanel } from '@/components/ui/primitives'
+import { Button, Checkbox, ICON_SM, MenuPanel } from '@/components/ui/primitives'
 import type { ColumnDef, ColumnState } from '@/features/topology/lib/columns'
 
 /**
@@ -31,7 +31,7 @@ export default function ColumnPicker({ columns, state }: { columns: ColumnDef[];
         <div className="max-h-[22rem] overflow-y-auto p-1">
           {columns.map((c) => (
             <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm text-nb-300 hover:bg-nb-940">
-              <input type="checkbox" className="accent-[var(--color-accent,#f68330)]" checked={isVisible(c.key)} onChange={() => onToggle(c.key)} data-testid={`column-${c.key}`} />
+              <Checkbox checked={isVisible(c.key)} onChange={() => onToggle(c.key)} data-testid={`column-${c.key}`} />
               <span className="min-w-0 flex-1 truncate">{c.label}</span>
             </label>
           ))}

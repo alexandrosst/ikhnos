@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Input } from '@/components/ui/primitives'
+import { Button, Input, Radio } from '@/components/ui/primitives'
 import { ExposeCard, withDefaultPort } from '@/features/pipeline/components/operators/OperatorAddress'
 import type { RegionalOperator } from '@/lib/types'
 import ServerClusterCard from '@/features/pipeline/components/operators/ServerClusterCard'
@@ -58,7 +58,7 @@ export default function SenderAddress({ operator, value, onChange, testId, agent
   const row = (key: string, selected: boolean, pick: () => void, main: string, sub: string, address: string) => (
     <li key={key} className="flex items-start gap-2 rounded-md border border-nb-800 px-3 py-2 text-sm has-[:checked]:border-accent/60" data-testid={`${testId}-option`}>
       <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
-        <input type="radio" name={`${testId}-pick`} className="mt-1 size-4 accent-[var(--color-accent)]" checked={selected} onChange={pick} aria-label={main} />
+        <Radio name={`${testId}-pick`} className="mt-1" checked={selected} onChange={pick} aria-label={main} />
         <span className="min-w-0">
           <span className="block truncate font-mono text-xs text-nb-100">{main}</span>
           <span className="block text-xs text-nb-500">{sub}</span>

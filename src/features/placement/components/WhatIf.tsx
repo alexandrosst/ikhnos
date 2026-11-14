@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { Plus, Trash2, TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button, ICON_MD, ICON_SM, Select } from '@/components/ui/primitives'
+import { Button, EmptyState, ICON_MD, ICON_SM, Select } from '@/components/ui/primitives'
 import { bytesPerSec } from '@/lib/observed'
 import { evacuate, isMovableKind, whatIf, type Evacuation } from '@/lib/placement/engine'
 import type { Move, Policy } from '@/lib/placement/types'
@@ -105,7 +105,7 @@ export default function WhatIf({ world, policy, initial }: { world: World; polic
         </div>
       </Card>
 
-      {!result && <p className="rounded-xl border border-dashed border-nb-850 px-5 py-8 text-center text-sm text-nb-500">Add a move, or ask what would happen if a cluster went away. Nothing is changed anywhere; this only calculates.</p>}
+      {!result && <EmptyState description="Add a move, or ask what would happen if a cluster went away. Nothing is changed anywhere; this only calculates." />}
 
       {result && (
         <>

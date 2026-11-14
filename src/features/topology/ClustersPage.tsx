@@ -1,7 +1,7 @@
-import { Plug, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
+import GoToAgents from '@/components/GoToAgents'
 import ColumnPicker from '@/features/topology/components/ColumnPicker'
-import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import { ClusterForm, ConfirmModal } from '@/components/forms'
 import PlacementHint from '@/features/placement/components/PlacementHint'
 import { DistroIcon, Place, ProviderIcon, WithIcon } from '@/components/ui/brand'
@@ -35,7 +35,6 @@ export default function ClustersPage() {
   useAutoPlaceClusters()
   const placement = usePlacementSuggestions().byCluster
   const weak = useWeakValue('cluster')
-  const connect = useConnectFlow()
   const [q, setQ] = useState('')
   // The panel: a cluster to read (or edit straight away from the pencil), or a blank one to add.
   const [panel, setPanel] = useState<{ cluster: Cluster | null; edit: boolean } | null>(null)
@@ -64,10 +63,10 @@ export default function ClustersPage() {
       {clusters.length === 0 ? (
         <EmptyState
           title="No cluster is connected or declared yet"
-          description="Connect a cluster and its agent reports the cluster, its nodes and its services, or describe one by hand if nothing can run inside it."
+          description="Clusters appear here once an agent reports them. Start from Agents, or describe one by hand if nothing can run inside it."
           action={
             <div className="flex flex-wrap justify-center gap-2">
-              {connect.canStart && <Button variant="primary" onClick={connect.start}><Plug size={ICON_SM} /> Connect a cluster</Button>}
+              <GoToAgents />
               <Button onClick={() => setPanel({ cluster: null, edit: true })}><Plus size={ICON_SM} /> Add manually</Button>
             </div>
           }

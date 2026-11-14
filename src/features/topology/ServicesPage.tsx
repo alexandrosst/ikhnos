@@ -1,12 +1,12 @@
-import { Plug, Plus, X } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import GoToAgents from '@/components/GoToAgents'
 import ColumnPicker from '@/features/topology/components/ColumnPicker'
-import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import { ConfirmModal, ServiceForm } from '@/components/forms'
 import { MobilityChip, useMoveModel } from '@/features/placement/components/MobilityPanel'
 import { GoneRecords } from '@/components/Observations'
-import { Button, ChipList, EmptyState, GuessDot, ICON_SM, PageHeader, Pill, Select, StatusDot, Table, Td, Th } from '@/components/ui/primitives'
+import { Button, ChipList, EmptyState, ClearableChip, GuessDot, ICON_SM, PageHeader, Pill, Select, StatusDot, Table, Td, Th } from '@/components/ui/primitives'
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
 import { OriginLine } from '@/components/entity/parts'
 import { observation } from '@/lib/provenance'
@@ -28,7 +28,6 @@ export default function ServicesPage() {
   const { clusters, nodes, services, dependencies, applications, deleteService } = useTopology()
   const { forService } = useMoveModel()
   const weak = useWeakValue('service')
-  const connect = useConnectFlow()
   const [q, setQ] = useState('')
   const columns = useColumnVisibility('services')
   // The cluster and namespace filters live in the address (?cluster=…&namespace=…), so the Namespaces page can link here and a filtered view can be shared.
@@ -67,9 +66,7 @@ export default function ServicesPage() {
           ))}
         </Select>
         {nsFilter && (
-          <button onClick={() => setParam('namespace', '')} className="inline-flex h-9 items-center gap-2 rounded-md border border-accent/40 bg-accent-soft px-3 text-sm text-accent hover:bg-accent/20" data-testid="namespace-filter" aria-label={`Namespace ${nsFilter}: clear this filter`}>
-            Namespace {nsFilter} <X size={ICON_SM} aria-hidden />
-          </button>
+          <ClearableChip onClear={() => setParam('namespace', '')} testId="namespace-filter" label={`Namespace ${nsFilter}: clear this filter`}>Namespace {nsFilter}</ClearableChip>
         )}
         <ColumnPicker columns={SERVICE_COLUMNS} state={columns} />
       </div>
@@ -77,8 +74,8 @@ export default function ServicesPage() {
       {services.length === 0 ? (
         <EmptyState
           title="No service is known yet"
-          action={!clusters.length && connect.canStart ? <Button variant="primary" onClick={connect.start}><Plug size={ICON_SM} /> Connect a cluster</Button> : undefined}
-          description={clusters.length ? 'No service is on record for these clusters. Connect an agent that reads at the Services access level, or add one by hand.' : 'No cluster is connected or declared yet. Connect a cluster and its agent reports its services, or add a cluster by hand first.'} />
+          action={!clusters.length ? <GoToAgents /> : undefined}
+          description={clusters.length ? 'No service is on record for these clusters. Connect an agent that reads at the Services access level, or add one by hand.' : 'No cluster is connected or declared yet. Start from Agents: once a cluster is connected, its agent reports its services. Or add a cluster by hand first.'} />
       ) : (
         <Table>
           <thead>
@@ -135,7 +132,6 @@ export default function ServicesPage() {
       )}
       <GoneRecords kinds={['service', 'namespace']} className="mt-8" />
 
-      {connect.dialogs}
       {panel && (
         <ServiceForm
           key={panel.service?.id ?? 'new'}

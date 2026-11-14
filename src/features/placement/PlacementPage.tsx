@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import GoToAgents from '@/components/GoToAgents'
 import { Tabs } from '@/components/ui/Tabs'
 import { Info } from 'lucide-react'
 import { useMemo } from 'react'
@@ -82,7 +83,7 @@ export default function PlacementPage() {
         <EmptyState
           title="Placement needs somewhere to compare"
           description="Advice needs at least two clusters and some services. Connect clusters and let their agents report, then come back."
-          action={<Link className="text-sm text-accent hover:underline" to="/agents?tab=suggestions">Go to suggestions</Link>}
+          action={<GoToAgents />}
         />
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">

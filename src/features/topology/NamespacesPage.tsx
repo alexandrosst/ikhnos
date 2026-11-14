@@ -1,15 +1,14 @@
-import { ArrowRight, Plug } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
+import GoToAgents from '@/components/GoToAgents'
 import ColumnPicker from '@/features/topology/components/ColumnPicker'
 import { GoneRecords } from '@/components/Observations'
 import { DeclaredLine, InferredLine, ObservedLine } from '@/components/entity/parts'
-import { Button, EmptyState, ICON_SM, PageHeader, Select, Table, Td, Th } from '@/components/ui/primitives'
+import { EmptyState, ICON_SM, PageHeader, Select, Table, Td, Th } from '@/components/ui/primitives'
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
 import { buildNamespaceRows, excludedWords, rowMatches, scopeLabel, type NamespaceRow } from '@/features/topology/lib/namespaces'
 import { TONE_CLASS } from '@/lib/provenance'
-import { useServer } from '@/store/server'
 import { useTopology } from '@/store/topology'
 import { SearchBox } from './shared'
 
@@ -25,8 +24,6 @@ const NAMESPACE_COLUMNS: ColumnDef[] = [
 
 export default function NamespacesPage() {
   const { clusters, namespaces, services, agents } = useTopology()
-  const connect = useConnectFlow()
-  const connected = useServer((s) => s.status === 'connected')
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   const [clusterFilter, setClusterFilter] = useState('')
@@ -60,10 +57,10 @@ export default function NamespacesPage() {
           title={live.length === 0 ? 'No cluster is connected yet' : 'No namespaces are known yet'}
           description={
             live.length === 0
-              ? 'Namespaces are read from a cluster by its agent, so there is nothing to list until one is connected.'
+              ? 'Namespaces are read from a cluster by its agent, so there is nothing to list until one is connected. Start from Agents.'
               : 'The clusters here have no namespaces or services on record. An agent below the Services access level does not read them.'
           }
-          action={live.length === 0 && (!connected || connect.canStart) ? <Button variant="primary" onClick={connect.start}><Plug size={ICON_SM} /> Connect a cluster</Button> : undefined}
+          action={live.length === 0 ? <GoToAgents /> : undefined}
         />
       ) : (
         <>
@@ -139,7 +136,6 @@ export default function NamespacesPage() {
       )}
 
       <GoneRecords kinds={['namespace']} className="mt-8" />
-      {connect.dialogs}
     </>
   )
 }

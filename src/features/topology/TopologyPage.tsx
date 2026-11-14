@@ -40,6 +40,7 @@ import { edgeTypes } from '@/features/topology/components/OffsetEdge'
 import { AutoMiniMap } from '@/features/topology/components/AutoMiniMap'
 import { SquareRoutes } from '@/features/topology/components/SquareRoutes'
 import { Button, EmptyState, ICON_MD, ICON_SM, MenuPanel, Select, SkeletonBlock } from '@/components/ui/primitives'
+import { Switch } from '@/components/ui/Switch'
 import { PRESS_CLASS } from '@/components/ui/buttonClass'
 import FilterMenu, { FilterChip } from '@/features/topology/components/FilterMenu'
 import { computeFocus } from '@/features/topology/lib/focus'
@@ -107,21 +108,14 @@ function HoverStyle({ edge }: { edge: { id: string; source: string; target: stri
 
 function Toggle({ checked, onChange, label, disabled, title, lens }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean; title?: string; lens?: boolean }) {
   return (
-    <button
-      role="switch"
-      aria-checked={checked}
-      aria-disabled={disabled}
-      disabled={disabled}
+    <label
       title={title}
-      onClick={() => onChange(!checked)}
-      className="flex w-full items-center gap-2.5 whitespace-nowrap rounded-md px-2 py-1.5 text-left text-sm text-nb-300 hover:bg-nb-930 disabled:opacity-50 disabled:hover:bg-transparent"
+      className={clsx('flex w-full items-center gap-2.5 whitespace-nowrap rounded-md px-2 py-1.5 text-left text-sm text-nb-300', disabled ? 'opacity-50' : 'cursor-pointer hover:bg-nb-930')}
     >
-      <span className={clsx('relative h-4 w-7 shrink-0 rounded-full transition-colors', checked ? 'bg-accent' : 'bg-nb-800')}>
-        <span className={clsx('absolute top-0.5 size-3 rounded-full bg-white transition-all', checked ? 'left-3.5' : 'left-0.5')} />
-      </span>
+      <Switch size="sm" checked={checked} disabled={disabled} onChange={onChange} label={label} />
       {lens && <ScanEye size={ICON_SM} className="shrink-0 text-accent" aria-hidden />}
       {label}
-    </button>
+    </label>
   )
 }
 

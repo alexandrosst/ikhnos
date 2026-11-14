@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { CircleAlert, Gauge, Plus, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Button, Field, ICON_MD, ICON_SM, Input, Pill, Select, Table, Td, Th } from '@/components/ui/primitives'
+import { Button, Checkbox, EmptyState, Field, ICON_MD, ICON_SM, Input, Pill, Select, Table, Td, Th } from '@/components/ui/primitives'
 import type { ProbeTarget } from '@/lib/history'
 import { hasRoundTrip } from '@/lib/metrics'
 import { ago } from '@/lib/observed'
@@ -66,10 +66,7 @@ export default function MeasuredPaths() {
       </p>
 
       {ordered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-nb-850 px-5 py-8 text-center text-sm text-nb-400" data-testid="no-paths">
-          Nothing has been measured yet.{' '}
-          {status !== 'connected' ? 'Paths are measured by agents reporting to an Ikhnos server.' : measuring.length === 0 ? 'Enable measurements on an agent to start.' : 'Results appear within a couple of minutes.'}
-        </div>
+        <EmptyState data-testid="no-paths" description={`Nothing has been measured yet. ${status !== 'connected' ? 'Paths are measured by agents reporting to an Ikhnos server.' : measuring.length === 0 ? 'Enable measurements on an agent to start.' : 'Results appear within a couple of minutes.'}`} />
       ) : (
         <Table>
           <thead>
@@ -145,9 +142,8 @@ function Targets({ admin, clusterOptions, clusters }: { admin: boolean; clusterO
       <h3 className="mb-1 text-sm font-medium text-nb-300">Addresses you asked to be measured</h3>
       <p className="mb-3 text-xs text-nb-500">For places no cluster talks to yet, such as a site you plan to move something to. Loopback, link-local and metadata addresses are always refused.</p>
       <label className="mb-3 flex items-start gap-2.5 text-sm">
-        <input
-          type="checkbox"
-          className="mt-0.5 size-4 accent-[var(--color-accent)]"
+        <Checkbox
+          className="mt-0.5"
           checked={settings.measureObserved}
           disabled={!admin || busy}
           onChange={(e) => void write(settings.probeTargets, e.target.checked)}

@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { useState } from 'react'
 import { Bug, Layers, Leaf, Server, type LucideIcon } from 'lucide-react'
-import { Field, ICON_SM, InfoTip, Input, Select } from '@/components/ui/primitives'
+import { Checkbox, Field, ICON_SM, InfoTip, Input, Select } from '@/components/ui/primitives'
 import { Switch } from '@/components/ui/Switch'
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import { LINK_REQUIREMENT } from '@/lib/clusterLinks'
@@ -84,7 +84,7 @@ export function ClusterLinksFields({ value, onChange, testIdPrefix }: { value: T
         </KeptNote>
       )}
       <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-        <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" ref={undetermined(optionsKept && !value.clusterLinksRunning)} checked={value.clusterLinksProbe} onChange={(e) => set('clusterLinksProbe', e.target.checked)} data-testid={`${testIdPrefix}-links-probe`} />
+        <Checkbox className="mt-0.5" ref={undetermined(optionsKept && !value.clusterLinksRunning)} checked={value.clusterLinksProbe} onChange={(e) => set('clusterLinksProbe', e.target.checked)} data-testid={`${testIdPrefix}-links-probe`} />
         <span>
           <span className="text-nb-300">Probing</span>
           <span className="block text-xs text-nb-500">Small packets in both directions: delay, jitter and loss per direction, the path’s largest packet size and route changes. Runs a pod of its own and a responder on every node. The clusters of a pair must reach each other’s nodes on TCP 8861 and UDP 18900–18919 with no address translation (NAT) in between, on the same ports in every cluster. Without it only the real traffic is watched.</span>
@@ -92,7 +92,7 @@ export function ClusterLinksFields({ value, onChange, testIdPrefix }: { value: T
       </label>
       {value.clusterLinksProbe && (
         <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-          <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" ref={undetermined(optionsKept && !value.clusterLinksRunning)} checked={value.clusterLinksThroughput} onChange={(e) => set('clusterLinksThroughput', e.target.checked)} data-testid={`${testIdPrefix}-links-throughput`} />
+          <Checkbox className="mt-0.5" ref={undetermined(optionsKept && !value.clusterLinksRunning)} checked={value.clusterLinksThroughput} onChange={(e) => set('clusterLinksThroughput', e.target.checked)} data-testid={`${testIdPrefix}-links-throughput`} />
           <span>
             <span className="text-nb-300">Throughput tests</span>
             <span className="block text-xs text-nb-500">Lets this cluster run and answer iperf3 tests, which fill the link for a few seconds. They run only on the pairs that ask for them (on Sites, adding a pair between two clusters that both have this ticked offers them ticked), within a daily budget, and wait while the link is busy.</span>
@@ -141,9 +141,8 @@ export function AcceleratorsFields({ value, onChange, testIdPrefix }: { value: T
       )}
       {accelerators?.namespaceScopable && (
         <label className="flex cursor-pointer items-start gap-2.5 text-sm sm:col-span-2">
-          <input
-            type="checkbox"
-            className="mt-0.5 size-4 accent-[var(--color-accent)]"
+          <Checkbox
+            className="mt-0.5"
             checked={value.acceleratorsApplyScope}
             onChange={(e) => set('acceleratorsApplyScope', e.target.checked)}
             data-testid={`${testIdPrefix}-accelerators-apply-scope`}

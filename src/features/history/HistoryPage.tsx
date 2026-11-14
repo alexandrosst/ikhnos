@@ -276,7 +276,7 @@ function BusiestLinks({ conn }: { conn: Conn }) {
       {rates === null ? (
         <p className="text-sm text-nb-500">Reading…</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-nb-500">No traffic figures yet. They come from the traffic observer, from at least two recordings; see Discovery to switch it on.</p>
+        <p className="text-sm text-nb-500">No traffic figures yet. They come from the traffic observer, from at least two recordings. Switch traffic observation on for an agent on the Agents page.</p>
       ) : (
         <ul className="space-y-3" title={`Worked out from ${snapshots} recordings; the average covers the time between them, so a link that was busy for a minute in an hour shows a low average.`}>
           {rows.map((r) => {

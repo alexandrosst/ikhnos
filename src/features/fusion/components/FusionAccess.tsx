@@ -4,7 +4,7 @@ import { CopyCommand } from '@/components/ui/CopyCommand'
 import { ConfirmModal } from '@/components/forms'
 import { FusionSection, ROWS } from '@/features/fusion/components/FusionSection'
 import { buttonClass } from '@/components/ui/buttonClass'
-import { Button, CheckboxList, CopyValue, ErrorBanner, Field, ICON_SM, Input, Modal, Pill, Select, TagsInput } from '@/components/ui/primitives'
+import { Button, CheckboxList, CopyValue, EmptyState, ErrorBanner, Field, ICON_SM, Input, Modal, Pill, Select, TagsInput } from '@/components/ui/primitives'
 import { shArg, shQuote } from '@/lib/install'
 import { useHoldReload } from '@/lib/useHoldReload'
 import { api, ApiError, type CreatedFusionAccessToken, type FusionAccessToken, type FusionSignal } from '@/lib/api'
@@ -121,7 +121,7 @@ export function FusionAccess() {
       }
     >
       {error && <ErrorBanner className="mb-3">{error}</ErrorBanner>}
-      {tokens && tokens.length === 0 && !error && <p className="rounded-xl border border-dashed border-nb-850 px-5 py-8 text-center text-sm text-nb-500" data-testid="fusion-token-empty">No API tokens yet.</p>}
+      {tokens && tokens.length === 0 && !error && <EmptyState data-testid="fusion-token-empty" description="No API tokens yet." />}
       {tokens && tokens.length > 0 && (
         <ul className={ROWS} data-testid="fusion-token-list">
           {tokens.map((t) => (
