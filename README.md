@@ -10,7 +10,7 @@
 <p align="center">Full-stack observability for your whole landscape, from cloud to far edge.</p>
 
 <p align="center">
-  <a href="https://github.com/alexandrosst/ikhnos/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alexandrosst/ikhnos/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/alexandrosst/ikhnos/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alexandrosst/ikhnos/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <a href="https://alexandrosst.github.io/ikhnos/"><img alt="Documentation" src="https://img.shields.io/badge/docs-alexandrosst.github.io%2Fikhnos-f68330"></a>
   <a href="LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-blue.svg"></a>
   <a href="backend/go.mod"><img alt="Go 1.26" src="https://img.shields.io/badge/backend-Go%201.26-00ADD8?logo=go&logoColor=white"></a>
@@ -28,8 +28,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs-site/static/img/readme/topology-loop-dark.gif">
-    <img alt="Sites in Berlin, Paris and Athens on a map, with the traffic between them moving along the links" src="docs-site/static/img/readme/topology-loop-light.gif" width="920">
+    <source media="(prefers-color-scheme: dark)" srcset="docs-site/static/img/readme/topology-loop-dark.webp">
+    <img alt="Sites in Berlin, Paris and Athens on a map, with the traffic between them moving along the links" src="docs-site/static/img/readme/topology-loop-light.webp" width="920">
   </picture>
   <br>
   <sub>Berlin, Paris and Athens on the built-in sample landscape (made-up clusters, not real infrastructure). The dashes move with the traffic between sites.</sub>
@@ -67,23 +67,25 @@ It is built on four commitments:
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs-site/static/img/readme/architecture-dark.svg">
-    <img alt="Agents in cloud, edge and far-edge clusters dial out over mutual TLS to one Ikhnos server; a browser reads the server over HTTPS; FUSION and a regional operator are optional" src="docs-site/static/img/readme/architecture-light.svg" width="900">
+    <source media="(prefers-color-scheme: dark)" srcset="docs-site/static/img/readme/observability-intent-dark.svg">
+    <img alt="The Ikhnos server holds the observability intent and the topology. Discovery agents in cloud, edge and far-edge clusters receive the intent and report the topology. Local operators send telemetry through regional operators to FUSION, which keeps metrics, logs, traces and the topology graph behind one shared API" src="docs-site/static/img/readme/observability-intent-light.svg" width="900">
   </picture>
 </p>
 
-The **server** is one replica with one SQLite writer. It has two listeners that share almost nothing: `:8443` for agents (gRPC over mutual TLS, never behind something that terminates TLS) and `:8080` for the web UI and JSON API. Neo4j and FUSION are optional and come in the same Helm release.
+Ikhnos has two planes. The **control plane** is the server. It holds your [observability intent](https://alexandrosst.github.io/ikhnos/docs/learn/observability-intent), which says what to observe, where, and how well, and it keeps the topology and its history. A read-only **discovery agent** in each cluster dials out to it, applies the intent itself and reports what it finds.
 
-The **agent** is one small pod per cluster. It authenticates with a certificate that lives 24 hours and renews itself at half-life. Which parts of the cluster it reports is a chain that only narrows:
+The **data plane** carries telemetry and nothing else. A **local operator** in each cluster collects the signals you chose and sends them on, straight to FUSION or through a **regional operator** that gathers several clusters. **FUSION** keeps metrics, logs and traces, the topology graph, and Grafana, behind one shared API.
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs-site/static/img/readme/trust-tiers-dark.svg">
-    <img alt="Ceiling set by Helm, approved tier set in the UI, effective tier reported by the agent: each at or below the one before" src="docs-site/static/img/readme/trust-tiers-light.svg" width="900">
-  </picture>
-</p>
+The observability intent is one idea for every part that looks at a cluster:
 
-The documentation draws each of these in more detail: [how it works in ten minutes](https://alexandrosst.github.io/ikhnos/docs/learn/how-it-works) for the idea, and [Inside Ikhnos](https://alexandrosst.github.io/ikhnos/docs/inside/) for the layers of the server, the agent's stream and the model.
+- **Layer**: application or infrastructure.
+- **Scope**: an application, a cluster or a node.
+- **Modality**: traces, logs or metrics.
+- **Kind**: energy, resource usage and so on.
+
+It can only be narrowed, never widened, and a person approves anything wider. The agent discovers the topology and configures collection: telemetry extractors feed the local operator's collector, and regional collectors feed FUSION.
+
+The documentation goes into each part: [how it works in ten minutes](https://alexandrosst.github.io/ikhnos/docs/learn/how-it-works) for the idea, and [Inside Ikhnos](https://alexandrosst.github.io/ikhnos/docs/inside/) for the server's layers, the agent's stream and the model.
 
 ## Quickstart
 

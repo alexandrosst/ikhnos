@@ -9,7 +9,7 @@ description: Documentation for Ikhnos, a read-only, agent-observed model of your
 
 **See everything, touch nothing.** Full-stack observability for your whole landscape, from cloud to far edge.
 
-<Shot src="readme/topology-loop" ext="gif" alt="The sites of a landscape in Berlin, Paris and Athens on a map, with the traffic between them moving along the links" caption="Berlin, Paris and Athens on the sample landscape. The dashes move with the traffic between sites." />
+<Shot src="readme/topology-loop" ext="webp" alt="The sites of a landscape in Berlin, Paris and Athens on a map, with the traffic between them moving along the links" caption="Berlin, Paris and Athens on the sample landscape. The dashes move with the traffic between sites." />
 
 Ikhnos does this the same way for every cluster:
 

@@ -53,7 +53,7 @@ export default function Home() {
           <div className={styles.heroShot}>
             <ThemedImage
               alt="The Ikhnos topology view: a cloud cluster, a regional edge cluster and far-edge clusters with their services and the dependencies between them"
-              sources={{light: useBaseUrl('/img/readme/topology-loop-light.gif'), dark: useBaseUrl('/img/readme/topology-loop-dark.gif')}}
+              sources={{light: useBaseUrl('/img/readme/topology-loop-light.webp'), dark: useBaseUrl('/img/readme/topology-loop-dark.webp')}}
             />
           </div>
         </div>

@@ -8,6 +8,8 @@ description: One idea that covers everything in Ikhnos that watches your cluster
 
 **See everything, touch nothing.** Ikhnos watches your clusters, and *observability intent* is how you say how far. It is one idea, and it covers every part that looks at a cluster: the discovery agent, the local operators that collect telemetry, and the regional operators that gather it.
 
+<Figure name="ObservabilityPlanes" caption="The intent goes down from the server to the agents. Telemetry goes up to FUSION." />
+
 <Figure name="TrustChain" caption="Each part applies its limit itself first. Where the server can check the result, it checks it again." />
 
 ## One rule

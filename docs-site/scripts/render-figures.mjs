@@ -22,8 +22,7 @@ const React = requireSite('react');
 
 // README name -> figure name.
 const PICK = {
-  architecture: 'SystemAtAGlance',
-  'trust-tiers': 'TrustChain',
+  'observability-intent': 'ObservabilityPlanes',
 };
 
 const out = path.join(site, 'static', 'img', 'readme');
