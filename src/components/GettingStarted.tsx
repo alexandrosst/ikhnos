@@ -23,6 +23,7 @@ export function useGettingStarted(page: string): { checklist: Checklist; dismiss
   const connected = useServer((s) => s.status === 'connected')
   const admin = useServer((s) => s.isAdmin())
   const org = useServer((s) => s.orgId)
+  const userId = useServer((s) => s.user?.id)
   const info = useServer((s) => s.info)
   const loaded = useServer((s) => s.state !== undefined)
   const { agents, clusters, nodes } = useTopology()
@@ -37,10 +38,13 @@ export function useGettingStarted(page: string): { checklist: Checklist; dismiss
     [agents, clusters, nodes],
   )
   if (!connected || !admin || !org || !info || !loaded || checklist.finished) return null
+  // A fresh server always calls its first organisation "default"; the person's id is new on every server, so a list dismissed on an earlier
+  // server at this address does not hide this one's.
+  const scope = `${org}/${userId ?? ''}`
   return {
     checklist,
-    dismissed: dismissedNow || wasDismissed(org) || gettingStartedSeenElsewhere(page),
-    dismiss: () => { dismiss(org); setDismissedNow(true) },
+    dismissed: dismissedNow || wasDismissed(scope) || gettingStartedSeenElsewhere(page),
+    dismiss: () => { dismiss(scope); setDismissedNow(true) },
   }
 }
 

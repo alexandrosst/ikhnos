@@ -132,7 +132,7 @@ export function deriveChecklist(input: ChecklistInput): Checklist {
   return { steps, done: steps.filter((s) => s.state === 'done').length, finished: done.live }
 }
 
-/* ---------- dismissal, per organisation ---------- */
+/* ---------- dismissal, per organisation and person (the scope is "org/user") ---------- */
 
 const KEY = 'ikhnos-getting-started/dismissed'
 const keyFor = (org: string) => `${KEY}/${org}`

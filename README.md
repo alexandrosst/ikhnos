@@ -121,7 +121,7 @@ You need a Kubernetes cluster (1.25 or newer; k3s, kind and minikube are fine fo
 # 1. An address your agents can reach (one EXTERNAL-IP, or an INTERNAL-IP for a trial)
 kubectl get nodes -o wide
 
-# 2. Install the server (replace NODE_IP)
+# 2. Install the server (replace NODE_IP; on a cloud with load balancers see the production guide)
 helm install ikhnos-server oci://ghcr.io/alexandrosst/ikhnos-server \
   --namespace ikhnos --create-namespace \
   --set agent.service.type=NodePort \

@@ -7,8 +7,9 @@ import { useServer } from '@/store/server'
 
 const renameOrg = vi.fn<(name: string) => Promise<void>>()
 
-function seed(over: { name?: string; role?: string; status?: string } = {}) {
+function seed(over: { name?: string; role?: string; status?: string; userId?: string } = {}) {
   useServer.setState({
+    user: { id: over.userId ?? 'u-1', username: 'admin' },
     status: over.status ?? 'connected',
     orgs: [{ id: 'org1', name: over.name ?? 'Default', role: over.role ?? 'owner' }],
     orgId: 'org1',
@@ -90,6 +91,26 @@ describe('NameOrganisation', () => {
     await user.type(screen.getByTestId('org-name-input'), 'x')
     await user.click(screen.getByTestId('org-name-save'))
     expect(await screen.findByText('name too long')).toBeInTheDocument()
+    expect(screen.getByTestId('org-name-dialog')).toBeInTheDocument()
+  })
+
+  test('"Later" is remembered for the same server', async () => {
+    seed({ userId: 'u-old' })
+    const user = userEvent.setup()
+    const first = render(<NameOrganisation />)
+    await user.click(screen.getByTestId('org-name-later'))
+    await waitFor(() => expect(screen.queryByTestId('org-name-dialog')).not.toBeInTheDocument())
+    first.unmount()
+
+    seed({ userId: 'u-old' })
+    render(<NameOrganisation />)
+    expect(screen.queryByTestId('org-name-dialog')).not.toBeInTheDocument()
+  })
+
+  test('the new server, with a new administrator id, is asked', () => {
+    localStorage.setItem('ikhnos:org-name-asked:org1:u-old', '1')
+    seed({ userId: 'u-new' })
+    render(<NameOrganisation />)
     expect(screen.getByTestId('org-name-dialog')).toBeInTheDocument()
   })
 })

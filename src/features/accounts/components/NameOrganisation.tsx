@@ -5,9 +5,11 @@ import { useServer } from '@/store/server'
 
 /** What a fresh server calls the organisation it makes with the first account. */
 const FIRST_NAME = 'Default'
-const askedKey = (orgId: string) => `ikhnos:org-name-asked:${orgId}`
-const wasAsked = (orgId: string) => {
-  try { return localStorage.getItem(askedKey(orgId)) === '1' } catch { return false }
+// A fresh server always calls its first organisation "default", so the answer is kept against the person too (their id is new on every
+// server): a server redeployed at the same address asks again, and a name given to an earlier one is not mistaken for this one's.
+const askedKey = (orgId: string, userId: string) => `ikhnos:org-name-asked:${orgId}:${userId}`
+const wasAsked = (orgId: string, userId: string) => {
+  try { return localStorage.getItem(askedKey(orgId, userId)) === '1' } catch { return false }
 }
 
 /**
@@ -17,6 +19,7 @@ const wasAsked = (orgId: string) => {
  */
 export default function NameOrganisation() {
   const orgId = useServer((s) => s.orgId)
+  const userId = useServer((s) => s.user?.id) ?? ''
   const role = useServer((s) => s.role)
   const connected = useServer((s) => s.status === 'connected')
   const name = useServer((s) => s.orgs.find((o) => o.id === s.orgId)?.name)
@@ -28,14 +31,14 @@ export default function NameOrganisation() {
   const [closedFor, setClosedFor] = useState<string>()
   const input = useRef<HTMLInputElement>(null)
 
-  const show = connected && !!orgId && role === 'owner' && name === FIRST_NAME && closedFor !== orgId && !wasAsked(orgId)
+  const show = connected && !!orgId && role === 'owner' && name === FIRST_NAME && closedFor !== orgId && !wasAsked(orgId, userId)
   useEffect(() => {
     if (show) input.current?.select()
   }, [show])
   if (!show || !orgId) return null
 
   const close = () => {
-    try { localStorage.setItem(askedKey(orgId), '1') } catch { /* asked again next time: harmless */ }
+    try { localStorage.setItem(askedKey(orgId, userId), '1') } catch { /* asked again next time: harmless */ }
     setClosedFor(orgId)
   }
   const save = async (e: React.FormEvent) => {

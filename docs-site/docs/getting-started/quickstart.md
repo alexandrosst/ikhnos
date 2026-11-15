@@ -37,6 +37,10 @@ This installs the latest release. `agent.publicAddress` is the one value the cha
 `kubectl port-forward` already tunnels over an encrypted connection to the API server, so plain HTTP inside it is just as safe as the self-signed certificate above — and skips the one-time browser warning that comes with it. Add `--set admin.behindTlsProxy=true` to the command above and use `http://localhost:8080` in step 5 instead.
 :::
 
+:::tip[On a cloud cluster with a load balancer?]
+`LoadBalancer` is the chart's own default for the agent port, so on a cloud you can leave out both `--set` lines above. The catch is that the load balancer's address does not exist until the install has made it, and `agent.publicAddress` has to be set at install time. So you install with a placeholder address, wait for the `EXTERNAL-IP`, point a DNS name at it and upgrade once with the real address. [Production cluster](../installation/production-cluster.md#the-two-step-address-problem) has the commands. If `EXTERNAL-IP` stays `<pending>`, the cluster has no load-balancer controller, and NodePort as above is the way.
+:::
+
 :::tip[Pinning a version]
 Leaving out `--version` always installs the newest release, which is right for a first trial. For a reproducible deploy later, add `--version X.Y.Z` — see the [Releases page](https://github.com/alexandrosst/ikhnos/releases) for available versions.
 :::
