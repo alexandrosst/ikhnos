@@ -10,7 +10,7 @@ description: Use the Connect a cluster wizard to get the one install command for
 
 A cluster joins Ikhnos by running a small agent. You do not create the agent anywhere by hand: a wizard in the interface prints the exact command, already filled in with this server's address, the fingerprint of its certificate authority, and a one-time token.
 
-<Video src="connect-a-cluster" label="The Connect a cluster wizard: name the cluster, choose what the agent may read, copy the install command, run it, and wait for the agent" caption="The wizard from start to the moment the agent connects. The helm output is what the chart prints; the token in the command works once." />
+<Video src="connect-a-cluster" label="The Connect a cluster wizard: name the cluster, choose what the agent may read, copy the install command, run it, and wait for the agent" caption="The wizard from start to the moment the agent connects. This one uses the **kubectl (controller)** tab: one command installs the optional controller, which asks for the agent. The output is what the chart prints; the token in the command works once." />
 
 ## Open the wizard
 
@@ -63,6 +63,8 @@ helm install ikhnos-agent oci://ghcr.io/alexandrosst/ikhnos-agent \
 It contains the address the agent will dial, and one value, `enrollment.key`, that holds two things joined by a dot: the **CA pin** (the fingerprint of the server's certificate authority, so the agent can tell it reached the right server before it trusts anything) and the **one-time token** (valid for an hour, one use).
 
 Copy it with **Copy command** and run it where `kubectl` and `helm` point at the cluster you are connecting. For your first try, that is the same cluster as before.
+
+The wizard has a second tab, **kubectl (controller)**. Its one command installs the optional in-cluster controller and asks it for this same agent, so there is nothing to create by hand. It is optional, and the helm command installs the same agent. The video above uses the controller; the rest of this page follows helm.
 
 <See>
 Helm reports `STATUS: deployed`. Then `kubectl -n ikhnos-system get pods` shows an `ikhnos-agent` pod that becomes `Running`. In the wizard, the second of five steps, **Agent connects**, is the one in progress, and the spinner reads that it is waiting for the agent to start and connect. Most agents connect within a minute. If yours has not after two minutes, a **Still waiting?** box appears under the spinner with the commands to check: the pod and its log for a helm install, or the `IkhnosAgent` resource the controller made (with the command that raises the controller's ceiling, if it was installed earlier with a lower one) for the controller.

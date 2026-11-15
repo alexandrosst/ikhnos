@@ -18,7 +18,7 @@ Open **FUSION** in the sidebar and choose **Turn on FUSION**. When it says *Noth
 
 ## 2. Choose what a cluster reports
 
-<Video src="telemetry" label="The Set up telemetry wizard, from choosing signals to running the commands" caption="Pick a starting point, check each signal, choose where it goes, then run the commands in that cluster." />
+<Video src="telemetry" label="The Set up telemetry wizard, from choosing signals to running the commands, then the cluster's local operator on Pipeline showing data arriving" caption="Pick a starting point, check each signal, choose where it goes, then run the commands in that cluster. The video ends on the local operator they set up: what it reads, the collectors, and where each kind of data goes." />
 
 On **Pipeline**, choose **Set up telemetry**. Pick a starting point, adjust the signals, choose where to send them (FUSION is the default) and generate the commands. They are shown once. Run them in that cluster, and Pipeline then shows, step by step, whether data is arriving.
 

@@ -12,6 +12,8 @@
 //   IKHNOS_AGENT_CMD        a shell command that starts an agent for the cluster to connect; it gets the install command's pin and
 //                           token as $PIN and $TOKEN (connect-a-cluster)
 //   IKHNOS_AGENT_LOG        the file that agent writes its log to, for the approval code (approve)
+//   IKHNOS_APPLY_TELEMETRY_CMD   a shell command that restarts that agent as the chart would once the telemetry commands were run, with the
+//                           telemetry settings and a collector whose counters grow (telemetry)
 // The fusion, telemetry, new-operator and grafana videos also need FUSION's stores running with some history in them.
 // IKHNOS_VIDEO_OUT writes the files somewhere other than static/video. IKHNOS_SAMPLE_URL is the UI for the sample-landscape videos (default: IKHNOS_URL).
 import {createRequire} from 'node:module';
@@ -174,6 +176,11 @@ const OVERLAY = `
       let shown = body.innerHTML;
       for (const line of out) { shown += '\\n' + esc(line); body.innerHTML = shown; await wait(200); }
     };
+    // Select a piece of what the terminal printed, the way a person does before copying it.
+    window.__termMark = (text) => {
+      const body = term();
+      body.innerHTML = body.innerHTML.split(esc(text)).join('<span style="background:#2f6feb;color:#fff;border-radius:3px;padding:0 2px">' + esc(text) + '</span>');
+    };
     window.__termOff = () => { window.__clear(true); document.getElementById('rec-term')?.remove(); document.getElementById('rec-dim')?.remove(); };
   };
   if (document.readyState !== 'loading') add(); else document.addEventListener('DOMContentLoaded', add);
@@ -181,7 +188,9 @@ const OVERLAY = `
 
 /** What `helm install` prints for a chart of this repo: the install header, then the chart's own NOTES.txt (helm template does not print notes, so they are rendered through a ConfigMap). */
 function helmInstallOutput(chart, release, namespace, sets, upgrade = false) {
-  const src = path.join(repo, 'backend', 'internal', 'chart', chart);
+  // A chart name is one of the server-rendered charts under backend/internal/chart; a path is a chart elsewhere in the repo.
+  const src = path.isAbsolute(chart) ? chart : path.join(repo, 'backend', 'internal', 'chart', chart);
+  chart = path.basename(chart);
   const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ikh-notes-')), chart);
   fs.cpSync(src, dir, {recursive: true});
   fs.writeFileSync(path.join(dir, 'templates', '_notes.tpl'), `{{- define "t.notes" -}}${fs.readFileSync(path.join(dir, 'templates', 'NOTES.txt'), 'utf8')}{{- end -}}`);
@@ -271,15 +280,20 @@ const VIDEOS = {
       await s.termCmd("kubectl -n ikhnos logs deployment/ikhnos-server | grep -A2 'First start'", false);
       await s.page.waitForTimeout(500);
       await s.termOut(['  First start: sign in as  admin  with the one-time password  Wq7mL2xRb9eTn4cH', '  You will be asked to choose a new password straight away.']);
-      await s.page.waitForTimeout(3600);
+      await s.page.waitForTimeout(1800);
+      await s.mark('Wq7mL2xRb9eTn4cH');
+      await s.page.waitForTimeout(1200);
+      await s.keys('Ctrl C');
+      await s.page.waitForTimeout(1600);
+      await s.keys('');
       await s.endTerminal();
-      await s.callout('input:not([type=password])', 'Sign in as admin with that password', {side: 'right', n: 1, ms: 900});
+      await s.callout('input:not([type=password])', 'Sign in as admin, and paste the password you copied', {side: 'right', n: 1, ms: 900});
       await s.type('input:not([type=password])', 'admin');
-      await s.type('input[type=password]', first);
+      await s.paste('input[type=password]', first);
       await s.key('Enter');
       await s.page.waitForTimeout(700);
       await s.callout('input[type=password] >> nth=0', 'The one-time password works only to set your own', {side: 'bottom', n: 2, ms: 3400});
-      await s.type('input[type=password] >> nth=0', first);
+      await s.paste('input[type=password] >> nth=0', first);
       await s.type('input[type=password] >> nth=1', ADMIN_PASSWORD);
       await s.type('input[type=password] >> nth=2', ADMIN_PASSWORD);
       await s.callout('button:has-text("Save new password")', 'The checklist ticks as the new password meets each rule', {side: 'top', n: 3, ms: 3200});
@@ -311,30 +325,39 @@ const VIDEOS = {
       await s.callout('text=Collect more', 'Traffic, hardware and round-trip times stay off until you switch them on', {side: 'right', n: 3, ms: 3600});
       await s.click('button:has-text("Create install command")');
       await s.page.waitForSelector('[data-testid=install-command]');
-      const cmd = await s.text('[role=dialog] pre:has-text("enrollment.key")');
-      const key = cmd.match(/enrollment\.key=(\S+)/)[1];
+      // The helm command is read only for the pin and token the sandbox agent needs; the video shows the controller's one command.
+      const helm = await s.text('[role=dialog] pre:has-text("enrollment.key")');
+      const key = helm.match(/enrollment\.key=(\S+)/)[1];
       const i = key.indexOf('.ikh_');
-      await s.callout('[data-testid=install-command]', 'One command, already filled in: this server, its fingerprint, a one-time token', {side: 'bottom', n: 4, ms: 700});
-      await s.zoom(['[data-testid=install-command]', 'button:has-text("Copy command")', '#rec-bubble'], 1.6);
-      await s.page.waitForTimeout(2600);
-      await s.callout('button:has-text("Copy command")', 'Copy it with one click', {side: 'left', n: 5, ms: 1500});
+      await s.callout('[data-testid=install-tab-controller]', 'Or install the optional controller: one command, and it asks for the agent itself', {side: 'bottom', n: 4, ms: 3400});
+      await s.click('[data-testid=install-tab-controller]');
+      const cmd = await s.text('[data-testid=controller-install]');
+      await s.callout('[data-testid=controller-install]', 'This server, its fingerprint and a one-time token are already in it', {side: 'bottom', n: 5, ms: 700});
+      await s.zoom(['[data-testid=controller-install]', 'button:has-text("Copy command")', '#rec-bubble'], 1.5);
+      await s.page.waitForTimeout(2800);
+      await s.callout('button:has-text("Copy command")', 'Copy it with one click', {side: 'left', n: 6, ms: 1500});
       await s.click('button:has-text("Copy command")');
       await s.page.waitForTimeout(1300);
       await s.zoom();
       await s.page.evaluate(() => window.__termCmd('', true));
-      await s.callout('#rec-term', 'Paste it in a terminal, on a machine that can reach that cluster', {side: 'top', n: 6, ms: 700});
+      await s.callout('#rec-term', 'Paste it in a terminal, on a machine that can reach that cluster', {side: 'top', n: 7, ms: 700});
       await s.zoom(['#rec-term', '#rec-bubble'], 1.55);
       await s.keys('Ctrl V');
       await s.page.waitForTimeout(800);
-      await s.termCmd(cmd.replace(/\.ikh_\S+/, '.ikh_example'), true);
+      const shown = cmd.replace(/(bootstrap\.token=)\S+/, '$1ikh_example').split('\n');
+      await s.termCmd(shown.slice(0, 5).join('\n') + '\n  ...', true);
       await s.page.waitForTimeout(2200);
       await s.keys('Enter');
       await s.page.waitForTimeout(900);
       await s.keys('');
       await s.clear();
       await s.zoom('#rec-term', 1.25);
-      await s.termOut(helmInstallOutput('ikhnos-agent', 'ikhnos-agent', 'ikhnos-system', [['--set', 'server.address=10.0.0.5:30443'], ['--set', 'enrollment.key=' + key]]));
-      await s.page.waitForTimeout(3000);
+      const sets = [...cmd.matchAll(/--set(-string)? (\S+)/g)].map((m) => ['--set', m[2]]);
+      await s.termOut([
+        'customresourcedefinition.apiextensions.k8s.io/ikhnosagents.ikhnos.io serverside-applied',
+        ...helmInstallOutput(path.join(repo, 'deploy', 'helm', 'ikhnos-controller'), 'ikhnos-controller', 'ikhnos-system', sets),
+      ]);
+      await s.page.waitForTimeout(3600);
       await s.endTerminal();
       s.startAgent(key.slice(0, i), key.slice(i + 1));
       await s.callout('[role=dialog] >> text=Waiting for the agent', 'The agent dials out to your server, so the cluster needs no inbound port', {side: 'top', n: 7, ms: 4200});
@@ -427,6 +450,7 @@ const VIDEOS = {
       const helm = text.replace(/-----BEGIN[\s\S]*?-----END [A-Z ]+-----/g, '').match(/helm upgrade [\s\S]*?(?=\nBack)/)?.[0] ?? '';
       const sets = [...helm.matchAll(/(--set(?:-string|-json)?) (\S+)/g)].map((m) => [m[1], m[2].replace(/'/g, '')]);
       const head = helm.split('\n').slice(0, 5).join('\n') + '\n  ...';
+      // What the commands turn on is what the cluster's agent reports once they have been run.
       await s.clear();
       await s.page.evaluate(() => window.__termCmd('', true));
       await s.zoom('#rec-term', 1.5);
@@ -438,10 +462,23 @@ const VIDEOS = {
       await s.page.waitForTimeout(700);
       await s.keys('');
       await s.zoom('#rec-term', 1.25);
-      await s.termOut(helmInstallOutput('ikhnos-agent', 'ikhnos-agent', 'ikhnos-system', [['--set', 'server.address=10.0.0.5:30443'], ['--set', 'enrollment.key=sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=.ikh_example'], ...sets], true));
+      const printed = helmInstallOutput('ikhnos-agent', 'ikhnos-agent', 'ikhnos-system', [['--set', 'server.address=10.0.0.5:30443'], ['--set', 'enrollment.key=sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=.ikh_example'], ...sets], true);
+      // What the chart says it turned on is what the cluster's agent reports once the commands have been run.
+      s.applyTelemetry((printed.join('\n').match(/Sends\s+(\S+)/)?.[1] ?? '').split(','));
+      await s.termOut(printed);
       await s.page.waitForTimeout(3000);
       await s.endTerminal();
-      await s.callout('[role=dialog]', 'Pipeline then shows whether data is arriving, step by step', {side: 'left', ms: 3600, spot: false});
+      await s.click('[role=dialog] button:has-text("I have run it"), [role=dialog] button:has-text("Check that data arrives")');
+      await s.callout('[role=dialog]', 'Ikhnos then checks that the data really arrives', {side: 'left', ms: 3800, spot: false});
+      await s.page.waitForSelector('[data-testid=telemetry-guided-done], [role=dialog] button:has-text("Done")', {timeout: 150000});
+      await s.click('[role=dialog] button:has-text("Done")');
+      // The collector the commands installed now shows on Pipeline, with the picture of what it collects and where it goes.
+      await s.page.waitForSelector('text=collector', {timeout: 60000});
+      await s.callout('nav >> text=Pipeline', 'The cluster now has a local operator: the collectors that were just installed', {side: 'right', n: 6, ms: 3600, spot: false});
+      await s.click('main tr >> text=athens-edge collector');
+      await s.page.waitForSelector('[data-testid=local-operator-detail]');
+      await s.page.waitForSelector('text=Data is arriving', {timeout: 150000});
+      await s.callout('[data-testid=operator-picture-body], [data-testid=local-operator-detail]', 'What it reads, the collectors, and where each kind of data goes, with its state', {side: 'top', n: 7, ms: 5200});
     },
   },
 
@@ -671,6 +708,17 @@ async function record(name) {
     async termOut(out) {
       await page.evaluate((o) => window.__termOut(o), out);
     },
+    /** Select text in the terminal, as before copying it. */
+    async mark(text) {
+      await page.evaluate((t) => window.__termMark(t), text);
+    },
+    /** Put text into a field all at once, as pasting does. */
+    async paste(sel, text) {
+      await s.click(sel);
+      await page.keyboard.press('Control+a');
+      await page.keyboard.insertText(text);
+      await sleep(600);
+    },
     async keys(label) {
       await page.evaluate((l) => window.__keys(l), label);
     },
@@ -706,6 +754,11 @@ async function record(name) {
     startAgent(pin, token) {
       if (!process.env.IKHNOS_AGENT_CMD) throw new Error('set IKHNOS_AGENT_CMD to a command that starts an agent');
       spawn('sh', ['-c', process.env.IKHNOS_AGENT_CMD], {env: {...process.env, PIN: pin, TOKEN: token}, stdio: 'ignore', detached: true}).unref();
+    },
+    /** The commands the wizard showed, applied: starts the cluster's agent again the way the chart would (IKHNOS_APPLY_TELEMETRY_CMD). */
+    applyTelemetry(signals) {
+      if (!process.env.IKHNOS_APPLY_TELEMETRY_CMD) throw new Error('set IKHNOS_APPLY_TELEMETRY_CMD to a command that restarts the agent with telemetry on');
+      spawn('sh', ['-c', process.env.IKHNOS_APPLY_TELEMETRY_CMD], {env: {...process.env, SIGNALS: signals.join(',')}, stdio: 'ignore', detached: true}).unref();
     },
     text: (sel) => page.locator(sel).first().innerText(),
     page,
