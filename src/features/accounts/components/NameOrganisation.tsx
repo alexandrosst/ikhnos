@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, ErrorBanner, Input, Modal } from '@/components/ui/primitives'
+import { Button, ErrorBanner, Field, Input, Modal } from '@/components/ui/primitives'
 import { ApiError } from '@/lib/api'
 import { useServer } from '@/store/server'
 
@@ -62,8 +62,8 @@ export default function NameOrganisation() {
       open
       onClose={close}
       title="Name your organisation"
-      description="People you invite will see it."
-      width="max-w-sm"
+      description="It groups your clusters, agents and history. People you invite will see it."
+      width="max-w-md"
       footer={
         <>
           <Button variant="ghost" onClick={close} data-testid="org-name-later">Later</Button>
@@ -72,7 +72,9 @@ export default function NameOrganisation() {
       }
     >
       <form id="org-name-form" onSubmit={save} data-testid="org-name-dialog">
-        <Input ref={input} value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={80} aria-label="Organisation name" autoFocus data-testid="org-name-input" />
+        <Field label="Organisation name" hint="You can rename it any time under Members & access.">
+          <Input ref={input} value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={80} autoFocus data-testid="org-name-input" />
+        </Field>
         {error && <ErrorBanner className="mt-3">{error}</ErrorBanner>}
       </form>
     </Modal>
