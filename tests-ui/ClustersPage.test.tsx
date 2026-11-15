@@ -34,6 +34,16 @@ describe('Clusters page', () => {
     expect(within(rows[1]).getByText(/^Declared by you/)).toBeInTheDocument()
   })
 
+  test('clusters sharing a pod CIDR are not flagged in the list; overlap is normal across many clusters', async () => {
+    const user = userEvent.setup()
+    useRawTopology.setState({ clusters: [cl({ podCidr: '10.42.0.0/16' }), cl({ id: 'c2', name: 'lab', podCidr: '10.42.0.0/16' })] })
+    renderPage()
+    await user.click(screen.getByTestId('columns-button'))
+    await user.click(screen.getByTestId('column-network'))
+    expect(screen.getAllByText('10.42.0.0/16')).toHaveLength(2)
+    expect(screen.queryByText(/overlaps/)).not.toBeInTheDocument()
+  })
+
   test('a click on the row or the name opens the record read-only; the pencil opens it straight in edit', async () => {
     const user = userEvent.setup()
     renderPage()

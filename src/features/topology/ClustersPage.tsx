@@ -145,9 +145,6 @@ export default function ClustersPage() {
                   <Td>
                     <div className="font-mono text-xs text-nb-300">{c.podCidr || '—'}</div>
                     <div className="font-mono text-xs text-nb-500">{c.serviceCidr || '—'}</div>
-                    {c.podCidr && clusters.some((o) => o.id !== c.id && o.podCidr === c.podCidr) && (
-                      <div className="mt-0.5 text-[11px] text-warn" title="Another cluster uses the same pod CIDR, which can break direct cross-cluster routing.">overlaps {clusters.filter((o) => o.id !== c.id && o.podCidr === c.podCidr).map((o) => o.name).join(', ')}</div>
-                    )}
                   </Td>
                 )}
                 {columns.isVisible('platform') && (
