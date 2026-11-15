@@ -11,16 +11,47 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 )
 
-// likeAnAPIServer makes the fake do what a real one does and the fake does not: a resource that is being deleted goes when its last
-// finalizer is taken off.
+// likeAnAPIServer makes the fake do what a real one does and the fake does not:
+//   - a resource that is being deleted goes when its last finalizer is taken off;
+//   - an update through the status subresource changes the status and nothing else, so a status written from a copy read a moment ago cannot
+//     undo a deletion that began in between;
+//   - a deletion timestamp, once set, stays: an update from a stale copy does not clear it.
+//
+// Without the last two a test that deletes a resource while the controller is writing its status loses the deletion now and then.
 func (g *rig) likeAnAPIServer() {
 	g.dyn.PrependReactor("update", Resource, func(a k8stesting.Action) (bool, runtime.Object, error) {
 		ua, ok := a.(k8stesting.UpdateAction)
-		if !ok || a.GetSubresource() != "" {
+		if !ok {
 			return false, nil, nil
 		}
 		u, ok := ua.GetObject().(*unstructured.Unstructured)
-		if !ok || u.GetDeletionTimestamp() == nil || len(u.GetFinalizers()) > 0 {
+		if !ok {
+			return false, nil, nil
+		}
+		stored, err := g.dyn.Tracker().Get(GVR, a.GetNamespace(), u.GetName())
+		cur, _ := stored.(*unstructured.Unstructured)
+		if err != nil || cur == nil {
+			return false, nil, nil
+		}
+		if a.GetSubresource() == "status" {
+			next := cur.DeepCopy()
+			if st, ok := u.Object["status"]; ok {
+				next.Object["status"] = runtime.DeepCopyJSONValue(st)
+			} else {
+				delete(next.Object, "status")
+			}
+			if err := g.dyn.Tracker().Update(GVR, next, a.GetNamespace()); err != nil {
+				return true, nil, err
+			}
+			return true, next, nil
+		}
+		if a.GetSubresource() != "" {
+			return false, nil, nil
+		}
+		if ts := cur.GetDeletionTimestamp(); ts != nil && u.GetDeletionTimestamp() == nil {
+			u.SetDeletionTimestamp(ts)
+		}
+		if u.GetDeletionTimestamp() == nil || len(u.GetFinalizers()) > 0 {
 			return false, nil, nil
 		}
 		if err := g.dyn.Tracker().Delete(GVR, a.GetNamespace(), u.GetName()); err != nil {
