@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { FusionDot } from '@/features/fusion/components/useFusion'
 import { withDefaultPort } from '@/features/pipeline/components/operators/OperatorAddress'
 import { OperatorHealth } from '@/features/pipeline/components/operators/OperatorHealth'
-import { Button, Card, Checkbox, Disclosure, Field, ICON_SM, InfoTip, Input, SectionLabel, Select, Waiting } from '@/components/ui/primitives'
+import { Button, Callout, Card, Checkbox, Disclosure, Field, ICON_SM, InfoTip, Input, SectionLabel, Select, Waiting } from '@/components/ui/primitives'
 import { applyDestination, defaultDestination, destinationEndpoint, destinationIsPlain, destinationKey, destinationNeedsCredential, layoutDestinations, type DestinationCatalog, type DestinationCatalogEntry } from '@/features/pipeline/lib/destinationCatalog'
 import { fusionLabel } from '@/features/fusion/lib/fusionStatus'
 import { exportProtocolLabel, type TelemetryInput } from '@/lib/install'
@@ -205,7 +205,7 @@ export default function DestinationStep({
                 ) : fusionOffer.usable ? (
                   <span className="inline-flex items-center gap-1.5"><FusionDot kind={fusionOffer.kind} /> {fusionLabel(fusionOffer.kind)}</span>
                 ) : (
-                  <div role="alert" className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-warn" data-testid={`${p}-destination-fusion-blocked`}>
+                  <Callout tone="warn" role="alert" data-testid={`${p}-destination-fusion-blocked`}>
                     <p>
                       {fusionOffer.kind === 'off' ? 'FUSION is off, so nothing receives this yet.' : fusionOffer.kind === 'attention' ? 'FUSION needs attention, so nothing can be sent to it yet.' : fusionOffer.message ?? 'FUSION cannot be used from here.'}
                       {fusionOffer.canEnable ? '' : fusionOffer.kind === 'off' ? ' An administrator can turn it on.' : ''}
@@ -213,7 +213,7 @@ export default function DestinationStep({
                     {fusionOffer.canEnable && fusionControls?.enable && (
                       <Button size="sm" className="mt-2" onClick={() => void fusionControls.enable?.()} disabled={fusionControls.busy} data-testid={`${p}-destination-fusion-enable`}>{fusionControls.busy ? 'Starting…' : 'Enable FUSION'}</Button>
                     )}
-                  </div>
+                  </Callout>
                 )}
                 {fusion?.error && <p role="alert" className="mt-1 text-bad">{fusion.error}</p>}
               </div>
@@ -228,12 +228,12 @@ export default function DestinationStep({
             )}
             {/* Not while FUSION cannot be sent to at all: the box above already says that, and a second amber box about where it lives only buries it. */}
             {operator && !reachable && !(fusionOffer && !fusionOffer.usable) && (
-              <p role="note" className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn" data-testid={`${p}-destination-operator-address`}>
+              <Callout tone="warn" role="note" data-testid={`${p}-destination-operator-address`}>
                 {isFusion ? 'FUSION' : 'This operator'} is reachable inside its own cluster only{dialled ? <> (<span className="font-mono">{dialled}</span>)</> : ''}. If this cluster is a different one, record where it is reachable first, and the commands will use that address.
                 {onRecordAddress && !isFusion && catalog.canDeployOperator && (
                   <Button size="sm" className="ml-2 align-middle" onClick={() => onRecordAddress(operator)} data-testid={`${p}-destination-record-address`}>Record an address</Button>
                 )}
-              </p>
+              </Callout>
             )}
             {operator && reachable && (
               <p className="text-xs text-nb-400" data-testid={`${p}-destination-operator-address`}>

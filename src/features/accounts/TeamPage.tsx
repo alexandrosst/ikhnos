@@ -1,7 +1,7 @@
 import { ChevronRight, Copy, Link2, Trash2, UserPlus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useHoldReload } from '@/lib/useHoldReload'
-import { Button, CopyValue, ErrorBanner, Field, ICON_SM, Input, Modal, PageHeader, Pill, SectionHeading, Select, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
+import { Button, Callout, CopyValue, ErrorBanner, Field, ICON_SM, Input, Modal, PageHeader, Pill, SectionHeading, Select, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
 import { api, ApiError, grantable, ROLE_HELP, ROLE_LABEL, type Invite, type Member, type Role } from '@/lib/api'
 import { useServer } from '@/store/server'
 
@@ -79,11 +79,11 @@ function Danger() {
         <Field label="Name" className="flex-1"><Input value={name} onChange={(e) => { setName(e.target.value); setSaved(false) }} data-testid="org-name" /></Field>
         <Button type="submit" disabled={name.trim().length < 2 || name.trim() === info?.orgName}>{saved ? 'Saved' : 'Rename'}</Button>
       </form>
-      <div className="mt-6 max-w-lg rounded-lg border border-bad/30 bg-bad/10 p-4">
+      <Callout tone="bad" className="mt-6 max-w-lg">
         <div className="text-sm font-medium text-bad">Delete this organisation</div>
         <p className="mt-1 text-xs text-nb-400">Erases its agents, topology, history and memberships for good. The people keep their accounts and their other organisations. The audit trail of who deleted it is kept.</p>
         <Button className="mt-3" variant="danger" onClick={() => { setConfirm(''); setOpen(true) }} data-testid="org-delete"><Trash2 size={ICON_SM} /> Delete organisation…</Button>
-      </div>
+      </Callout>
       <Modal
         open={open}
         onClose={() => setOpen(false)}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CopyCommand } from '@/components/ui/CopyCommand'
-import { Button, ErrorBanner, Field, Input, Modal, SectionLabel } from '@/components/ui/primitives'
+import { Button, Callout, ErrorBanner, Field, Input, Modal, SectionLabel } from '@/components/ui/primitives'
 import { api, ApiError, type OperatorExposure } from '@/lib/api'
 import { shArg } from '@/lib/install'
 import { operatorServiceName } from '@/features/pipeline/lib/operatorsView'
@@ -81,8 +81,7 @@ export function ExposeCard({ expose, testId }: { expose: NonNullable<AddressCand
   const [kind, setKind] = useState<'nodePort' | 'loadBalancer'>('nodePort')
   const value = kind === 'nodePort' ? 'NodePort' : 'LoadBalancer'
   return (
-    <div role="note" className="space-y-2.5 rounded-lg border border-warn/30 bg-warn/10 px-3.5 py-3" data-testid={testId}>
-      <div className="text-sm font-medium text-warn">FUSION&apos;s gateway is not reachable from other clusters yet</div>
+    <Callout tone="warn" title="FUSION&apos;s gateway is not reachable from other clusters yet" role="note" data-testid={testId}><div className="space-y-2.5">
       <p className="text-xs leading-relaxed text-nb-300">
         Its Service is only open inside its own cluster, so there is no node or load balancer address to list. Run this against the server&apos;s cluster: the nodes&apos; addresses, mesh ones included, appear here by themselves within a few seconds.
       </p>
@@ -104,7 +103,7 @@ export function ExposeCard({ expose, testId }: { expose: NonNullable<AddressCand
       <p className="text-[11px] leading-relaxed text-nb-500">
         Takes effect at once and restarts nothing. It opens port 4317 on {kind === 'nodePort' ? 'every node of the server’s cluster' : 'a load balancer address of its own'}; senders still need a certificate from this server. Also set <span className="font-mono">{expose.value}={value}</span> in your Helm values, or the next upgrade puts it back.
       </p>
-    </div>
+    </div></Callout>
   )
 }
 

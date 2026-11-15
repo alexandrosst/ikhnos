@@ -1,6 +1,6 @@
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
-import { Button, ICON_SM } from '@/components/ui/primitives'
+import { Button, Callout, ICON_SM } from '@/components/ui/primitives'
 import { api, ApiError } from '@/lib/api'
 import type { TelemetryRequestDoc } from '@/lib/generated/wire'
 import type { TelemetryInput } from '@/lib/install'
@@ -76,7 +76,7 @@ export function AskTheCluster({
         request: the destination, credentials, scopes and tags stay as the cluster&apos;s owner set them.
       </p>
       {left.length > 0 && (
-        <div className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-warn" data-testid={`${testId}-left-out`}>
+        <Callout tone="warn" data-testid={`${testId}-left-out`}>
           <p className="font-medium">Not part of a request, so left as they are:</p>
           <ul className="mt-0.5 list-disc pl-5 text-nb-300">
             {left.map((l) => (
@@ -84,7 +84,7 @@ export function AskTheCluster({
             ))}
           </ul>
           <p className="mt-0.5 text-nb-400">Use the command for those.</p>
-        </div>
+        </Callout>
       )}
       {blocked && (
         <p className="text-xs text-nb-500" role="status" data-testid={`${testId}-blocked`}>
@@ -92,9 +92,9 @@ export function AskTheCluster({
         </p>
       )}
       {error && (
-        <div role="alert" className="rounded-md border border-bad/30 bg-bad/10 px-3 py-2 text-bad" data-testid={`${testId}-error`}>
+        <Callout tone="bad" role="alert" data-testid={`${testId}-error`}>
           {error}
-        </div>
+        </Callout>
       )}
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="primary" size="sm" disabled={!agentId || sending || blocked !== undefined} onClick={() => void run(ask)} data-testid={`${testId}-send`}>

@@ -1,7 +1,7 @@
 import { Tabs } from '@/components/ui/Tabs'
 import { ChevronRight, Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Button, ICON_SM, LinkButton, RunStep } from '@/components/ui/primitives'
+import { Button, Callout, ICON_SM, LinkButton, RunStep } from '@/components/ui/primitives'
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import { ServerCommand } from '@/components/ui/ServerCommand'
 import { AskTheCluster } from '@/features/pipeline/components/telemetry/AskTheCluster'
@@ -297,9 +297,9 @@ function TelemetryPanelBody({
               {agentId && operatorProblems.length > 0 && <span data-testid={`${p}-operator-problem`}>{operatorProblems[0]}</span>}
             </div>
             {genError && genError.snapshot === snapshot && (
-              <div role="alert" className="mt-2 rounded-md border border-bad/30 bg-bad/10 px-3 py-2 text-bad" data-testid={`${p}-operator-error`}>
+              <Callout tone="bad" role="alert" className="mt-2" data-testid={`${p}-operator-error`}>
                 {genError.message}
-              </div>
+              </Callout>
             )}
           </RunStep>
           <RunStep n={2} title="Run what it generated, in that cluster">

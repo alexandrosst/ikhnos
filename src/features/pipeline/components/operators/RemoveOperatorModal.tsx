@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CopyCommand } from '@/components/ui/CopyCommand'
-import { Button, Checkbox, ErrorBanner, Modal } from '@/components/ui/primitives'
+import { Button, Callout, Checkbox, ErrorBanner, Modal } from '@/components/ui/primitives'
 import { api, ApiError, type OperatorRemoval } from '@/lib/api'
 import type { OperatorUsedBy, RegionalOperator } from '@/lib/types'
 import { useServer } from '@/store/server'
@@ -88,10 +88,10 @@ export default function RemoveOperatorModal({ operator, mode, onClose, onDone }:
     >
       <p className="text-sm text-nb-400">{copy.body}</p>
       {lines.length > 0 && (
-        <div className="mt-3 rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn" data-testid="operator-used-by">
+        <Callout tone="warn" className="mt-3" data-testid="operator-used-by">
           <div className="font-medium">Still in use</div>
           <ul className="mt-1 list-disc space-y-0.5 pl-4">{lines.map((l) => <li key={l}>{l}</li>)}</ul>
-        </div>
+        </Callout>
       )}
       {needsAck && (
         <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm">

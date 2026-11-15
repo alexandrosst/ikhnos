@@ -1,6 +1,6 @@
 import { ChevronRight, KeyRound, ShieldCheck, ShieldX } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Button, CopyButton, ErrorBanner, ICON_SM, Input, Pill } from '@/components/ui/primitives'
+import { Button, Callout, CopyButton, ErrorBanner, ICON_SM, Input, Pill } from '@/components/ui/primitives'
 import TierLevels from '@/components/TierLevels'
 import { api, ApiError } from '@/lib/api'
 import { CODE_LOG_COMMAND, cleanCode, codeComplete, formatCode, fromPaste } from '@/features/discovery/lib/approvalCode'
@@ -79,7 +79,7 @@ export default function ApprovalCard({ agent, onDone, showAccess = true }: { age
   // The request was rejected after too many wrong codes. It is no longer pending, so say what happened.
   if (locked || agent.status === 'rejected') {
     return (
-      <div className="rounded-xl border border-bad/30 bg-bad/10 px-5 py-4" data-testid="approval-locked" role="alert">
+      <Callout tone="bad" size="lg" data-testid="approval-locked" role="alert">
         <div className="flex items-center gap-2 text-sm font-medium text-nb-300">
           <ShieldX size={ICON_SM} className="text-bad" /> The request from {agent.name} was rejected
         </div>
@@ -89,7 +89,7 @@ export default function ApprovalCard({ agent, onDone, showAccess = true }: { age
         <div className="mt-3 flex justify-end">
           <Button size="sm" onClick={() => dismiss(agent.id)}>Dismiss</Button>
         </div>
-      </div>
+      </Callout>
     )
   }
 
@@ -127,7 +127,7 @@ export default function ApprovalCard({ agent, onDone, showAccess = true }: { age
   )
 
   return (
-    <div className="rounded-xl border border-warn/30 bg-warn/5 px-5 py-4" data-testid="approval-card">
+    <Callout tone="warn" size="lg" data-testid="approval-card">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-sm font-medium text-nb-300">
@@ -232,6 +232,6 @@ export default function ApprovalCard({ agent, onDone, showAccess = true }: { age
           Approve
         </Button>
       </div>
-    </div>
+    </Callout>
   )
 }

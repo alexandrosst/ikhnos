@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { Plus, X } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Button, Card, Disclosure, ICON_MD, ICON_SM, InfoTip, Input, Radio } from '@/components/ui/primitives'
+import { Button, Callout, Card, Disclosure, ICON_MD, ICON_SM, InfoTip, Input, Radio } from '@/components/ui/primitives'
 import { Switch } from '@/components/ui/Switch'
 import { scopeTag, tagProblems, TAG_LIMIT, type DebugVerbosity, type TagEntry, type TelemetryInput } from '@/lib/install'
 import ProcessorEditor from './ProcessorEditor'
@@ -116,9 +116,9 @@ export function DebugChoice({ value, onChange, testIdPrefix }: { value: Telemetr
         ))}
       </div>
       {value.debugVerbosity === 'detailed' && (
-        <p role="alert" className="rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn" data-testid={`${testIdPrefix}-debug-warning`}>
+        <Callout tone="warn" role="alert" data-testid={`${testIdPrefix}-debug-warning`}>
           Full content can include whatever your telemetry carries, secrets and personal data among it, in a log other people can read. If this collector’s own logs are collected as telemetry, they feed straight back into it. Use it briefly, then switch back.
-        </p>
+        </Callout>
       )}
     </div>
   )

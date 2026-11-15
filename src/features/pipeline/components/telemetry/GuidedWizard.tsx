@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import CreateOperatorModal from '@/features/pipeline/components/operators/CreateOperatorModal'
 import { useFusion } from '@/features/fusion/components/useFusion'
 import { OperatorAddressModal } from '@/features/pipeline/components/operators/OperatorAddress'
-import { Button, Disclosure, DoneDisclosure, ErrorBanner, ICON_SM, LinkButton, SectionLabel, WizardSteps } from '@/components/ui/primitives'
+import { Button, Callout, Disclosure, DoneDisclosure, ErrorBanner, ICON_SM, LinkButton, SectionLabel, WizardSteps } from '@/components/ui/primitives'
 import { Switch } from '@/components/ui/Switch'
 import { atLeast, type CreatedOperator } from '@/lib/api'
 import { TELEMETRY_SIGNALS } from '@/lib/consent'
@@ -346,14 +346,14 @@ export default function GuidedWizard({
                 <ErrorBanner data-testid={`${p}-problems`}>{problems.join('. ')}.</ErrorBanner>
               )}
               {fusionBlocked && fusionEntry && (
-                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn" role="alert" data-testid={`${p}-guided-fusion-blocked`}>
+                <Callout tone="warn" role="alert" data-testid={`${p}-guided-fusion-blocked`}><div className="flex flex-wrap items-center gap-2">
                   <span>FUSION is {fusionLabel(fusionEntry.offer.kind).toLowerCase()}, so nothing would receive this and no command is generated.</span>
                   {fusionEntry.offer.canEnable && fusionControls.enable ? (
                     <Button size="sm" onClick={() => void fusionControls.enable?.()} disabled={fusionControls.busy} data-testid={`${p}-guided-fusion-enable`}>{fusionControls.busy ? 'Starting…' : 'Enable FUSION'}</Button>
                   ) : (
                     <span>{isAdmin ? 'Go back and choose another destination.' : 'An administrator can turn it on.'}</span>
                   )}
-                </div>
+                </div></Callout>
               )}
             </ReviewStep>
             {canCreate && runSection}

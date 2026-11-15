@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { Disclosure, DoneDisclosure, LinkButton } from '@/components/ui/primitives'
+import { Callout, Disclosure, DoneDisclosure, LinkButton } from '@/components/ui/primitives'
 
 describe('LinkButton', () => {
   it('is a plain button that never submits a form, in the accent or the quiet tone', () => {
@@ -41,5 +41,18 @@ describe('DoneDisclosure', () => {
     render(<DoneDisclosure label="Command run." testId="x">the command</DoneDisclosure>)
     expect(screen.getByText('Command run.')).toBeInTheDocument()
     expect((screen.getByTestId('x') as HTMLDetailsElement).open).toBe(false)
+  })
+})
+
+describe('Callout', () => {
+  it('says its tone with an icon, keeps the text readable, and passes role and test id through', () => {
+    render(<Callout tone="bad" title="Could not save" role="alert" data-testid="c">Try again.</Callout>)
+    const c = screen.getByTestId('c')
+    expect(c).toHaveAttribute('role', 'alert')
+    expect(c.className).toContain('border-bad/30')
+    expect(c.className).toContain('text-nb-300')
+    expect(c.querySelector('svg')).not.toBeNull()
+    expect(screen.getByText('Could not save')).toBeInTheDocument()
+    expect(screen.getByText('Try again.')).toBeInTheDocument()
   })
 })

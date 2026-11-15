@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Check, CheckCircle2, ChevronDown, ChevronRight, Cloud, Copy, Cpu, Eye, EyeOff, Loader2, Minus, Plus, Server, X, type LucideIcon } from 'lucide-react'
+import { Check, CheckCircle2, ChevronDown, ChevronRight, CircleX, Cloud, Copy, Cpu, Eye, EyeOff, Info, Loader2, Minus, Plus, Server, TriangleAlert, X, type LucideIcon } from 'lucide-react'
 import {
   Children, Fragment, isValidElement, useEffect, useId, useLayoutEffect, useRef, useState,
   type ButtonHTMLAttributes, type ChangeEvent, type HTMLAttributes, type ComponentProps, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type SelectHTMLAttributes,
@@ -706,19 +706,46 @@ export function SavedNote({ children, tone = 'ok', className, ...p }: ComponentP
   )
 }
 
+const CALLOUT: Record<'warn' | 'bad' | 'ok' | 'info', { box: string; icon: string; Glyph: LucideIcon }> = {
+  warn: { box: 'border-warn/30 bg-warn/10', icon: 'text-warn', Glyph: TriangleAlert },
+  bad: { box: 'border-bad/30 bg-bad/10', icon: 'text-bad', Glyph: CircleX },
+  ok: { box: 'border-ok/30 bg-ok/10', icon: 'text-ok', Glyph: CheckCircle2 },
+  info: { box: 'border-info/30 bg-info/10', icon: 'text-info', Glyph: Info },
+}
+
+/**
+ * A note about something that needs a look: a warning, an error, a success, a plain "good to know". One shape everywhere: a small icon in the
+ * tone's colour and the text in the normal text colour, so a longer message stays easy to read. `title` is an optional bold first line;
+ * `size="lg"` is for the one box that is the point of its screen (an approval waiting), not for a note beside a field. role and data-testid pass through.
+ */
+export function Callout({ tone = 'warn', title, size = 'md', className, children, ...rest }: Omit<HTMLAttributes<HTMLDivElement>, 'title'> & { tone?: 'warn' | 'bad' | 'ok' | 'info'; title?: ReactNode; size?: 'md' | 'lg' }) {
+  const t = CALLOUT[tone]
+  return (
+    <div {...rest} className={clsx('flex items-start gap-2.5 rounded-lg border text-nb-300', t.box, size === 'lg' ? 'rounded-xl px-5 py-4 text-sm' : 'px-3.5 py-2.5 text-[13px] leading-snug', className)}>
+      <t.Glyph size={ICON_MD} className={clsx('mt-px shrink-0', t.icon)} aria-hidden />
+      <div className="min-w-0 flex-1">
+        {title && <div className="mb-0.5 font-semibold">{title}</div>}
+        {children}
+      </div>
+    </div>
+  )
+}
+
 /** A form/page-level error message: this is the shape most of the app already uses for "something went wrong,
  * here's why" (as opposed to `role="alert"` text inlined next to whatever it explains). Prefer this over
  * hand-writing the same border/background/text classes again. */
-export function ErrorBanner({ children, className, onDismiss, ...p }: ComponentProps<'p'> & { /** Adds a Dismiss button, for an error about something that already happened (a failed action) and would otherwise stay until the page is left. */ onDismiss?: () => void }) {
+export function ErrorBanner({ children, className, onDismiss, ...p }: Omit<ComponentProps<'div'>, 'title'> & { /** Adds a Dismiss button, for an error about something that already happened (a failed action) and would otherwise stay until the page is left. */ onDismiss?: () => void }) {
   return (
-    <p role="alert" {...p} className={clsx('rounded-md border border-bad/30 bg-bad/10 px-3 py-2 text-sm text-bad', onDismiss && 'flex items-start gap-3', className)}>
-      {onDismiss ? <span className="min-w-0 flex-1">{children}</span> : children}
-      {onDismiss && (
-        <button type="button" onClick={onDismiss} aria-label="Dismiss" className="shrink-0 rounded p-0.5 text-bad/80 hover:bg-bad/10 hover:text-bad">
-          <X size={ICON_SM} aria-hidden />
-        </button>
-      )}
-    </p>
+    <Callout tone="bad" role="alert" {...p} className={className}>
+      {onDismiss ? (
+        <div className="flex items-start gap-3">
+          <span className="min-w-0 flex-1">{children}</span>
+          <button type="button" onClick={onDismiss} aria-label="Dismiss" className="shrink-0 rounded p-0.5 text-bad/80 hover:bg-bad/10 hover:text-bad">
+            <X size={ICON_SM} aria-hidden />
+          </button>
+        </div>
+      ) : children}
+    </Callout>
   )
 }
 

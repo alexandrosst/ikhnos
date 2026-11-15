@@ -1,4 +1,5 @@
 import { CopyCommand } from '@/components/ui/CopyCommand'
+import { Callout } from '@/components/ui/primitives'
 
 /** What health reporting sends, in one sentence both the create form, the confirmation and the created
  *  screen can lean on: not a telemetry payload, only an availability check, and only when opted in. */
@@ -12,11 +13,11 @@ export function HeartbeatCommands({ secretCommand, upgradeCommand, restartComman
     <div className="space-y-3" data-testid={testId}>
       {/* Inside a numbered step the page already says it once and the step is named for it: neither is repeated. */}
       {!embedded && (
-        <p className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs leading-relaxed text-warn" data-testid={`${testId}-once`}>
+        <Callout tone="warn" data-testid={`${testId}-once`}>
           The health credential is shown only now - the server keeps only a hash of it. If it is lost, rotate it to get a new one.
-        </p>
+        </Callout>
       )}
-      {warning && <p role="alert" className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs leading-relaxed text-warn" data-testid={`${testId}-warning`}>{warning}</p>}
+      {warning && <Callout tone="warn" role="alert" data-testid={`${testId}-warning`}>{warning}</Callout>}
       <p className="text-xs text-nb-500">
         The operator will report to <code className="break-all font-mono text-nb-400">{url}</code> every {intervalSeconds} seconds.
       </p>

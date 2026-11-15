@@ -4,7 +4,7 @@ import { Activity, CheckCircle2, Cpu, Loader2, MapPin, Network, Pin, Timer } fro
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Flag } from '@/components/ui/brand'
-import { Button, CopyButton, DoneDisclosure, ErrorBanner, Field, ICON_SM, InfoTip, Input, Modal, SectionLabel, TagsInput, WizardSteps } from '@/components/ui/primitives'
+import { Button, Callout, CopyButton, DoneDisclosure, ErrorBanner, Field, ICON_SM, InfoTip, Input, Modal, SectionLabel, TagsInput, WizardSteps } from '@/components/ui/primitives'
 import { Switch } from '@/components/ui/Switch'
 import TierLevels from '@/components/TierLevels'
 import { api, ApiError, type CreatedToken } from '@/lib/api'
@@ -112,9 +112,9 @@ function SettingsLink({ onNavigate, newTab }: { onNavigate?: () => void; newTab?
 /** The honest notice for a server with no image registry set anywhere: the chart's own names are used, and nobody publishes them for you. */
 function NoRegistryNotice({ onNavigate, newTab }: { onNavigate?: () => void; newTab?: boolean }) {
   return (
-    <p className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn" role="note" data-testid="no-registry-notice">
+    <Callout tone="warn" role="note" data-testid="no-registry-notice">
       No image registry configured: the command below uses the chart’s built-in image names, which you must have published yourself. Set your registry in <SettingsLink onNavigate={onNavigate} newTab={newTab} />.
-    </p>
+    </Callout>
   )
 }
 

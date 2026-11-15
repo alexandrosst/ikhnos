@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, ErrorBanner, Modal } from '@/components/ui/primitives'
+import { Button, Callout, ErrorBanner, Modal } from '@/components/ui/primitives'
 import { api, ApiError } from '@/lib/api'
 import type { OperatorSender, OperatorSenderAddress, OperatorSenders, RegionalOperator } from '@/lib/types'
 import { useServer } from '@/store/server'
@@ -95,10 +95,10 @@ export default function OperatorSendersModal({ operator, onClose }: { operator: 
                   ))}
                 </ul>
                 {s.diagnosis && (
-                  <div role="note" className="mt-2 rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs leading-relaxed text-nb-200" data-testid="operator-sender-diagnosis" data-where={s.diagnosis.where}>
+                  <Callout tone="warn" role="note" className="mt-2 text-nb-200" data-testid="operator-sender-diagnosis" data-where={s.diagnosis.where}>
                     <div className="font-medium text-warn">{WHERE[s.diagnosis.where]}: {s.diagnosis.title}</div>
                     <p className="mt-1">{s.diagnosis.detail}</p>
-                  </div>
+                  </Callout>
                 )}
               </li>
             )

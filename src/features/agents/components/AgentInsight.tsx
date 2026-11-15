@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { StatusBadge, type StatusTone } from '@/components/ui/Status'
 import { Info } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Field, LinkButton, TagsInput } from '@/components/ui/primitives'
+import { Button, Callout, Field, LinkButton, TagsInput } from '@/components/ui/primitives'
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import { Switch } from '@/components/ui/Switch'
 import { ServerCommand } from '@/components/ui/ServerCommand'
@@ -208,10 +208,10 @@ export function AccessPanel({ agent, diagnostics: d, consent, editable }: { agen
         <p className="mt-1.5 text-xs text-nb-500" data-testid="ceiling-line">The install allows up to <span className="text-nb-300">{tierName(installed).toLowerCase()}</span>.</p>
       )}
       {editable && agent.hardenHelm && (
-        <div className="mt-2 rounded-md border border-warn/20 bg-warn/5 px-3 py-2 text-xs leading-relaxed text-nb-500" data-testid="harden-hint">
+        <Callout tone="warn" className="mt-2" data-testid="harden-hint">
           Approved access here is narrower than what this install allows in the cluster. The agent already stopped reading and reporting at the wider tier, but that is a software-level change only: its <span className="text-nb-300">Kubernetes RBAC still grants the wider tier</span> until the cluster's owner runs this there too:
           <CopyCommand text={agent.hardenHelm} />
-        </div>
+        </Callout>
       )}
 
       <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
@@ -289,10 +289,10 @@ export function AccessPanel({ agent, diagnostics: d, consent, editable }: { agen
         </div>
       )}
       {error && (
-        <div role="alert" className="mt-2 rounded-md border border-bad/30 bg-bad/10 px-3 py-2 text-xs text-bad" data-testid="consent-error">
+        <Callout tone="bad" role="alert" className="mt-2" data-testid="consent-error">
           {error}
           {helm && <CopyCommand text={helm} />}
-        </div>
+        </Callout>
       )}
       {d?.partial && <p className="mt-3 text-xs text-nb-600">This is what the agent said when it connected; it has not finished looking at the cluster yet.</p>}
     </div>

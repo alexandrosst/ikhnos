@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, ErrorBanner, LinkButton, Select } from '@/components/ui/primitives'
+import { Button, Callout, ErrorBanner, LinkButton, Select } from '@/components/ui/primitives'
 import { api, ApiError } from '@/lib/api'
 import type { AddressCandidates } from '@/lib/types'
 import { useServer } from '@/store/server'
@@ -69,8 +69,7 @@ export default function ServerClusterCard({ found, operatorId, onChanged, testId
 
   if (sc.state === 'noAgent') {
     return (
-      <div role="note" className="space-y-2.5 rounded-lg border border-warn/30 bg-warn/10 px-3.5 py-3" data-testid={testId} data-state="noAgent">
-        <div className="text-sm font-medium text-warn">The server&apos;s cluster has no agent</div>
+      <Callout tone="warn" title="The server&apos;s cluster has no agent" role="note" data-testid={testId} data-state="noAgent"><div className="space-y-2.5">
         <p className="text-xs leading-relaxed text-nb-300">
           FUSION runs in the same cluster as this server, but nothing there reports that cluster&apos;s nodes and their network interfaces yet. The node probes the server&apos;s chart runs normally do (they may be switched off, or not started); so does an agent connected with the node probe on. Either way the nodes&apos; addresses, mesh ones included, appear here.
         </p>
@@ -82,7 +81,7 @@ export default function ServerClusterCard({ found, operatorId, onChanged, testId
           {sc.source === 'chosen' ? <LinkButton className="underline" onClick={() => void save('')} data-testid={`${testId}-clear`}>Take the choice back</LinkButton> : null}
         </p>
         {error && <ErrorBanner>{error}</ErrorBanner>}
-      </div>
+      </div></Callout>
     )
   }
 

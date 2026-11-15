@@ -3,7 +3,7 @@ import { AlertTriangle } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { EditAction, FormRow, Row, Section, ViewFooter } from '@/components/entity/parts'
 import { Place } from '@/components/ui/brand'
-import { Button, Input, Modal, Select } from '@/components/ui/primitives'
+import { Button, Callout, Input, Modal, Select } from '@/components/ui/primitives'
 import { countryName } from '@/lib/present'
 import { countryAt, findCities, nearestCity, siteLocationIssue, type City } from '@/lib/places'
 import { usePlaceIndex } from '@/lib/places-data'
@@ -163,10 +163,10 @@ export function SiteForm({ initial, onClose, edit, onDelete }: { initial: Site |
       </FormRow>
       {!valid && <p className="mt-2 text-xs text-bad">Enter a latitude between -90 and 90 and a longitude between -180 and 180.</p>}
       {here?.issue && (
-        <p className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn" role="alert">
+        <Callout tone="warn" role="alert" className="mt-2"><div className="flex flex-wrap items-center gap-2">
           {here.issue}
           {here.cc && <button type="button" className="rounded border border-warn/40 px-1.5 py-0.5 hover:bg-warn/10" onClick={() => setF({ ...f, country: here.cc! })}>Set country to {countryName(here.cc)}</button>}
-        </p>
+        </div></Callout>
       )}
       {here && !here.issue && (!f.country || !f.city) && (here.cc || here.near) && (
         <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-nb-400">

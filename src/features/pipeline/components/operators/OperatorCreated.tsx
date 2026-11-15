@@ -5,7 +5,7 @@ import { FusionDot } from '@/features/fusion/components/useFusion'
 import { HeartbeatCommands } from '@/features/pipeline/components/operators/HeartbeatCommands'
 import OperatorAccess from '@/features/pipeline/components/operators/OperatorAccess'
 import { FindTheAddress } from '@/features/pipeline/components/operators/OperatorAddress'
-import { Button, Disclosure, ICON_SM, Modal, RunStep, SectionLabel, Waiting } from '@/components/ui/primitives'
+import { Button, Callout, Disclosure, ICON_SM, Modal, RunStep, SectionLabel, Waiting } from '@/components/ui/primitives'
 import type { CreatedOperator, OperatorExposure } from '@/lib/api'
 import { CENTRAL_OPERATOR_ID, type FusionKind } from '@/features/fusion/lib/fusionStatus'
 import { useHoldReload } from '@/lib/useHoldReload'
@@ -199,9 +199,9 @@ export default function OperatorCreated({
               {created.exportTarget.operatorId === CENTRAL_OPERATOR_ID ? ', which saves metrics, logs and traces in FUSION. Nothing to install for FUSION itself' : ''}.
             </p>
             {!created.exportTarget.reachableFromOtherClusters && (
-              <p role="alert" className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs leading-relaxed text-warn" data-testid="operator-created-export-unreachable">
+              <Callout tone="warn" role="alert" data-testid="operator-created-export-unreachable">
                 {created.exportTarget.name} is reachable inside its own cluster only. Install this operator there, or record an address for it (<span className="font-semibold">Reachable at</span> on its row) before one in another cluster can send to it.
-              </p>
+              </Callout>
             )}
           </div>
         )}
