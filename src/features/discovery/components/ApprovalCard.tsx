@@ -1,4 +1,4 @@
-import { ChevronRight, KeyRound, ShieldCheck, ShieldX } from 'lucide-react'
+import { ChevronRight, KeyRound, ShieldX } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button, Callout, CopyButton, ErrorBanner, ICON_SM, Input, Pill } from '@/components/ui/primitives'
 import TierLevels from '@/components/TierLevels'
@@ -128,16 +128,14 @@ export default function ApprovalCard({ agent, onDone, showAccess = true }: { age
 
   return (
     <Callout tone="warn" size="lg" data-testid="approval-card">
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-sm font-medium text-nb-300">
-            <ShieldCheck size={ICON_SM} className="shrink-0 text-warn" /> <span className="truncate">{agent.name}</span> wants to connect
-          </div>
-          <p className="mt-1 text-sm text-nb-500">
-            {legacy ? 'An agent enrolled with a valid token. It gets a certificate and can start reporting only after you approve it.' : 'Type the code it printed to let it in. It can start reporting only after you approve it.'}
-          </p>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 text-sm font-medium text-nb-300">
+          <span className="truncate">{agent.name}</span> <span className="shrink-0 font-normal">wants to connect</span>
         </div>
-        <div className="flex shrink-0 flex-wrap justify-end gap-1.5 text-xs text-nb-400">
+        <p className="mt-1 text-sm text-nb-500">
+          {legacy ? 'An agent enrolled with a valid token. It gets a certificate and can start reporting only after you approve it.' : 'Type the code it printed to let it in. It can start reporting only after you approve it.'}
+        </p>
+        <div className="mt-2.5 flex flex-wrap gap-1.5 text-xs text-nb-400">
           {agent.kubernetesVersion && <Pill>Kubernetes {agent.kubernetesVersion}</Pill>}
           {agent.connectingIp && <Pill>from {agent.connectingIp}{ipLabel ? ` · ${ipLabel.toLowerCase()}` : ''}</Pill>}
           <Pill>agent v{agent.version}</Pill>
@@ -211,7 +209,7 @@ export default function ApprovalCard({ agent, onDone, showAccess = true }: { age
           <div id={helpId} className="mt-3 text-xs text-nb-500">
             <p className="text-center">The agent prints it in its own log, and only there. Run this on the cluster to read it:</p>
             <div className="mt-1.5 flex items-center gap-2">
-              <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded border border-nb-850 bg-nb-950 px-2 py-1.5 font-mono text-[11px] text-nb-300" data-testid="approval-log-command">{CODE_LOG_COMMAND}</code>
+              <code className="min-w-0 flex-1 break-all rounded border border-nb-850 bg-nb-950 px-2 py-1.5 font-mono text-[11px] text-nb-300" data-testid="approval-log-command">{CODE_LOG_COMMAND}</code>
               <CopyButton text={CODE_LOG_COMMAND} label="Copy" />
             </div>
           </div>

@@ -8,7 +8,7 @@ import { useServer } from '@/store/server'
  * at "Add manually" (or anything else) while it loads lands here instead of opening a second dialog behind it. */
 export function WizardLoading() {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-[2px]" aria-hidden>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60" aria-hidden>
       <Loader2 size={28} className="animate-spin text-accent" />
     </div>
   )

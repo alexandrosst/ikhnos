@@ -1406,7 +1406,7 @@ export function Modal({
   // descendants and confine the dialog to that element's box instead of the viewport - the same reason
   // Select's own list is portaled below.
   return createPortal(
-    <div ref={root} className={clsx('fade-in fixed inset-0 z-50 flex bg-black/60 backdrop-blur-[2px]', side ? 'items-stretch justify-end overflow-hidden' : 'items-start justify-center overflow-y-auto p-4 pt-[8vh]')} onMouseDown={dismissible ? onClose : undefined}>
+    <div ref={root} className={clsx('fade-in fixed inset-0 z-50 flex bg-black/60', side ? 'items-stretch justify-end overflow-hidden' : 'items-start justify-center overflow-y-auto overscroll-contain p-4 pt-[8vh]')} onMouseDown={dismissible ? onClose : undefined}>
       <div
         ref={box}
         tabIndex={-1}
