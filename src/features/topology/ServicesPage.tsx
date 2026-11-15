@@ -104,8 +104,10 @@ export default function ServicesPage() {
                 )}
                 {columns.isVisible('application') && (
                   <Td className="whitespace-nowrap text-nb-400">
-                    {applications.find((a) => a.id === w.applicationId)?.name ?? '—'}
-                    {(() => { const g = w.applicationId ? weak(w as never, 'applicationId') : undefined; return g ? <GuessDot level={g.level} why={g.why} /> : null })()}
+                    <span className="inline-flex items-center">
+                      {applications.find((a) => a.id === w.applicationId)?.name ?? '—'}
+                      {(() => { const g = w.applicationId ? weak(w as never, 'applicationId') : undefined; return g ? <GuessDot level={g.level} why={g.why} /> : null })()}
+                    </span>
                   </Td>
                 )}
                 {columns.isVisible('kind') && (

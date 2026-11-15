@@ -668,6 +668,7 @@ export default function Inspector({
             badge={
               !n.overrides?.kind && n.source === 'discovered' && (n.probed ? n.evidence?.kind?.confidence === 'medium' : n.evidence?.kind?.confidence === 'low') ? (
                 <GuessDot
+                  flush
                   why={
                     n.probed
                       ? 'The node probe saw no hypervisor flag or firmware name, so it worked the type out from the chassis or battery. Set it here if it is wrong.'

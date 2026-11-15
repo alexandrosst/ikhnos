@@ -107,7 +107,7 @@ export default function NodesPage() {
                 )}
                 {columns.isVisible('type') && (
                   <Td>
-                    {(() => { const K = KIND_ICON[n.kind]; return <WithIcon icon={<K size={ICON_SM} className="text-nb-500" />}><>{KIND_LABEL[n.kind]}{chip('kind')}</></WithIcon> })()}
+                    {(() => { const K = KIND_ICON[n.kind]; return <WithIcon icon={<K size={ICON_SM} className="text-nb-500" />}><span className="inline-flex items-center">{KIND_LABEL[n.kind]}{chip('kind')}</span></WithIcon> })()}
                     <div className="flex items-center gap-1.5 pl-[23px] text-xs text-nb-500">
                       {n.arch && <span>{n.arch}</span>}
                       {/* Bare metal/edge rows now carry an explicit "No hypervisor detected" too (see hostprobe.go) - worth a full line in the Inspector, but repeating it on every row here would just be noise next to a kind icon that already says "Bare metal". Only the interesting case (it IS a VM) earns space in this dense list. */}

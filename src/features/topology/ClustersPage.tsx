@@ -111,13 +111,15 @@ export default function ClustersPage() {
                 )}
                 {columns.isVisible('distro') && (
                   <Td>
-                    <WithIcon icon={<DistroIcon distribution={c.distribution} />}>
-                      <span title={c.version}>{c.distribution || '—'} <span className="text-nb-500">{shortVersion(c.version)}</span></span>
-                    </WithIcon>
-                    {chip('distribution')}
+                    <span className="inline-flex items-center">
+                      <WithIcon icon={<DistroIcon distribution={c.distribution} />}>
+                        <span title={c.version}>{c.distribution || '—'} <span className="text-nb-500">{shortVersion(c.version)}</span></span>
+                      </WithIcon>
+                      {chip('distribution')}
+                    </span>
                     {c.provider && (
                       <div className="mt-0.5 flex items-center gap-1.5 text-xs text-nb-500">
-                        <WithIcon icon={<ProviderIcon provider={c.provider} />}><>{c.provider}{chip('provider')}</></WithIcon>
+                        <WithIcon icon={<ProviderIcon provider={c.provider} />}><span className="inline-flex items-center">{c.provider}{chip('provider')}</span></WithIcon>
                       </div>
                     )}
                   </Td>

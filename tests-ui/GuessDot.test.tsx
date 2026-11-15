@@ -13,4 +13,11 @@ describe('GuessDot', () => {
     const { container } = render(<GuessDot level="unknown" why="never reported" />)
     expect(container).toBeEmptyDOMElement()
   })
+
+  test('it keeps its own gap from the value, except where the parent already spaces its children', () => {
+    const { rerender } = render(<GuessDot />)
+    expect(screen.getByRole('img', { name: 'Not certain' })).toHaveClass('ml-2')
+    rerender(<GuessDot flush />)
+    expect(screen.getByRole('img', { name: 'Not certain' })).not.toHaveClass('ml-2')
+  })
 })

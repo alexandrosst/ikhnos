@@ -53,7 +53,7 @@ export function useFieldLocks<T extends object>({
     if (!w) return undefined
     return (
       <span className="inline-flex items-center gap-1.5">
-        <GuessDot level={w.level} why={w.why} />
+        <GuessDot level={w.level} why={w.why} flush />
         {w.level === 'guess' && id && by && (
           <LinkButton onClick={() => confirmField(kind, id, field, by)} className="text-[11px]" title="Keep this value as it is; it will not be overwritten by rediscovery.">
             confirm

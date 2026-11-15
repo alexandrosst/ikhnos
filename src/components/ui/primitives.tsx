@@ -831,10 +831,10 @@ export function TierBadge({ tier }: { tier: Tier }) {
  * A value discovery is not sure of: a small dot after it, nothing more. What it rests on is in the tooltip, and the sidebar's
  * "Worth a look" offers to keep or change it. A value a person sets or confirms is just a value, so it loses the dot.
  */
-export function GuessDot({ why, level = 'guess' }: { why?: string; level?: string }) {
+export function GuessDot({ why, level = 'guess', flush }: { why?: string; level?: string; /** The parent already spaces its children (a flex `gap`), so the dot adds no margin of its own. */ flush?: boolean }) {
   if (level !== 'guess') return null
   const title = why ? `Probably right, not certain. ${why}` : 'Probably right, not certain.'
-  return <span role="img" aria-label="Not certain" title={title} data-guess className="ml-2 inline-block size-1.5 shrink-0 rounded-full bg-nb-500 align-middle" />
+  return <span role="img" aria-label="Not certain" title={title} data-guess className={clsx(flush ? '' : 'ml-2', 'inline-block size-1.5 shrink-0 rounded-full bg-nb-500 align-middle')} />
 }
 
 /**
