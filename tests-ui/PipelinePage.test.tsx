@@ -219,13 +219,28 @@ describe('PipelinePage', () => {
     expect(screen.queryByRole('status', { name: 'Loading' })).not.toBeInTheDocument()
   })
 
-  test('with nothing at all the page says so and offers the wizard once, as the one primary button', async () => {
+  test('with no cluster connected the page says so and sends you to Agents, as the one primary button', async () => {
     const user = userEvent.setup()
     topologyState = { agents: [], clusters: [] }
     renderPage()
     expect(await screen.findByText('Nothing is sending telemetry yet')).toBeInTheDocument()
     expect(screen.getByTestId('operator-open')).toHaveTextContent('New operator')
-    // The header does not repeat what the empty state offers.
+    // There is no cluster to set telemetry up on, so no wizard is offered, and the header does not repeat the button.
+    expect(screen.queryByTestId('telemetry-setup')).toBeNull()
+    expect(screen.queryByTestId('telemetry-setup-empty')).toBeNull()
+    const primaries = screen.getAllByRole('button').filter((b) => b.className.includes('bg-accent'))
+    expect(primaries).toEqual([screen.getByTestId('telemetry-go-agents')])
+    await user.click(screen.getByTestId('telemetry-go-agents'))
+    expect(screen.getByTestId('where')).toHaveTextContent('/agents')
+    expect(telemetryStart).not.toHaveBeenCalled()
+  })
+
+  test('with a cluster connected but nothing sent the page offers the wizard once, as the one primary button', async () => {
+    const user = userEvent.setup()
+    // An approved agent that reports nothing yet is not on this page.
+    topologyState = { agents: [ag()], clusters: [cl()] }
+    renderPage()
+    expect(await screen.findByText('Nothing is sending telemetry yet')).toBeInTheDocument()
     expect(screen.queryByTestId('telemetry-setup')).toBeNull()
     const primaries = screen.getAllByRole('button').filter((b) => b.className.includes('bg-accent'))
     expect(primaries).toEqual([screen.getByTestId('telemetry-setup-empty')])

@@ -855,7 +855,7 @@ function Canvas() {
         </div>
       </div>
 
-      {isTelemetry ? (
+      {isTelemetry && !empty ? (
         <TelemetryTab
           clusters={liveClusters}
           agents={agents}

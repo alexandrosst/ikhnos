@@ -165,7 +165,8 @@ describe('AccountMenu: what opens from your name', () => {
 
   it('names the organisation under your name on the card, without a second switcher', () => {
     renderMenu()
-    expect(screen.getByTestId('account-role')).toHaveTextContent('Administrator · Acme')
+    expect(screen.getByTestId('account-role')).toHaveTextContent('Administrator')
+    expect(screen.getByTestId('account-org')).toHaveTextContent('Acme')
     expect(screen.queryByTestId('org-switch')).toBeNull()
   })
 

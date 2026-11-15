@@ -1,7 +1,8 @@
-import { ChevronRight, Copy, Link2, Trash2, UserPlus } from 'lucide-react'
+import { Copy, Link2, LogOut, Pencil, Trash2, UserPlus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useHoldReload } from '@/lib/useHoldReload'
-import { Button, Callout, CopyValue, ErrorBanner, Field, ICON_SM, Input, Modal, PageHeader, Pill, SectionHeading, Select, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
+import { Button, Callout, CopyValue, Disclosure, ErrorBanner, Field, ICON_SM, Input, Modal, PageHeader, Pill, SectionHeading, Select, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
+import { Group, RowMore, SettingRow } from '@/components/ui/SettingsParts'
 import { api, ApiError, grantable, ROLE_HELP, ROLE_LABEL, type Invite, type Member, type Role } from '@/lib/api'
 import { useServer } from '@/store/server'
 
@@ -37,27 +38,60 @@ function InviteCreated({ token, invite, url, org, onClose }: { token: string; in
   )
 }
 
+/** The organisation's name, locked until its owner presses the pencil, as a record's name is in every other panel. */
+function OrganisationGroup({ owner }: { owner: boolean }) {
+  const info = useServer((s) => s.info)
+  const renameOrg = useServer((s) => s.renameOrg)
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const current = info?.orgName ?? ''
+  const start = () => { setName(current); setError(''); setEditing(true) }
+  const save = async () => {
+    setBusy(true)
+    try {
+      setError('')
+      await renameOrg(name)
+      setEditing(false)
+    } catch (e) {
+      setError(problem(e, 'Could not rename.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Group title="Organisation" id="organisation">
+      <SettingRow
+        label="Name"
+        value={current}
+        valueTestId="org-name"
+        action={owner && !editing ? (
+          <Button variant="ghost" size="sm" aria-label="Rename the organisation" title="Rename the organisation" onClick={start} data-testid="org-rename"><Pencil size={ICON_SM} /></Button>
+        ) : undefined}
+      />
+      {editing && (
+        <RowMore testId="org-rename-form">
+          <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim().length >= 2 && name.trim() !== current) void save() }}>
+            <Field label="New name" className="max-w-sm flex-1"><Input value={name} onChange={(e) => setName(e.target.value)} autoFocus data-testid="org-name-edit" /></Field>
+            <Button type="submit" variant="primary" disabled={busy || name.trim().length < 2 || name.trim() === current} data-testid="org-rename-save">Save</Button>
+            <Button onClick={() => setEditing(false)} data-testid="org-rename-cancel">Cancel</Button>
+          </form>
+          {error && <ErrorBanner>{error}</ErrorBanner>}
+        </RowMore>
+      )}
+    </Group>
+  )
+}
+
 function Danger() {
   const conn = useServer((s) => s.conn)
   const info = useServer((s) => s.info)
   const reloadOrgs = useServer((s) => s.reloadOrgs)
-  const renameOrg = useServer((s) => s.renameOrg)
-  const [name, setName] = useState('')
   const [confirm, setConfirm] = useState('')
   const [open, setOpen] = useState(false)
   const [error, setError] = useState('')
-  const [saved, setSaved] = useState(false)
-  useEffect(() => setName(info?.orgName ?? ''), [info?.orgName])
 
-  const rename = async () => {
-    try {
-      setError('')
-      await renameOrg(name)
-      setSaved(true)
-    } catch (e) {
-      setError(problem(e, 'Could not rename.'))
-    }
-  }
   const remove = async () => {
     const c = conn()
     if (!c) return
@@ -72,14 +106,9 @@ function Danger() {
   }
 
   return (
-    <section className="mt-10" aria-labelledby="org-h">
-      <SectionHeading id="org-h" className="mb-3">Organisation</SectionHeading>
+    <section className="mt-6" aria-label="Delete this organisation">
       <ErrorLine text={error} />
-      <form className="flex max-w-lg items-end gap-2" onSubmit={(e) => { e.preventDefault(); void rename() }}>
-        <Field label="Name" className="flex-1"><Input value={name} onChange={(e) => { setName(e.target.value); setSaved(false) }} data-testid="org-name" /></Field>
-        <Button type="submit" disabled={name.trim().length < 2 || name.trim() === info?.orgName}>{saved ? 'Saved' : 'Rename'}</Button>
-      </form>
-      <Callout tone="bad" className="mt-6 max-w-lg">
+      <Callout tone="bad" className="max-w-lg">
         <div className="text-sm font-medium text-bad">Delete this organisation</div>
         <p className="mt-1 text-xs text-nb-400">Erases its agents, topology, history and memberships for good. The people keep their accounts and their other organisations. The audit trail of who deleted it is kept.</p>
         <Button className="mt-3" variant="danger" onClick={() => { setConfirm(''); setOpen(true) }} data-testid="org-delete"><Trash2 size={ICON_SM} /> Delete organisation…</Button>
@@ -95,6 +124,15 @@ function Danger() {
         <Field label={`Type “${info?.orgName ?? ''}” to confirm`}><Input value={confirm} onChange={(e) => setConfirm(e.target.value)} autoFocus data-testid="org-delete-name" /></Field>
       </Modal>
     </section>
+  )
+}
+
+/** A row's one action, quiet until the row is hovered or focused: the same as the other lists'. */
+function RowAction({ label, onClick, testId }: { label: string; onClick: () => void; testId?: string }) {
+  return (
+    <div className="flex justify-end opacity-60 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+      <Button variant="ghost" size="sm" aria-label={label} title={label} onClick={onClick} data-testid={testId}><Trash2 size={ICON_SM} /></Button>
+    </div>
   )
 }
 
@@ -178,6 +216,10 @@ export default function TeamPage() {
       />
       <ErrorLine text={error} />
 
+      <OrganisationGroup owner={role === 'owner'} />
+
+      <section className="mt-8" aria-labelledby="mem-h">
+      <SectionHeading id="mem-h" className="mb-3">Members</SectionHeading>
       {!loaded ? (
         <TableSkeleton cols={['', '', '', '', '']} />
       ) : (
@@ -206,10 +248,10 @@ export default function TeamPage() {
                 <Td className="text-nb-500">{when(m.lastLogin)}</Td>
                 <Td className="text-right">
                   {manageable && (
-                    <Button size="sm" variant="danger" onClick={() => void act(async () => { const c = conn(); if (c) await api.removeMember(c, m.id) }, 'Could not remove the member.')}>Remove</Button>
+                    <RowAction label={`Remove ${m.username}`} testId={`remove-${m.username}`} onClick={() => void act(async () => { const c = conn(); if (c) await api.removeMember(c, m.id) }, 'Could not remove the member.')} />
                   )}
                   {m.you && (
-                    <Button size="sm" onClick={() => void act(async () => { const c = conn(); if (!c) return; await api.leaveOrg(c); await reloadOrgs() }, 'Could not leave the organisation.')} data-testid="leave-org">Leave</Button>
+                    <Button size="sm" onClick={() => void act(async () => { const c = conn(); if (!c) return; await api.leaveOrg(c); await reloadOrgs() }, 'Could not leave the organisation.')} data-testid="leave-org"><LogOut size={ICON_SM} /> Leave</Button>
                   )}
                 </Td>
               </tr>
@@ -218,9 +260,10 @@ export default function TeamPage() {
         </tbody>
       </Table>
       )}
+      </section>
 
       {canInvite && (
-        <section className="mt-10" aria-labelledby="inv-h">
+        <section className="mt-8" aria-labelledby="inv-h">
           <SectionHeading id="inv-h" className="mb-3">Invitations</SectionHeading>
           {!loaded ? (
             <TableSkeleton cols={['', '', '', '', '']} />
@@ -240,7 +283,7 @@ export default function TeamPage() {
                     <Td><Pill>{i.used ? `used by ${i.usedBy || 'someone'}` : i.expired ? 'expired' : `open until ${when(i.expiresAt)}`}</Pill></Td>
                     <Td className="text-right">
                       {!i.used && !i.expired && mine.includes(i.role) && (
-                        <Button size="sm" variant="danger" onClick={() => void act(async () => { const c = conn(); if (c) await api.revokeInvite(c, i.id) }, 'Could not withdraw the invite.')}>Withdraw</Button>
+                        <RowAction label="Withdraw this invitation" testId={`withdraw-${i.label || i.id}`} onClick={() => void act(async () => { const c = conn(); if (c) await api.revokeInvite(c, i.id) }, 'Could not withdraw the invite.')} />
                       )}
                     </Td>
                   </tr>
@@ -251,12 +294,8 @@ export default function TeamPage() {
         </section>
       )}
 
-      <details className="group mt-10">
-        <summary className="flex cursor-pointer select-none items-center gap-1.5 text-sm font-medium text-nb-300 marker:content-none">
-          <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
-          What each role can do
-        </summary>
-        <dl className="mt-3 grid max-w-3xl gap-x-6 gap-y-2 pl-[1.375rem] text-sm sm:grid-cols-[8rem_1fr]">
+      <Disclosure title="What each role can do" className="mt-8 max-w-3xl" testId="roles-help">
+        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[8rem_1fr]">
           {(['viewer', 'editor', 'admin', 'owner'] as Role[]).map((r) => (
             <div key={r} className="contents">
               <dt className="text-nb-300">{ROLE_LABEL[r]}</dt>
@@ -264,7 +303,7 @@ export default function TeamPage() {
             </div>
           ))}
         </dl>
-      </details>
+      </Disclosure>
 
       {role === 'owner' && <Danger />}
 

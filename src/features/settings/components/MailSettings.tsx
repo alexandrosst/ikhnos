@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { CircleAlert, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button, Field, ICON_SM, Input, LinkButton, SavedNote } from '@/components/ui/primitives'
-import { Group, RowMore, SettingRow } from '@/features/settings/components/SettingsParts'
+import { Group, RowMore, SettingRow } from '@/components/ui/SettingsParts'
 import { api, type Conn, type MailConfig } from '@/lib/api'
 
 /**

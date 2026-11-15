@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Plus, Radio } from 'lucide-react'
+import { Plug, Plus, Radio } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '@/components/forms'
@@ -248,12 +248,22 @@ export default function PipelinePage() {
         // The list is live and org-scoped, so it cannot be read from the already-synced store: until it answers, "none" would be a lie.
         <TableSkeleton colCount={7} />
       ) : empty ? (
-        <EmptyState
-          icon={PAGE_ICON.pipeline}
-          title="Nothing is sending telemetry yet"
-          description="Set up telemetry on a connected cluster to see the path its data takes to FUSION."
-          action={canConsent ? <Button variant="primary" onClick={() => telemetry.start()} data-testid="telemetry-setup-empty"><Radio size={ICON_SM} /> Set up telemetry</Button> : undefined}
-        />
+        // With no approved agent there is no cluster to set telemetry up on, so the way forward is the Agents page, not a wizard with nothing to choose.
+        agents.some((a) => a.status === 'approved') ? (
+          <EmptyState
+            icon={PAGE_ICON.pipeline}
+            title="Nothing is sending telemetry yet"
+            description="Set up telemetry on a connected cluster to see the path its data takes to FUSION."
+            action={canConsent ? <Button variant="primary" onClick={() => telemetry.start()} data-testid="telemetry-setup-empty"><Radio size={ICON_SM} /> Set up telemetry</Button> : undefined}
+          />
+        ) : (
+          <EmptyState
+            icon={PAGE_ICON.pipeline}
+            title="Nothing is sending telemetry yet"
+            description={agents.length > 0 ? 'A cluster has connected but is not approved yet. Approve its agent on the Agents page, then set up telemetry on it.' : 'Telemetry is set up on a connected cluster. Connect one on the Agents page first.'}
+            action={<Button variant="primary" onClick={() => navigate('/agents')} data-testid="telemetry-go-agents"><Plug size={ICON_SM} /> Go to Agents</Button>}
+          />
+        )
       ) : (
         <>
           {attention.length > 0 && (

@@ -1,6 +1,6 @@
 import { Button, Segmented } from '@/components/ui/primitives'
 import { useSecurityDialogs } from '@/components/SecurityModals'
-import { Group, SettingRow } from '@/features/settings/components/SettingsParts'
+import { Group, SettingRow } from '@/components/ui/SettingsParts'
 import { ROLE_LABEL } from '@/lib/api'
 import { getThemePreference, setThemePreference, type ThemePreference } from '@/lib/theme'
 import { useServer } from '@/store/server'

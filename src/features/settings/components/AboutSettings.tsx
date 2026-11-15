@@ -1,4 +1,4 @@
-import { Group, SettingRow } from '@/features/settings/components/SettingsParts'
+import { Group, SettingRow } from '@/components/ui/SettingsParts'
 import { useServer } from '@/store/server'
 
 /** What this server and the agent chart it hands out say they are, and whether it can suggest where a cluster is. */

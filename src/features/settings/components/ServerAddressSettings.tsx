@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import { Button, Field, InfoTip, Input } from '@/components/ui/primitives'
-import { Group, RowMore, SettingRow } from '@/features/settings/components/SettingsParts'
+import { Group, RowMore, SettingRow } from '@/components/ui/SettingsParts'
 import { exposureHelp, exposureIsAddressSwap, exposureLabel, serverAddressUpgradeCommand } from '@/features/settings/lib/exposure'
 import { useServer } from '@/store/server'
 
