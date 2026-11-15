@@ -11,7 +11,7 @@ import { useWorkspace, type SyncStatus } from '@/store/workspace'
 const SYNC_LABEL: Record<SyncStatus, { text: string; tone: string }> = {
   off: { text: '', tone: '' },
   loading: { text: 'Loading workspace…', tone: 'text-nb-500' },
-  saved: { text: 'All changes saved', tone: 'text-ok' },
+  saved: { text: '', tone: '' }, // the normal state says nothing; only a change that is not safe yet is worth a line
   dirty: { text: 'Unsaved changes…', tone: 'text-warn' },
   saving: { text: 'Saving…', tone: 'text-nb-400' },
   conflict: { text: 'Changed elsewhere', tone: 'text-bad' },

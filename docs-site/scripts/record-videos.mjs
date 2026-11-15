@@ -234,8 +234,8 @@ const VIDEOS = {
       await s.callout('nav >> text=Agents', 'Agents: one per connected cluster, and what each may see', {side: 'right', n: 6, ms: 3800});
       await s.click('nav >> text=History');
       await s.callout('nav >> text=History', 'History: what changed, when, and what it looked like', {side: 'right', n: 7, ms: 3800});
-      await s.key('Control+k');
-      await s.callout('[role=dialog] input', 'Ctrl K finds anything: a page, a cluster, a service', {side: 'bottom', n: 8, ms: 3400});
+      await s.click('[data-testid=search-button]');
+      await s.callout('[role=dialog] input', 'Search finds anything: a page, a cluster, a service', {side: 'bottom', n: 8, ms: 3400});
       await s.key('Escape');
     },
   },

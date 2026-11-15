@@ -11,9 +11,9 @@
   --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 
-  /* The NETMODE lab logo's lettering stays blue in both themes. Its brand navy (#323660) is 1.5:1 on the dark surface, so dark mode uses a light tint of the same blue
-   (#9aa3e6, 6.7:1); light mode uses the lettering colour of the lab's own logo file, that navy (11.5:1). The gold is a little brighter on dark and deeper on light, where the lab's own yellow (#e8ba1b) is 1.7:1 and faint. */
-  --color-lab-ink: #9aa3e6;
+  /* The NETMODE lab logo's lettering: its brand navy (#323660) is 1.5:1 on the dark surface, so dark mode uses a neutral light grey (#b4bcc6, 8:1) that sits quietly beside the
+   gold mark; light mode uses the lettering colour of the lab's own logo file, that navy (11.5:1). The gold is a little brighter on dark and deeper on light, where the lab's own yellow (#e8ba1b) is 1.7:1 and faint. */
+  --color-lab-ink: #b4bcc6;
   --color-lab-gold: #f4c21b;
   --color-nb-900: #1f2329;
   --color-nb-920: #212630;

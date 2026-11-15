@@ -170,6 +170,16 @@ describe('AccountMenu: what opens from your name', () => {
     expect(screen.queryByTestId('org-switch')).toBeNull()
   })
 
+  it('says nothing while everything is saved, and a line only when a change is not safe yet', () => {
+    const { rerender } = render(<MemoryRouter><AccountMenu /></MemoryRouter>)
+    useWorkspace.setState({ status: 'saved' } as never)
+    rerender(<MemoryRouter><AccountMenu /></MemoryRouter>)
+    expect(screen.queryByTestId('sync-status')).toBeNull()
+    useWorkspace.setState({ status: 'dirty' } as never)
+    rerender(<MemoryRouter><AccountMenu /></MemoryRouter>)
+    expect(screen.getByTestId('sync-status')).toHaveTextContent('Unsaved changes')
+  })
+
   it('has no Settings item, the sidebar holds it', () => {
     renderMenu()
     open()

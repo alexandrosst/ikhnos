@@ -192,9 +192,6 @@ export default function Layout() {
   )
 }
 
-const IS_MAC = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent)
-const SHORTCUT = IS_MAC ? '⌘K' : 'Ctrl K'
-
 /**
  * The sidebar's own chrome: static nav (NAV_GROUPS needs no data), plus whatever goes in its account-menu
  * slot - the real AccountMenu once signed in, or a quiet placeholder while that isn't known yet (see
@@ -241,11 +238,10 @@ function SidebarNav({
         <button
           onClick={onSearch}
           className="mb-3 flex items-center gap-2.5 rounded-md border border-nb-850 bg-nb-925 px-3 py-2 text-left text-sm text-nb-500 hover:border-nb-800 hover:text-nb-400"
-          aria-label={`Search (${SHORTCUT})`}
+          aria-label="Search"
           data-testid="search-button"
         >
           <Search size={ICON_SM} aria-hidden /> Search
-          <kbd className="ml-auto rounded border border-nb-800 px-1.5 text-[11px]">{SHORTCUT}</kbd>
         </button>
         <nav ref={navRef} className="relative flex flex-col gap-3">
           <NavIndicator containerRef={navRef} activeTo={activeTo} />
@@ -320,10 +316,6 @@ function Shell() {
   useEffect(() => setMenu(false), [pathname])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault()
-        setSearching((o) => !o)
-      }
       if (e.key === 'Escape') setMenu(false)
     }
     window.addEventListener('keydown', onKey)
