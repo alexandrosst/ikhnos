@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { EmptyState, TableSkeleton } from '@/components/ui/primitives'
+import { EmptyState, LinkButton, TableSkeleton } from '@/components/ui/primitives'
 import { buildFeed, groupByDay, type FeedFilter, type FeedItem } from '@/features/history/lib/feed'
 import type { ChangeEvent } from '@/lib/history'
 import { useHistoryView } from '@/store/history'
@@ -43,9 +43,9 @@ export default function Feed({ events, audit, filter, clusterId, since, hours }:
         </section>
       ))}
       {items.length > visible.length && (
-        <button onClick={() => setShown((n) => n + PAGE)} className="ml-7 text-sm text-accent hover:underline" data-testid="feed-more">
+        <LinkButton onClick={() => setShown((n) => n + PAGE)} className="ml-7 text-sm" data-testid="feed-more">
           Show earlier · {Math.min(PAGE, items.length - visible.length)} of {items.length - visible.length} more
-        </button>
+        </LinkButton>
       )}
     </div>
   )
@@ -82,13 +82,13 @@ function Entry({ item }: { item: FeedItem }) {
       {item.detail && <p className="mt-0.5 text-[13px] text-nb-400">{item.detail}</p>}
       {change && item.cause && <p className="mt-0.5 text-xs italic text-nb-500">Likely cause: {item.cause}</p>}
       {change && (
-        <button
+        <LinkButton
           onClick={async () => (await view(conn, item.at)) && navigate('/topology')}
-          className="mt-1 text-xs text-accent hover:underline"
+          className="mt-1 text-xs"
           title="Show the landscape at the moment of this change"
         >
           View then
-        </button>
+        </LinkButton>
       )}
     </li>
   )

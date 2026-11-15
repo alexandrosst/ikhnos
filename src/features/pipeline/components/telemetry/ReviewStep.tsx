@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import type { ReviewNotes } from '@/features/pipeline/lib/telemetrySetup'
-import Disclosure from './Disclosure'
-import { SectionLabel } from '@/components/ui/primitives'
+import { Disclosure, SectionLabel } from '@/components/ui/primitives'
 
 /** One block of the review: a bold lead and short sentences. */
 function Block({ title, items, testId }: { title: string; items: string[]; testId: string }) {

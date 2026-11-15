@@ -1,10 +1,10 @@
 import clsx from 'clsx'
-import { CheckCircle2, ChevronLeft, ChevronRight, Layers } from 'lucide-react'
+import { ChevronLeft, Layers } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import CreateOperatorModal from '@/features/pipeline/components/operators/CreateOperatorModal'
 import { useFusion } from '@/features/fusion/components/useFusion'
 import { OperatorAddressModal } from '@/features/pipeline/components/operators/OperatorAddress'
-import { Button, ErrorBanner, ICON_SM, SectionLabel, WizardSteps } from '@/components/ui/primitives'
+import { Button, Disclosure, DoneDisclosure, ErrorBanner, ICON_SM, LinkButton, SectionLabel, WizardSteps } from '@/components/ui/primitives'
 import { Switch } from '@/components/ui/Switch'
 import { atLeast, type CreatedOperator } from '@/lib/api'
 import { TELEMETRY_SIGNALS } from '@/lib/consent'
@@ -18,7 +18,6 @@ import { useServer } from '@/store/server'
 import { useTopology } from '@/store/topology'
 import CollectStep, { type SignalId } from './CollectStep'
 import DestinationStep from './DestinationStep'
-import Disclosure from './Disclosure'
 import GuidedScope from './GuidedScope'
 import ProcessOptions from './ProcessOptions'
 import ReviewStep from './ReviewStep'
@@ -236,7 +235,7 @@ export default function GuidedWizard({
         <p className="flex flex-wrap items-center gap-2 text-sm text-nb-500">
           From <span className="rounded-full border border-nb-850 px-2.5 py-0.5 font-mono text-xs text-nb-300">{clusterName}</span>
           {onBackToCluster && phase === 'collect' && (
-            <button type="button" className="text-accent hover:underline" onClick={onBackToCluster} data-testid={`${p}-guided-change-cluster`}>Change cluster</button>
+            <LinkButton onClick={onBackToCluster} data-testid={`${p}-guided-change-cluster`}>Change cluster</LinkButton>
           )}
         </p>
       )}
@@ -370,13 +369,7 @@ export default function GuidedWizard({
           <div className="space-y-4" data-testid={`${p}-guided-step-check`}>
             <StepHeading title="Waiting for data" />
             {checkSection}
-            <details className="group rounded-lg border border-nb-850 bg-nb-925" data-testid={`${p}-guided-ran`}>
-              <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-2.5 text-sm text-nb-500 marker:content-none">
-                <CheckCircle2 size={ICON_SM} className="text-ok" aria-hidden /> {asking ? 'Cluster asked.' : 'Command run.'}
-                <span className="flex items-center gap-1 text-nb-400">Show it again <ChevronRight size={ICON_SM} className="transition-transform group-open:rotate-90" aria-hidden /></span>
-              </summary>
-              <div className="border-t border-nb-850 p-4">{runSection}</div>
-            </details>
+            <DoneDisclosure testId={`${p}-guided-ran`} label={asking ? 'Cluster asked.' : 'Command run.'}>{runSection}</DoneDisclosure>
             <StepNav testIdPrefix={p} onBack={() => setPhase('install')} next={onDone ? { label: 'Done', onClick: onDone, testId: `${p}-guided-done` } : undefined} />
           </div>
         )}

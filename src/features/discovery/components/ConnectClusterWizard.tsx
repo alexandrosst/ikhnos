@@ -1,10 +1,10 @@
 import clsx from 'clsx'
 import { Tabs } from '@/components/ui/Tabs'
-import { Activity, CheckCircle2, ChevronRight, Cpu, Loader2, MapPin, Network, Pin, Timer } from 'lucide-react'
+import { Activity, CheckCircle2, Cpu, Loader2, MapPin, Network, Pin, Timer } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Flag } from '@/components/ui/brand'
-import { Button, CopyButton, ErrorBanner, Field, ICON_SM, InfoTip, Input, Modal, SectionLabel, TagsInput, WizardSteps } from '@/components/ui/primitives'
+import { Button, CopyButton, DoneDisclosure, ErrorBanner, Field, ICON_SM, InfoTip, Input, Modal, SectionLabel, TagsInput, WizardSteps } from '@/components/ui/primitives'
 import { Switch } from '@/components/ui/Switch'
 import TierLevels from '@/components/TierLevels'
 import { api, ApiError, type CreatedToken } from '@/lib/api'
@@ -165,15 +165,7 @@ function OptionRow({ testId, icon, checked, needs, onChange, title, tags, summar
 function AfterRun({ collapsed, children }: { collapsed: boolean; children: ReactNode }) {
   if (!collapsed) return <div>{children}</div>
   return (
-    <details className="group rounded-lg border border-nb-850 bg-nb-925" data-testid="install-collapsed">
-      <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-2.5 text-sm text-nb-500 marker:content-none">
-        <CheckCircle2 size={ICON_SM} className="text-ok" aria-hidden /> Install command run.
-        <span className="flex items-center gap-1 text-nb-400">
-          Show it again <ChevronRight size={ICON_SM} className="transition-transform group-open:rotate-90" aria-hidden />
-        </span>
-      </summary>
-      <div className="border-t border-nb-850 p-4">{children}</div>
-    </details>
+    <DoneDisclosure testId="install-collapsed" label="Install command run.">{children}</DoneDisclosure>
   )
 }
 

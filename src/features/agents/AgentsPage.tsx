@@ -18,7 +18,7 @@ import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import EntityHistory from '@/features/history/components/EntityHistory'
 import { ConfirmModal } from '@/components/forms'
 import { DistroIcon, Flag, WithIcon } from '@/components/ui/brand'
-import { Button, Card, EmptyState, ErrorBanner, GuessDot, ICON_SM, LiveDot, PageHeader, SectionHeading, SectionLabel, SkeletonBlock, StatTile, Table, TableSkeleton, Td, Th, TierBadge, type LiveKind } from '@/components/ui/primitives'
+import { Button, Card, EmptyState, ErrorBanner, GuessDot, ICON_SM, LinkButton, LiveDot, PageHeader, SectionHeading, SectionLabel, SkeletonBlock, StatTile, Table, TableSkeleton, Td, Th, TierBadge, type LiveKind } from '@/components/ui/primitives'
 import { api, ApiError } from '@/lib/api'
 import { skewLabel, skewWarning } from '@/lib/clock'
 import { extrasOf, uptimeWords, type AgentExtras } from '@/lib/consent'
@@ -356,7 +356,7 @@ export default function AgentsPage() {
             <Card className="mt-4 px-5 py-4" data-testid="agent-detail">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-sm font-medium text-nb-300">{openAgent.name}</h2>
-                <button className="text-xs text-nb-500 hover:text-nb-300" onClick={() => setOpen(null)}>Close</button>
+                <LinkButton tone="quiet" className="text-xs" onClick={() => setOpen(null)}>Close</LinkButton>
               </div>
               <AgentDetail agent={openAgent} extras={extrasOf(rawAgents, openAgent.id)} canConsent={canConsent} onRevoke={canAdminister && connected && openAgent.status === 'approved' ? () => setRevoking(openAgent) : undefined} />
             </Card>

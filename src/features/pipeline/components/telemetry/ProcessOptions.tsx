@@ -1,7 +1,7 @@
 import clsx from 'clsx'
-import { ChevronDown, Plus, X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Button, Card, ICON_MD, ICON_SM, InfoTip, Input, Radio } from '@/components/ui/primitives'
+import { Button, Card, Disclosure, ICON_MD, ICON_SM, InfoTip, Input, Radio } from '@/components/ui/primitives'
 import { Switch } from '@/components/ui/Switch'
 import { scopeTag, tagProblems, TAG_LIMIT, type DebugVerbosity, type TagEntry, type TelemetryInput } from '@/lib/install'
 import ProcessorEditor from './ProcessorEditor'
@@ -198,15 +198,11 @@ export default function ProcessOptions({
         <DebugChoice value={value} onChange={onChange} testIdPrefix={testIdPrefix} />
       </OptionGroup>
 
-      <details className="group rounded-lg border border-nb-850" data-testid={`${p}-process-extra`}>
-        <summary className="flex cursor-pointer select-none items-center justify-between px-3 py-2.5 text-xs font-medium text-nb-400 marker:content-none hover:text-nb-300">
-          <span>Extra processors{value.extraProcessors.length > 0 && ` (${value.extraProcessors.length})`}</span>
-          <ChevronDown size={ICON_MD} className="text-nb-500 transition-transform group-open:rotate-180" aria-hidden />
-        </summary>
-        <div className="border-t border-nb-850 p-3">
+      <Disclosure testId={`${p}-process-extra`} title={`Extra processors${value.extraProcessors.length > 0 ? ` (${value.extraProcessors.length})` : ''}`}>
+        <div>
           <ProcessorEditor entries={value.extraProcessors} onChange={(extraProcessors) => set('extraProcessors', extraProcessors)} testIdPrefix={testIdPrefix} />
         </div>
-      </details>
+      </Disclosure>
     </div>
   )
   if (part === 'basics') return basics

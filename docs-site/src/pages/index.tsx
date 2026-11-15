@@ -3,7 +3,6 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 import Layout from '@theme/Layout';
 import ThemedImage from '@theme/ThemedImage';
 import Figure from '@site/src/components/Figure';
-import Shot from '@site/src/components/Shot';
 import styles from './index.module.css';
 
 const principles: [string, string][] = [

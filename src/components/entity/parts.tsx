@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { Lock, Pencil, Radar, Trash2, UserRound } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Button, ICON_SM } from '@/components/ui/primitives'
+import { Button, ICON_SM, LinkButton } from '@/components/ui/primitives'
 import type { Origin } from '@/lib/fieldOrigin'
 import { ageLabel, observation, type ObsInfo } from '@/lib/provenance'
 import type { Provenance } from '@/lib/types'
@@ -115,9 +115,9 @@ export function FormRow({
             <span className="min-w-0 break-words">{lockedValue === undefined || lockedValue === '' ? '—' : lockedValue}</span>
             <span className="ml-auto shrink-0 text-xs text-nb-500">Detected</span>
           </div>
-          <button type="button" onClick={onOverride} aria-label={`Override ${label}`} className="shrink-0 text-xs text-accent hover:underline">
+          <LinkButton onClick={onOverride} aria-label={`Override ${label}`} className="shrink-0 text-xs">
             Override
-          </button>
+          </LinkButton>
         </div>
       </div>
     )
@@ -133,9 +133,9 @@ export function FormRow({
         </span>
       </Wrap>
       {onReset && (
-        <button type="button" onClick={onReset} aria-label={`Reset ${label}`} className="absolute right-0 top-3.5 text-xs text-accent hover:underline">
+        <LinkButton onClick={onReset} aria-label={`Reset ${label}`} className="absolute right-0 top-3.5 text-xs">
           Reset
-        </button>
+        </LinkButton>
       )}
     </div>
   )

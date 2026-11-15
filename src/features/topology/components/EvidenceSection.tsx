@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { EvidenceChip, ObservationChip, SectionLabel } from '@/components/ui/primitives'
+import { EvidenceChip, LinkButton, ObservationChip, SectionLabel } from '@/components/ui/primitives'
 import { ageLabel, evidenceRows, observation, weakAttributes, type ModelEntity } from '@/lib/provenance'
 import type { Provenance } from '@/lib/types'
 import { useEntityEvidence } from '@/store/effectiveModel'
@@ -62,9 +62,9 @@ export function EvidenceSection({ kind, id }: { kind: string; id: string }) {
         ))}
       </ul>
       {rows.length > SHOWN && (
-        <button onClick={() => setAll(!all)} className="mt-2 text-xs text-accent hover:underline">
+        <LinkButton onClick={() => setAll(!all)} className="mt-2 text-xs">
           {all ? 'Show fewer' : `Show all ${rows.length}`}
-        </button>
+        </LinkButton>
       )}
     </div>
   )
@@ -93,13 +93,13 @@ export function NeedsLook({ kind, rec }: { kind: 'cluster' | 'node' | 'service';
             <div className="mt-0.5 flex items-baseline justify-between gap-3 text-[11px] leading-4 text-nb-500">
               <span>{w.why}</span>
               {w.level === 'guess' && by && (
-                <button
+                <LinkButton
                   onClick={() => confirmField(kind, rec.id, w.field, by)}
-                  className="shrink-0 text-accent hover:underline"
+                  className="shrink-0"
                   title="Keep this value as it is; it will not be overwritten by rediscovery."
                 >
                   Keep as is
-                </button>
+                </LinkButton>
               )}
             </div>
           </li>
@@ -133,9 +133,9 @@ export function SourcesFooter({ kind, id }: { kind: string; id: string }) {
     <div className="border-t border-nb-850 px-5 py-3" data-testid="sources-footer">
       <div className="flex items-center justify-between gap-3 text-xs text-nb-500">
         <span>{rows.length} {rows.length === 1 ? 'fact' : 'facts'} · {parts.join(' · ')}</span>
-        <button onClick={() => setOpen(!open)} aria-expanded={open} className="shrink-0 text-accent hover:underline">
+        <LinkButton onClick={() => setOpen(!open)} aria-expanded={open} className="shrink-0">
           {open ? 'Hide sources' : 'Show sources'}
-        </button>
+        </LinkButton>
       </div>
       {open && <div className="-mx-5 mt-2"><EvidenceSection kind={kind} id={id} /></div>}
     </div>

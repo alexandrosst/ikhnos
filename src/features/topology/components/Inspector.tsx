@@ -9,7 +9,7 @@ import { LinkRow, Section, ShortList } from '@/features/topology/components/Insp
 import { OverlaySection } from '@/features/topology/components/OverlaySection'
 import PlatformPanel, { PlatformSubtitle } from '@/features/topology/components/PlatformPanel'
 import { DistroIcon, Flag, Place, ProviderIcon, WithIcon } from '@/components/ui/brand'
-import { Button, CompletenessBadge, ConnectivityStatusBadge, DetailRow, GuessDot, ICON_MD, ICON_SM, Input, IpAddress, Pill, Provenance as ProvenanceStrip, SectionLabel, Select, Sparkline, StatusDot, TierBadge, TunnelEvidence } from '@/components/ui/primitives'
+import { Button, CompletenessBadge, ConnectivityStatusBadge, DetailRow, GuessDot, ICON_MD, ICON_SM, Input, IpAddress, LinkButton, Pill, Provenance as ProvenanceStrip, SectionLabel, Select, Sparkline, StatusDot, TierBadge, TunnelEvidence } from '@/components/ui/primitives'
 import { clusterNets } from '@/features/topology/lib/clusterNets'
 import { completeness } from '@/lib/completeness'
 import { CONFIDENCE_TONE, dependencyProvenance, observation } from '@/lib/provenance'
@@ -487,7 +487,7 @@ export default function Inspector({
                   {n.peers.map((peer, i) => (
                     <Fragment key={peer.id}>
                       {i > 0 && ', '}
-                      <button type="button" className="text-accent hover:underline" onClick={() => onSelect({ kind: 'cluster', id: peer.id })}>{peer.name}</button>
+                      <LinkButton onClick={() => onSelect({ kind: 'cluster', id: peer.id })}>{peer.name}</LinkButton>
                     </Fragment>
                   ))}
                 </p>
@@ -661,7 +661,7 @@ export default function Inspector({
         <NeedsLook kind="node" rec={n} />
         <Section title="Identity">
           <Row label="Cluster">
-            <button className="text-accent hover:underline" onClick={() => onSelect({ kind: 'cluster', id: n.clusterId })}>{clusterName(n.clusterId)}</button>
+            <LinkButton onClick={() => onSelect({ kind: 'cluster', id: n.clusterId })}>{clusterName(n.clusterId)}</LinkButton>
           </Row>
           <Row
             label="Type"
@@ -817,7 +817,7 @@ export default function Inspector({
         <NeedsLook kind="service" rec={w} />
         <Section title="Identity">
           <Row label="Cluster">
-            <button className="text-accent hover:underline" onClick={() => onSelect({ kind: 'cluster', id: w.clusterId })}>{clusterName(w.clusterId)}</button>
+            <LinkButton onClick={() => onSelect({ kind: 'cluster', id: w.clusterId })}>{clusterName(w.clusterId)}</LinkButton>
           </Row>
           <Row label="Application">{appName(w.applicationId) ?? '—'}</Row>
           <Row label="Namespace">{w.namespace}</Row>
@@ -984,7 +984,7 @@ export default function Inspector({
           {fieldProvenance(d.evidence?.kind) && <ProvenanceStrip {...fieldProvenance(d.evidence?.kind)!} />}
           <Row label="Application">{appName(d.applicationId) ?? '—'}</Row>
           <Row label="Site">{d.siteId ? (
-            <button className="text-accent hover:underline" onClick={() => onSelect({ kind: 'site', id: d.siteId! })}>{siteName(d.siteId)}</button>
+            <LinkButton onClick={() => onSelect({ kind: 'site', id: d.siteId! })}>{siteName(d.siteId)}</LinkButton>
           ) : '—'}</Row>
           <Maybe label="Hardware">{d.hardwareModel}</Maybe>
           <Maybe label="Firmware">{d.firmware}</Maybe>
@@ -996,7 +996,7 @@ export default function Inspector({
           <Maybe label="Connectivity">{connLabel(d.connectivity)}</Maybe>
           {gw && (
             <Row label="Attached to">
-              <button className="text-accent hover:underline" onClick={() => onSelect({ kind: 'node', id: gw.id })}>{gw.name}</button>
+              <LinkButton onClick={() => onSelect({ kind: 'node', id: gw.id })}>{gw.name}</LinkButton>
             </Row>
           )}
         </Section>

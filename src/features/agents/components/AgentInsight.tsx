@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { StatusBadge, type StatusTone } from '@/components/ui/Status'
 import { Info } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Field, TagsInput } from '@/components/ui/primitives'
+import { Button, Field, LinkButton, TagsInput } from '@/components/ui/primitives'
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import { Switch } from '@/components/ui/Switch'
 import { ServerCommand } from '@/components/ui/ServerCommand'
@@ -274,7 +274,7 @@ export function AccessPanel({ agent, diagnostics: d, consent, editable }: { agen
       {editable && (
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button variant="primary" size="sm" disabled={!dirty || !valid || busy} onClick={() => void save()} data-testid="consent-save">{busy ? 'Saving…' : 'Save'}</Button>
-          {dirty && !busy && <button type="button" className="text-xs text-nb-500 hover:text-nb-300" onClick={() => { setTier(agent.accessTier); setPaused(stored.pausedCollectors); setExcl(stored.excludedNamespaces); setError(''); setHelm('') }}>Discard changes</button>}
+          {dirty && !busy && <LinkButton tone="quiet" className="text-xs" onClick={() => { setTier(agent.accessTier); setPaused(stored.pausedCollectors); setExcl(stored.excludedNamespaces); setError(''); setHelm('') }}>Discard changes</LinkButton>}
           {!dirty && !error && (saved || (narrowed && !confirmed)) && (
             <span className={clsx('text-xs', confirmed ? 'text-ok' : 'text-nb-400')} role="status" data-testid="consent-status">
               {confirmed

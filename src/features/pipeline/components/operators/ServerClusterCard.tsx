@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, ErrorBanner, Select } from '@/components/ui/primitives'
+import { Button, ErrorBanner, LinkButton, Select } from '@/components/ui/primitives'
 import { api, ApiError } from '@/lib/api'
 import type { AddressCandidates } from '@/lib/types'
 import { useServer } from '@/store/server'
@@ -60,7 +60,7 @@ export default function ServerClusterCard({ found, operatorId, onChanged, testId
       <div className="space-y-2" data-testid={testId} data-state="known">
         <p className="text-[11px] leading-relaxed text-nb-500">
           The server knows it runs in {name} {sc.source ? SOURCE[sc.source] : ''}.{sc.nodes === 'probe' ? ' Its nodes\u2019 addresses come from the node probes that ship with the server, so no agent is needed.' : ''}{' '}
-          <button type="button" className="text-accent underline" onClick={() => { setPick(sc.source === 'chosen' ? sc.clusterId ?? '' : ''); setChanging((v) => !v) }} data-testid={`${testId}-change`}>Change</button>
+          <LinkButton className="underline" onClick={() => { setPick(sc.source === 'chosen' ? sc.clusterId ?? '' : ''); setChanging((v) => !v) }} data-testid={`${testId}-change`}>Change</LinkButton>
         </p>
         {changing && chooser}
       </div>
@@ -79,7 +79,7 @@ export default function ServerClusterCard({ found, operatorId, onChanged, testId
         </div>
         <p className="text-[11px] leading-relaxed text-nb-500">
           Opens the usual connect dialog with the node probe already on.{sc.source === 'chosen' ? ' You chose this cluster; ' : ' '}
-          {sc.source === 'chosen' ? <button type="button" className="text-accent underline" onClick={() => void save('')} data-testid={`${testId}-clear`}>Take the choice back</button> : null}
+          {sc.source === 'chosen' ? <LinkButton className="underline" onClick={() => void save('')} data-testid={`${testId}-clear`}>Take the choice back</LinkButton> : null}
         </p>
         {error && <ErrorBanner>{error}</ErrorBanner>}
       </div>

@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Check, ChevronDown, Cloud, Copy, Cpu, Eye, EyeOff, Loader2, Minus, Plus, Server, X, type LucideIcon } from 'lucide-react'
+import { Check, CheckCircle2, ChevronDown, ChevronRight, Cloud, Copy, Cpu, Eye, EyeOff, Loader2, Minus, Plus, Server, X, type LucideIcon } from 'lucide-react'
 import {
   Children, Fragment, isValidElement, useEffect, useId, useLayoutEffect, useRef, useState,
   type ButtonHTMLAttributes, type ChangeEvent, type HTMLAttributes, type ComponentProps, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type SelectHTMLAttributes,
@@ -34,6 +34,64 @@ export function Button({
   // type="button" unless the caller says otherwise: a button inside a <form> submits it by default, and most of ours (a switch, a copy, a
   // dialog's Cancel) are not the form's submit.
   return <button type="button" {...props} className={buttonClass(variant, size, className)} />
+}
+
+/**
+ * A button that reads as text: an action inside a sentence or beside a value ("Change", "Show more", a cluster name that opens it).
+ * `accent` is the one to take, `quiet` the way out ("Close", "Cancel"). Size and spacing come from where it sits (a `text-xs` className).
+ */
+export function LinkButton({ tone = 'accent', className, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { tone?: 'accent' | 'quiet' }) {
+  return <button type="button" {...props} className={clsx(tone === 'accent' ? 'text-accent hover:underline' : 'text-nb-500 hover:text-nb-300', className)} />
+}
+
+/**
+ * A section that folds: a chevron and a title, closed unless asked. The box every folding part of a form or wizard uses ("Advanced", "Not
+ * listed?", "Show step by step"). `defaultOpen` is read once, so a person's own click is never fought by a value that changes under it; pass
+ * `open` and `onOpenChange` to own the state instead. `flush` leaves the body without padding, for content that has its own.
+ */
+export function Disclosure({ title, hint, defaultOpen = false, open: openProp, onOpenChange, flush = false, children, testId, className }: {
+  title: ReactNode
+  hint?: string
+  defaultOpen?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  flush?: boolean
+  children: ReactNode
+  testId?: string
+  className?: string
+}) {
+  const [own, setOwn] = useState(defaultOpen)
+  const open = openProp ?? own
+  return (
+    <details
+      className={clsx('group rounded-lg border border-nb-850 bg-nb-925', className)}
+      open={open}
+      onToggle={(e) => { setOwn(e.currentTarget.open); onOpenChange?.(e.currentTarget.open) }}
+      data-testid={testId}
+    >
+      <summary className="flex cursor-pointer select-none items-center gap-1.5 px-4 py-3 text-sm font-medium text-nb-300 marker:content-none">
+        <ChevronRight size={ICON_SM} className="shrink-0 text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
+        {title}
+        {hint && <span className="font-normal text-nb-500">({hint})</span>}
+      </summary>
+      <div className={clsx('border-t border-nb-850', !flush && 'space-y-3 p-3')}>{children}</div>
+    </details>
+  )
+}
+
+/** What a step that has been done folds to: "Command run." with a way to read it again. */
+export function DoneDisclosure({ label, children, testId }: { label: string; children: ReactNode; testId?: string }) {
+  return (
+    <details className="group rounded-lg border border-nb-850 bg-nb-925" data-testid={testId}>
+      <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-2.5 text-sm text-nb-500 marker:content-none">
+        <CheckCircle2 size={ICON_SM} className="text-ok" aria-hidden /> {label}
+        <span className="flex items-center gap-1 text-nb-400">
+          Show it again <ChevronRight size={ICON_SM} className="transition-transform group-open:rotate-90" aria-hidden />
+        </span>
+      </summary>
+      <div className="border-t border-nb-850 p-4">{children}</div>
+    </details>
+  )
 }
 
 /**

@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, Input, SectionHeading, Segmented } from '@/components/ui/primitives'
+import { Button, Card, Input, LinkButton, SectionHeading, Segmented } from '@/components/ui/primitives'
 import { ageOf, pointAt, type ChangeEvent, type HistoryIndex } from '@/lib/history'
 import { useHistoryView } from '@/store/history'
 import { useConn } from '@/store/server'
@@ -67,7 +67,7 @@ export default function Scrubber({ hours, setHours, index, events }: { hours: nu
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-nb-500">
             <span>{points.length} recordings kept, back to {new Date(points[0].at).toLocaleDateString()}.</span>
-            <button className="text-accent hover:underline" onClick={() => setExactOpen((v) => !v)} aria-expanded={exactOpen}>Exact time…</button>
+            <LinkButton onClick={() => setExactOpen((v) => !v)} aria-expanded={exactOpen}>Exact time…</LinkButton>
           </div>
           {exactOpen && (
             <form

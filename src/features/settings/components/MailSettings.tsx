@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { CircleAlert, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Button, Field, ICON_SM, Input, SavedNote } from '@/components/ui/primitives'
+import { Button, Field, ICON_SM, Input, LinkButton, SavedNote } from '@/components/ui/primitives'
 import { Group, RowMore, SettingRow } from '@/features/settings/components/SettingsParts'
 import { api, type Conn, type MailConfig } from '@/lib/api'
 
@@ -130,18 +130,18 @@ export default function MailSettings({ conn }: { conn: Conn }) {
               ) : clearPassword ? (
                 <p className="flex flex-wrap items-center gap-2 text-sm text-warn/90">
                   Removing the password on save.
-                  <button type="button" className="text-xs text-accent hover:underline" onClick={() => setClearPassword(false)}>Undo</button>
+                  <LinkButton className="text-xs" onClick={() => setClearPassword(false)}>Undo</LinkButton>
                 </p>
               ) : (
                 <p className="flex flex-wrap items-center gap-3 text-sm text-nb-400">
                   {cfg.passwordSet ? 'A password is set.' : 'No password is set.'}
-                  <button type="button" className="text-xs text-accent hover:underline" onClick={() => { setSaved(false); setEditingPassword(true) }} data-testid="mail-password-edit">
+                  <LinkButton className="text-xs" onClick={() => { setSaved(false); setEditingPassword(true) }} data-testid="mail-password-edit">
                     {cfg.passwordSet ? 'Replace' : 'Set one'}
-                  </button>
+                  </LinkButton>
                   {cfg.passwordSet && (
-                    <button type="button" className="text-xs text-accent hover:underline" onClick={() => { setSaved(false); setClearPassword(true) }} data-testid="mail-password-remove">
+                    <LinkButton className="text-xs" onClick={() => { setSaved(false); setClearPassword(true) }} data-testid="mail-password-remove">
                       Remove
-                    </button>
+                    </LinkButton>
                   )}
                 </p>
               )}

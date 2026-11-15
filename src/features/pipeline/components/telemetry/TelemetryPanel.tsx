@@ -1,7 +1,7 @@
 import { Tabs } from '@/components/ui/Tabs'
 import { ChevronRight, Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Button, ICON_SM, RunStep } from '@/components/ui/primitives'
+import { Button, ICON_SM, LinkButton, RunStep } from '@/components/ui/primitives'
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import { ServerCommand } from '@/components/ui/ServerCommand'
 import { AskTheCluster } from '@/features/pipeline/components/telemetry/AskTheCluster'
@@ -488,7 +488,7 @@ function TelemetryPanelBody({
       {restored && (
         <p className="mt-3 flex flex-wrap items-center gap-2 text-xs text-nb-500" data-testid={`${testIdPrefix}-restored`}>
           Your unfinished changes from earlier in this session are back.
-          <button type="button" className="text-accent hover:underline" onClick={startOver} data-testid={`${testIdPrefix}-start-over`}>Start over</button>
+          <LinkButton onClick={startOver} data-testid={`${testIdPrefix}-start-over`}>Start over</LinkButton>
         </p>
       )}
 

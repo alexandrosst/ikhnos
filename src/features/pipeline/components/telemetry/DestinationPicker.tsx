@@ -3,7 +3,7 @@ import { Activity, FileText, Plus, Search, Waypoints, type LucideIcon } from 'lu
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { FusionDot } from '@/features/fusion/components/useFusion'
 import { OperatorHealth } from '@/features/pipeline/components/operators/OperatorHealth'
-import { Button, Card, ICON_SM, Input } from '@/components/ui/primitives'
+import { Button, Card, ICON_SM, Input, LinkButton } from '@/components/ui/primitives'
 import { destinationGroup, GROUP_TITLE, destinationKey, searchDestinations, type DestinationCatalog, type DestinationCatalogEntry, type DestinationGroup, type layoutDestinations } from '@/features/pipeline/lib/destinationCatalog'
 import { imageRepository } from '@/lib/detectBackends'
 import { fusionLabel } from '@/features/fusion/lib/fusionStatus'
@@ -313,9 +313,9 @@ export default function DestinationPicker({
       </Card>
 
       {!searching && moreCount > 0 && (
-        <button type="button" className="text-xs text-accent hover:underline" onClick={() => setMore((m) => !m)} data-testid={`${p}-destination-more`}>
+        <LinkButton className="text-xs" onClick={() => setMore((m) => !m)} data-testid={`${p}-destination-more`}>
           {more ? 'Show fewer' : `Show ${moreCount} more`}
-        </button>
+        </LinkButton>
       )}
     </div>
   )

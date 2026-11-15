@@ -1,6 +1,6 @@
 import { History, UserRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { ICON_SM, SectionLabel, SkeletonLines } from '@/components/ui/primitives'
+import { ICON_SM, LinkButton, SectionLabel, SkeletonLines } from '@/components/ui/primitives'
 import { api, type Timeline } from '@/lib/api'
 import { kindLabel } from '@/lib/history'
 import { useConn, useServer } from '@/store/server'
@@ -49,9 +49,9 @@ export default function EntityHistory({ kind, id }: { kind: string; id: string }
     <div className="border-t border-nb-850 px-5 py-4" data-testid="entity-history">
       <SectionLabel className="mb-2">History</SectionLabel>
       {!tl && state === 'idle' && (
-        <button onClick={() => void load()} className="flex items-center gap-2 text-sm text-accent hover:underline" data-testid="entity-history-load">
+        <LinkButton onClick={() => void load()} className="flex items-center gap-2 text-sm" data-testid="entity-history-load">
           <History size={ICON_SM} aria-hidden /> Show how this changed over time
-        </button>
+        </LinkButton>
       )}
       {state === 'loading' && <SkeletonLines lines={3} className="max-w-sm" />}
       {state === 'none' && <p className="text-sm text-nb-500">Nothing has been recorded for this yet. It appears after the next recording.</p>}

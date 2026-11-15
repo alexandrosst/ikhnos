@@ -1,4 +1,3 @@
-import { ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import OperatorCreated from '@/features/pipeline/components/operators/OperatorCreated'
@@ -8,7 +7,7 @@ import { EXPOSURE_OPTIONS } from '@/features/pipeline/components/operators/Opera
 import DestinationPicker, { useEnableAndUse } from '@/features/pipeline/components/telemetry/DestinationPicker'
 import { TagRows } from '@/features/pipeline/components/telemetry/ProcessOptions'
 import ProcessorEditor from '@/features/pipeline/components/telemetry/ProcessorEditor'
-import { Button, Checkbox, ComboField, ErrorBanner, Field, ICON_SM, Input, Modal, SectionLabel } from '@/components/ui/primitives'
+import { Button, Checkbox, ComboField, Disclosure, ErrorBanner, Field, Input, Modal, SectionLabel } from '@/components/ui/primitives'
 import { Switch } from '@/components/ui/Switch'
 import { api, ApiError, type CreatedOperator, type OperatorExposure } from '@/lib/api'
 import { buildDestinationCatalog, catalogOperators, destinationKey, fusionForCatalog, layoutDestinations, type DestinationCatalogEntry } from '@/features/pipeline/lib/destinationCatalog'
@@ -202,12 +201,8 @@ export default function CreateOperatorModal({
             search={false}
             emptyText="There is no other operator to send to. Use another backend below."
           />
-          <details className="group rounded-lg border border-nb-850" open={otherOpen} onToggle={(e) => setOtherOpen(e.currentTarget.open)} data-testid="operator-other-backend">
-            <summary className="flex cursor-pointer select-none items-center gap-1.5 px-3 py-2.5 text-sm text-nb-300 marker:content-none">
-              <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
-              Not listed? Another backend
-            </summary>
-            <div className="grid gap-3 border-t border-nb-850 p-3 sm:grid-cols-2">
+          <Disclosure open={otherOpen} onOpenChange={setOtherOpen} testId="operator-other-backend" title="Not listed? Another backend" flush>
+            <div className="grid gap-3 p-3 sm:grid-cols-2">
               <Field label="Send aggregated telemetry to" hint="Pick a known backend to fill in its endpoint pattern and credential header, or type your own." className="sm:col-span-2">
                 <ComboField
                   value={draft.destination.kind === 'external' ? draft.destination.endpoint : ''}
@@ -233,7 +228,7 @@ export default function CreateOperatorModal({
                 <Input value={draft.destination.authSecretName ?? ''} onChange={(e) => set({ destination: { ...draft.destination, kind: 'external', authSecretName: e.target.value } })} placeholder="telemetry-export-token" />
               </Field>
             </div>
-          </details>
+          </Disclosure>
           {toCentral && (
             <p className="text-sm text-nb-500" data-testid="operator-central">
               FUSION is the one door into this server&apos;s own stores: Prometheus for metrics, Loki for logs, Tempo for traces. It is reached over mutual TLS, with a client certificate issued when you create this operator.
@@ -262,12 +257,8 @@ export default function CreateOperatorModal({
           )}
         </fieldset>
 
-        <details className="group rounded-lg border border-nb-850" data-testid="operator-advanced">
-          <summary className="flex cursor-pointer select-none items-center gap-1.5 px-3 py-2.5 text-sm text-nb-300 marker:content-none">
-            <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
-            Advanced
-          </summary>
-          <div className="space-y-4 border-t border-nb-850 p-3">
+        <Disclosure testId="operator-advanced" title="Advanced" flush>
+          <div className="space-y-4 p-3">
             <label className="flex cursor-pointer items-start gap-3">
               <span className="min-w-0 flex-1 text-sm">
                 <span className="text-nb-300">Report this operator&apos;s health to this server</span>
@@ -289,7 +280,7 @@ export default function CreateOperatorModal({
               <ProcessorEditor entries={draft.extraProcessors} onChange={(extraProcessors) => set({ extraProcessors })} testIdPrefix="operator" />
             </div>
           </div>
-        </details>
+        </Disclosure>
 
         {/* What is still missing, said quietly: it is the state of an empty form, not an error, so it is neither red nor announced as an alert. */}
         {problems.length > 0 && <p className="text-xs text-nb-500" data-testid="operator-problems">{problems.join('. ')}.</p>}

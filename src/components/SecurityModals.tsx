@@ -1,7 +1,7 @@
 import { Fingerprint, Mail, ShieldCheck } from 'lucide-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, CopyButton, CopyValue, ErrorBanner, Field, ICON_SM, Input, Modal, PasswordInput } from '@/components/ui/primitives'
+import { Button, CopyButton, CopyValue, ErrorBanner, Field, ICON_SM, Input, LinkButton, Modal, PasswordInput } from '@/components/ui/primitives'
 import { PasswordRequirements, passwordRules } from '@/components/PasswordRequirements'
 import { useHoldReload } from '@/lib/useHoldReload'
 import { api, ApiError, type ApiToken, type CreatedApiToken, type Passkey } from '@/lib/api'
@@ -316,9 +316,9 @@ export function EmailSetupModal({ onClose }: { onClose: () => void }) {
             </>
           )}
           <div>
-            <button type="button" onClick={() => setStep('address')} className="text-xs text-nb-500 hover:text-nb-300">
+            <LinkButton tone="quiet" onClick={() => setStep('address')} className="text-xs">
               Use a different address
-            </button>
+            </LinkButton>
           </div>
           {error && <ErrorBanner>{error}</ErrorBanner>}
         </form>

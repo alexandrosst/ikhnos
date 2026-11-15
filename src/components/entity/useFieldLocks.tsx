@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { GuessDot } from '@/components/ui/primitives'
+import { GuessDot, LinkButton } from '@/components/ui/primitives'
 import { initiallyOpen, isDetected, isLocked } from '@/lib/fieldOrigin'
 import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
@@ -55,9 +55,9 @@ export function useFieldLocks<T extends object>({
       <span className="inline-flex items-center gap-1.5">
         <GuessDot level={w.level} why={w.why} />
         {w.level === 'guess' && id && by && (
-          <button type="button" onClick={() => confirmField(kind, id, field, by)} className="text-[11px] text-accent hover:underline" title="Keep this value as it is; it will not be overwritten by rediscovery.">
+          <LinkButton onClick={() => confirmField(kind, id, field, by)} className="text-[11px]" title="Keep this value as it is; it will not be overwritten by rediscovery.">
             confirm
-          </button>
+          </LinkButton>
         )}
       </span>
     )

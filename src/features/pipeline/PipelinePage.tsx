@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { ChevronRight, Plus, Radio } from 'lucide-react'
+import { Plus, Radio } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '@/components/forms'
@@ -19,7 +19,7 @@ import type { RowMenuItem } from '@/features/pipeline/components/operators/RowMe
 import StateChip from '@/features/pipeline/components/operators/StateChip'
 import WhatToDoModal from '@/features/pipeline/components/operators/WhatToDoModal'
 import { useTelemetryFlow } from '@/features/pipeline/components/telemetry/TelemetryFlow'
-import { Button, Card, ClearableChip, EmptyState, ErrorBanner, ICON_SM, PageHeader, SectionHeading, TableSkeleton } from '@/components/ui/primitives'
+import { Button, Card, ClearableChip, Disclosure, EmptyState, ErrorBanner, ICON_SM, PageHeader, SectionHeading, TableSkeleton } from '@/components/ui/primitives'
 import { api, ApiError, type CreatedOperator } from '@/lib/api'
 import { operatorFromDestination } from '@/features/pipeline/lib/destinationCatalog'
 import { CENTRAL_OPERATOR_ID, fusionSentence } from '@/features/fusion/lib/fusionStatus'
@@ -295,15 +295,11 @@ export default function PipelinePage() {
           {!admin && <p className="mt-3 text-xs text-nb-500">Regional operators are only shown to organisation administrators.</p>}
 
           {admin && (
-            <details className="group mt-6 rounded-xl border border-nb-850 bg-nb-925" data-testid="operator-access-note">
-              <summary className="flex cursor-pointer select-none items-center gap-1.5 px-4 py-3 text-sm font-medium text-nb-300 marker:content-none">
-                <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
-                What an operator can access
-              </summary>
-              <div className="border-t border-nb-850">
+            <Disclosure flush className="mt-6" testId="operator-access-note" title="What an operator can access">
+              <div>
                 <OperatorAccess />
               </div>
-            </details>
+            </Disclosure>
           )}
         </>
       )}

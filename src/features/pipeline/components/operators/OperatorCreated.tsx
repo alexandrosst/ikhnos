@@ -1,11 +1,11 @@
-import { CheckCircle2, ChevronRight, Plug } from 'lucide-react'
+import { CheckCircle2, Plug } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import { FusionDot } from '@/features/fusion/components/useFusion'
 import { HeartbeatCommands } from '@/features/pipeline/components/operators/HeartbeatCommands'
 import OperatorAccess from '@/features/pipeline/components/operators/OperatorAccess'
 import { FindTheAddress } from '@/features/pipeline/components/operators/OperatorAddress'
-import { Button, ICON_SM, Modal, RunStep, SectionLabel, Waiting } from '@/components/ui/primitives'
+import { Button, Disclosure, ICON_SM, Modal, RunStep, SectionLabel, Waiting } from '@/components/ui/primitives'
 import type { CreatedOperator, OperatorExposure } from '@/lib/api'
 import { CENTRAL_OPERATOR_ID, type FusionKind } from '@/features/fusion/lib/fusionStatus'
 import { useHoldReload } from '@/lib/useHoldReload'
@@ -214,12 +214,8 @@ export default function OperatorCreated({
 
         {heartbeat && !renewed && <ReportsIn id={created.operator.id} name={created.operator.name} />}
 
-        <details className="group rounded-lg border border-nb-850 bg-nb-925" data-testid="operator-created-fold">
-          <summary className="flex cursor-pointer select-none items-center gap-1.5 px-4 py-2.5 text-sm text-nb-400 marker:content-none">
-            <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
-            Show step by step ({steps.length + (created.reminders.length > 0 ? 1 : 0)})
-          </summary>
-          <ol className="space-y-4 border-t border-nb-850 p-4" data-testid="operator-created-steps">
+        <Disclosure flush testId="operator-created-fold" title={`Show step by step (${steps.length + (created.reminders.length > 0 ? 1 : 0)})`}>
+          <ol className="space-y-4 p-4" data-testid="operator-created-steps">
             {steps.map((s, i) => <RunStep key={s.key} n={i + 1} title={s.title} testId={`operator-created-step-${s.key}`}>{s.body}</RunStep>)}
             {created.reminders.length > 0 && (
               <RunStep n={steps.length + 1} title="Point each source cluster at it" testId="operator-created-step-sources">
@@ -230,7 +226,7 @@ export default function OperatorCreated({
               </RunStep>
             )}
           </ol>
-        </details>
+        </Disclosure>
 
         {sources.length > 0 && onConnect && (
           <div data-testid="operator-created-connect">
@@ -249,15 +245,11 @@ export default function OperatorCreated({
           </div>
         )}
 
-        <details className="group rounded-lg border border-nb-850 bg-nb-925">
-          <summary className="flex cursor-pointer select-none items-center gap-1.5 px-4 py-2.5 text-sm text-nb-400 marker:content-none">
-            <ChevronRight size={ICON_SM} className="text-nb-500 transition-transform group-open:rotate-90" aria-hidden />
-            What it can access
-          </summary>
-          <div className="border-t border-nb-850">
+        <Disclosure flush title="What it can access">
+          <div>
             <OperatorAccess heartbeat={heartbeat} receiver={hasToken ? 'token' : mtls ? 'mtls' : undefined} configure={false} />
           </div>
-        </details>
+        </Disclosure>
       </div>
     </Modal>
   )

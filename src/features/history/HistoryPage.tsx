@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { CheckCircle2, Clock, Settings2, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Button, Card, EmptyState, ErrorBanner, ICON_SM, PageHeader, PulseDot, Segmented, Select } from '@/components/ui/primitives'
+import { Button, Card, EmptyState, ErrorBanner, ICON_SM, LinkButton, PageHeader, PulseDot, Segmented, Select } from '@/components/ui/primitives'
 import Feed from '@/features/history/components/Feed'
 import People from '@/features/history/components/People'
 import { words } from '@/features/history/lib/audit'
@@ -192,7 +192,7 @@ function RecentPeople({ conn, tick, onSeeAll }: { conn: Conn; tick: number; onSe
     <Card as="section" className="p-4" aria-label="Recent by people" data-testid="recent-people">
       <div className="mb-2.5 flex items-baseline justify-between">
         <h2 className="text-xs font-medium text-nb-300">Recent by people</h2>
-        <button type="button" onClick={onSeeAll} className="text-xs text-accent hover:underline" data-testid="recent-people-all">See all</button>
+        <LinkButton onClick={onSeeAll} className="text-xs" data-testid="recent-people-all">See all</LinkButton>
       </div>
       {rows === null ? null : rows.length === 0 ? (
         <p className="text-sm text-nb-500">Nobody has changed anything yet.</p>
