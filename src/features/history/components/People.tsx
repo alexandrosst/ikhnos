@@ -1,6 +1,6 @@
 import { Download, ScrollText } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Button, EmptyState, ErrorBanner, ICON_SM, Input, Select, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
+import { Button, EmptyState, ErrorBanner, ICON_SM, Input, SectionHeading, Select, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
 import { words } from '@/features/history/lib/audit'
 import { api, type AuditRow, type AuditSource, type WorkspaceRevision } from '@/lib/api'
 import { downloadCsv, toCsv } from '@/lib/csv'
@@ -104,7 +104,7 @@ export default function People() {
       )}
 
       <section className="mt-10" aria-label="Saved versions of the shared workspace">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-nb-300"><ScrollText size={ICON_SM} className="text-nb-500" aria-hidden /> Saves of the shared workspace</h2>
+        <SectionHeading icon={ScrollText} className="mb-3">Saves of the shared workspace</SectionHeading>
         {revs.length === 0 ? (
           <p className="text-sm text-nb-500">{source === 'graph' ? 'No saves have been kept yet.' : 'Past saves of the workspace are kept when the server is connected to Neo4j.'}</p>
         ) : (

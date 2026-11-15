@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, Input, Segmented } from '@/components/ui/primitives'
+import { Button, Card, Input, SectionHeading, Segmented } from '@/components/ui/primitives'
 import { ageOf, pointAt, type ChangeEvent, type HistoryIndex } from '@/lib/history'
 import { useHistoryView } from '@/store/history'
 import { useConn } from '@/store/server'
@@ -42,7 +42,7 @@ export default function Scrubber({ hours, setHours, index, events }: { hours: nu
         <>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
             <div className="min-w-36">
-              <h2 className="text-sm font-medium text-nb-300">Go back to a moment</h2>
+              <SectionHeading>Go back to a moment</SectionHeading>
               <p className="mt-0.5 text-xs text-nb-500">{point ? `${short(point.at)} · ${ageOf(point.at)}` : 'Pick a moment on the line.'}</p>
             </div>
             <div className="relative h-8 min-w-48 flex-1" data-testid="timeline">

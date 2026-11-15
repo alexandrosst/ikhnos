@@ -19,7 +19,7 @@ import type { RowMenuItem } from '@/features/pipeline/components/operators/RowMe
 import StateChip from '@/features/pipeline/components/operators/StateChip'
 import WhatToDoModal from '@/features/pipeline/components/operators/WhatToDoModal'
 import { useTelemetryFlow } from '@/features/pipeline/components/telemetry/TelemetryFlow'
-import { Button, Card, ClearableChip, EmptyState, ErrorBanner, ICON_SM, PageHeader, TableSkeleton } from '@/components/ui/primitives'
+import { Button, Card, ClearableChip, EmptyState, ErrorBanner, ICON_SM, PageHeader, SectionHeading, TableSkeleton } from '@/components/ui/primitives'
 import { api, ApiError, type CreatedOperator } from '@/lib/api'
 import { operatorFromDestination } from '@/features/pipeline/lib/destinationCatalog'
 import { CENTRAL_OPERATOR_ID, fusionSentence } from '@/features/fusion/lib/fusionStatus'
@@ -235,7 +235,7 @@ export default function PipelinePage() {
         actions={
           <>
             {admin && <Button onClick={() => setCreating(true)} data-testid="operator-open"><Plus size={ICON_SM} /> New operator</Button>}
-            {canConsent && <Button variant="primary" onClick={() => telemetry.start()} data-testid="telemetry-setup"><Radio size={ICON_SM} /> Set up telemetry</Button>}
+            {canConsent && !empty && <Button variant="primary" onClick={() => telemetry.start()} data-testid="telemetry-setup"><Radio size={ICON_SM} /> Set up telemetry</Button>}
           </>
         }
       />
@@ -250,13 +250,13 @@ export default function PipelinePage() {
         <EmptyState
           title="Nothing is sending telemetry yet"
           description="Set up telemetry on a connected cluster to see the path its data takes to FUSION."
-          action={canConsent ? <Button onClick={() => telemetry.start()} data-testid="telemetry-setup-empty"><Radio size={ICON_SM} /> Set up telemetry</Button> : undefined}
+          action={canConsent ? <Button variant="primary" onClick={() => telemetry.start()} data-testid="telemetry-setup-empty"><Radio size={ICON_SM} /> Set up telemetry</Button> : undefined}
         />
       ) : (
         <>
           {attention.length > 0 && (
             <section aria-labelledby="attention-title" className="mb-6 space-y-3" data-testid="pipeline-attention">
-              <h2 id="attention-title" className="text-sm font-medium text-nb-300">What needs attention</h2>
+              <SectionHeading id="attention-title">What needs attention</SectionHeading>
               <Card as="ul" className="divide-y divide-nb-850">
                 {attention.slice(0, STRIP_MAX).map((r) => (
                   <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">

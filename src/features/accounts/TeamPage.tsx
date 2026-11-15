@@ -1,7 +1,7 @@
 import { ChevronRight, Copy, Link2, Trash2, UserPlus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useHoldReload } from '@/lib/useHoldReload'
-import { Button, CopyValue, ErrorBanner, Field, ICON_SM, Input, Modal, PageHeader, Pill, Select, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
+import { Button, CopyValue, ErrorBanner, Field, ICON_SM, Input, Modal, PageHeader, Pill, SectionHeading, Select, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
 import { api, ApiError, grantable, ROLE_HELP, ROLE_LABEL, type Invite, type Member, type Role } from '@/lib/api'
 import { useServer } from '@/store/server'
 
@@ -73,7 +73,7 @@ function Danger() {
 
   return (
     <section className="mt-10" aria-labelledby="org-h">
-      <h2 id="org-h" className="mb-3 text-sm font-medium text-nb-300">Organisation</h2>
+      <SectionHeading id="org-h" className="mb-3">Organisation</SectionHeading>
       <ErrorLine text={error} />
       <form className="flex max-w-lg items-end gap-2" onSubmit={(e) => { e.preventDefault(); void rename() }}>
         <Field label="Name" className="flex-1"><Input value={name} onChange={(e) => { setName(e.target.value); setSaved(false) }} data-testid="org-name" /></Field>
@@ -173,7 +173,7 @@ export default function TeamPage() {
     <>
       <PageHeader
         title="Members & access"
-        description={`People in ${info?.orgName ?? 'this organisation'}. Everything here (clusters, agents, history, settings) belongs to this organisation alone; nobody outside it can see it.`}
+        description={`People in ${info?.orgName ?? 'this organisation'}. What belongs to it is visible to nobody outside it.`}
         actions={canInvite ? <Button variant="primary" onClick={() => { setInvRole(mine.includes('viewer') ? 'viewer' : mine[0]); setInviting(true) }} data-testid="invite-open"><UserPlus size={ICON_SM} /> Invite someone</Button> : undefined}
       />
       <ErrorLine text={error} />
@@ -221,11 +221,11 @@ export default function TeamPage() {
 
       {canInvite && (
         <section className="mt-10" aria-labelledby="inv-h">
-          <h2 id="inv-h" className="mb-3 text-sm font-medium text-nb-300">Invitations</h2>
+          <SectionHeading id="inv-h" className="mb-3">Invitations</SectionHeading>
           {!loaded ? (
             <TableSkeleton cols={['', '', '', '', '']} />
           ) : invites.length === 0 ? (
-            <p className="text-sm text-nb-500">None yet. An invitation is one link that lets one person join with the role you choose. It works once and expires after seven days.</p>
+            <p className="text-sm text-nb-500">None yet. An invitation is one link: it works once and expires after seven days.</p>
           ) : (
             <Table>
               <thead>

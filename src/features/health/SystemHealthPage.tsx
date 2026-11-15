@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import EntityHealthCard from '@/features/health/components/EntityHealthCard'
 import { buttonClass } from '@/components/ui/buttonClass'
-import { Card, EmptyState, ErrorBanner, ICON_SM, PageHeader, SkeletonBlock, SkeletonLines } from '@/components/ui/primitives'
+import { Card, EmptyState, ErrorBanner, ICON_SM, PageHeader, SectionHeading, SkeletonBlock, SkeletonLines } from '@/components/ui/primitives'
 import { OpenError, useOpenPage } from '@/features/fusion/components/OpenPages'
 import { useFusion } from '@/features/fusion/components/useFusion'
 import { api, type Conn } from '@/lib/api'
@@ -108,11 +108,11 @@ function Connected({ conn }: { conn: Conn }) {
     <>
       <PageHeader
         title="System health"
-        description="What running Ikhnos itself costs, in your own clusters: the server's and each agent's memory, goroutines and CPU, plus network and power share where the hardware exposes them. A figure this hardware can't report stays visibly unavailable rather than showing a guess."
+        description="What running Ikhnos itself costs, in your own clusters: memory, goroutines and CPU of the server and each agent."
       />
       <InGrafana />
       {error && <ErrorBanner className="mb-4">{error}</ErrorBanner>}
-      <h2 className="mb-3 text-sm font-medium text-nb-300">Right now</h2>
+      <SectionHeading className="mb-3">Right now</SectionHeading>
       {entities === null ? (
         <div className="flex flex-col gap-6" aria-busy>
           {[0, 1].map((i) => (

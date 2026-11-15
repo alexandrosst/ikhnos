@@ -219,16 +219,16 @@ describe('PipelinePage', () => {
     expect(screen.queryByRole('status', { name: 'Loading' })).not.toBeInTheDocument()
   })
 
-  test('with nothing at all the page says so and offers the wizard; the header still holds the one primary button', async () => {
+  test('with nothing at all the page says so and offers the wizard once, as the one primary button', async () => {
     const user = userEvent.setup()
     topologyState = { agents: [], clusters: [] }
     renderPage()
     expect(await screen.findByText('Nothing is sending telemetry yet')).toBeInTheDocument()
     expect(screen.getByTestId('operator-open')).toHaveTextContent('New operator')
-    expect(screen.getByTestId('telemetry-setup')).toHaveTextContent('Set up telemetry')
+    // The header does not repeat what the empty state offers.
+    expect(screen.queryByTestId('telemetry-setup')).toBeNull()
     const primaries = screen.getAllByRole('button').filter((b) => b.className.includes('bg-accent'))
-    expect(primaries).toEqual([screen.getByTestId('telemetry-setup')])
-    // The empty state offers the same action, quietly.
+    expect(primaries).toEqual([screen.getByTestId('telemetry-setup-empty')])
     await user.click(screen.getByTestId('telemetry-setup-empty'))
     expect(telemetryStart).toHaveBeenCalledWith()
   })

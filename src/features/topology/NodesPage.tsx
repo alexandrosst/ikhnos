@@ -44,10 +44,13 @@ export default function NodesPage() {
       <PageHeader
         title="Nodes"
         description="The machines — virtual machines, bare-metal servers and edge devices — that make up your clusters."
+        // With no cluster there is nothing to add to: the empty state below points to Agents instead of offering a button that cannot work.
         actions={
-          <Button variant="primary" onClick={() => setPanel({ node: null, edit: true })} disabled={clusters.length === 0}>
-            <Plus size={ICON_SM} /> Add node
-          </Button>
+          clusters.length === 0 ? undefined : (
+            <Button variant="primary" onClick={() => setPanel({ node: null, edit: true })}>
+              <Plus size={ICON_SM} /> Add node
+            </Button>
+          )
         }
       />
       <ListToolbar q={q} onQ={setQ} placeholder="Search nodes by name, IP, OS…" columns={NODE_COLUMNS} state={columns} empty={nodes.length === 0}>

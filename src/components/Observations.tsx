@@ -1,4 +1,4 @@
-import { Card, ObservationChip } from '@/components/ui/primitives'
+import { Card, ObservationChip, SectionHeading } from '@/components/ui/primitives'
 import { ageLabel, goneInfo, observation } from '@/lib/provenance'
 import type { Cluster, Tombstone } from '@/lib/types'
 import { useObserved } from '@/store/observed'
@@ -18,9 +18,9 @@ export function GoneRecords({ kinds, className }: { kinds?: Tombstone['kind'][];
   const clusterName = (id?: string) => clusters.find((c) => c.id === id)?.name ?? id ?? ''
   return (
     <section className={className} data-testid="gone-records" aria-label="Records that are gone">
-      <h2 className="mb-2 text-sm font-medium text-nb-300">
+      <SectionHeading className="mb-2">
         Gone <span className="ml-1 text-nb-500">({list.length})</span>
-      </h2>
+      </SectionHeading>
       <p className="mb-2 text-xs text-nb-500">No longer reported by their agents. Kept for a while so a change can be explained; not used for anything.</p>
       <Card as="ul" className="divide-y divide-nb-850">
         {list.map((t) => (
@@ -50,7 +50,7 @@ export function ObservedClusters({ className }: { className?: string }) {
   if (seen.length === 0) return null
   return (
     <section className={className} data-testid="observed-clusters">
-      <h2 className="mb-2 text-sm font-medium text-nb-300">What the agents see</h2>
+      <SectionHeading className="mb-2">What the agents see</SectionHeading>
       <Card as="ul" className="divide-y divide-nb-850">
         {seen.map((c) => {
           const info = observation(c)

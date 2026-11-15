@@ -40,10 +40,13 @@ export default function DevicesPage() {
       <PageHeader
         title="Devices"
         description={`Sensors, cameras, PLCs and other things that belong to an application but do not run on Kubernetes. Nothing observes them, so each shows what was declared. ${devices.length ? `${devices.length} groups, ${units} units.` : ''}`}
+        // An empty list has its own button in the empty state below; two of the same would be one too many.
         actions={
-          <Button variant="primary" onClick={() => setPanel({ device: null, edit: true })}>
-            <Plus size={ICON_SM} /> Add device
-          </Button>
+          devices.length === 0 ? undefined : (
+            <Button variant="primary" onClick={() => setPanel({ device: null, edit: true })}>
+              <Plus size={ICON_SM} /> Add device
+            </Button>
+          )
         }
       />
       <ListToolbar q={q} onQ={setQ} placeholder="Search devices by name, protocol, site…" columns={DEVICE_COLUMNS} state={columns} empty={devices.length === 0}>

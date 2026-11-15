@@ -3,7 +3,7 @@ import { Check, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buttonClass } from '@/components/ui/buttonClass'
-import { Button, ICON_MD, Pill } from '@/components/ui/primitives'
+import { Button, ICON_MD, Pill, SectionHeading } from '@/components/ui/primitives'
 import { deriveChecklist, dismiss, gettingStartedSeenElsewhere, wasDismissed, type Checklist, type ChecklistStep } from '@/lib/checklist'
 import { useServer } from '@/store/server'
 import { useTopology } from '@/store/topology'
@@ -94,7 +94,7 @@ export default function GettingStarted({ checklist, onConnect, onDismiss, varian
     <section aria-labelledby="gs-title" className={clsx('rounded-xl border border-nb-850 bg-nb-925', variant === 'hero' && 'w-full max-w-2xl')} data-testid="getting-started">
       <div className="flex items-start justify-between gap-3 border-b border-nb-850 px-5 py-4">
         <div>
-          <h2 id="gs-title" className="text-sm font-medium text-nb-300">Getting started</h2>
+          <SectionHeading id="gs-title">Getting started</SectionHeading>
           <p className="mt-0.5 text-xs text-nb-500" data-testid="gs-progress">{checklist.done} of {total} done. Each step is checked against your server.</p>
         </div>
         {onDismiss && (

@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { ArrowLeftRight, Check as CheckIcon, ChevronRight, CircleAlert, CircleDashed, HelpCircle, Pencil, Plus } from 'lucide-react'
 import { useEffect, useId, useMemo, useState } from 'react'
 import { ConfirmModal } from '@/components/forms/ConfirmModal'
-import { Button, EmptyState, ErrorBanner, Field, ICON_MD, ICON_SM, Modal, Pill, Select, SkeletonLines, Table, Td, Th } from '@/components/ui/primitives'
+import { Button, EmptyState, ErrorBanner, Field, ICON_MD, ICON_SM, Modal, Pill, SectionHeading, Select, SkeletonLines, Table, Td, Th } from '@/components/ui/primitives'
 import { Switch } from '@/components/ui/Switch'
 import { api, atLeast } from '@/lib/api'
 import {
@@ -86,9 +86,7 @@ export default function ClusterLinks() {
   return (
     <section className="mt-10" aria-label="Cluster links" data-testid="cluster-links">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-medium text-nb-300">
-          <ArrowLeftRight size={ICON_SM} className="text-accent" aria-hidden /> Cluster links
-        </h2>
+        <SectionHeading icon={ArrowLeftRight}>Cluster links</SectionHeading>
         {loaded && <Pill>{pairs.length} pair{pairs.length === 1 ? '' : 's'}</Pill>}
         {admin && loaded && (
           <span className="ml-auto flex items-center gap-3">

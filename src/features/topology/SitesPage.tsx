@@ -38,10 +38,13 @@ export default function SitesPage() {
       <PageHeader
         title="Sites"
         description="Physical places where clusters live, declared by you or accepted from a suggestion. Coordinates place them on the map; the country is checked against them."
+        // An empty list has its own button in the empty state below; two of the same would be one too many.
         actions={
-          <Button variant="primary" onClick={() => setPanel({ site: null, edit: true })}>
-            <Plus size={ICON_SM} /> Add site
-          </Button>
+          sites.length === 0 ? undefined : (
+            <Button variant="primary" onClick={() => setPanel({ site: null, edit: true })}>
+              <Plus size={ICON_SM} /> Add site
+            </Button>
+          )
         }
       />
       <ListToolbar q={q} onQ={setQ} placeholder="Search sites…" columns={SITE_COLUMNS} state={columns} empty={sites.length === 0} />

@@ -325,7 +325,7 @@ function Stored({ conn, tick }: { conn: Conn; tick: number }) {
         </>
       ) : (
         <p className="text-xs leading-5 text-nb-500">
-          In the server’s own database file: it can be scrubbed and searched by time. Questions across time, such as what ran on a node last Tuesday, need the graph database (<code className="text-nb-300">--neo4j-url</code>).
+          In the server’s own database file. Questions across time, such as what ran on a node last Tuesday, need the graph database (<code className="text-nb-300">--neo4j-url</code>).
         </p>
       )}
     </Card>

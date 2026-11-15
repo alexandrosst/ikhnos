@@ -1,4 +1,4 @@
-import { Table, Td, Th } from '@/components/ui/primitives'
+import { SectionHeading, Table, Td, Th } from '@/components/ui/primitives'
 import { advisorSummary, type AdvisorRecord } from '@/lib/proposals'
 
 /**
@@ -10,7 +10,7 @@ export default function AdvisorRecords({ records }: { records: AdvisorRecord[] }
   if (records.length === 0) return null
   return (
     <section aria-label="Advisors" className="mt-8" data-testid="advisor-records">
-      <h2 className="mb-1 text-sm font-medium text-nb-300">How each advisor has done</h2>
+      <SectionHeading className="mb-1">How each advisor has done</SectionHeading>
       <p className="mb-2 max-w-3xl text-xs text-nb-500">
         A rejected proposal means a person disagreed, not that the advisor was wrong. A prediction “held” when the agent’s own load moved the way the advisor
         said, by at least half as much; the load can also move for reasons that have nothing to do with the change.

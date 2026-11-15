@@ -48,10 +48,13 @@ export default function ClustersPage() {
       <PageHeader
         title="Clusters"
         description="Kubernetes clusters across the cloud–edge continuum. Nodes and services belong to a cluster."
+        // An empty list has its own button in the empty state below; two of the same would be one too many.
         actions={
-          <Button variant="primary" onClick={() => setPanel({ cluster: null, edit: true })}>
-            <Plus size={ICON_SM} /> Add cluster
-          </Button>
+          clusters.length === 0 ? undefined : (
+            <Button variant="primary" onClick={() => setPanel({ cluster: null, edit: true })}>
+              <Plus size={ICON_SM} /> Add cluster
+            </Button>
+          )
         }
       />
       <ListToolbar q={q} onQ={setQ} placeholder="Search clusters…" columns={CLUSTER_COLUMNS} state={columns} empty={clusters.length === 0} />

@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { type ReactNode, useId } from 'react'
+import { SectionHeading } from '@/components/ui/primitives'
 
 /** One titled block of a FUSION tab: the heading and its one-line explanation in the Settings page's style, the block's actions on the right. */
 export function FusionSection({ title, description, actions, children, testId }: { title: string; description?: ReactNode; actions?: ReactNode; children?: ReactNode; testId?: string }) {
@@ -8,7 +9,7 @@ export function FusionSection({ title, description, actions, children, testId }:
     <section aria-labelledby={id} className="mb-8" data-testid={testId}>
       <div className={clsx('flex flex-wrap items-end justify-between gap-x-4 gap-y-2', children && 'mb-3')}>
         <div>
-          <h2 id={id} className="text-sm font-medium text-nb-300">{title}</h2>
+          <SectionHeading id={id}>{title}</SectionHeading>
           {description && <p className="mt-1 max-w-2xl text-sm text-nb-500">{description}</p>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

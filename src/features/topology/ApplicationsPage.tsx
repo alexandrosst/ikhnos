@@ -32,10 +32,13 @@ export default function ApplicationsPage() {
       <PageHeader
         title="Applications"
         description="Services and devices grouped into the things your users care about. Groupings are declared by you or accepted from a suggestion; no agent observes them."
+        // An empty list has its own button in the empty state below; two of the same would be one too many.
         actions={
-          <Button variant="primary" onClick={() => setPanel({ app: null, edit: true })}>
-            <Plus size={ICON_SM} /> Add application
-          </Button>
+          applications.length === 0 ? undefined : (
+            <Button variant="primary" onClick={() => setPanel({ app: null, edit: true })}>
+              <Plus size={ICON_SM} /> Add application
+            </Button>
+          )
         }
       />
       <ListToolbar q={q} onQ={setQ} placeholder="Search applications…" columns={APPLICATION_COLUMNS} state={columns} empty={applications.length === 0} />

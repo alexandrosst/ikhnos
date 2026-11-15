@@ -619,6 +619,16 @@ export function SectionLabel({ children, as: As = 'div', className, ...rest }: {
   return <As className={clsx('text-xs font-medium uppercase tracking-wide text-nb-500', className)} {...rest}>{children}</As>
 }
 
+/** The heading of one section of a page ("Invitations", "What needs attention"): one size and weight everywhere, with an optional quiet icon. Margins are the caller's. */
+export function SectionHeading({ icon: Icon, children, className, ...rest }: { icon?: LucideIcon } & HTMLAttributes<HTMLHeadingElement>) {
+  return (
+    <h2 className={clsx('flex items-center gap-2 text-sm font-medium text-nb-300', className)} {...rest}>
+      {Icon && <Icon size={ICON_SM} className="shrink-0 text-nb-500" aria-hidden />}
+      {children}
+    </h2>
+  )
+}
+
 /** The box a group of related content sits in: one border, one fill, one radius, so every card on every page is the same card in both themes. Padding and layout are the caller's (`className`). */
 export function Card({ as: As = 'div', className, ...rest }: { as?: 'div' | 'section' | 'article' | 'aside' | 'ul' | 'p' | 'li' } & HTMLAttributes<HTMLElement>) {
   return <As className={clsx('rounded-xl border border-nb-850 bg-nb-925', className)} {...rest} />
@@ -1367,7 +1377,7 @@ export function Segmented<T extends string | number>({ value, options, onChange,
 
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
         <h1 className="text-2xl font-medium text-nb-300">{title}</h1>
         {description && <p className="mt-1 max-w-2xl text-sm text-nb-500">{description}</p>}

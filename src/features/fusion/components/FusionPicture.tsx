@@ -6,6 +6,7 @@ import { DiskMeter, FillsIn } from '@/features/fusion/components/StoreBars'
 import { type FusionPictureModel, type PictureEdge, type PictureNode } from '@/features/fusion/lib/fusionPicture'
 import { TRAFFIC_TONE } from '@/features/fusion/lib/fusionTraffic'
 import { LINK_TONE } from '@/lib/linkTone'
+import { InfoTip } from '@/components/ui/primitives'
 
 const HEAD = 5 // half the width of an arrowhead, and its length
 const TIP_GAP = 3 // how far the tip stops short of the box it points at
@@ -115,9 +116,12 @@ export function FusionPicture({ model }: { model: FusionPictureModel }) {
         )}
         <Edges edges={model.edges} />
       </div>
-      <p className="mt-3 text-xs text-nb-500">
-        Green and moving: the part is up and data is arriving. Grey: not known, or quiet. Amber: held up. Red: not working. The figures are what the central operator counted over the last five minutes (it reports them itself), kind by kind: an arrow into a store moves only while data is being delivered to that store. Where it does not report them yet, an arrow is green when the store held something in the last five minutes.
-      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-nb-500" data-testid="fusion-legend">
+        {([['bg-ok', 'Moving'], ['bg-nb-600', 'Unknown or quiet'], ['bg-warn', 'Held up'], ['bg-bad', 'Not working']] as const).map(([dot, label]) => (
+          <span key={label} className="inline-flex items-center gap-1.5"><span className={`size-2 rounded-full ${dot}`} aria-hidden />{label}</span>
+        ))}
+        <InfoTip>The figures are what the central operator counted over the last five minutes, kind by kind: an arrow into a store moves only while data is being delivered to it. Where it does not report them yet, an arrow is green when the store held something in the last five minutes.</InfoTip>
+      </div>
     </div>
   )
 }

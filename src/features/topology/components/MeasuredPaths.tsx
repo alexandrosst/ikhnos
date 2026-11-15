@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { CircleAlert, Gauge, Plus, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Button, Card, Checkbox, EmptyState, Field, ICON_MD, ICON_SM, Input, Pill, Select, Table, Td, Th } from '@/components/ui/primitives'
+import { Button, Card, Checkbox, EmptyState, Field, ICON_MD, ICON_SM, InfoTip, Input, Pill, SectionHeading, Select, Table, Td, Th } from '@/components/ui/primitives'
 import type { ProbeTarget } from '@/lib/history'
 import { hasRoundTrip } from '@/lib/metrics'
 import { ago } from '@/lib/observed'
@@ -52,9 +52,7 @@ export default function MeasuredPaths() {
   return (
     <section className="mt-10" aria-label="Measured paths" data-testid="measured-paths">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-medium text-nb-300">
-          <Gauge size={ICON_SM} className="text-accent" aria-hidden /> Measured paths
-        </h2>
+        <SectionHeading icon={Gauge}>Measured paths</SectionHeading>
         {status === 'connected' && (
           <Pill>
             {measuring.length === 0 ? 'no agent is measuring' : `${measuring.length} agent${measuring.length === 1 ? '' : 's'} measuring`}
@@ -62,7 +60,8 @@ export default function MeasuredPaths() {
         )}
       </div>
       <p className="mb-4 max-w-3xl text-sm text-nb-500">
-        How long a connection takes to open from a cluster to the places it talks to, and how often it fails. The placement advice uses these instead of guesses where they exist. Measuring is off until you turn it on for an agent (in the connect wizard, or with the agent’s measurement setting). It only opens connections to the addresses you ask for below, and, if you turn that on there, to the places the clusters call most.
+        How long a connection takes to open from a cluster to the places it talks to, and how often it fails. The placement advice uses these instead of guesses. Off until you enable it on an agent.
+        <InfoTip>It only opens connections to the addresses you ask for below and, if you turn that on there, to the places the clusters call most. Turn it on in the connect wizard or with the agent’s measurement setting.</InfoTip>
       </p>
 
       {ordered.length === 0 ? (

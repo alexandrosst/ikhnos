@@ -18,7 +18,7 @@ import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import EntityHistory from '@/features/history/components/EntityHistory'
 import { ConfirmModal } from '@/components/forms'
 import { DistroIcon, Flag, WithIcon } from '@/components/ui/brand'
-import { Button, Card, EmptyState, ErrorBanner, GuessDot, ICON_SM, LiveDot, PageHeader, SectionLabel, SkeletonBlock, StatTile, Table, TableSkeleton, Td, Th, TierBadge, type LiveKind } from '@/components/ui/primitives'
+import { Button, Card, EmptyState, ErrorBanner, GuessDot, ICON_SM, LiveDot, PageHeader, SectionHeading, SectionLabel, SkeletonBlock, StatTile, Table, TableSkeleton, Td, Th, TierBadge, type LiveKind } from '@/components/ui/primitives'
 import { api, ApiError } from '@/lib/api'
 import { skewLabel, skewWarning } from '@/lib/clock'
 import { extrasOf, uptimeWords, type AgentExtras } from '@/lib/consent'
@@ -172,7 +172,7 @@ export default function AgentsPage() {
       {/* While the wizard is open it shows the same card, so it is not repeated behind the dialog. */}
       {pending.length > 0 && !connect.wizardOpen && (
         <section id="approvals" tabIndex={-1} aria-labelledby="approvals-title" className="mb-8 scroll-mt-6 space-y-3 focus:outline-none" data-testid="approvals">
-          <h2 id="approvals-title" className="text-sm font-medium text-nb-300">Waiting for your approval</h2>
+          <SectionHeading id="approvals-title">Waiting for your approval</SectionHeading>
           {canAdminister ? (
             pending.map((a) => (
               <div key={a.id} id={`approval-${a.id}`} tabIndex={-1} className="scroll-mt-6 focus:outline-none">
