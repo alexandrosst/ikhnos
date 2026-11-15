@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Confidence, pts } from '@/features/placement/components/shared'
 import { FitBadge, Hedge, Why } from '@/features/placement/components/Why'
-import { ICON_SM, ObservationChip, TierBadge } from '@/components/ui/primitives'
+import { ICON_SM, ObservationChip, SectionLabel, TierBadge } from '@/components/ui/primitives'
 import { capCtxOf } from '@/lib/capacity'
 import { isMovableKind } from '@/lib/placement/engine'
 import { useJudgedAt, usePlan } from '@/lib/placement/usePlacement'
@@ -101,14 +101,14 @@ export default function MobilityPanel({ service, onSelectCluster }: { service: S
           ))}
         </ul>
       )}
-      <div className="mb-1 mt-3 text-xs font-medium uppercase tracking-wide text-nb-500">
+      <SectionLabel className="mb-1 mt-3">
         Clusters that could host it{' '}
         {targets.length > 0 && (
           <span className="normal-case text-nb-600" data-testid="target-counts">
             ({groups[0].rows.length} fit, {groups[1].rows.length} can't tell, {groups[2].rows.length} do not, of {targets.length})
           </span>
         )}
-      </div>
+      </SectionLabel>
       {m.verdict === 'pinned' && targets.length > 0 && <p className="mb-1.5 text-xs text-nb-500">Only once what pins it is dealt with. This checks policy, labels and capacity, not the data.</p>}
       {targets.length === 0 && <p className="text-xs text-nb-500">There is no other cluster.</p>}
       {groups.map(

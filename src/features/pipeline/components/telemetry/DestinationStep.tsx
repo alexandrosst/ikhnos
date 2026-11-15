@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { FusionDot } from '@/features/fusion/components/useFusion'
 import { withDefaultPort } from '@/features/pipeline/components/operators/OperatorAddress'
 import { OperatorHealth } from '@/features/pipeline/components/operators/OperatorHealth'
-import { Button, Checkbox, Field, ICON_SM, InfoTip, Input, SectionLabel, Select, Waiting } from '@/components/ui/primitives'
+import { Button, Card, Checkbox, Field, ICON_SM, InfoTip, Input, SectionLabel, Select, Waiting } from '@/components/ui/primitives'
 import { applyDestination, defaultDestination, destinationEndpoint, destinationIsPlain, destinationKey, destinationNeedsCredential, layoutDestinations, type DestinationCatalog, type DestinationCatalogEntry } from '@/features/pipeline/lib/destinationCatalog'
 import { fusionLabel } from '@/features/fusion/lib/fusionStatus'
 import { exportProtocolLabel, type TelemetryInput } from '@/lib/install'
@@ -178,7 +178,7 @@ export default function DestinationStep({
 
       {activeKey !== null && (
         <div className="space-y-3" data-testid={`${p}-destination-summary`}>
-          <div className="space-y-2 rounded-xl border border-nb-850 bg-nb-925 px-4 py-3">
+          <Card className="space-y-2 px-4 py-3">
             <SectionLabel as="p">Sending to</SectionLabel>
             <div className="flex items-center gap-1.5 text-sm font-medium text-nb-200" data-testid={`${p}-destination-name`}>{isFusion && <Layers size={ICON_SM} className="text-nb-500" aria-hidden />}{name}</div>
             {endpointEditable ? (
@@ -262,7 +262,7 @@ export default function DestinationStep({
             )}
             {autoPicked && <p className="text-xs text-nb-400" data-testid={`${p}-destination-auto`}>Picked for you: it is the one that fits these signals. Choose another row to change it.</p>}
             <p className="text-xs text-nb-500" data-testid={`${p}-destination-connection-summary`}>{connSummary}</p>
-          </div>
+          </Card>
 
           {/* Remounted per destination, so it opens on its own where a credential is needed (that part cannot be skipped) and stays shut otherwise. */}
           <Disclosure key={activeKey} title="Connection details" defaultOpen={isCustom || (!!selected && destinationNeedsCredential(selected)) || secretNamed} testId={`${p}-destination-connection`}>

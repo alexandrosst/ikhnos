@@ -2,7 +2,7 @@ import { ChevronRight, ExternalLink, Stethoscope } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import { StatusBadge, StatusPip, type StatusTone } from '@/components/ui/Status'
-import { Button, CopyButton, Modal, ICON_SM } from '@/components/ui/primitives'
+import { Button, Card, CopyButton, ICON_SM, Modal } from '@/components/ui/primitives'
 import { OpenError, useOpenPage } from '@/features/fusion/components/OpenPages'
 import { useFusion } from '@/features/fusion/components/useFusion'
 import { diagnoseAgent, diagnosisText, oneLine, type Check, type Diagnosis, type Finding } from '@/lib/diagnose'
@@ -126,7 +126,7 @@ function FindingCard({ finding: f, index }: { finding: Finding; index: number })
   const more = open || undefined
   const hasMore = f.detail !== line || (f.fix !== undefined && f.fix !== line) || !!f.command
   return (
-    <li className="rise-in rounded-xl border border-nb-850 bg-nb-925" style={{ '--i': index + 1 } as React.CSSProperties} data-testid="diagnose-finding" data-tone={f.tone} data-finding={f.id} data-open={more}>
+    <Card as="li" className="rise-in" style={{ '--i': index + 1 } as React.CSSProperties} data-testid="diagnose-finding" data-tone={f.tone} data-finding={f.id} data-open={more}>
       <div className="flex items-start gap-2 px-4 py-3">
         <button type="button" className="min-w-0 flex-1 text-left" aria-expanded={hasMore ? open : undefined} disabled={!hasMore} onClick={() => setOpen((v) => !v)} data-testid="diagnose-finding-toggle">
           <span className="flex flex-wrap items-center gap-2">
@@ -146,7 +146,7 @@ function FindingCard({ finding: f, index }: { finding: Finding; index: number })
           {f.command && <CopyCommand text={f.command} multiline label={`Copy the command for: ${f.title}`} testId="diagnose-command" />}
         </div>
       )}
-    </li>
+    </Card>
   )
 }
 

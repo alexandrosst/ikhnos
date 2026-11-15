@@ -3,7 +3,7 @@ import { Activity, FileText, Plus, Search, Waypoints, type LucideIcon } from 'lu
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { FusionDot } from '@/features/fusion/components/useFusion'
 import { OperatorHealth } from '@/features/pipeline/components/operators/OperatorHealth'
-import { Button, ICON_SM, Input } from '@/components/ui/primitives'
+import { Button, Card, ICON_SM, Input } from '@/components/ui/primitives'
 import { destinationGroup, GROUP_TITLE, destinationKey, searchDestinations, type DestinationCatalog, type DestinationCatalogEntry, type DestinationGroup, type layoutDestinations } from '@/features/pipeline/lib/destinationCatalog'
 import { imageRepository } from '@/lib/detectBackends'
 import { fusionLabel } from '@/features/fusion/lib/fusionStatus'
@@ -265,7 +265,7 @@ export default function DestinationPicker({
         </div>
       )}
 
-      <div className="divide-y divide-nb-850 overflow-hidden rounded-xl border border-nb-850 bg-nb-925" role="radiogroup" aria-label="Destination" onKeyDown={moveFocus}>
+      <Card className="divide-y divide-nb-850 overflow-hidden" role="radiogroup" aria-label="Destination" onKeyDown={moveFocus}>
         {found ? (
           <div data-testid={`${p}-destination-results`} className="divide-y divide-nb-850">
             {found.usable.map(rowFor)}
@@ -310,7 +310,7 @@ export default function DestinationPicker({
             )}
           </section>
         )}
-      </div>
+      </Card>
 
       {!searching && moreCount > 0 && (
         <button type="button" className="text-xs text-accent hover:underline" onClick={() => setMore((m) => !m)} data-testid={`${p}-destination-more`}>

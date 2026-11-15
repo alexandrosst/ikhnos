@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import EntityHealthCard from '@/features/health/components/EntityHealthCard'
 import { buttonClass } from '@/components/ui/buttonClass'
-import { EmptyState, ErrorBanner, ICON_SM, PageHeader, SkeletonBlock, SkeletonLines } from '@/components/ui/primitives'
+import { Card, EmptyState, ErrorBanner, ICON_SM, PageHeader, SkeletonBlock, SkeletonLines } from '@/components/ui/primitives'
 import { OpenError, useOpenPage } from '@/features/fusion/components/OpenPages'
 import { useFusion } from '@/features/fusion/components/useFusion'
 import { api, type Conn } from '@/lib/api'
@@ -21,7 +21,7 @@ function InGrafana() {
   const page = useOpenPage()
   const up = !!fusion.status?.links?.grafana
   return (
-    <section className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-nb-850 bg-nb-925 px-5 py-4" data-testid="health-in-grafana">
+    <Card as="section" className="mb-6 flex flex-wrap items-center justify-between gap-4 px-5 py-4" data-testid="health-in-grafana">
       <div className="flex min-w-0 items-start gap-3">
         <ChartLine size={18} className="mt-0.5 shrink-0 text-accent" aria-hidden />
         <div className="min-w-0">
@@ -44,7 +44,7 @@ function InGrafana() {
         )}
       </div>
       {page.error && <div className="w-full"><OpenError message={page.error} /></div>}
-    </section>
+    </Card>
   )
 }
 

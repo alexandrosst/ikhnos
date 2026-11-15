@@ -19,7 +19,7 @@ import type { RowMenuItem } from '@/features/pipeline/components/operators/RowMe
 import StateChip from '@/features/pipeline/components/operators/StateChip'
 import WhatToDoModal from '@/features/pipeline/components/operators/WhatToDoModal'
 import { useTelemetryFlow } from '@/features/pipeline/components/telemetry/TelemetryFlow'
-import { Button, EmptyState, ErrorBanner, ClearableChip, ICON_SM, PageHeader, TableSkeleton } from '@/components/ui/primitives'
+import { Button, Card, ClearableChip, EmptyState, ErrorBanner, ICON_SM, PageHeader, TableSkeleton } from '@/components/ui/primitives'
 import { api, ApiError, type CreatedOperator } from '@/lib/api'
 import { operatorFromDestination } from '@/features/pipeline/lib/destinationCatalog'
 import { CENTRAL_OPERATOR_ID, fusionSentence } from '@/features/fusion/lib/fusionStatus'
@@ -257,7 +257,7 @@ export default function PipelinePage() {
           {attention.length > 0 && (
             <section aria-labelledby="attention-title" className="mb-6 space-y-3" data-testid="pipeline-attention">
               <h2 id="attention-title" className="text-sm font-medium text-nb-300">What needs attention</h2>
-              <ul className="divide-y divide-nb-850 rounded-xl border border-nb-850 bg-nb-925">
+              <Card as="ul" className="divide-y divide-nb-850">
                 {attention.slice(0, STRIP_MAX).map((r) => (
                   <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
                     <StateChip state={r.verdict.state} />
@@ -265,7 +265,7 @@ export default function PipelinePage() {
                     <Button size="sm" onClick={() => setTodoFor(r)} aria-label={`What to do about ${r.name}`} data-testid={`attention-todo-${r.id}`}>What to do</Button>
                   </li>
                 ))}
-              </ul>
+              </Card>
               {attention.length > STRIP_MAX && <p className="text-xs text-nb-500">and {attention.length - STRIP_MAX} more, marked in the table below.</p>}
             </section>
           )}

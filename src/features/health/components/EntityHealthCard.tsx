@@ -1,6 +1,6 @@
 import { ArrowDownUp, Cable, Cpu, Database, GitBranch, MemoryStick, Recycle, Server, Users, Waves, Zap, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { ICON_SM, InfoTip, Pill, PulseDot } from '@/components/ui/primitives'
+import { Card, ICON_SM, InfoTip, Pill, PulseDot, SectionLabel } from '@/components/ui/primitives'
 import { ageOf } from '@/lib/history'
 import { bytesPerSec, bytesTotal } from '@/lib/observed'
 import {
@@ -63,14 +63,14 @@ function MetricTile({
     }
   }
   return (
-    <div className="rounded-xl border border-nb-850 bg-nb-925 p-4">
+    <Card className="p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-nb-500">
+          <SectionLabel className="flex items-center gap-1.5">
             <Icon size={ICON_SM} />
             {label}
             {help && <InfoTip>{help}</InfoTip>}
-          </div>
+          </SectionLabel>
           <div className="mt-1 text-xl font-medium tabular-nums text-nb-300">{current !== undefined ? valueFormat(current) : '—'}</div>
         </div>
         {badge}
@@ -82,7 +82,7 @@ function MetricTile({
         tickFormat={tickFormat}
         ariaLabel={`${label} over the last hour, currently ${current !== undefined ? valueFormat(current) : 'no reading yet'}`}
       />
-    </div>
+    </Card>
   )
 }
 
@@ -93,10 +93,10 @@ function UnavailableMetricTile({ label, icon: Icon, reason, badge }: { label: st
   return (
     <div className="rounded-xl border border-dashed border-nb-850 p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-nb-500">
+        <SectionLabel className="flex items-center gap-1.5">
           <Icon size={ICON_SM} />
           {label}
-        </div>
+        </SectionLabel>
         {badge}
       </div>
       <div className="flex items-center justify-center px-4 text-center text-xs text-nb-600" style={{ aspectRatio: '600 / 148' }}>

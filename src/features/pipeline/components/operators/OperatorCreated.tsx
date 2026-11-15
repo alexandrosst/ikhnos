@@ -5,7 +5,7 @@ import { FusionDot } from '@/features/fusion/components/useFusion'
 import { HeartbeatCommands } from '@/features/pipeline/components/operators/HeartbeatCommands'
 import OperatorAccess from '@/features/pipeline/components/operators/OperatorAccess'
 import { FindTheAddress } from '@/features/pipeline/components/operators/OperatorAddress'
-import { Button, ICON_SM, Modal, RunStep, Waiting } from '@/components/ui/primitives'
+import { Button, ICON_SM, Modal, RunStep, SectionLabel, Waiting } from '@/components/ui/primitives'
 import type { CreatedOperator, OperatorExposure } from '@/lib/api'
 import { CENTRAL_OPERATOR_ID, type FusionKind } from '@/features/fusion/lib/fusionStatus'
 import { useHoldReload } from '@/lib/useHoldReload'
@@ -234,7 +234,7 @@ export default function OperatorCreated({
 
         {sources.length > 0 && onConnect && (
           <div data-testid="operator-created-connect">
-            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-nb-500">Connect source clusters</div>
+            <SectionLabel className="mb-2">Connect source clusters</SectionLabel>
             <div className="flex flex-wrap gap-2">
               {sources.map((s) =>
                 s.agent ? (

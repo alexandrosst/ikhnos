@@ -242,7 +242,7 @@ export default function CreateOperatorModal({
         </div>
 
         <fieldset data-testid="operator-exposure">
-          <legend className="mb-2 text-xs font-medium uppercase tracking-wide text-nb-500">How other clusters reach it</legend>
+          <SectionLabel as="legend" className="mb-2">How other clusters reach it</SectionLabel>
           <div className="flex overflow-hidden rounded-lg border border-nb-850" role="radiogroup" aria-label="How other clusters reach it">
             {EXPOSURE_OPTIONS.map((o) => {
               const on = draft.exposure === o.id
@@ -278,14 +278,14 @@ export default function CreateOperatorModal({
               <Switch testId="operator-heartbeat" checked={draft.heartbeat} onChange={(heartbeat) => set({ heartbeat })} label="Report this operator's health to this server" />
             </label>
             <div>
-              <div className="mb-1 text-xs font-medium uppercase tracking-wide text-nb-500">Labels</div>
+              <SectionLabel className="mb-1">Labels</SectionLabel>
               <p className="mb-2 text-xs leading-relaxed text-nb-500" data-testid="operator-labels-explain">
                 Added to every metric, log and trace it forwards, so the data can be told apart downstream (a region, an environment). They cannot be changed afterwards.
               </p>
               <TagRows tags={draft.labels} onChange={(labels) => set({ labels })} testIdPrefix="operator-label" noun="label" />
             </div>
             <div>
-              <div className="mb-2 text-xs font-medium uppercase tracking-wide text-nb-500">Extra processors</div>
+              <SectionLabel className="mb-2">Extra processors</SectionLabel>
               <ProcessorEditor entries={draft.extraProcessors} onChange={(extraProcessors) => set({ extraProcessors })} testIdPrefix="operator" />
             </div>
           </div>

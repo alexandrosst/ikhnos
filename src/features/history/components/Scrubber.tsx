@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Input, Segmented } from '@/components/ui/primitives'
+import { Button, Card, Input, Segmented } from '@/components/ui/primitives'
 import { ageOf, pointAt, type ChangeEvent, type HistoryIndex } from '@/lib/history'
 import { useHistoryView } from '@/store/history'
 import { useConn } from '@/store/server'
@@ -35,7 +35,7 @@ export default function Scrubber({ hours, setHours, index, events }: { hours: nu
   }
 
   return (
-    <section className="rounded-xl border border-nb-850 bg-nb-925 px-5 py-4" aria-label="Timeline">
+    <Card as="section" className="px-5 py-4" aria-label="Timeline">
       {points.length === 0 ? (
         <p className="text-sm text-nb-500">Nothing has been recorded yet. The first recording is made as soon as a cluster is connected and reporting.</p>
       ) : (
@@ -85,6 +85,6 @@ export default function Scrubber({ hours, setHours, index, events }: { hours: nu
           {viewError && <p className="mt-2 text-sm text-bad" role="alert">{viewError}</p>}
         </>
       )}
-    </section>
+    </Card>
   )
 }

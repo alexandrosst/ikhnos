@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { CircleAlert, Gauge, Plus, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Button, Checkbox, EmptyState, Field, ICON_MD, ICON_SM, Input, Pill, Select, Table, Td, Th } from '@/components/ui/primitives'
+import { Button, Card, Checkbox, EmptyState, Field, ICON_MD, ICON_SM, Input, Pill, Select, Table, Td, Th } from '@/components/ui/primitives'
 import type { ProbeTarget } from '@/lib/history'
 import { hasRoundTrip } from '@/lib/metrics'
 import { ago } from '@/lib/observed'
@@ -138,7 +138,7 @@ function Targets({ admin, clusterOptions, clusters }: { admin: boolean; clusterO
   }
 
   return (
-    <div className="mt-6 rounded-xl border border-nb-850 bg-nb-925 p-5">
+    <Card className="mt-6 p-5">
       <h3 className="mb-1 text-sm font-medium text-nb-300">Addresses you asked to be measured</h3>
       <p className="mb-3 text-xs text-nb-500">For places no cluster talks to yet, such as a site you plan to move something to. Loopback, link-local and metadata addresses are always refused.</p>
       <label className="mb-3 flex items-start gap-2.5 text-sm">
@@ -211,6 +211,6 @@ function Targets({ admin, clusterOptions, clusters }: { admin: boolean; clusterO
       ) : (
         <p className="mt-3 text-xs text-nb-500">Only administrators can add or remove these.</p>
       )}
-    </div>
+    </Card>
   )
 }

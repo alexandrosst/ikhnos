@@ -2,7 +2,7 @@ import { ArrowRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buttonClass } from '@/components/ui/buttonClass'
-import { ICON_SM } from '@/components/ui/primitives'
+import { ICON_SM, SectionLabel } from '@/components/ui/primitives'
 import { HealthWord } from '@/features/pipeline/components/telemetry/ArrivalCheck'
 import { operatorPicture } from '@/features/pipeline/lib/operatorPicture'
 import type { AgentDiagnostics } from '@/lib/consent'
@@ -28,7 +28,7 @@ export function AgentTelemetry({ agent: a, diagnostics: d, canConsent }: { agent
   )
   return (
     <div data-testid="agent-telemetry">
-      <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-nb-500">Telemetry</div>
+      <SectionLabel className="mb-1.5">Telemetry</SectionLabel>
       {signals.length > 0 ? (
         <>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

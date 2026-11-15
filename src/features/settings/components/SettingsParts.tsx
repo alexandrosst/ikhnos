@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import type { ReactNode } from 'react'
 import { StatusPip, type StatusTone } from '@/components/ui/Status'
+import { Card } from '@/components/ui/primitives'
 
 /**
  * The parts a settings page is made of, so every page says things the same way: a small heading, then one box of rows. A row is a name, its
@@ -11,7 +12,7 @@ export function Group({ title, id, children, note }: { title: string; id?: strin
   return (
     <section id={id} aria-label={title} className="scroll-mt-6" data-testid={id ? `group-${id}` : undefined}>
       <h2 className="mb-1.5 ml-0.5 text-[11px] font-medium uppercase tracking-wide text-nb-500">{title}</h2>
-      <div className="divide-y divide-nb-850 overflow-hidden rounded-xl border border-nb-850 bg-nb-925">{children}</div>
+      <Card className="divide-y divide-nb-850 overflow-hidden">{children}</Card>
       {note && <p className="mt-1.5 ml-0.5 text-xs text-nb-500">{note}</p>}
     </section>
   )

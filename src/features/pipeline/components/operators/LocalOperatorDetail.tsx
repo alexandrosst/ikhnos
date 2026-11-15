@@ -7,7 +7,7 @@ import LocalOperatorPicture from '@/features/pipeline/components/telemetry/Local
 import { operatorPicture } from '@/features/pipeline/lib/operatorPicture'
 import type { ComponentRow } from '@/features/pipeline/lib/operatorsView'
 import { buttonClass } from '@/components/ui/buttonClass'
-import { Button, ICON_SM } from '@/components/ui/primitives'
+import { Button, ICON_SM, SectionLabel } from '@/components/ui/primitives'
 import type { AgentExtras } from '@/lib/consent'
 import { TELEMETRY_SIGNALS } from '@/lib/install'
 import { toolLabel } from '@/lib/toolVersions'
@@ -85,7 +85,7 @@ export default function LocalOperatorDetail({ row, extras, connected, namespace,
             </ul>
             {tools.length > 0 && (
               <div className="mt-3" data-testid="local-operator-tools">
-                <h4 className="mb-1 text-xs font-medium uppercase tracking-wide text-nb-500">Tools, as installed</h4>
+                <SectionLabel as="h4" className="mb-1">Tools, as installed</SectionLabel>
                 <ul className="flex flex-wrap gap-1.5">
                   {tools.map((t) => {
                     const l = toolLabel(t)

@@ -1,21 +1,21 @@
 import clsx from 'clsx'
 import { ChevronDown, Plus, X } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Button, ICON_MD, ICON_SM, InfoTip, Input, Radio } from '@/components/ui/primitives'
+import { Button, Card, ICON_MD, ICON_SM, InfoTip, Input, Radio } from '@/components/ui/primitives'
 import { Switch } from '@/components/ui/Switch'
 import { scopeTag, tagProblems, TAG_LIMIT, type DebugVerbosity, type TagEntry, type TelemetryInput } from '@/lib/install'
 import ProcessorEditor from './ProcessorEditor'
 
 /** A titled block of the Process step - the same bordered-box language as the rest of the wizard. */
-function Card({ title, hint, children, testId }: { title: string; hint?: ReactNode; children: ReactNode; testId?: string }) {
+function OptionGroup({ title, hint, children, testId }: { title: string; hint?: ReactNode; children: ReactNode; testId?: string }) {
   return (
-    <section className="space-y-2.5 rounded-xl border border-nb-850 bg-nb-925 p-3.5" data-testid={testId}>
+    <Card as="section" className="space-y-2.5 p-3.5" data-testid={testId}>
       <div>
         <h4 className="text-xs font-medium uppercase tracking-wide text-nb-400">{title}</h4>
         {hint && <p className="mt-0.5 text-xs text-nb-500">{hint}</p>}
       </div>
       {children}
-    </section>
+    </Card>
   )
 }
 
@@ -173,18 +173,18 @@ export default function ProcessOptions({
   )
   const more = (
     <div className="space-y-3" data-testid={`${p}-step-process`}>
-      <Card title="Added to everything" testId={`${p}-process-auto`}>
+      <OptionGroup title="Added to everything" testId={`${p}-process-auto`}>
         <div className="flex flex-wrap gap-1.5">
           <Fact name="ikhnos.org.id" testId={`${p}-fact-org`} />
           <Fact name="ikhnos.cluster.id" testId={`${p}-fact-cluster`} />
           {scope && <Fact name="ikhnos.scope" value={scope} testId={`${p}-fact-scope`} />}
         </div>
         {scope === '' && <p className="text-xs text-nb-500">No scope tag: this covers everything the agent can see.</p>}
-      </Card>
+      </OptionGroup>
 
-      <Card title="Your tags" hint="Added only where the telemetry does not already carry that name." testId={`${p}-process-tags`}>
+      <OptionGroup title="Your tags" hint="Added only where the telemetry does not already carry that name." testId={`${p}-process-tags`}>
         <TagEditor value={value} onChange={onChange} testIdPrefix={testIdPrefix} suggestion={clusterName ? { key: 'k8s.cluster.name', value: clusterName } : undefined} />
-      </Card>
+      </OptionGroup>
 
       <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-nb-850 bg-nb-925 px-3.5 py-2.5">
         <span className="min-w-0 flex-1 text-sm">
@@ -194,9 +194,9 @@ export default function ProcessOptions({
         <Switch testId={`${testIdPrefix}-resource-detection`} checked={value.resourceDetection} onChange={(v) => set('resourceDetection', v)} label="Collector environment" />
       </label>
 
-      <Card title="Check that it works" hint="A copy of what is sent, in the collector’s own log." testId={`${p}-process-debug`}>
+      <OptionGroup title="Check that it works" hint="A copy of what is sent, in the collector’s own log." testId={`${p}-process-debug`}>
         <DebugChoice value={value} onChange={onChange} testIdPrefix={testIdPrefix} />
-      </Card>
+      </OptionGroup>
 
       <details className="group rounded-lg border border-nb-850" data-testid={`${p}-process-extra`}>
         <summary className="flex cursor-pointer select-none items-center justify-between px-3 py-2.5 text-xs font-medium text-nb-400 marker:content-none hover:text-nb-300">

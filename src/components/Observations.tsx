@@ -1,4 +1,4 @@
-import { ObservationChip } from '@/components/ui/primitives'
+import { Card, ObservationChip } from '@/components/ui/primitives'
 import { ageLabel, goneInfo, observation } from '@/lib/provenance'
 import type { Cluster, Tombstone } from '@/lib/types'
 import { useObserved } from '@/store/observed'
@@ -22,7 +22,7 @@ export function GoneRecords({ kinds, className }: { kinds?: Tombstone['kind'][];
         Gone <span className="ml-1 text-nb-500">({list.length})</span>
       </h2>
       <p className="mb-2 text-xs text-nb-500">No longer reported by their agents. Kept for a while so a change can be explained; not used for anything.</p>
-      <ul className="divide-y divide-nb-850 rounded-xl border border-nb-850 bg-nb-925">
+      <Card as="ul" className="divide-y divide-nb-850">
         {list.map((t) => (
           <li key={`${t.kind}:${t.id}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm" data-testid="gone-row" data-kind={t.kind}>
             <span className="min-w-0 text-nb-400">
@@ -38,7 +38,7 @@ export function GoneRecords({ kinds, className }: { kinds?: Tombstone['kind'][];
             </span>
           </li>
         ))}
-      </ul>
+      </Card>
     </section>
   )
 }
@@ -51,7 +51,7 @@ export function ObservedClusters({ className }: { className?: string }) {
   return (
     <section className={className} data-testid="observed-clusters">
       <h2 className="mb-2 text-sm font-medium text-nb-300">What the agents see</h2>
-      <ul className="divide-y divide-nb-850 rounded-xl border border-nb-850 bg-nb-925">
+      <Card as="ul" className="divide-y divide-nb-850">
         {seen.map((c) => {
           const info = observation(c)
           return (
@@ -69,7 +69,7 @@ export function ObservedClusters({ className }: { className?: string }) {
             </li>
           )
         })}
-      </ul>
+      </Card>
     </section>
   )
 }

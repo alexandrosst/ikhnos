@@ -1,6 +1,6 @@
 import { History, UserRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { ICON_SM, SkeletonLines } from '@/components/ui/primitives'
+import { ICON_SM, SectionLabel, SkeletonLines } from '@/components/ui/primitives'
 import { api, type Timeline } from '@/lib/api'
 import { kindLabel } from '@/lib/history'
 import { useConn, useServer } from '@/store/server'
@@ -47,7 +47,7 @@ export default function EntityHistory({ kind, id }: { kind: string; id: string }
 
   return (
     <div className="border-t border-nb-850 px-5 py-4" data-testid="entity-history">
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-nb-500">History</div>
+      <SectionLabel className="mb-2">History</SectionLabel>
       {!tl && state === 'idle' && (
         <button onClick={() => void load()} className="flex items-center gap-2 text-sm text-accent hover:underline" data-testid="entity-history-load">
           <History size={ICON_SM} aria-hidden /> Show how this changed over time

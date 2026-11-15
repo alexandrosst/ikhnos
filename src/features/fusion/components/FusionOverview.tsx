@@ -7,7 +7,7 @@ import { FusionSection, ROWS } from '@/features/fusion/components/FusionSection'
 import { StatusChip } from '@/features/fusion/components/StatusChip'
 import { DiskBar, FillsIn } from '@/features/fusion/components/StoreBars'
 import { buttonClass } from '@/components/ui/buttonClass'
-import { Button, CopyButton, ICON_MD, ICON_SM, Waiting } from '@/components/ui/primitives'
+import { Button, Card, CopyButton, ICON_MD, ICON_SM, SectionLabel, Waiting } from '@/components/ui/primitives'
 import { type FusionComponent, type FusionRetention } from '@/lib/api'
 import { DASHBOARD_GROUPS, DASHBOARDS } from '@/features/fusion/lib/dashboards'
 import { FusionPicture } from '@/features/fusion/components/FusionPicture'
@@ -42,15 +42,15 @@ export function FusionOverview({ fusion, problems, retention, hops, now, onOpenD
     <>
       <FusionSection title="What needs attention" testId="fusion-attention">
         {sentence.kind === 'starting' ? (
-          <div className="rounded-xl border border-nb-850 bg-nb-925 px-5 py-4 text-sm text-nb-400" data-testid="fusion-status">
+          <Card className="px-5 py-4 text-sm text-nb-400" data-testid="fusion-status">
             {/* The one spinner of the page: the parts below show a still glyph. */}
             <Waiting testId="fusion-waiting"><span>{sentence.text}</span></Waiting>
             <p className="mt-1 text-xs text-nb-500">Usually under two minutes. You can leave this page.</p>
-          </div>
+          </Card>
         ) : problems.length === 0 ? (
-          <div className="flex items-center gap-2 rounded-xl border border-nb-850 bg-nb-925 px-5 py-4 text-sm text-nb-400" data-testid="fusion-fine">
+          <Card className="flex items-center gap-2 px-5 py-4 text-sm text-nb-400" data-testid="fusion-fine">
             <CircleCheck size={ICON_MD} className="shrink-0 text-ok" aria-hidden /> Nothing needs your attention.
-          </div>
+          </Card>
         ) : (
           <ul className="space-y-3">
             {problems.map((p) => (
@@ -111,7 +111,7 @@ export function FusionOverview({ fusion, problems, retention, hops, now, onOpenD
           <div className="space-y-5">
             {DASHBOARD_GROUPS.map((g) => (
               <div key={g}>
-                <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-nb-500">{g}</h3>
+                <SectionLabel as="h3" className="mb-2">{g}</SectionLabel>
                 <ul className="grid gap-2 sm:grid-cols-2" data-testid={`fusion-dashboards-${g.toLowerCase()}`}>
                   {DASHBOARDS.filter((d) => d.group === g).map((d) => (
                     <li key={d.uid}>

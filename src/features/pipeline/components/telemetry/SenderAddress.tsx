@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Input, Radio } from '@/components/ui/primitives'
+import { Button, Input, Radio, SectionLabel } from '@/components/ui/primitives'
 import { ExposeCard, withDefaultPort } from '@/features/pipeline/components/operators/OperatorAddress'
 import type { RegionalOperator } from '@/lib/types'
 import ServerClusterCard from '@/features/pipeline/components/operators/ServerClusterCard'
@@ -70,7 +70,7 @@ export default function SenderAddress({ operator, value, onChange, testId, agent
   )
   return (
     <div className="space-y-2" data-testid={testId}>
-      <div className="text-xs font-medium uppercase tracking-wide text-nb-500">Address this cluster dials</div>
+      <SectionLabel>Address this cluster dials</SectionLabel>
       <p className="text-xs text-nb-400">Pick one this cluster can reach: an address on the operator&apos;s own network answers only from clusters on that network.</p>
       <ul className="space-y-1.5">
         {row('recorded', chosen === '', () => onChange(''), recorded || 'The operator’s recorded address', recorded ? 'The address recorded for this operator. Every cluster without a choice of its own uses it.' : 'No address is recorded for this operator yet, so commands dial its name inside its own cluster.', recorded)}

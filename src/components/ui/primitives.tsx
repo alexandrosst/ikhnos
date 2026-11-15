@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { Check, ChevronDown, Cloud, Copy, Cpu, Eye, EyeOff, Loader2, Minus, Plus, Server, X, type LucideIcon } from 'lucide-react'
 import {
   Children, Fragment, isValidElement, useEffect, useId, useLayoutEffect, useRef, useState,
-  type ButtonHTMLAttributes, type ChangeEvent, type ComponentProps, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type SelectHTMLAttributes,
+  type ButtonHTMLAttributes, type ChangeEvent, type HTMLAttributes, type ComponentProps, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type SelectHTMLAttributes,
 } from 'react'
 import { createPortal } from 'react-dom'
 import { buttonClass, type ButtonVariant } from '@/components/ui/buttonClass'
@@ -615,8 +615,13 @@ export function Field({ label, hint, hintId, children, className, adornment }: {
  * this existed; sharing it here doesn't migrate every one of those (most are fine left alone), but gives new
  * call sites, and any of those existing ones worth touching later, one definition instead of another copy.
  */
-export function SectionLabel({ children, as: As = 'div', className }: { children: ReactNode; as?: 'div' | 'span' | 'p' | 'legend'; className?: string }) {
-  return <As className={clsx('text-xs font-medium uppercase tracking-wide text-nb-500', className)}>{children}</As>
+export function SectionLabel({ children, as: As = 'div', className, ...rest }: { children: ReactNode; as?: 'div' | 'span' | 'p' | 'legend' | 'h3' | 'h4'; className?: string } & Omit<HTMLAttributes<HTMLElement>, 'children' | 'className'>) {
+  return <As className={clsx('text-xs font-medium uppercase tracking-wide text-nb-500', className)} {...rest}>{children}</As>
+}
+
+/** The box a group of related content sits in: one border, one fill, one radius, so every card on every page is the same card in both themes. Padding and layout are the caller's (`className`). */
+export function Card({ as: As = 'div', className, ...rest }: { as?: 'div' | 'section' | 'article' | 'aside' | 'ul' | 'p' | 'li' } & HTMLAttributes<HTMLElement>) {
+  return <As className={clsx('rounded-xl border border-nb-850 bg-nb-925', className)} {...rest} />
 }
 
 /**

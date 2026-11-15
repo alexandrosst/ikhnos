@@ -1,7 +1,7 @@
 import { Activity, FileText, Waypoints, type LucideIcon } from 'lucide-react'
 import type { DestinationCatalog } from '@/features/pipeline/lib/destinationCatalog'
 import { activeLanes, laneView, TELEMETRY_SIGNALS, withLane, type Modality, type TelemetryInput } from '@/lib/install'
-import { Button, ICON_SM } from '@/components/ui/primitives'
+import { Button, Card, ICON_SM } from '@/components/ui/primitives'
 import type { ComponentProps } from 'react'
 import DestinationStep from './DestinationStep'
 
@@ -60,7 +60,7 @@ export default function RoutesStep({
           .filter((o) => o !== m && value.exportLanes[o].exportAuthSecretName.trim() !== '' && value.exportLanes[o].exportAuthSecretName.trim() !== secret)
           .map((o) => ({ from: o, ...value.exportLanes[o] }))[0]
         return (
-          <section key={m} className="space-y-3 rounded-xl border border-nb-850 bg-nb-925 p-4" data-testid={`${testIdPrefix}-lane-${m}`} aria-label={`${label} destination`}>
+          <Card as="section" key={m} className="space-y-3 p-4" data-testid={`${testIdPrefix}-lane-${m}`} aria-label={`${label} destination`}>
             <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-nb-930 text-nb-300" aria-hidden>
                 <Icon size={ICON_SM + 2} />
@@ -101,7 +101,7 @@ export default function RoutesStep({
                 </Button>
               </div>
             )}
-          </section>
+          </Card>
         )
       })}
     </div>

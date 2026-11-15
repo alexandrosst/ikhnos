@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { useEffect, useState } from 'react'
-import { Button, ErrorBanner, Input, Modal, Pill, Table, Td, Th } from '@/components/ui/primitives'
+import { Button, ErrorBanner, Input, Modal, Pill, SectionLabel, Table, Td, Th } from '@/components/ui/primitives'
 import { api, type Role } from '@/lib/api'
 import { ago } from '@/lib/observed'
 import {
@@ -154,7 +154,7 @@ export default function ProposalDialog({
         )}
 
         <section aria-label="Expected effect">
-          <h3 className="mb-1.5 text-xs font-medium uppercase tracking-wide text-nb-500">What the advisor expects</h3>
+          <SectionLabel as="h3" className="mb-1.5">What the advisor expects</SectionLabel>
           {effects.length === 0 ? (
             <p className="text-nb-500">It did not predict an effect, so no comparison will be recorded.</p>
           ) : (
@@ -170,7 +170,7 @@ export default function ProposalDialog({
         </section>
 
         <section aria-label="Evidence">
-          <h3 className="mb-1.5 text-xs font-medium uppercase tracking-wide text-nb-500">Why</h3>
+          <SectionLabel as="h3" className="mb-1.5">Why</SectionLabel>
           {p.evidence.length === 0 ? (
             <p className="text-nb-500">The advisor gave no evidence.</p>
           ) : (
@@ -197,7 +197,7 @@ export default function ProposalDialog({
 
         {!waiting && (
           <section aria-label="Decision">
-            <h3 className="mb-1.5 text-xs font-medium uppercase tracking-wide text-nb-500">Decision</h3>
+            <SectionLabel as="h3" className="mb-1.5">Decision</SectionLabel>
             {p.decidedBy ? (
               <p className="text-nb-300">
                 {p.status === 'rejected' ? 'Rejected' : 'Accepted'} by {p.decidedBy}{p.decidedAt ? `, ${stamp(p.decidedAt)}` : ''}.
@@ -214,7 +214,7 @@ export default function ProposalDialog({
 
         {p.outcome && (
           <section aria-label="Outcome" data-testid="proposal-outcome">
-            <h3 className="mb-1.5 text-xs font-medium uppercase tracking-wide text-nb-500">What happened</h3>
+            <SectionLabel as="h3" className="mb-1.5">What happened</SectionLabel>
             <p className="mb-2 text-nb-400">{OUTCOME_WORDS[p.outcome.result]}</p>
             {p.outcome.result === 'measured' && (
               <>

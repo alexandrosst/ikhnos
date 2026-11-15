@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CopyCommand } from '@/components/ui/CopyCommand'
-import { Button, ErrorBanner, Field, Input, Modal } from '@/components/ui/primitives'
+import { Button, ErrorBanner, Field, Input, Modal, SectionLabel } from '@/components/ui/primitives'
 import { api, ApiError, type OperatorExposure } from '@/lib/api'
 import { shArg } from '@/lib/install'
 import { operatorServiceName } from '@/features/pipeline/lib/operatorsView'
@@ -119,10 +119,10 @@ function AddressCandidatesList({ operatorId, value, onPick }: { operatorId: stri
   const needsCluster = !!sc && sc.state !== 'known'
   return (
     <div data-testid="operator-address-candidates">
-      <div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-nb-500">
+      <SectionLabel className="mb-1 flex items-center gap-2">
         Addresses found{found.hostClusterName ? ` in ${found.hostClusterName}` : ''}
         {sc?.state === 'known' && <span className="rounded-full bg-ok/10 px-2 py-px text-[11px] font-medium normal-case tracking-normal text-ok" data-testid="operator-address-server-cluster-pill">Where the server runs</span>}
-      </div>
+      </SectionLabel>
       {needsCluster && <div className="mb-2"><ServerClusterCard found={found} operatorId={operatorId} onChanged={() => setRefresh((n) => n + 1)} testId="operator-address-server-cluster" /></div>}
       {found.expose && <div className="mb-2"><ExposeCard expose={found.expose} testId="operator-address-expose" /></div>}
       {discovered.length === 0 ? (

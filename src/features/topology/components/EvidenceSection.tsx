@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { EvidenceChip, ObservationChip } from '@/components/ui/primitives'
+import { EvidenceChip, ObservationChip, SectionLabel } from '@/components/ui/primitives'
 import { ageLabel, evidenceRows, observation, weakAttributes, type ModelEntity } from '@/lib/provenance'
 import type { Provenance } from '@/lib/types'
 import { useEntityEvidence } from '@/store/effectiveModel'
@@ -30,7 +30,7 @@ export function EvidenceSection({ kind, id }: { kind: string; id: string }) {
   return (
     <div className="border-t border-nb-850 px-5 py-4" data-testid="evidence-section">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-nb-500">Evidence</span>
+        <SectionLabel as="span">Evidence</SectionLabel>
         <ObservationChip info={info} />
       </div>
       {entity.origin === 'observed+declared' && <p className="mb-2 text-xs text-nb-500">A person has changed some values; the declared value wins, and the observed one is shown beneath it.</p>}
@@ -83,7 +83,7 @@ export function NeedsLook({ kind, rec }: { kind: 'cluster' | 'node' | 'service';
   if (weak.length === 0) return null
   return (
     <div className="border-t border-nb-850 bg-warn/5 px-5 py-4" data-testid="needs-look">
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-nb-500">Worth a look ({weak.length})</div>
+      <SectionLabel className="mb-2">Worth a look ({weak.length})</SectionLabel>
       <ul className="space-y-2.5">
         {weak.map((w) => (
           <li key={w.field} className="text-sm">

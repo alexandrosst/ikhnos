@@ -18,7 +18,7 @@ import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import EntityHistory from '@/features/history/components/EntityHistory'
 import { ConfirmModal } from '@/components/forms'
 import { DistroIcon, Flag, WithIcon } from '@/components/ui/brand'
-import { Button, EmptyState, ErrorBanner, GuessDot, ICON_SM, LiveDot, type LiveKind, PageHeader, SkeletonBlock, StatTile, Table, TableSkeleton, Td, Th, TierBadge } from '@/components/ui/primitives'
+import { Button, Card, EmptyState, ErrorBanner, GuessDot, ICON_SM, LiveDot, PageHeader, SectionLabel, SkeletonBlock, StatTile, Table, TableSkeleton, Td, Th, TierBadge, type LiveKind } from '@/components/ui/primitives'
 import { api, ApiError } from '@/lib/api'
 import { skewLabel, skewWarning } from '@/lib/clock'
 import { extrasOf, uptimeWords, type AgentExtras } from '@/lib/consent'
@@ -180,9 +180,9 @@ export default function AgentsPage() {
               </div>
             ))
           ) : (
-            <p className="rounded-xl border border-nb-850 bg-nb-925 px-5 py-4 text-sm text-nb-400">
+            <Card as="p" className="px-5 py-4 text-sm text-nb-400">
               {waiting.length} cluster{waiting.length === 1 ? ' is' : 's are'} waiting. An administrator has to approve {waiting.length === 1 ? 'it' : 'them'}.
-            </p>
+            </Card>
           )}
         </section>
       )}
@@ -351,13 +351,13 @@ export default function AgentsPage() {
           )}
 
           {map && openAgent && (
-            <div className="mt-4 rounded-xl border border-nb-850 bg-nb-925 px-5 py-4" data-testid="agent-detail">
+            <Card className="mt-4 px-5 py-4" data-testid="agent-detail">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-sm font-medium text-nb-300">{openAgent.name}</h2>
                 <button className="text-xs text-nb-500 hover:text-nb-300" onClick={() => setOpen(null)}>Close</button>
               </div>
               <AgentDetail agent={openAgent} extras={extrasOf(rawAgents, openAgent.id)} canConsent={canConsent} onRevoke={canAdminister && connected && openAgent.status === 'approved' ? () => setRevoking(openAgent) : undefined} />
-            </div>
+            </Card>
           )}
         </>
       )}
@@ -552,7 +552,7 @@ function Fold({ title, hint, warn, testId, children }: { title: string; hint?: s
   )
 }
 
-const Heading = ({ children }: { children: string }) => <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-nb-500">{children}</div>
+const Heading = ({ children }: { children: string }) => <SectionLabel className="mb-1.5">{children}</SectionLabel>
 
 function Facts({ rows }: { rows: [ReactNode, ReactNode][] }) {
   return (
@@ -600,7 +600,7 @@ function AgentMap({ rows, clusterOf, selected, onSelect }: { rows: { a: Agent; h
   const H = Math.max(y, 180)
   const hub = { x: W / 2, y: 34 }
   return (
-    <div className="overflow-x-auto rounded-xl border border-nb-850 bg-nb-925 p-2" data-testid="agents-map">
+    <Card className="overflow-x-auto p-2" data-testid="agents-map">
       <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto w-full min-w-[640px] max-w-[1000px]" role="img" aria-label="Agents connected to this server, grouped by the tier of their cluster">
         {placed.map((p) => {
           const st = HEALTH[p.h]
@@ -652,6 +652,6 @@ function AgentMap({ rows, clusterOf, selected, onSelect }: { rows: { a: Agent; h
           )
         })}
       </svg>
-    </div>
+    </Card>
   )
 }

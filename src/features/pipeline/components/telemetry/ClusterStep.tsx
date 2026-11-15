@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { AlertTriangle, Radio } from 'lucide-react'
 import { useState } from 'react'
-import { Button, EmptyState, ICON_SM, TierBadge } from '@/components/ui/primitives'
+import { Button, Card, EmptyState, ICON_SM, TierBadge } from '@/components/ui/primitives'
 import { extrasOf } from '@/lib/consent'
 import { clusterTelemetryLine } from '@/features/pipeline/lib/telemetrySetup'
 import type { Agent, Cluster } from '@/lib/types'
@@ -42,7 +42,7 @@ export default function ClusterStep({
   return (
     <div data-testid={`${testIdPrefix}-picker`}>
       <p className="mb-2 text-sm font-medium text-nb-300" id={`${testIdPrefix}-where-label`}>Which cluster should the data come from?</p>
-      <div role="radiogroup" aria-labelledby={`${testIdPrefix}-where-label`} className="divide-y divide-nb-850 overflow-hidden rounded-xl border border-nb-850 bg-nb-925">
+      <Card role="radiogroup" aria-labelledby={`${testIdPrefix}-where-label`} className="divide-y divide-nb-850 overflow-hidden">
         {agents.map((a) => {
           const c = clusters.find((cl) => cl.id === a.clusterId)
           const on = a.id === selected
@@ -72,7 +72,7 @@ export default function ClusterStep({
             </button>
           )
         })}
-      </div>
+      </Card>
     </div>
   )
 }

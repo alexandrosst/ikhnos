@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { AlertTriangle, CheckCircle2, HelpCircle, XCircle, type LucideIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { CopyCommand } from '@/components/ui/CopyCommand'
-import { ICON_SM } from '@/components/ui/primitives'
+import { Card, ICON_SM } from '@/components/ui/primitives'
 import type { AgentDiagnostics } from '@/lib/consent'
 import { HEALTH_WORD, type Health } from '@/lib/status'
 import { arrivalCheck } from '@/features/pipeline/lib/telemetrySetup'
@@ -41,7 +41,7 @@ export default function ArrivalCheck({ wanted, diagnostics, connected, cluster, 
   const now = fixedNow ?? clock
   const a = arrivalCheck({ wanted, diagnostics, connected, waited: passive ? 0 : (now - since) / 1000, now, cluster, namespace })
   return (
-    <div className="rounded-xl border border-nb-850 bg-nb-925" data-testid={testId} data-health={a.health}>
+    <Card data-testid={testId} data-health={a.health}>
       <div className="flex flex-wrap items-start gap-x-3 gap-y-1 px-4 py-3">
         <HealthWord health={a.health} testId={`${testId}-state`} />
         <div className="min-w-0 flex-1 basis-60 text-sm text-nb-300" role="status">
@@ -69,6 +69,6 @@ export default function ArrivalCheck({ wanted, diagnostics, connected, cluster, 
         </div>
       )}
       {a.partial && <p className="border-t border-nb-850 px-4 py-2 text-xs text-nb-500" data-testid={`${testId}-partial`}>{a.partial}</p>}
-    </div>
+    </Card>
   )
 }

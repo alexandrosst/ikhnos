@@ -1,5 +1,6 @@
 import { CopyCommand } from '@/components/ui/CopyCommand'
 import type { Agent } from '@/lib/types'
+import { SectionLabel } from '@/components/ui/primitives'
 
 /**
  * What is left in the cluster after an agent was revoked or rejected, and what to run about it. For an agent that a controller keeps
@@ -8,7 +9,7 @@ import type { Agent } from '@/lib/types'
 export function AgentTeardown({ status, teardown }: { status: 'revoked' | 'rejected'; teardown: NonNullable<Agent['teardown']> }) {
   return (
     <div className="md:col-span-2 xl:col-span-3" data-testid="agent-teardown">
-      <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-nb-500">Clean up in the cluster</div>
+      <SectionLabel className="mb-1.5">Clean up in the cluster</SectionLabel>
       {teardown.keptByController && status === 'revoked' ? (
         <p className="max-w-2xl text-xs leading-relaxed text-nb-500" data-testid="agent-teardown-controller">
           A controller keeps this agent, and removes it now: the agent, its permissions and its identity. There is nothing to run. To connect this cluster again, create a new token and run the install command with it.

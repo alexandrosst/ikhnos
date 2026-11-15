@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { CheckCircle2, Clock, Settings2, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Button, EmptyState, ErrorBanner, ICON_SM, PageHeader, PulseDot, Segmented, Select } from '@/components/ui/primitives'
+import { Button, Card, EmptyState, ErrorBanner, ICON_SM, PageHeader, PulseDot, Segmented, Select } from '@/components/ui/primitives'
 import Feed from '@/features/history/components/Feed'
 import People from '@/features/history/components/People'
 import { words } from '@/features/history/lib/audit'
@@ -173,11 +173,11 @@ function RecordNow({ conn, onDone }: { conn: Conn; onDone: () => void }) {
   )
 }
 
-const Card = ({ title, children, label }: { title: string; children: React.ReactNode; label: string }) => (
-  <section className="rounded-xl border border-nb-850 bg-nb-925 p-4" aria-label={label}>
+const SideCard = ({ title, children, label }: { title: string; children: React.ReactNode; label: string }) => (
+  <Card as="section" className="p-4" aria-label={label}>
     <h2 className="mb-2.5 text-xs font-medium text-nb-300">{title}</h2>
     {children}
-  </section>
+  </Card>
 )
 
 /** The last few things people did, for administrators, beside what Ikhnos detected. The other two views of the feed already list them, so it appears only beside "Detected". The whole trail is the People view. */
@@ -189,7 +189,7 @@ function RecentPeople({ conn, tick, onSeeAll }: { conn: Conn; tick: number; onSe
     return () => { live = false }
   }, [conn, tick])
   return (
-    <section className="rounded-xl border border-nb-850 bg-nb-925 p-4" aria-label="Recent by people" data-testid="recent-people">
+    <Card as="section" className="p-4" aria-label="Recent by people" data-testid="recent-people">
       <div className="mb-2.5 flex items-baseline justify-between">
         <h2 className="text-xs font-medium text-nb-300">Recent by people</h2>
         <button type="button" onClick={onSeeAll} className="text-xs text-accent hover:underline" data-testid="recent-people-all">See all</button>
@@ -206,7 +206,7 @@ function RecentPeople({ conn, tick, onSeeAll }: { conn: Conn; tick: number; onSe
           ))}
         </ul>
       )}
-    </section>
+    </Card>
   )
 }
 
@@ -219,7 +219,7 @@ function PictureCheck() {
   const odd = live.filter((a) => !a.consistency || a.consistency.differences > 0)
   const last = live.map((a) => a.consistency?.lastCheck).filter((x): x is string => !!x).sort().pop()
   return (
-    <Card title="Is the picture complete?" label="Consistency checks">
+    <SideCard title="Is the picture complete?" label="Consistency checks">
       {live.length === 0 ? (
         <p className="text-sm text-nb-500">No cluster is connected yet, so there is no picture to check.</p>
       ) : (
@@ -243,7 +243,7 @@ function PictureCheck() {
           )}
         </>
       )}
-    </Card>
+    </SideCard>
   )
 }
 
@@ -272,7 +272,7 @@ function BusiestLinks({ conn }: { conn: Conn }) {
   const rows = (rates ?? []).filter((r) => r.avgBytesPerSec > 0).sort((a, b) => b.avgBytesPerSec - a.avgBytesPerSec).slice(0, 3)
   const top = rows[0]?.avgBytesPerSec ?? 1
   return (
-    <Card title="Busiest links · 24 h" label="Busiest links">
+    <SideCard title="Busiest links · 24 h" label="Busiest links">
       {rates === null ? (
         <p className="text-sm text-nb-500">Reading…</p>
       ) : rows.length === 0 ? (
@@ -293,7 +293,7 @@ function BusiestLinks({ conn }: { conn: Conn }) {
           })}
         </ul>
       )}
-    </Card>
+    </SideCard>
   )
 }
 
@@ -311,7 +311,7 @@ function Stored({ conn, tick }: { conn: Conn; tick: number }) {
   const graph = info.backend === 'neo4j'
   const st = info.stats
   return (
-    <section className="rounded-xl border border-nb-850 bg-nb-925 p-4" aria-label="Where history is kept" data-testid="storage-card">
+    <Card as="section" className="p-4" aria-label="Where history is kept" data-testid="storage-card">
       <h2 className="mb-2.5 text-xs font-medium text-nb-300">Stored</h2>
       {graph ? (
         <>
@@ -328,6 +328,6 @@ function Stored({ conn, tick }: { conn: Conn; tick: number }) {
           In the server’s own database file: it can be scrubbed and searched by time. Questions across time, such as what ran on a node last Tuesday, need the graph database (<code className="text-nb-300">--neo4j-url</code>).
         </p>
       )}
-    </section>
+    </Card>
   )
 }

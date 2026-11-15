@@ -10,7 +10,7 @@ import { LinkRow, Section, ShortList } from '@/features/topology/components/Insp
 import { OverlaySection } from '@/features/topology/components/OverlaySection'
 import PlatformPanel, { PlatformSubtitle } from '@/features/topology/components/PlatformPanel'
 import { DistroIcon, Flag, Place, ProviderIcon, WithIcon } from '@/components/ui/brand'
-import { Button, CompletenessBadge, ConnectivityStatusBadge, DetailRow, GuessDot, ICON_MD, ICON_SM, Input, IpAddress, Pill, Provenance as ProvenanceStrip, Select, Sparkline, StatusDot, TierBadge, TunnelEvidence } from '@/components/ui/primitives'
+import { Button, CompletenessBadge, ConnectivityStatusBadge, DetailRow, GuessDot, ICON_MD, ICON_SM, Input, IpAddress, Pill, Provenance as ProvenanceStrip, SectionLabel, Select, Sparkline, StatusDot, TierBadge, TunnelEvidence } from '@/components/ui/primitives'
 import { clusterNets } from '@/features/topology/lib/clusterNets'
 import { completeness } from '@/lib/completeness'
 import { CONFIDENCE_TONE, dependencyProvenance, observation } from '@/lib/provenance'
@@ -198,7 +198,7 @@ function NameEndpoint({ endpoint }: { endpoint: ExternalEndpoint }) {
   const detected = endpoint.source !== 'manual' && endpoint.name && endpoint.evidence?.identity
   return (
     <div className="border-t border-nb-850 px-5 py-4">
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-nb-500">What is it?</div>
+      <SectionLabel className="mb-2">What is it?</SectionLabel>
       {detected && (
         <p className="mb-2 text-xs text-nb-500" title={endpoint.evidence?.identity?.detail}>
           Detected automatically: {endpoint.evidence?.identity?.signal ?? `matched ${endpoint.name}`}.

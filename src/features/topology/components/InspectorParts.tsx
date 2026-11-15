@@ -1,14 +1,15 @@
 import { Info } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
+import { SectionLabel } from '@/components/ui/primitives'
 
 /** A titled block of the Inspector: a rule above it, a small upper-case heading, then its rows. */
 export function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
     <div className="border-t border-nb-850 px-5 py-4">
-      <div className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-nb-500">
+      <SectionLabel className="mb-2 flex items-center gap-1.5">
         {title}
         {hint && <span title={hint} className="cursor-help text-nb-600"><Info size={13} aria-label="What this means" /></span>}
-      </div>
+      </SectionLabel>
       {children}
     </div>
   )

@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react'
 import type { ReviewNotes } from '@/features/pipeline/lib/telemetrySetup'
 import Disclosure from './Disclosure'
+import { SectionLabel } from '@/components/ui/primitives'
 
 /** One block of the review: a bold lead and short sentences. */
 function Block({ title, items, testId }: { title: string; items: string[]; testId: string }) {
   return (
     <section data-testid={testId}>
-      <h4 className="text-xs font-medium uppercase tracking-wide text-nb-500">{title}</h4>
+      <SectionLabel as="h4">{title}</SectionLabel>
       <ul className="mt-1 space-y-1 text-sm text-nb-300">
         {items.map((t) => (
           <li key={t} className="flex gap-2"><span className="mt-2 size-1 shrink-0 rounded-full bg-nb-600" aria-hidden />{t}</li>
