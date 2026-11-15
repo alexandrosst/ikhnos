@@ -13,6 +13,7 @@ import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
 import type { Service } from '@/lib/types'
 import { matches, openOnClick, RowActions, ListToolbar, ServiceTraits } from './shared'
+import { PAGE_ICON } from '@/lib/pageIcons'
 
 const SERVICE_COLUMNS: ColumnDef[] = [
   { key: 'cluster', label: 'Cluster' },
@@ -73,6 +74,7 @@ export default function ServicesPage() {
 
       {services.length === 0 ? (
         <EmptyState
+          icon={PAGE_ICON.services}
           title="No service is known yet"
           action={!clusters.length ? <GoToAgents /> : undefined}
           description={clusters.length ? 'No service is on record for these clusters. Connect an agent that reads at the Services access level, or add one by hand.' : 'No cluster is connected or declared yet. Start from Agents: once a cluster is connected, its agent reports its services. Or add a cluster by hand first.'} />

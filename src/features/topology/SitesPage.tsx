@@ -12,6 +12,7 @@ import { countryName } from '@/lib/present'
 import { SITE_KINDS, type Site } from '@/lib/types'
 import { useTopology } from '@/store/topology'
 import { matches, openOnClick, RowActions, ListToolbar } from './shared'
+import { PAGE_ICON } from '@/lib/pageIcons'
 
 const SITE_COLUMNS: ColumnDef[] = [
   { key: 'kind', label: 'Kind' },
@@ -51,6 +52,7 @@ export default function SitesPage() {
 
       {sites.length === 0 ? (
         <EmptyState
+          icon={PAGE_ICON.sites}
           title="No sites yet"
           description="Add a site, then attach clusters to it from the cluster form."
           action={<Button variant="primary" onClick={() => setPanel({ site: null, edit: true })}><Plus size={ICON_SM} /> Add site</Button>}

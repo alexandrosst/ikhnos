@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { BookOpen, Boxes, Cable, ClipboardCheck, Folders, History, LayoutDashboard, Layers, MapPin, Menu, Network, Package, Radio, Route, Search, Server, Settings2, Waypoints } from 'lucide-react'
+import { BookOpen, Menu, Search, Settings2, type LucideIcon } from 'lucide-react'
 import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BrandMark, Copyright } from '@/components/ui/brand'
@@ -15,6 +15,7 @@ import HistoryBanner from '@/features/history/components/HistoryBanner'
 import SampleBanner from '@/components/SampleBanner'
 import { pollEvery } from '@/lib/pollRate'
 import { prefetchRoute } from '@/app/routeLoaders'
+import { PAGE_ICON } from '@/lib/pageIcons'
 import { resumeServer, useServer } from '@/store/server'
 import { useWaitingProposals, usePollWaitingProposals } from '@/features/proposals/store/waitingProposals'
 import { useRawTopology } from '@/store/topology'
@@ -23,7 +24,7 @@ import { useRawTopology } from '@/store/topology'
 // GitHub Pages setting that publishing depends on.
 const DOCS_URL = 'https://alexandrosst.github.io/ikhnos/'
 
-type NavEntry = { to: string; label: string; icon: typeof Network }
+type NavEntry = { to: string; label: string; icon: LucideIcon }
 
 // Grouped so the sidebar reads as three questions instead of one flat list: what am I looking at,
 // what's it made of, and what needs my attention. Order within a group is the same as before.
@@ -31,35 +32,35 @@ const NAV_GROUPS: { label: string; items: NavEntry[] }[] = [
   {
     label: 'Explore',
     items: [
-      { to: '/topology', label: 'Topology', icon: Network },
-      { to: '/clusters', label: 'Clusters', icon: Boxes },
-      { to: '/applications', label: 'Applications', icon: Layers },
-      { to: '/sites', label: 'Sites', icon: MapPin },
+      { to: '/topology', label: 'Topology', icon: PAGE_ICON.topology },
+      { to: '/clusters', label: 'Clusters', icon: PAGE_ICON.clusters },
+      { to: '/applications', label: 'Applications', icon: PAGE_ICON.applications },
+      { to: '/sites', label: 'Sites', icon: PAGE_ICON.sites },
     ],
   },
   {
     label: 'Infrastructure',
     items: [
-      { to: '/nodes', label: 'Nodes', icon: Server },
-      { to: '/namespaces', label: 'Namespaces', icon: Folders },
-      { to: '/services', label: 'Services', icon: Package },
-      { to: '/devices', label: 'Devices', icon: Radio },
+      { to: '/nodes', label: 'Nodes', icon: PAGE_ICON.nodes },
+      { to: '/namespaces', label: 'Namespaces', icon: PAGE_ICON.namespaces },
+      { to: '/services', label: 'Services', icon: PAGE_ICON.services },
+      { to: '/devices', label: 'Devices', icon: PAGE_ICON.devices },
     ],
   },
   {
     label: 'Telemetry',
     items: [
-      { to: '/pipeline', label: 'Pipeline', icon: Waypoints },
-      { to: '/fusion', label: 'FUSION', icon: LayoutDashboard },
+      { to: '/pipeline', label: 'Pipeline', icon: PAGE_ICON.pipeline },
+      { to: '/fusion', label: 'FUSION', icon: PAGE_ICON.fusion },
     ],
   },
   {
     label: 'Manage',
     items: [
-      { to: '/agents', label: 'Agents', icon: Cable },
-      { to: '/proposals', label: 'Proposals', icon: ClipboardCheck },
-      { to: '/placement', label: 'Placement', icon: Route },
-      { to: '/history', label: 'History', icon: History },
+      { to: '/agents', label: 'Agents', icon: PAGE_ICON.agents },
+      { to: '/proposals', label: 'Proposals', icon: PAGE_ICON.proposals },
+      { to: '/placement', label: 'Placement', icon: PAGE_ICON.placement },
+      { to: '/history', label: 'History', icon: PAGE_ICON.history },
     ],
   },
 ]

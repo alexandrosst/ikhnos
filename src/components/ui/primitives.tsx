@@ -1388,9 +1388,14 @@ export function PageHeader({ title, description, actions }: { title: string; des
 }
 
 /** The dashed box a list shows when it has nothing. `title` is optional: a short note inside a card ("No API tokens yet.") is the same box in a smaller size, so there is one empty look. */
-export function EmptyState({ title, description, action, 'data-testid': testId }: { title?: string; description: ReactNode; action?: ReactNode; 'data-testid'?: string }) {
+export function EmptyState({ icon: Icon, title, description, action, 'data-testid': testId }: { icon?: LucideIcon; title?: string; description: ReactNode; action?: ReactNode; 'data-testid'?: string }) {
   return (
     <div className={clsx('flex flex-col items-center rounded-xl border border-dashed border-nb-850 text-center', title ? 'px-6 py-14' : 'px-5 py-8')} data-testid={testId}>
+      {Icon && title && (
+        <span className="mb-4 grid size-11 place-items-center rounded-full bg-nb-930 text-nb-500" aria-hidden>
+          <Icon size={ICON_MD} />
+        </span>
+      )}
       {title && <h3 className="text-base font-medium text-nb-300">{title}</h3>}
       <p className={clsx('max-w-md text-sm text-nb-500', title && 'mt-1')}>{description}</p>
       {action && <div className="mt-5">{action}</div>}

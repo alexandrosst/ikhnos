@@ -17,6 +17,7 @@ import type { Move } from '@/lib/placement/types'
 import { usePlan } from '@/lib/placement/usePlacement'
 import { ageOf } from '@/lib/history'
 import { useHistoryView } from '@/store/history'
+import { PAGE_ICON } from '@/lib/pageIcons'
 
 const TABS = [
   { id: 'recommendations', label: 'Recommendations' },
@@ -81,6 +82,7 @@ export default function PlacementPage() {
 
       {empty ? (
         <EmptyState
+          icon={PAGE_ICON.placement}
           title="Placement needs somewhere to compare"
           description="Advice needs at least two clusters and some services. Connect clusters and let their agents report, then come back."
           action={<GoToAgents />}

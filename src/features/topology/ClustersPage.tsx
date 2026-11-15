@@ -15,6 +15,7 @@ import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
 import type { Cluster } from '@/lib/types'
 import { matches, openOnClick, RowActions, ListToolbar } from './shared'
+import { PAGE_ICON } from '@/lib/pageIcons'
 
 const CLUSTER_COLUMNS: ColumnDef[] = [
   { key: 'tier', label: 'Tier' },
@@ -61,6 +62,7 @@ export default function ClustersPage() {
 
       {clusters.length === 0 ? (
         <EmptyState
+          icon={PAGE_ICON.clusters}
           title="No cluster is connected or declared yet"
           description="Clusters appear here once an agent reports them. Start from Agents, or describe one by hand if nothing can run inside it."
           action={

@@ -30,6 +30,7 @@ import { ACCESS_TIERS, type Agent, type Cluster, type Tier } from '@/lib/types'
 import { useApprovalLocks } from '@/store/approvalLocks'
 import { useServer } from '@/store/server'
 import { useTopology } from '@/store/topology'
+import { PAGE_ICON } from '@/lib/pageIcons'
 
 const HEALTH: Record<AgentHealth, { label: string; dot: LiveKind; text: string }> = {
   ok: { label: 'Connected', dot: 'online', text: 'text-ok' },
@@ -205,6 +206,7 @@ export default function AgentsPage() {
         <div className="space-y-3" aria-busy><div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <SkeletonBlock key={i} className="h-20 w-full rounded-xl" />)}</div><TableSkeleton colCount={6} rows={4} /></div>
       ) : agents.length === 0 ? (
         <EmptyState
+          icon={PAGE_ICON.agents}
           title="No cluster is connected yet"
           description="Agents run inside your clusters and report to this server. Connect a cluster to install one: it dials out to this server, and nothing is read until you approve it."
           action={canAdminister ? <Button variant="primary" onClick={connect.start}><Plug size={ICON_SM} /> Connect a cluster</Button> : undefined}

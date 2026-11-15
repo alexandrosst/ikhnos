@@ -13,6 +13,7 @@ import { useTopology } from '@/store/topology'
 import { accelSummary, formatCpu, formatMemory, podsLabel, podsPercent, requestedPercent } from '@/lib/present'
 import type { MachineNode } from '@/lib/types'
 import { matches, openOnClick, RowActions, ListToolbar } from './shared'
+import { PAGE_ICON } from '@/lib/pageIcons'
 
 const KIND_LABEL = { vm: 'Virtual machine', 'bare-metal': 'Bare metal', 'edge-device': 'Edge device' } as const
 const KIND_ICON = { vm: Server, 'bare-metal': HardDrive, 'edge-device': Cpu } as const
@@ -64,6 +65,7 @@ export default function NodesPage() {
 
       {nodes.length === 0 ? (
         <EmptyState
+          icon={PAGE_ICON.nodes}
           title="No node is known yet"
           description={clusters.length ? 'No machine is on record for these clusters. An agent reads nodes at the Infrastructure access level or above; or describe them by hand.' : 'No cluster is connected or declared yet, so there are no machines to list. Start from Agents: once a cluster is connected, its agent reports its nodes. Or add a cluster by hand first.'}
           action={!clusters.length ? <GoToAgents /> : undefined}

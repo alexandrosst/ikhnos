@@ -10,6 +10,7 @@ import { buildNamespaceRows, excludedWords, rowMatches, scopeLabel, type Namespa
 import { TONE_CLASS } from '@/lib/provenance'
 import { useTopology } from '@/store/topology'
 import { ListToolbar } from './shared'
+import { PAGE_ICON } from '@/lib/pageIcons'
 
 /** Where a row leads: the services of that namespace. (The topology has no per-namespace focus, the Services page does.) */
 const servicesOf = (r: Pick<NamespaceRow, 'clusterId' | 'name'>) => `/services?cluster=${encodeURIComponent(r.clusterId)}&namespace=${encodeURIComponent(r.name)}`
@@ -51,6 +52,7 @@ export default function NamespacesPage() {
 
       {count === 0 && left === 0 ? (
         <EmptyState
+          icon={PAGE_ICON.namespaces}
           title={live.length === 0 ? 'No cluster is connected yet' : 'No namespaces are known yet'}
           description={
             live.length === 0

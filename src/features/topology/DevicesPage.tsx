@@ -8,6 +8,7 @@ import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/col
 import { CONNECTIVITY, DEVICE_KINDS, type Device } from '@/lib/types'
 import { useTopology } from '@/store/topology'
 import { matches, openOnClick, RowActions, ListToolbar } from './shared'
+import { PAGE_ICON } from '@/lib/pageIcons'
 
 const DEVICE_COLUMNS: ColumnDef[] = [
   { key: 'kind', label: 'Kind' },
@@ -61,6 +62,7 @@ export default function DevicesPage() {
 
       {devices.length === 0 ? (
         <EmptyState
+          icon={PAGE_ICON.devices}
           title="No devices yet"
           description="Add a device group, for example the temperature sensors at a site. Devices show up in the Application view next to the services they talk to."
           action={<Button variant="primary" onClick={() => setPanel({ device: null, edit: true })}><Plus size={ICON_SM} /> Add device</Button>}

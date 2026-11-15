@@ -30,6 +30,7 @@ import type { RegionalOperator } from '@/lib/types'
 import { useOperatorDestinations, useOperators, useTelemetryIntents } from '@/lib/useOperators'
 import { useServer } from '@/store/server'
 import { useTopology } from '@/store/topology'
+import { PAGE_ICON } from '@/lib/pageIcons'
 
 const problem = (e: unknown, fallback: string) => (e instanceof ApiError ? e.message : fallback)
 
@@ -248,6 +249,7 @@ export default function PipelinePage() {
         <TableSkeleton colCount={7} />
       ) : empty ? (
         <EmptyState
+          icon={PAGE_ICON.pipeline}
           title="Nothing is sending telemetry yet"
           description="Set up telemetry on a connected cluster to see the path its data takes to FUSION."
           action={canConsent ? <Button variant="primary" onClick={() => telemetry.start()} data-testid="telemetry-setup-empty"><Radio size={ICON_SM} /> Set up telemetry</Button> : undefined}

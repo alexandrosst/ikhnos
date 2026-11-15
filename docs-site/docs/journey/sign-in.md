@@ -57,7 +57,7 @@ The rules are listed on the page as you type: 12 to 128 characters, not the same
 <Shot src="journey/first-run" alt="The empty Topology page with a Getting started checklist showing four steps, none done" caption="The empty state. The checklist is worked out from what the server holds, never from what anyone clicked, so it is true after a reload, from another browser, and when a colleague did a step." />
 
 <See>
-The **Topology** page, empty, with a **Getting started** list of four steps and a prompt to connect a cluster. Along the left, the menu groups: Explore, Infrastructure, Telemetry and Manage. You may also see a gentle reminder to add a second sign-in step. It is worth doing at some point; it is not needed now.
+The **Topology** page, empty, with a **Getting started** list of four steps and a prompt to connect a cluster. Along the left, the menu groups: Explore, Infrastructure, Telemetry and Manage. A small dot on your avatar reminds you to add a second sign-in step (the account menu has the shortcut). It is worth doing at some point; it is not needed now.
 </See>
 
 You are in. The rest of this journey happens from this page.

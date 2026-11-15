@@ -8,6 +8,7 @@ import { originLabel } from '@/lib/present'
 import type { Application } from '@/lib/types'
 import { useTopology } from '@/store/topology'
 import { matches, openOnClick, RowActions, ListToolbar } from './shared'
+import { PAGE_ICON } from '@/lib/pageIcons'
 
 const APPLICATION_COLUMNS: ColumnDef[] = [
   { key: 'description', label: 'Description' },
@@ -45,6 +46,7 @@ export default function ApplicationsPage() {
 
       {applications.length === 0 ? (
         <EmptyState
+          icon={PAGE_ICON.applications}
           title="No applications yet"
           description="No grouping exists yet. Discovery suggests one once agents report services, or create an application and assign services to it from the Services page."
           action={<Button variant="primary" onClick={() => setPanel({ app: null, edit: true })}><Plus size={ICON_SM} /> Add application</Button>}

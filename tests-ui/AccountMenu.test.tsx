@@ -175,13 +175,17 @@ describe('AccountMenu: what opens from your name', () => {
     expect(screen.queryByTestId('nav-settings')).toBeNull()
   })
 
-  it('the second-step nudge points to Settings, and dismissing it is remembered', () => {
+  it('the second-step nudge is a dot on the avatar and a menu item that points to Settings; dismissing it is remembered', () => {
     localStorage.clear()
     seedConnected({ user: { ...user, twoFactorEnabled: false } })
     renderMenu()
+    expect(screen.getByTestId('two-factor-dot')).toBeInTheDocument()
+    expect(screen.queryByTestId('two-factor-nudge')).toBeNull() // nothing sits in the sidebar until the menu is opened
+    fireEvent.click(screen.getByTestId('account-button'))
     expect(screen.getByTestId('two-factor-nudge-setup')).toHaveAttribute('href', '/settings#account')
     fireEvent.click(screen.getByTestId('two-factor-nudge-dismiss'))
     expect(screen.queryByTestId('two-factor-nudge')).toBeNull()
+    expect(screen.queryByTestId('two-factor-dot')).toBeNull()
     expect(localStorage.getItem('ikhnos:2fa-nudge-dismissed:u1')).toBe('1')
   })
 })

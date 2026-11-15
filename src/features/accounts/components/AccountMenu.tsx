@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { Check, ChevronDown, ChevronsUpDown, ChevronUp, LogOut, Plus, ShieldCheck, Ticket, Users, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { Button, ErrorBanner, Field, ICON_MD, ICON_SM, Input, Modal } from '@/components/ui/primitives'
+import { Button, ErrorBanner, Field, ICON_SM, Input, Modal } from '@/components/ui/primitives'
 import { usePresence } from '@/lib/motion'
 import { ROLE_LABEL } from '@/lib/api'
 import { useServer } from '@/store/server'
@@ -171,18 +171,6 @@ export default function AccountMenu() {
 
   return (
     <div className="relative mb-2" data-testid="account">
-      {showTwoFactorNudge && (
-        <div className="mb-2 flex items-start gap-2 rounded-lg border border-warn/30 bg-warn-soft p-2.5 text-xs text-nb-300" data-testid="two-factor-nudge">
-          <ShieldCheck size={ICON_SM} className="mt-0.5 shrink-0 text-warn" aria-hidden />
-          <p className="flex-1">
-            Add a second sign-in step.{' '}
-            <Link to="/settings#account" className="font-medium underline hover:text-warn" data-testid="two-factor-nudge-setup">Set up in Settings</Link>
-          </p>
-          <button type="button" aria-label="Dismiss" className="shrink-0 text-warn/70 hover:text-warn" onClick={dismissTwoFactorNudge} data-testid="two-factor-nudge-dismiss">
-            <X size={ICON_MD} />
-          </button>
-        </div>
-      )}
       {mounted && (
         <div
           ref={menu}
@@ -228,6 +216,17 @@ export default function AccountMenu() {
             </div>
           )}
           <div className="my-1 border-t border-nb-850" />
+          {showTwoFactorNudge && (
+            <div className="group flex items-center rounded-md hover:bg-nb-930" data-testid="two-factor-nudge">
+              <Link to="/settings#account" className={clsx(ITEM, 'flex-1 hover:bg-transparent')} role="menuitem" data-testid="two-factor-nudge-setup">
+                <ShieldCheck size={ICON_SM} className="shrink-0 text-warn" aria-hidden />
+                <span className="min-w-0 flex-1 truncate">Second sign-in step</span>
+              </Link>
+              <button type="button" role="menuitem" aria-label="Dismiss" className="mr-1 shrink-0 rounded p-1 text-nb-500 hover:text-nb-300" onClick={dismissTwoFactorNudge} data-testid="two-factor-nudge-dismiss">
+                <X size={ICON_SM} />
+              </button>
+            </div>
+          )}
           {orgId && (
             <NavLink to="/team" className={ITEM} role="menuitem" data-testid="nav-team">
               <Users size={ICON_SM} className={ICON} /> Members &amp; access
@@ -247,7 +246,7 @@ export default function AccountMenu() {
           className="flex w-full items-center gap-2.5 rounded-md p-1 text-left hover:bg-nb-930"
           data-testid="account-button"
         >
-          <Avatar name={user.username} />
+          <Avatar name={user.username} dot={showTwoFactorNudge} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium text-nb-300" data-testid="account-name">{user.username}</span>
             <span className="block truncate text-[11px] text-nb-500" data-testid="account-role">{role ? `${ROLE_LABEL[role]}${orgName ? ` · ${orgName}` : ''}` : 'No organisation'}</span>
@@ -262,6 +261,11 @@ export default function AccountMenu() {
   )
 }
 
-function Avatar({ name }: { name: string }) {
-  return <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent-soft text-sm font-semibold uppercase text-accent" aria-hidden>{name.slice(0, 1)}</span>
+function Avatar({ name, dot }: { name: string; dot?: boolean }) {
+  return (
+    <span className="relative grid size-8 shrink-0 place-items-center rounded-full bg-accent-soft text-sm font-semibold uppercase text-accent" aria-hidden>
+      {name.slice(0, 1)}
+      {dot && <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-nb-925 bg-warn" data-testid="two-factor-dot" />}
+    </span>
+  )
 }
