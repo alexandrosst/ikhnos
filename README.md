@@ -85,13 +85,13 @@ It is built on four commitments:
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs-site/static/img/readme/observability-intent-dark.svg">
-    <img alt="The Ikhnos server holds the observability intent and the topology. Discovery agents in cloud, edge and far-edge clusters receive the intent and report the topology. Local operators send telemetry through regional operators to FUSION, which keeps metrics, logs, traces and the topology graph behind one shared API for outside consumers" src="docs-site/static/img/readme/observability-intent-light.svg" width="900">
+    <img alt="The Ikhnos server holds the observability intent and keeps the topology and its history in Neo4j. Discovery agents in cloud, edge and far-edge clusters receive the intent and report the topology. Local operators send telemetry through regional operators to FUSION, which keeps metrics, logs and traces behind one shared API for outside consumers" src="docs-site/static/img/readme/observability-intent-light.svg" width="900">
   </picture>
 </p>
 
 Ikhnos has two planes. The **control plane** is the server. It holds your [observability intent](https://alexandrosst.github.io/ikhnos/docs/learn/observability-intent), which sets what to observe and where, and it keeps the topology and its history. A read-only **discovery agent** in each cluster dials out to it, applies the intent itself and reports what it finds.
 
-The **data plane** carries telemetry and nothing else. A **local operator** in each cluster collects the signals you chose and sends them on, straight to FUSION or through a **regional operator** that gathers several clusters. **FUSION** keeps metrics, logs and traces, the topology graph, and Grafana, behind one shared API.
+The **data plane** carries telemetry and nothing else. A **local operator** in each cluster collects the signals you chose and sends them on, straight to FUSION or through a **regional operator** that gathers several clusters. **FUSION** keeps metrics, logs and traces, with Grafana beside them, behind one shared API. The API reads the topology from the server when a question needs it.
 
 The observability intent is one idea for every part that looks at a cluster. It sets:
 

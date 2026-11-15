@@ -225,7 +225,7 @@ export function ObservabilityPlanes() {
     {name: 'Edge', color: edgeTier, t: 392, w: 62},
     {name: 'Far edge', color: far, t: 540, w: 84},
   ];
-  const stores: [string, string, IconKind, number][] = [['Prometheus', 'metrics', 'metrics', 388], ['Loki', 'logs', 'logs', 448], ['Tempo', 'traces', 'traces', 508]];
+  const stores: [string, string, IconKind, number][] = [['Prometheus', 'metrics', 'metrics', 422], ['Loki', 'logs', 'logs', 482], ['Tempo', 'traces', 'traces', 542]];
   const box = (x: number, y: number, w: number, h: number, color: string, op = 0.08, dashed = false, sw = 1.25) => (
     <rect x={x} y={y} width={w} height={h} rx="10" fill={dashed ? 'none' : color} fillOpacity={dashed ? 0 : op} stroke={color} strokeOpacity={dashed ? 0.7 : 0.85} strokeWidth={sw} strokeDasharray={dashed ? '6 4' : undefined} />
   );
@@ -269,7 +269,7 @@ export function ObservabilityPlanes() {
     );
   };
   return (
-    <Fig id={f} width={1088} textScale={1.2} height={740} label="Ikhnos has a control plane and a data plane. In the control plane, the server holds the observability intent, which covers discovery and the observability posture, and the topology and history. The intent goes down to a discovery agent in each cloud, edge and far-edge cluster, and the topology comes back up. In the data plane, each cluster has a local operator with telemetry extractors feeding an OpenTelemetry collector. Telemetry goes through regional operators to FUSION's central operator, then into Prometheus for metrics, Loki for logs and Tempo for traces. FUSION also holds the topology graph in Neo4j, and a shared API gives outside consumers, models, tools and people, the fused data." title="Inside Ikhnos: control plane and data plane">
+    <Fig id={f} width={1088} textScale={1.2} height={740} label="Ikhnos has a control plane and a data plane. In the control plane, the server holds the observability intent, which covers discovery and the observability posture, and the topology and history. The intent goes down to a discovery agent in each cloud, edge and far-edge cluster, and the topology comes back up. In the data plane, each cluster has a local operator with telemetry extractors feeding an OpenTelemetry collector. Telemetry goes through regional operators to FUSION's central operator, then into Prometheus for metrics, Loki for logs and Tempo for traces. The server keeps the topology and its history in Neo4j. FUSION's shared API gives outside consumers, models, tools and people, the fused data, and reads the topology from the server." title="Inside Ikhnos: control plane and data plane">
       {[[34, 'Set the intent'], [184, 'Agents discover'], [342, 'Operators collect'], [514, 'FUSION keeps it']].map(([x, label], i) => (
         <g key={label}>
           {badge(x as number, 54, i + 1)}
@@ -279,7 +279,9 @@ export function ObservabilityPlanes() {
       <rect x="24" y="72" width="1040" height="108" rx="14" fill={control} fillOpacity="0.05" stroke={control} strokeOpacity="0.3" />
       <T x={48} y={98} small bold color={control}>CONTROL PLANE · IKHNOS SERVER</T>
       {node(48, 112, 312, 52, control, 'resource', 'Observability intent', 'discovery · observability posture', 0.08, true)}
-      {node(708, 112, 248, 52, control, 'server', 'Topology & history', 'what ran where, and when')}
+      {node(440, 112, 248, 52, control, 'server', 'Topology & history', 'what ran where, and when')}
+      <Arrow fig={f} d="M688 138H764" />
+      {node(764, 112, 136, 52, control, 'graph', 'Neo4j', 'graph store', 0.1, false, false)}
 
       <rect x="24" y="200" width="1040" height="492" rx="14" fill={data} fillOpacity="0.045" stroke={data} strokeOpacity="0.3" />
       <T x={48} y={228} small bold color={data}>DATA PLANE</T>
@@ -314,34 +316,33 @@ export function ObservabilityPlanes() {
       {chip(488, 360, 104, 76, data, 'regional', ['Regional', 'operator'])}
       {chip(488, 582, 104, 76, data, 'regional', ['Regional', 'operator'])}
 
-      {box(624, 280, 292, 360, data, 0.05)}
-      <T x={640} y={308} bold>FUSION Platform</T>
-      {chip(636, 434, 104, 76, data, 'regional', ['Central', 'operator'])}
-      {node(764, 324, 136, 48, accent, 'graph', 'Neo4j', 'graph', 0.1, false, false)}
+      {box(624, 314, 292, 292, data, 0.05)}
+      <T x={640} y={342} bold>FUSION Platform</T>
+      {chip(636, 468, 104, 76, data, 'regional', ['Central', 'operator'])}
       {stores.map(([n, d, kind, y]) => (
         <g key={n}>
           {node(764, y, 136, 48, data, kind, n, d, 0.1, false, false)}
-          <Arrow fig={f} d={`M740 472H752V${y + 24}H764`} />
+          <Arrow fig={f} d={`M740 506H752V${y + 24}H764`} />
         </g>
       ))}
-      {node(764, 576, 136, 48, edge, 'api', 'Shared API', 'fused data', 0.1, false, false)}
+      {node(764, 358, 136, 48, edge, 'api', 'Shared API', 'fused data', 0.1, false, false)}
 
-      {box(932, 540, 120, 120, edge, 0, true)}
-      <T x={992} y={560} anchor="middle" small bold color={quiet}>EXTERNAL</T>
-      <Icon kind="person" cx={992} cy={582} color={edge} />
-      <T x={992} y={610} anchor="middle" bold>Consumers</T>
-      <T x={992} y={627} anchor="middle" small muted>models, tools,</T>
-      <T x={992} y={643} anchor="middle" small muted>people</T>
-      <Arrow fig={f} d="M900 600H932" />
+      {box(932, 322, 120, 120, edge, 0, true)}
+      <T x={992} y={342} anchor="middle" small bold color={quiet}>EXTERNAL</T>
+      <Icon kind="person" cx={992} cy={364} color={edge} />
+      <T x={992} y={392} anchor="middle" bold>Consumers</T>
+      <T x={992} y={409} anchor="middle" small muted>models, tools,</T>
+      <T x={992} y={425} anchor="middle" small muted>people</T>
+      <Arrow fig={f} d="M900 382H932" />
 
-      <Arrow fig={f} d="M592 398H612V456H636" />
-      <Arrow fig={f} d="M592 620H612V488H636" />
-      <Arrow fig={f} accented d="M832 164V324" />
+      <Arrow fig={f} d="M592 398H612V486H636" />
+      <Arrow fig={f} d="M592 620H612V526H636" />
+      <Arrow fig={f} accented d="M832 162V358" />
 
       {badge(360, 112, 1)}
       {badge(176, 280, 2)}
       {badge(424, 280, 3)}
-      {badge(916, 280, 4)}
+      {badge(916, 314, 4)}
 
       <rect x="24" y="712" width="14" height="14" rx="4" fill={warn} fillOpacity="0.85" />
       <T x={46} y={724} small muted>microservices</T>
