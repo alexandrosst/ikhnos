@@ -22,7 +22,7 @@ import { useTelemetryFlow } from '@/features/pipeline/components/telemetry/Telem
 import { ClusterForm, DeviceForm, NodeForm, ServiceForm } from '@/components/forms'
 import GettingStarted, { useGettingStarted } from '@/components/GettingStarted'
 import Inspector, { type Selection } from '@/features/topology/components/Inspector'
-import { PodLegend } from '@/features/topology/components/Pods'
+import TopologyLegend from '@/features/topology/components/TopologyLegend'
 // Lazily loaded, not a plain top-level import: MapView pulls in d3-geo, topojson-client and the
 // placement-suggestion engine (usePlacementSuggestions) at its own module top level - real weight
 // (~45KB gzipped) that a static import would put on every single visit to this page, Topology being
@@ -1015,105 +1015,18 @@ function Canvas() {
               {/* Hidden while the Inspector is open: the canvas is narrower then and the map would sit on the legend. The mask is themed in index.css. */}
               <AutoMiniMap bounds={graphBounds} hidden={!!selection} className="!hidden sm:!block" pannable zoomable nodeColor={miniColor} nodeStrokeWidth={0} />
               <Panel position="bottom-left" className="!mb-3 !ml-16 hidden sm:block">
-                {/* flex-wrap (plus the max-w below) lets a long legend - everything explained can be on at
-                    once: cross-group, mesh, traffic, measured links - wrap onto a second
-                    line on a narrower viewport or with the Inspector open, rather than running off the
-                    right edge of the canvas with no way to see the rest of it. whitespace-nowrap is kept on
-                    the row so wrapping only ever happens between entries, never mid-label. */}
                 {legendOpen ? (
-                  <div className="topo-glass flex max-w-[min(92vw,720px)] flex-wrap items-center gap-x-4 gap-y-1.5 whitespace-nowrap rounded-xl border border-nb-850 px-3.5 py-2 text-xs text-nb-400">
-                  <span
-                    className="flex items-center gap-1.5"
-                    title="A lighter line marks a dependency that crosses a cluster boundary - a separate, independent signal from the solid/dashed traffic styles below. A cross-cluster edge can be either, depending on whether traffic has actually been seen on it."
-                  >
-                    {/* Solid, not dashed: crossGroup-ness is a colour-only signal (a lighter grey stroke, see
-                        the edge style computation above) that combines independently with the seen/not-seen
-                        dash pattern on the right - a cross-cluster edge that's also seen in traffic renders
-                        solid, and one that isn't renders dotted, same as any other edge. A dashed swatch here
-                        used to imply cross-cluster edges are always dashed, which isn't true and duplicated
-                        what the "Not seen" swatch already means; the earlier version's colour (#8a96a0) is
-                        also now the exact shade the edges themselves use (#98a4ae), not just an approximation. */}
-                    <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="#98a4ae" strokeWidth="1.5" /></svg>
-                    Cross-{groupBy}
-                  </span>
-                  {mode === 'application' && showMesh && (
-                    <>
-                      <span className="h-3 w-px bg-nb-800" />
-                      {([['encrypted', 'mTLS', 'Both ends are in the mesh and its policy is strict (or always on)'], ['permissive', 'permissive / partial', 'Policy accepts plaintext, or only one end is in the mesh'], ['bypassed', 'bypass / off', 'A port skips the proxy, or the mesh has mutual TLS switched off']] as const).map(([k, label, hint]) => (
-                        <span key={k} className="flex items-center gap-1.5" title={`${hint}. Inferred from configuration, not measured.`}>
-                          <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke={VERDICT_COLOR[k]} strokeWidth="2.4" /></svg>
-                          {label}
-                        </span>
-                      ))}
-                    </>
-                  )}
-                  {mode === 'application' && dependencies.length > 0 && (
-                    <>
-                      <span className="h-3 w-px bg-nb-800" />
-                      <span className="flex items-center gap-1.5" title="Traffic was seen on this link; the thicker, the busier">
-                        <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="#8a96a0" strokeWidth="2.4" /></svg>
-                        Seen in traffic
-                      </span>
-                      <span className="flex items-center gap-1.5" title="Declared or entered by a person, but no traffic seen">
-                        <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="#8a96a0" strokeWidth="1.2" strokeDasharray="2 5" /></svg>
-                        Not seen
-                      </span>
-                      {graph.edges.some((e) => e.data?.via === 'conntrack' && e.data?.observed && !e.data?.stale) && (
-                        <span className="flex items-center gap-1.5" title="Seen by conntrack only - no eBPF collector on that node, so there's no byte count or retransmit data behind it, connections only">
-                          <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="#8a96a0" strokeWidth="1.2" strokeDasharray="8 4" /></svg>
-                          Connections only
-                        </span>
-                      )}
-                    </>
-                  )}
-                  {/* Only explain what's actually on the canvas. A measured cluster link is a status confirmed from the
-                      flows matched onto a tunnel (see ClusterLink's own doc), not "seen in traffic" like a dependency. */}
-                  {graph.edges.some((e) => e.data?.clusterLink) && (
-                    <>
-                      <span className="h-3 w-px bg-nb-800" />
-                      {showHealthLens ? (
-                        <>
-                          <span className="flex items-center gap-1.5" title="Average measured loss% across the flows matched onto this cluster link is under 1%">
-                            <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="#34d399" strokeWidth="1.8" /></svg>
-                            Healthy
-                          </span>
-                          <span className="flex items-center gap-1.5" title="Average measured loss% across the flows matched onto this cluster link is 1-5%">
-                            <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="#fbbf24" strokeWidth="1.8" /></svg>
-                            Degraded
-                          </span>
-                          <span className="flex items-center gap-1.5" title="Average measured loss% across the flows matched onto this cluster link is 5% or higher">
-                            <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="#f87171" strokeWidth="1.8" /></svg>
-                            Unhealthy
-                          </span>
-                          <span className="flex items-center gap-1.5 text-nb-500" title="This cluster link has a measured round trip but no loss figure yet, so it keeps the plain colour">
-                            <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="#98a4ae" strokeWidth="1.8" /></svg>
-                            No loss data
-                          </span>
-                        </>
-                      ) : (
-                        <span className="flex items-center gap-1.5" title="Round trip and loss measured across the flows between two clusters - hover the line for the numbers">
-                          <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="#98a4ae" strokeWidth="1.8" /></svg>
-                          Measured link
-                        </span>
-                      )}
-                    </>
-                  )}
-                  {graph.nodes.some((n) => n.type === 'card' && n.data.pods) && (
-                    <>
-                      <span className="h-3 w-px bg-nb-800" />
-                      <PodLegend />
-                    </>
-                  )}
-                <button
-                    type="button"
-                    onClick={() => toggleLegend(false)}
-                    className="ml-auto rounded p-0.5 text-nb-500 hover:bg-nb-900 hover:text-nb-200"
-                    aria-label="Hide legend"
-                    title="Hide legend"
-                  >
-                    <X size={ICON_SM} />
-                  </button>
-                </div>
+                  <TopologyLegend
+                    tiers={[...new Set(shown.clusters.map((c) => c.tier))]}
+                    groupBy={groupBy}
+                    mesh={mode === 'application' && showMesh}
+                    traffic={mode === 'application' && dependencies.length > 0}
+                    connectionsOnly={mode === 'application' && dependencies.length > 0 && graph.edges.some((e) => e.data?.via === 'conntrack' && e.data?.observed && !e.data?.stale)}
+                    clusterLinks={graph.edges.some((e) => e.data?.clusterLink)}
+                    healthLens={showHealthLens}
+                    pods={graph.nodes.some((n) => n.type === 'card' && n.data.pods)}
+                    onClose={() => toggleLegend(false)}
+                  />
                 ) : (
                   <button
                     type="button"

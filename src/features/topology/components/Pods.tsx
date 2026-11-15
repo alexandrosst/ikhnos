@@ -188,9 +188,8 @@ export function PodLegend() {
   ]
   return (
     <>
-      <span className="text-nb-500">Pods</span>
       {items.map(([pod, label]) => (
-        <span key={label} className="flex items-center gap-1.5"><Cell pod={pod} />{label}</span>
+        <span key={label} className="flex items-center gap-2"><Cell pod={pod} />{label}</span>
       ))}
     </>
   )
