@@ -6,10 +6,10 @@ import Figure from '@site/src/components/Figure';
 import styles from './index.module.css';
 
 const principles: [string, string][] = [
-  ['Read-only', 'The agent reads the Kubernetes API and never your Secrets or ConfigMaps. Its only writes are to its own identity, its certificates and its own status. Ikhnos never deploys or moves your workloads.'],
+  ['Read-only', 'The agent reads the Kubernetes API, never your Secrets or ConfigMaps, and writes only its own identity, its certificates and its own status. Ikhnos never deploys or moves your workloads: changes are commands you run.'],
   ['Outbound only', 'The agent opens every connection, over mutual TLS. No inbound firewall rule on a cluster, and the server never holds a kubeconfig.'],
   ['Narrow, never widen', 'Observability intent sets how far each part may look. Each layer can narrow it and none can widen it. Telemetry stays off until you turn a signal on.'],
-  ['You run the changes', 'Ikhnos generates the commands and you run them. The one exception, an optional in-cluster controller, is off until you turn it on.'],
+  ['Scoped reads', 'FUSION\u2019s API is read-only. A token is limited to signals, namespaces and clusters, and the stores behind it are never exposed.'],
   ['Honest data', 'Every value says whether it was seen, declared or guessed, and how old it is. Missing data is named.'],
   ['Accountable', 'A person\u2019s changes are recorded with who made them, and history keeps what the landscape looked like before.'],
 ];

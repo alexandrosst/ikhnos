@@ -383,6 +383,8 @@ for pair in get("links")["pairs"]:
     print(pair["a"], pair["b"], pair.get("rttSeconds"), pair.get("lossAToB"))
 ```
 
+The same script is in the repository as [`examples/fusion/fusion_example.py`](https://github.com/alexandrosst/ikhnos/tree/main/examples/fusion), with a test that runs it against a stand-in server (`python3 -m unittest discover examples/fusion`).
+
 The fused read is the useful one for a decision engine: one request returns the failing traces with each log line already on the span that wrote it, so the script does not have to join three stores. For many traces at once, send their ids to `POST /traces/batch` ([reading many](#reading-many-traces)). To generate a typed client instead, point a generator at [`openapi.json`](#the-api-page-and-the-openapi-description).
 
 ## The API page and the OpenAPI description

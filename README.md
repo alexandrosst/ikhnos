@@ -60,14 +60,14 @@ It shows Kubernetes clusters, from cloud to edge and far edge, as one picture: a
 
 ## Design principles
 
-Ikhnos is meant to be pointed at clusters that matter, so these are rules the code and the Helm chart enforce, not promises. [The trust model](https://alexandrosst.github.io/ikhnos/docs/architecture/trust-model) shows where each one is held.
+Ikhnos is meant to be pointed at clusters that matter, so these are rules the code and the Helm chart enforce. [The trust model](https://alexandrosst.github.io/ikhnos/docs/architecture/trust-model) shows where each one is held.
 
 | Principle | What it means |
 |---|---|
-| **Read-only** | The agent reads the Kubernetes API (`get`, `list`, `watch`) and never reads your Secrets or ConfigMaps. Its only writes are three narrow ones, to its own identity, the certificates it renews and the status of its own resource. Ikhnos never deploys or moves your workloads. |
+| **Read-only** | The agent reads the Kubernetes API, never your Secrets or ConfigMaps, and writes only its own identity, its certificates and its own status. Ikhnos never deploys or moves your workloads: changes are commands you run, apart from an optional in-cluster controller that is off until you turn it on. |
 | **Outbound only** | The agent opens every connection to the server, over mutual TLS. The server needs no route into a cluster and never holds a kubeconfig. |
 | **Narrow, never widen** | The [observability intent](https://alexandrosst.github.io/ikhnos/docs/learn/observability-intent) sets how far each part may look, per cluster and per signal. Each layer can narrow it and none can widen it. Telemetry stays off until you turn a signal on. |
-| **You run the changes** | Ikhnos generates the `helm` commands and you run them. The one exception, an optional controller inside the cluster, is off until you turn it on. |
+| **Scoped reads** | FUSION's API is read-only. A token is limited to signals, namespaces and clusters, and the stores behind it are never exposed. |
 | **Honest data** | What was seen is shown as seen, what was declared as declared, what was guessed as a guess, and missing data is named. |
 | **Accountable** | A person's changes are recorded with who made them, and history keeps what the landscape looked like before. |
 
@@ -147,6 +147,33 @@ git clone https://github.com/alexandrosst/ikhnos.git && cd ikhnos
 npm install && npm run dev        # http://localhost:5173
 ```
 
+## Read it from code
+
+The FUSION API returns the traces, logs and metrics FUSION saved, each on its own or joined around a trace. A token is made on the FUSION page, Access tab. This reads the failing traces of a service with the error logs that belong to each span:
+
+```python
+import os, requests
+
+api = os.environ["IKHNOS_ADDR"] + "/api/v1/fusion"
+token = {"Authorization": "Bearer " + os.environ["FUSION_TOKEN"]}
+
+found = requests.get(f"{api}/traces", headers=token, timeout=40, params={
+    "service": "checkout", "status": "error", "from": "now-15m",
+    "fused": "true", "include": "logs", "log_severity": "error", "limit": 5,
+}).json()
+
+for item in found["results"]:
+    if item["status"] != 200:      # one trace may fail without failing the rest
+        continue
+    trace = item["trace"]
+    print(trace["traceId"], f'{trace["durationMs"]:.0f} ms')
+    for span in trace["spans"]:
+        for log in span.get("logs") or []:
+            print("  ", span["service"], log["line"])
+```
+
+A fuller script, with a test that runs it against a stand-in server, is in [`examples/fusion`](examples/fusion). The [API reference](https://alexandrosst.github.io/ikhnos/docs/architecture/fusion-api) lists every call.
+
 ## Documentation
 
 The [documentation site](https://alexandrosst.github.io/ikhnos/) is written for three readers. Its sources are in [`docs-site/docs`](docs-site/docs) and read fine on GitHub.
@@ -189,7 +216,14 @@ Releases are signed with cosign, keylessly. Please report a vulnerability privat
 
 ## License
 
-[Apache License 2.0](LICENSE). Dependencies were checked for compatibility. The copyleft pieces are separate programs that the server only talks to over the network: Neo4j Community Edition (GPLv3), the server's graph store (`neo4j.mode: external` is for running your own, see [`deploy/README.md`](deploy/README.md#neo4j)), and, only if you turn FUSION on, Grafana, Loki and Tempo (AGPLv3).
+Ikhnos is released under the [Apache License 2.0](LICENSE).
+
+**Dependencies.** The npm packages in the UI are MIT, ISC, BSD or CC0, plus one OFL font. The Go modules built into the binaries are Apache-2.0, MIT, BSD or ISC, plus three MPL-2.0 modules, a file-level copyleft that does not reach Ikhnos's own code. None is GPL or AGPL. This was read from each package's license file in November 2026; check it again before a release.
+
+**Software it runs next to.** These are separate programs that the server talks to over the network. They are not part of this repository and not linked into Ikhnos, and their own licenses apply to them:
+
+- Neo4j Community Edition (GPLv3) is the server's graph store. To use your own instance, set `neo4j.mode: external` ([`deploy/README.md`](deploy/README.md#neo4j)).
+- Grafana, Loki and Tempo (AGPLv3) run only if you turn FUSION on.
 
 <details>
 <summary>Third-party data</summary>
@@ -197,6 +231,5 @@ Releases are signed with cosign, keylessly. Please report a vulnerability privat
 - City names and coordinates: [GeoNames](https://www.geonames.org/) `cities15000`, CC BY 4.0 (rebuild with `scripts/build-geodata.py`).
 - Country outlines: Natural Earth via `world-atlas` (public domain).
 - IP geolocation, optional and supplied by you: [DB-IP.com](https://db-ip.com) (CC BY 4.0) or MaxMind GeoLite2, under its own license.
-- The footer's owner, year and license name are set in `src/components/ui/brand.tsx`.
 
 </details>
