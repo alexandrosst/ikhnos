@@ -97,7 +97,6 @@ function Dialog({ onClose }: { onClose: () => void }) {
             }}
             className="h-12 w-full bg-transparent text-sm text-nb-300 placeholder:text-nb-500 focus:outline-none"
           />
-          <kbd className="rounded border border-nb-800 px-1.5 py-0.5 text-[11px] text-nb-500">Esc</kbd>
         </div>
         <ul id="palette-results" ref={list} role="listbox" className="max-h-[50vh] overflow-y-auto p-1">
           {results.map((r, i) => (

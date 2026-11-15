@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { BookOpen, Menu, Search, Settings2, type LucideIcon } from 'lucide-react'
 import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BrandMark, Copyright } from '@/components/ui/brand'
 import { ICON_MD, ICON_SM, PageSkeleton, SkeletonBlock } from '@/components/ui/primitives'
 import AccountMenu from '@/features/accounts/components/AccountMenu'
@@ -231,10 +231,10 @@ function SidebarNav({
           menu ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="mb-6 flex items-center gap-2.5 px-3">
+        <Link to="/" className="mb-6 flex items-center gap-2.5 rounded-md px-3 outline-none focus-visible:ring-2 focus-visible:ring-nb-400" aria-label="Ikhnos, home" data-testid="brand-home">
           <BrandMark />
           <div className="text-base font-semibold tracking-tight text-nb-300">Ikhnos</div>
-        </div>
+        </Link>
         <button
           onClick={onSearch}
           className="mb-3 flex items-center gap-2.5 rounded-md border border-nb-850 bg-nb-925 px-3 py-2 text-left text-sm text-nb-500 hover:border-nb-800 hover:text-nb-400"

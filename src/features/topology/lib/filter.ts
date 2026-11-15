@@ -53,11 +53,15 @@ export const encodeList = (ids: string[]): string | null => (ids.length ? ids.ma
 
 export const filterActive = (f: Filter) => f.clusters.length > 0 || f.apps.length > 0 || f.kinds.length > 0
 
-/** The filter in a few words, for the chip next to the Filter button: "Services only", "2 clusters · 1 application".
- *  Undefined when nothing is filtered. */
+/** Whether the person has filtered anything themselves. The Application view starts on the services (DEFAULT_KINDS) without being asked, so
+ *  that alone is not a choice: it gets no chip and does not light the Filter button, while the menu still shows it ticked. */
+export const filterChosen = (f: Filter): boolean => f.clusters.length > 0 || f.apps.length > 0 || (f.kinds.length > 0 && !isServicesOnly(f.kinds))
+
+/** The filter in a few words, for the chip next to the Filter button: "Deployments only", "2 clusters \u00b7 1 application".
+ *  Undefined when nothing is filtered, and for the default of showing just the services. */
 export function filterSummary(f: Filter): string | undefined {
   const parts = [
-    isServicesOnly(f.kinds) ? 'Services only' : f.kinds.length === 1 ? `${f.kinds[0]}s only` : f.kinds.length > 1 ? count(f.kinds.length, 'kind') : '',
+    f.kinds.length === 1 ? `${f.kinds[0]}s only` : f.kinds.length > 1 && !isServicesOnly(f.kinds) ? count(f.kinds.length, 'kind') : '',
     f.clusters.length ? count(f.clusters.length, 'cluster') : '',
     f.apps.length ? count(f.apps.length, 'application') : '',
   ].filter(Boolean)

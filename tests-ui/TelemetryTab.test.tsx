@@ -23,7 +23,7 @@ const twoLanes = (): PlatformModel => ({
 })
 
 function renderTab(over: Partial<React.ComponentProps<typeof TelemetryTab>> = {}) {
-  const props = { clusters: [], agents: [], problemsOnly: false, selection: null, onSelect: vi.fn(), onShowAll: vi.fn(), onConnect: vi.fn(), onClose: vi.fn(), ...over }
+  const props = { clusters: [], agents: [], problemsOnly: false, selection: null, onSelect: vi.fn(), onProblemsOnly: vi.fn(), onConnect: vi.fn(), onClose: vi.fn(), ...over }
   render(<MemoryRouter><TelemetryTab {...props} /></MemoryRouter>)
   return props
 }
@@ -81,10 +81,37 @@ describe('TelemetryTab', () => {
 
   test('problems only with nothing wrong says so and offers every cluster again', () => {
     model = { entities: twoLanes().entities.map((e) => ({ ...e, status: 'healthy' as const })), edges: [] }
-    const { onShowAll } = renderTab({ problemsOnly: true })
+    const { onProblemsOnly } = renderTab({ problemsOnly: true })
     expect(screen.getByText('No problems')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('show-all-lanes'))
-    expect(onShowAll).toHaveBeenCalledOnce()
+    expect(onProblemsOnly).toHaveBeenCalledWith(false)
+  })
+
+  test('Problems only is offered when several lanes and a problem make it useful, and turns the filter on', () => {
+    const { onProblemsOnly } = renderTab()
+    fireEvent.click(screen.getByTestId('problems-only'))
+    expect(onProblemsOnly).toHaveBeenCalledWith(true)
+  })
+
+  test('with nothing wrong there is nothing to filter, so no Problems only', () => {
+    model = { entities: twoLanes().entities.map((e) => ({ ...e, status: 'healthy' as const })), edges: [] }
+    renderTab()
+    expect(screen.queryByTestId('problems-only')).toBeNull()
+  })
+
+  test('with one lane there is nothing to filter either', () => {
+    const m = twoLanes()
+    model = { entities: m.entities.filter((e) => e.clusterId !== 'a'), edges: m.edges.filter((h) => !h.from.endsWith(':a') && !h.to.endsWith(':a')) }
+    renderTab()
+    expect(screen.queryByTestId('problems-only')).toBeNull()
+  })
+
+  test('once on, Problems only stays to turn it off', () => {
+    const { onProblemsOnly } = renderTab({ problemsOnly: true })
+    const b = screen.getByTestId('problems-only')
+    expect(b).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(b)
+    expect(onProblemsOnly).toHaveBeenCalledWith(false)
   })
 
   test('problems only leaves out the healthy lane', () => {

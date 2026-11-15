@@ -248,9 +248,11 @@ export default function AccountMenu() {
         >
           <Avatar name={user.username} dot={showTwoFactorNudge} />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium text-nb-300" data-testid="account-name">{user.username}</span>
-            <span className="block truncate text-[11px] text-nb-500" data-testid="account-role">{role ? ROLE_LABEL[role] : 'No organisation'}</span>
-            {role && orgName && <span className="block truncate text-[11px] text-nb-600" title={orgName} data-testid="account-org">{orgName}</span>}
+            <span className="block truncate text-sm font-medium text-nb-300">
+              <span data-testid="account-name">{user.username}</span>
+              {role && <span className="ml-1.5 text-[11px] font-normal text-nb-500" data-testid="account-role">{ROLE_LABEL[role]}</span>}
+            </span>
+            <span className="block truncate text-[11px] text-nb-500" title={orgName} data-testid="account-org">{role ? orgName : 'No organisation'}</span>
           </span>
           <ChevronsUpDown size={ICON_SM} className="shrink-0 text-nb-500" aria-hidden />
         </button>

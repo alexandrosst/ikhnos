@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Plug } from 'lucide-react'
+import { Plug, TriangleAlert } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import Inspector, { type Selection } from '@/features/topology/components/Inspector'
 import { PlatformNode } from '@/features/topology/components/PlatformNode'
@@ -66,13 +66,14 @@ function Lanes({ layout, selectedId, onSelect }: { layout: LaneLayout; selectedI
  * The Telemetry tab: the path of telemetry as lanes (lib/telemetryLanes.ts), one per cluster. Mounted only while the tab is open, which
  * is what keeps the operators and intents from being read anywhere else. A part opens in the same Inspector as on the other tabs.
  */
-export default function TelemetryTab({ clusters, agents, problemsOnly, selection, onSelect, onShowAll, onConnect, onClose }: {
+export default function TelemetryTab({ clusters, agents, problemsOnly, selection, onSelect, onProblemsOnly, onConnect, onClose }: {
   clusters: Cluster[]
   agents: Agent[]
   problemsOnly: boolean
   selection: Selection
   onSelect: (s: Selection) => void
-  onShowAll: () => void
+  /** Keep only the lanes where something is wrong, or all of them again. */
+  onProblemsOnly: (on: boolean) => void
   onConnect: () => void
   onClose: () => void
 }) {
@@ -80,15 +81,29 @@ export default function TelemetryTab({ clusters, agents, problemsOnly, selection
   const model = usePlatformLayer(known, agents)
   const layout = useMemo(() => model && layoutLanes(model, { problemsOnly }), [model, problemsOnly])
   const hasAgents = !!model?.entities.some((e) => e.kind === 'agent')
+  // The filter is offered only where it would change something: several lanes, some of them with a problem. Once on, it stays so it can be turned off.
+  const canFilter = useMemo(() => {
+    if (!model) return false
+    return layoutLanes(model).lanes.length > 1 && layoutLanes(model, { problemsOnly: true }).lanes.length > 0
+  }, [model])
   return (
     <div className="flex min-h-0 flex-1">
       <div className="relative min-w-0 flex-1 overflow-auto p-4 sm:p-6">
         {!layout ? (
           <SkeletonBlock className="h-64 w-full" />
         ) : layout.lanes.length > 0 ? (
-          <Lanes layout={layout} selectedId={selection?.kind === 'platform' ? selection.id : undefined} onSelect={(id) => onSelect({ kind: 'platform', id })} />
+          <>
+            {(problemsOnly || canFilter) && (
+              <div className="mb-3 flex justify-end">
+                <Button size="sm" variant={problemsOnly ? 'primary' : undefined} onClick={() => onProblemsOnly(!problemsOnly)} aria-pressed={problemsOnly} title="Show only the clusters where something needs attention or is not working" data-testid="problems-only">
+                  <TriangleAlert size={ICON_SM} /> Problems only
+                </Button>
+              </div>
+            )}
+            <Lanes layout={layout} selectedId={selection?.kind === 'platform' ? selection.id : undefined} onSelect={(id) => onSelect({ kind: 'platform', id })} />
+          </>
         ) : hasAgents ? (
-          <EmptyState title="No problems" description="Every part of the pipeline is healthy, or not known yet, so there is nothing to show here." action={<Button onClick={onShowAll} data-testid="show-all-lanes">Show every cluster</Button>} />
+          <EmptyState title="No problems" description="Every part of the pipeline is healthy, or not known yet, so there is nothing to show here." action={<Button onClick={() => onProblemsOnly(false)} data-testid="show-all-lanes">Show every cluster</Button>} />
         ) : (
           <EmptyState
             title="No cluster sends telemetry yet"

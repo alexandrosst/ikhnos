@@ -14,7 +14,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import clsx from 'clsx'
-import { Filter as FilterIcon, Info, Plug, Plus, RotateCcw, ScanEye, SlidersHorizontal, Target, TriangleAlert, X } from 'lucide-react'
+import { Filter as FilterIcon, Info, Plug, Plus, RotateCcw, ScanEye, SlidersHorizontal, Target, X } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
@@ -690,17 +690,7 @@ function Canvas() {
               )}
             </div>
           )}
-          {isTelemetry ? (
-            <Button
-              variant={problemsOnly ? 'primary' : undefined}
-              onClick={() => { setParam('problems', problemsOnly ? null : '1'); setSelection(null) }}
-              aria-pressed={problemsOnly}
-              title="Show only the clusters where something needs attention or is not working"
-              data-testid="problems-only"
-            >
-              <TriangleAlert size={ICON_SM} /> <span className="hidden sm:inline">Problems only</span>
-            </Button>
-          ) : (
+          {isTelemetry ? null : (
             <>
           <FilterChip filter={filter} onClear={() => { setSp((p) => { const n = new URLSearchParams(p); for (const k of ['clusters', 'apps', 'kinds']) n.delete(k); return n }, { replace: true }); setSelection(null) }} />
           <FilterMenu
@@ -862,7 +852,7 @@ function Canvas() {
           problemsOnly={problemsOnly}
           selection={selection}
           onSelect={select}
-          onShowAll={() => setParam('problems', null)}
+          onProblemsOnly={(on) => { setParam('problems', on ? '1' : null); setSelection(null) }}
           onConnect={connect.start}
           onClose={() => setSelection(null)}
         />

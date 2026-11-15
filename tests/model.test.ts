@@ -1774,7 +1774,8 @@ test('middleTruncate: keeps the start and the end of a long name, leaves a short
 test('filterSummary: says what the filter is doing in a few words, nothing when it does nothing', () => {
   assert.equal(filterSummary({ clusters: [], apps: [], kinds: [] }), undefined)
   assert.equal(filterSummary({ clusters: [], apps: [], kinds: ['Deployment'] }), 'Deployments only')
-  assert.equal(filterSummary({ clusters: [], apps: [], kinds: ['StatefulSet', 'Deployment'] }), 'Services only', 'the services are Deployments and StatefulSets, in any order')
+  assert.equal(filterSummary({ clusters: [], apps: [], kinds: ['StatefulSet', 'Deployment'] }), undefined, 'the services are the default view, so they are not a filter the person chose')
+  assert.equal(filterSummary({ clusters: ['a'], apps: [], kinds: ['Deployment', 'StatefulSet'] }), '1 cluster', 'and they are left out of the words')
   assert.equal(filterSummary({ clusters: ['a'], apps: ['x', 'y'], kinds: ['Job', 'DaemonSet'] }), '2 kinds \u00b7 1 cluster \u00b7 2 applications')
 })
 

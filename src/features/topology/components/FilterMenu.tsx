@@ -1,6 +1,6 @@
 import { Filter as FilterIcon, X } from 'lucide-react'
 import { Checkbox, ClearableChip, ICON_SM, MenuButton, MenuPanel } from '@/components/ui/primitives'
-import { DEFAULT_KINDS, filterActive, filterSummary, NO_APP, SERVICE_KINDS, type Filter } from '@/features/topology/lib/filter'
+import { DEFAULT_KINDS, filterActive, filterChosen, filterSummary, NO_APP, SERVICE_KINDS, type Filter } from '@/features/topology/lib/filter'
 import type { Application, Cluster, ServiceKind } from '@/lib/types'
 
 /** What the Kind section offers: the services together, then the machinery around them on request. */
@@ -70,7 +70,7 @@ export default function FilterMenu({
 
   return (
     <div className="relative">
-      <MenuButton icon={FilterIcon} label="Filter" open={open} active={filterActive(filter)} onClick={() => onOpenChange(!open)} disabled={disabled} aria-label="Filter the topology" data-testid="filter-button" />
+      <MenuButton icon={FilterIcon} label="Filter" open={open} active={filterChosen(filter)} onClick={() => onOpenChange(!open)} disabled={disabled} aria-label="Filter the topology" data-testid="filter-button" />
       <MenuPanel open={open} onClose={() => onOpenChange(false)} className="w-80 overflow-hidden" role="dialog" aria-label="Filter the topology" data-testid="filter-menu">
         <div className="flex items-center justify-between border-b border-nb-850 px-3 py-2">
           <span className="text-sm font-medium text-nb-200">Show only…</span>
