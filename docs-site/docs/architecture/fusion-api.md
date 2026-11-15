@@ -326,6 +326,65 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 
 **Why it does not block anyone.** Three limits work together. One request reads at most three traces at once. Every store call a bulk read makes waits in a bulk lane of five of the server's eight store-call slots before it takes one, so any number of bulk requests together leave three slots free and a single read never queues behind them. And a bulk read of *n* traces costs *n* reads against the caller's rate limit (600 a minute), so it cannot be used to go round it. When the 30 seconds end, the traces not yet started come back with status `504` and a message, instead of the request failing as a whole, and the summary is still written.
 
+## From Python
+
+A token, `requests` and a few lines are all a script needs. The calls are plain `GET` requests that answer JSON, so any HTTP client works the same way.
+
+What a caller has to do:
+
+- Send the token as `Authorization: Bearer cnf_…`. Keep it in an environment variable, never in the script.
+- Pass `from` and `to` to say which time range to read (the last hour if left out). `from` is a Python keyword, so give it through `**{"from": "now-15m"}`.
+- Check the status. `401` is a bad or expired token, `403` is a call outside the token's scope, `429` is too many requests (wait and retry), and `503` means FUSION is off or still starting.
+- Check `truncated` on lists, and `sources` and `warnings` on fused reads. A store that is down degrades only its own part of the answer.
+- For a server that kept the default self-signed certificate, set `s.verify` to the saved certificate ([above](#who-can-read)). Do not switch verification off in code that outlives a test.
+
+```python
+import os
+import requests
+
+ADDR = os.environ["IKHNOS_ADDR"]      # for example https://ikhnos.example
+TOKEN = os.environ["FUSION_TOKEN"]    # cnf_..., made on FUSION > Access
+
+s = requests.Session()
+s.headers["Authorization"] = f"Bearer {TOKEN}"
+# s.verify = "ikhnos.crt"             # the server's certificate, if it is self-signed
+
+
+def get(path, **params):
+    r = s.get(f"{ADDR}/api/v1/fusion/{path}", params=params, timeout=40)
+    r.raise_for_status()              # 401 bad token, 403 outside its scope, 429 slow down
+    return r.json()
+
+
+# What this token may read
+access = get("status")["access"]
+print(access["name"], access["signals"], access["namespaces"] or "all namespaces")
+
+# The failing traces of one service in the last 15 minutes, each with its logs
+found = get("traces", service="checkout", status="error", fused="true",
+            include="logs", log_severity="error", limit=5, **{"from": "now-15m"})
+for item in found["results"]:
+    if item["status"] != 200:
+        print(item["id"], item["status"], item.get("error"))
+        continue
+    trace = item["trace"]
+    print(trace["traceId"], f'{trace["durationMs"]:.0f} ms', trace["errorCount"], "errors")
+    for span in trace["spans"]:
+        for log in span.get("logs") or []:
+            print("  ", span["service"], log["line"])
+
+# A metric over time, one point per minute
+cpu = get("metrics/range", metric="cpu", service="checkout", step="1m", **{"from": "now-1h"})
+for series in cpu["series"]:
+    print(series["name"], series["labels"], "last", series.get("last"))
+
+# The links between clusters
+for pair in get("links")["pairs"]:
+    print(pair["a"], pair["b"], pair.get("rttSeconds"), pair.get("lossAToB"))
+```
+
+The fused read is the useful one for a decision engine: one request returns the failing traces with each log line already on the span that wrote it, so the script does not have to join three stores. For many traces at once, send their ids to `POST /traces/batch` ([reading many](#reading-many-traces)). To generate a typed client instead, point a generator at [`openapi.json`](#the-api-page-and-the-openapi-description).
+
 ## The API page and the OpenAPI description
 
 `/api/v1/fusion/openapi.json` is an OpenAPI 3.0 description of every route, parameter and answer, and `/api/v1/fusion/docs` is a page built from it: the routes grouped, each with a form for its parameters (checkboxes for `include`, `omit` and `metric_scope`), a field for your token (kept for the browser session only; leave it empty to use your signed-in session), a Send button that calls the real API and shows the status, time and size, a *Copy as curl*, and, for `stream=true`, each line as it arrives with the time it arrived at. It also shows the shape of each object (the fused trace, a span, a resource, a log entry). The page is served with a policy that lets it run only its own script and call this server; it loads nothing from anywhere else.
