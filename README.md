@@ -45,37 +45,39 @@
     <img alt="Sites in Berlin, Paris and Athens on a map, with the traffic between them moving along the links" src="docs-site/static/img/readme/topology-loop-light.webp" width="920">
   </picture>
   <br>
-  <sub>Berlin, Paris and Athens on the built-in sample landscape (made-up clusters, not real infrastructure). The dashes move with the traffic between sites.</sub>
+  <sub>The built-in sample landscape, placed in Berlin, Paris and Athens (made-up clusters, not real infrastructure). The dashes move with the traffic between sites.</sub>
 </p>
 
-- **One command per cluster.** Run it, approve the cluster, and it appears. No kubeconfig is handed over, and no inbound port is opened.
-- **Read-only by design.** A small agent looks. It cannot change anything.
+- **One command per cluster.** Run it, approve the cluster, and it appears. No kubeconfig is handed over, and the server never connects into a cluster.
+- **Read-only by design.** A small agent looks. It cannot change your workloads or read your Secrets.
 - **You decide how far it looks.** That is your [observability intent](https://alexandrosst.github.io/ikhnos/docs/learn/observability-intent): per cluster, from "registered only" up to services, and it can only be narrowed, never widened. It covers telemetry too, so metrics, logs and traces are opt-in, one signal at a time.
 
 ## What it is
 
 Ikhnos (ἴχνος) is Greek for "trace" or "footprint". It provides visibility across the cloud-edge continuum, revealing where workloads run and how they communicate.
 
-It shows Kubernetes clusters, from cloud to edge and far edge, as one picture: an **application view** (services and the dependencies between them) and an **infrastructure view** (nodes, capacity, links). A small read-only **agent** in each cluster dials out to a single **server** and reports what it sees. On top of that sit history, measured links between clusters, and telemetry you can read in Grafana.
+It shows Kubernetes clusters, from cloud to edge and far edge, as one picture: an **application view** (services and the dependencies between them) and an **infrastructure view** (nodes, capacity, links). A small read-only **agent** in each cluster dials out to a single **server** and reports what it sees. How far it looks is your [observability intent](https://alexandrosst.github.io/ikhnos/docs/learn/observability-intent). On top of that sit history, measured links between clusters, and telemetry you can read in Grafana, collected under the same intent.
 
 It is built on four commitments:
 
 | Commitment | In practice |
 |---|---|
-| **Read-only** | The agent can `list` and `watch`, nothing else, and never reads Secrets or ConfigMaps. Nothing changes without a person approving it. |
-| **Outbound only** | The agent dials out over mutual TLS. No inbound firewall rule, and the server never holds a kubeconfig. |
-| **Only narrowed** | The observability intent can shrink along the chain (ceiling, approved, effective), never grow. |
+| **Read-only** | The agent reads the Kubernetes API (`get`, `list`, `watch`) and never reads your Secrets or ConfigMaps. Its only writes are three narrow ones, to its own identity, the certificates it renews and the status of its own resource. Ikhnos never deploys or moves your workloads. |
+| **Outbound only** | The agent opens every connection to the server, over mutual TLS. The server needs no route into a cluster and never holds a kubeconfig. |
+| **Observability intent** | You set how far each part may look, and the setting can only be narrowed, never widened. |
 | **Honest** | What was seen is shown as seen, what was guessed as a guess, and missing data is named. |
 
 ## Features
 
+- **Observability intent.** One setting for everything that looks at a cluster: the discovery agent, the local operators that collect telemetry and the regional operators that gather it. You set it per cluster and per signal, and it can only be narrowed.
 - **Topology.** Application, Infrastructure, Map and Telemetry views of the same landscape, with clusters tiered cloud, edge or far edge. Plus Clusters, Applications, Sites, Nodes, Namespaces, Services and Devices as tables.
 - **Discovery that asks first.** Connect a cluster from the UI: it prints the exact `helm install`, and an approval code that only the cluster's own pod log shows turns "someone had a token" into "this is the agent I meant".
 - **History.** Every change to anything is a new version with a reason attached. Ask what a cluster looked like an hour ago, or what depends on a service.
-- **Telemetry and FUSION.** Opt-in collectors, regional operators and a bundled Prometheus, Loki, Tempo and Grafana stack with nine dashboards (fleet, clusters, workloads, links, delivery and Ikhnos' own health), opened through the server so nothing is exposed.
-- **Cluster links.** Loss, delay and jitter between clusters you choose to pair, from real traffic and active measurement.
+- **Telemetry and FUSION.** Opt-in collectors, regional operators and a bundled Prometheus, Loki, Tempo and Grafana stack with nine dashboards, from the fleet down to a single workload and Ikhnos' own health, opened through the server so nothing is exposed.
+- **Cluster links.** Loss, delay and jitter between clusters you choose to pair, from real traffic and active measurement. The paired clusters must be able to reach each other.
+- **Placement advice.** Where a service would be better off running, with the evidence. Ikhnos never moves anything.
 - **Diagnose.** One button per agent explains what is wrong with it, worst first, with the `kubectl` command for each finding.
-- **Accounts.** Organizations and roles, two-factor sign-in (TOTP, email code, passkeys) and an audit trail.
+- **Accounts.** Roles, two-factor sign-in (TOTP, email code, passkeys) and an audit trail.
 - **Open interfaces.** A JSON API behind the UI and a token-protected FUSION API with its own reference page.
 
 ## How it works
@@ -133,7 +135,7 @@ kubectl -n ikhnos logs deployment/ikhnos-server | grep -A2 'First start'
 kubectl -n ikhnos port-forward service/ikhnos-server 8080:8080   # https://localhost:8080
 ```
 
-Sign in as `admin`, choose a real password, then use **Connect a cluster**: it prints the `helm install` for the agent with its token and the server's CA pin already filled in. Copy the sealing key the chart made out of the cluster (the install notes print the command); it protects the secrets stored in the server's database. The full walk-through, including a load balancer or Gateway for real use, is in the [quickstart](https://alexandrosst.github.io/ikhnos/docs/getting-started/quickstart) and the [production guide](https://alexandrosst.github.io/ikhnos/docs/installation/production-cluster).
+Sign in as `admin`, choose a real password, name your organisation, then use **Connect a cluster**: it prints the `helm install` for the agent with its token and the server's CA pin already filled in. Copy the sealing key the chart made out of the cluster (the install notes print the command); it protects the secrets stored in the server's database. The full walk-through, including a load balancer or Gateway for real use, is in the [quickstart](https://alexandrosst.github.io/ikhnos/docs/getting-started/quickstart) and the [production guide](https://alexandrosst.github.io/ikhnos/docs/installation/production-cluster).
 
 **Just want to look around?** The UI runs on its own, with a made-up cloud, edge and far-edge landscape and no server:
 
@@ -173,7 +175,7 @@ cd backend && go vet ./... && go test -race ./...                               
 ```
 src/             React 19 + TypeScript + Tailwind 4 frontend (Vite, React Flow, Zustand)
 backend/         Go module "ikhnos": server, agent, node probe, traffic observer, controller, CLI
-backend/docs/    Code-adjacent references: model API, twin design and the early placement research
+backend/docs/    Code-adjacent references: the model API, the twin, the decision loop and advice
 deploy/          Helm charts (server, controller), backup notes, policies
 docs-site/       The documentation site (Docusaurus)
 ```
@@ -184,7 +186,7 @@ Releases are signed with cosign, keylessly. Please report a vulnerability privat
 
 ## License
 
-[Apache License 2.0](LICENSE). Dependencies were checked for compatibility; the only copyleft component is the *optional*, separately run bundled Neo4j Community Edition (GPLv3), which the server reaches over HTTP as its own process. `neo4j.mode: external` exists for anyone who would rather not run it at all ([`deploy/README.md`](deploy/README.md#neo4j)).
+[Apache License 2.0](LICENSE). Dependencies were checked for compatibility. The copyleft pieces are separate programs that the server only talks to over the network: Neo4j Community Edition (GPLv3), the server's graph store (`neo4j.mode: external` is for running your own, see [`deploy/README.md`](deploy/README.md#neo4j)), and, only if you turn FUSION on, Grafana, Loki and Tempo (AGPLv3).
 
 <details>
 <summary>Third-party data</summary>
