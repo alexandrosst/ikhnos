@@ -58,14 +58,18 @@ Ikhnos (ἴχνος) is Greek for "trace" or "footprint". It provides visibility
 
 It shows Kubernetes clusters, from cloud to edge and far edge, as one picture: an **application view** (services and the dependencies between them) and an **infrastructure view** (nodes, capacity, links). A small read-only **agent** in each cluster dials out to a single **server** and reports what it sees. How far it looks is your [observability intent](https://alexandrosst.github.io/ikhnos/docs/learn/observability-intent). On top of that sit history, measured links between clusters, and telemetry you can read in Grafana, collected under the same intent.
 
-It is built on four commitments:
+## Design principles
 
-| Commitment | In practice |
+Ikhnos is meant to be pointed at clusters that matter, so these are rules the code and the Helm chart enforce, not promises. [The trust model](https://alexandrosst.github.io/ikhnos/docs/architecture/trust-model) shows where each one is held.
+
+| Principle | What it means |
 |---|---|
 | **Read-only** | The agent reads the Kubernetes API (`get`, `list`, `watch`) and never reads your Secrets or ConfigMaps. Its only writes are three narrow ones, to its own identity, the certificates it renews and the status of its own resource. Ikhnos never deploys or moves your workloads. |
 | **Outbound only** | The agent opens every connection to the server, over mutual TLS. The server needs no route into a cluster and never holds a kubeconfig. |
-| **Observability intent** | You set how far each part may look, and the setting can only be narrowed, never widened. |
-| **Honest** | What was seen is shown as seen, what was guessed as a guess, and missing data is named. |
+| **Narrow, never widen** | The [observability intent](https://alexandrosst.github.io/ikhnos/docs/learn/observability-intent) sets how far each part may look, per cluster and per signal. Each layer can narrow it and none can widen it. Telemetry stays off until you turn a signal on. |
+| **You run the changes** | Ikhnos generates the `helm` commands and you run them. The one exception, an optional controller inside the cluster, is off until you turn it on. |
+| **Honest data** | What was seen is shown as seen, what was declared as declared, what was guessed as a guess, and missing data is named. |
+| **Accountable** | A person's changes are recorded with who made them, and history keeps what the landscape looked like before. |
 
 ## Features
 

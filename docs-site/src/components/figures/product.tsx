@@ -280,7 +280,7 @@ export function TelemetryFlow() {
       <T x={298} y={408} bold>Ikhnos server</T>
       <Lines x={298} y={428} lines={['Decides what may leave a cluster, and where it may go.', 'Opens Grafana and Prometheus for you, behind your sign-in.', 'Reads the stores through one token-protected API.']} muted={false} />
       <Arrow fig={f} dashed d="M590 384V336" />
-      <T x={24} y={420} small bold>Four commitments</T>
+      <T x={24} y={420} small bold>Design rules</T>
       <Lines x={24} y={440} lines={['Named consent, not raw configuration.', 'Safe by default: memory limit, redaction.', 'Declarative only: a command you run.', 'Additive permissions, never speculative.']} />
     </Fig>
   );

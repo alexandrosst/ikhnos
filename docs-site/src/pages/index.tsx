@@ -6,11 +6,13 @@ import Figure from '@site/src/components/Figure';
 import Shot from '@site/src/components/Shot';
 import styles from './index.module.css';
 
-const commitments: [string, string][] = [
-  ['Read-only', 'The agent can list and watch. It cannot write, and it never reads Secrets or ConfigMaps. Nothing is deployed or moved without a person approving it.'],
+const principles: [string, string][] = [
+  ['Read-only', 'The agent reads the Kubernetes API and never your Secrets or ConfigMaps. Its only writes are to its own identity, its certificates and its own status. Ikhnos never deploys or moves your workloads.'],
   ['Outbound only', 'The agent opens every connection, over mutual TLS. No inbound firewall rule on a cluster, and the server never holds a kubeconfig.'],
-  ['Narrowing trust', 'What an agent reports is a chain: ceiling, approved, effective. The server can narrow it. It can never widen it.'],
-  ['Honest uncertainty', 'Every value says whether it was declared, observed or computed, how old it is and how sure the system is. Missing data is named, never guessed.'],
+  ['Narrow, never widen', 'Observability intent sets how far each part may look. Each layer can narrow it and none can widen it. Telemetry stays off until you turn a signal on.'],
+  ['You run the changes', 'Ikhnos generates the commands and you run them. The one exception, an optional in-cluster controller, is off until you turn it on.'],
+  ['Honest data', 'Every value says whether it was seen, declared or guessed, and how old it is. Missing data is named.'],
+  ['Accountable', 'A person\u2019s changes are recorded with who made them, and history keeps what the landscape looked like before.'],
 ];
 
 const paths: [string, string, string, string][] = [
@@ -62,10 +64,10 @@ export default function Home() {
       <main>
         <section className={styles.section}>
           <div className={styles.wrap}>
-            <h2>Four commitments, kept in the design</h2>
-            <p className={styles.sub}>They are not marketing. Each one is something the code enforces and a test holds.</p>
+            <h2>Design principles</h2>
+            <p className={styles.sub}>Each one is enforced by the code and the Helm chart.</p>
             <div className={styles.grid4}>
-              {commitments.map(([t, d]) => (
+              {principles.map(([t, d]) => (
                 <div key={t} className={styles.tile}>
                   <h3>{t}</h3>
                   <p>{d}</p>

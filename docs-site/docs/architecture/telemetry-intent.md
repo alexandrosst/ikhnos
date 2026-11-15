@@ -1,7 +1,7 @@
 ---
 id: telemetry-intent
 title: Telemetry internals
-description: The four commitments telemetry collection is built on, how a single Helm release fans out across every node (GPU nodes included), the server-side TelemetryIntent grant behind a local operator's own collection and export, the wizard and panel that configure it, and the quick-start backend specs and access gateway.
+description: The rules telemetry collection is built on, how a single Helm release fans out across every node (GPU nodes included), the server-side TelemetryIntent grant behind a local operator's own collection and export, the wizard and panel that configure it, and the quick-start backend specs and access gateway.
 ---
 
 # Telemetry internals
@@ -10,14 +10,14 @@ description: The four commitments telemetry collection is built on, how a single
 
 This is the detail behind the telemetry half of [observability intent](../learn/observability-intent.md); to set telemetry up, follow [Telemetry and FUSION](../user-guide/telemetry-and-fusion.md). [Observability intent in depth](./observability-intent.md) covers how far an *agent* may see into a cluster. Telemetry is a related but separate question: given a signal an agent is already allowed to see, should raw OTel data about it leave the cluster at all, and to where. The two systems share a chart, a philosophy of narrowing rather than widening, and a UI (telemetry sits in the same wizard as access tier and namespace scope), but they don't share a trust model — and that difference, not just a list of toggles, is what this page is actually about.
 
-## Four commitments
+## Design rules
 
-Telemetry's philosophy was never written down as a single statement before this page — it existed only as comments scattered across `values.yaml` and `_helpers.tpl`. Reconstructed, it reads as four commitments, and everything else in this chart follows from them:
+Four rules shape the telemetry chart. They sit under the wider [trust model](./trust-model.md).
 
-1. **Named consent, not raw configuration.** Every signal is a labeled, human-readable choice — "Energy", "Accelerators (GPU)" — with a stated permission cost, not a bare OTel receiver name typed into a form. Same instinct as the discovery agent's own collector checkboxes.
-2. **Safe by default, not safe by assumption.** `memory_limiter` runs first in every pipeline unconditionally — not a toggle, baseline collector hygiene — and `redaction` defaults on. The two controls that matter most are not opt-in.
-3. **Declarative, with one narrow exception.** Nothing about telemetry is pushed into the collectors. Every change, at install time or afterward, is a generated `helm install` / `helm upgrade --reset-then-reuse-values` command (or a `kubectl patch` of the `IkhnosAgent`) that the cluster owner runs themselves. The exception is off unless the owner turns it on: when a controller keeps the agent and the relay is on, the server can ask for which signals to collect and how much of the traces, and the controller applies that as an upgrade after checking it against what the owner allowed. A request never carries a destination or a credential, so the channel cannot be used to redirect telemetry.
-4. **Additive permissions.** The telemetry `ClusterRole` never depends on or widens `access.tier`; each signal grants only the one read-only rule it specifically needs, and nothing is granted speculatively.
+1. **Named consent, not raw configuration.** Every signal is a labeled, human-readable choice, such as "Energy" or "Accelerators (GPU)", with a stated permission cost. Nobody types a bare OTel receiver name into a form. The discovery agent's collector checkboxes work the same way.
+2. **Safe by default.** `memory_limiter` runs first in every pipeline and cannot be switched off. `redaction` defaults on.
+3. **Declarative, with one narrow exception.** Nothing about telemetry is pushed into the collectors. Every change, at install time or afterward, is a generated `helm install` / `helm upgrade --reset-then-reuse-values` command (or a `kubectl patch` of the `IkhnosAgent`) that the cluster owner runs. The exception is off unless the owner turns it on: when a controller keeps the agent and the relay is on, the server can ask for which signals to collect and how much of the traces, and the controller applies that as an upgrade after checking it against what the owner allowed. A request never carries a destination or a credential, so the channel cannot be used to redirect telemetry.
+4. **Additive permissions.** The telemetry `ClusterRole` never depends on or widens `access.tier`. Each signal grants only the one read-only rule it needs.
 
 ## Four axes: scope, layer, modality, kind
 
