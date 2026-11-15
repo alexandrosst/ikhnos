@@ -42,6 +42,7 @@ import { SquareRoutes } from '@/features/topology/components/SquareRoutes'
 import { Button, EmptyState, ICON_MD, ICON_SM, MenuButton, MenuPanel, Select, SkeletonBlock } from '@/components/ui/primitives'
 import { Switch } from '@/components/ui/Switch'
 import { PRESS_CLASS } from '@/components/ui/buttonClass'
+import { Tabs } from '@/components/ui/Tabs'
 import FilterMenu, { FilterChip } from '@/features/topology/components/FilterMenu'
 import { computeFocus } from '@/features/topology/lib/focus'
 import { narrowFitZoom } from '@/features/topology/lib/fit'
@@ -640,27 +641,16 @@ function Canvas() {
       {/* Toolbar */}
       <div className="flex min-h-14 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-nb-850 bg-nb-920 px-4 py-2 sm:px-5">
         <h1 className="text-base font-medium text-nb-300">Topology</h1>
-        <div className="flex rounded-lg border border-nb-800 bg-nb-925 p-0.5" role="tablist" aria-label="View">
-          {VIEWS.map((v) => (
-            <button
-              key={v.value}
-              role="tab"
-              aria-selected={mode === v.value}
-              title={v.hint}
-              onClick={() => {
-                setParam('view', v.value === 'application' ? null : v.value)
-                setSelection(null)
-              }}
-              className={clsx(
-                'rounded-md px-2.5 py-1.5 text-sm sm:px-3.5',
-                PRESS_CLASS,
-                mode === v.value ? 'bg-nb-850 text-nb-300' : 'text-nb-400 hover:text-nb-300',
-              )}
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          variant="segmented"
+          label="View"
+          value={mode}
+          items={VIEWS.map((v) => ({ id: v.value, label: v.label, title: v.hint }))}
+          onChange={(v) => {
+            setParam('view', v === 'application' ? null : v)
+            setSelection(null)
+          }}
+        />
 
         <div className="ml-auto flex flex-wrap items-center gap-2 sm:gap-3">
           <LiveStatus />
