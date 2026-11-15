@@ -459,7 +459,16 @@ export default function Inspector({
         )}
         <Section title="Network">
           <Maybe label="Pod CIDR" copy={c.podCidr}><span className="font-mono text-xs">{c.podCidr}</span></Maybe>
-          <Chips label="CIDR overlap" items={overlap.map((o) => o.name)} tone="warn" title="Overlapping pod CIDRs can break direct cross-cluster routing." />
+          {overlap.length > 0 && (
+            <Row label="CIDR overlap">
+              <Pill
+                className="text-[11px] leading-none text-warn"
+                title={`${overlap.map((o) => o.name).join(', ')}. Overlapping pod CIDRs can break direct cross-cluster routing.`}
+              >
+                {overlap.length} {overlap.length === 1 ? 'cluster' : 'clusters'}
+              </Pill>
+            </Row>
+          )}
           <Maybe label="Service CIDR" copy={c.serviceCidr}><span className="font-mono text-xs">{c.serviceCidr}</span></Maybe>
           {c.apiEndpoint && <Row label="API endpoint" copy={c.apiEndpoint}><IpAddress ip={c.apiEndpoint} inline /></Row>}
           {c.apiEndpoint && ipInCidr(c.apiEndpoint, c.serviceCidr) && (

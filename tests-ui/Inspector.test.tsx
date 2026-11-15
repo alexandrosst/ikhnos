@@ -375,6 +375,22 @@ describe('Inspector · cluster layout', () => {
     )
   }
 
+  test('clusters sharing the pod CIDR show as a count, with the names on hover', () => {
+    renderCluster()
+    expect(screen.queryByText('CIDR overlap')).not.toBeInTheDocument()
+    topologyState = {
+      ...topologyState,
+      clusters: [cl, { ...cl, id: 'b', name: 'kestrel' }, { ...cl, id: 'c', name: 'osprey' }] as never[],
+    }
+    render(
+      <MemoryRouter>
+        <Inspector selection={{ kind: 'cluster', id: 'a' }} onSelect={() => {}} onEdit={() => {}} onClose={() => {}} />
+      </MemoryRouter>,
+    )
+    const pill = screen.getByText('2 clusters')
+    expect(pill).toHaveAttribute('title', expect.stringContaining('kestrel, osprey'))
+  })
+
   test('groups what it says as Identity, Location and Network, with the platform under Identity', () => {
     renderCluster()
     for (const t of ['Identity', 'Location', 'Network']) expect(screen.getByText(t, { selector: 'div.uppercase' })).toBeInTheDocument()
