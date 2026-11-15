@@ -220,6 +220,8 @@ Ikhnos is released under the [Apache License 2.0](LICENSE).
 
 **Dependencies.** The npm packages in the UI are MIT, ISC, BSD or CC0, plus one OFL font. The Go modules built into the binaries are Apache-2.0, MIT, BSD or ISC, plus three MPL-2.0 modules, a file-level copyleft that does not reach Ikhnos's own code. None is GPL or AGPL. This was read from each package's license file in November 2026; check it again before a release.
 
+**The eBPF program.** One file, `backend/internal/flow/ebpf/flow.c`, is dual-licensed MIT or GPL-2.0, because the Linux kernel only lets an eBPF program use some of its helper functions if it declares a GPL-compatible license. It does not change the license of the rest of Ikhnos. The libbpf headers next to it are LGPL-2.1 or BSD-2-Clause, with their own license file.
+
 **Software it runs next to.** These are separate programs that the server talks to over the network. They are not part of this repository and not linked into Ikhnos, and their own licenses apply to them:
 
 - Neo4j Community Edition (GPLv3) is the server's graph store. To use your own instance, set `neo4j.mode: external` ([`deploy/README.md`](deploy/README.md#neo4j)).

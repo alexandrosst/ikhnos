@@ -1,5 +1,10 @@
 //go:build ignore
 
+// SPDX-License-Identifier: MIT OR GPL-2.0-only
+//
+// This file is dual-licensed, unlike the rest of Ikhnos (Apache-2.0): the kernel only lets an eBPF program use some of
+// its helper functions if the program declares a GPL-compatible licence (the __license line below says "Dual MIT/GPL").
+
 // Counting-only TCP flow observer. It never looks at packets or payloads: it watches sockets change
 // state. A connection is counted when it is established; the bytes it carries are added to a counter
 // keyed by (role, local address, peer address, port) when it closes and, if the optional snapshot
