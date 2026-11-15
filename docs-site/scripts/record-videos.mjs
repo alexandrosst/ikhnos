@@ -136,12 +136,20 @@ const OVERLAY = `
     window.__keys = (label) => {
       document.getElementById('rec-key')?.remove();
       const t = document.getElementById('rec-term');
-      if (!label || !t) return;
+      if (!label) return;
       const key = document.createElement('div');
       key.id = 'rec-key';
       key.textContent = label;
-      key.style.cssText = 'position:absolute;right:14px;top:5px;padding:3px 11px;border-radius:7px;background:#f4f5f7;color:#12151a;font:600 13px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 2px 0 #b9bec7';
-      t.appendChild(key);
+      if (t) {
+        // In the terminal the chip sits in its title bar.
+        key.style.cssText = 'position:absolute;right:14px;top:5px;padding:3px 11px;border-radius:7px;background:#f4f5f7;color:#12151a;font:600 13px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 2px 0 #b9bec7';
+        t.appendChild(key);
+        return;
+      }
+      // On the page it sits just above the field the keys go to, large enough to read at a glance.
+      const r = (document.activeElement ?? document.body).getBoundingClientRect();
+      key.style.cssText = 'position:fixed;z-index:2147483645;right:' + Math.max(12, window.innerWidth - r.right) + 'px;top:' + Math.max(8, r.top - 44) + 'px;padding:5px 14px;border-radius:9px;background:#f4f5f7;color:#12151a;font:600 18px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 3px 0 #b9bec7,0 8px 20px rgba(0,0,0,.25);border:1px solid #d5d9df';
+      document.documentElement.appendChild(key);
     };
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -360,6 +368,7 @@ const VIDEOS = {
       await s.page.waitForTimeout(3600);
       await s.endTerminal();
       s.startAgent(key.slice(0, i), key.slice(i + 1));
+      await s.reveal('[role=dialog] >> text=Waiting for the agent');
       await s.callout('[role=dialog] >> text=Waiting for the agent', 'The agent dials out to your server, so the cluster needs no inbound port', {side: 'top', n: 7, ms: 4200});
       await s.clear();
       await s.callout('[role=dialog] >> text=You approve it', 'When it connects, the wizard moves on by itself', {side: 'bottom', ms: 4200});
@@ -716,8 +725,16 @@ async function record(name) {
     async paste(sel, text) {
       await s.click(sel);
       await page.keyboard.press('Control+a');
+      await s.keys('Ctrl V');
+      await sleep(700);
       await page.keyboard.insertText(text);
-      await sleep(600);
+      await sleep(1100);
+      await s.keys('');
+    },
+    /** Bring something that is below the fold of a dialog or page into the middle of the picture, smoothly. */
+    async reveal(sel) {
+      await page.locator(sel).first().evaluate((e) => e.scrollIntoView({block: 'center', behavior: 'smooth'}));
+      await sleep(900);
     },
     async keys(label) {
       await page.evaluate((l) => window.__keys(l), label);
