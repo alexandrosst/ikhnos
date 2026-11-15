@@ -328,9 +328,19 @@ const VIDEOS = {
       await s.type('[role=dialog] input', 'athens-edge');
       await s.clear();
       await s.zoom();
-      await s.callout('text=Always read-only', 'Choose what the agent may read. It is always read-only, and never reads Secrets', {side: 'top', n: 2, ms: 3800});
+      await s.callout('[data-testid=wizard-access]', 'Access: choose what the agent may read. It is always read-only, and never reads Secrets', {side: 'top', n: 2, ms: 3800});
       await s.scroll('[role=dialog] input', 380);
-      await s.callout('text=Collect more', 'Traffic, hardware and round-trip times stay off until you switch them on', {side: 'right', n: 3, ms: 3600});
+      await s.callout('[data-testid=wizard-collect] >> text=Collect more', 'Collect more: traffic, hardware and round-trip times stay off until you switch them on', {side: 'right', n: 3, ms: 3400});
+      // Every option under "Collect more", switched on one by one.
+      for (const [id, text] of [
+        ['node-probe-toggle', 'Node hardware and network: a small pod on each node reads what Kubernetes cannot say'],
+        ['flow-observer-toggle', 'Traffic between services: connections and bytes, never contents'],
+        ['measurements-toggle', 'Round-trip times: how long a connection takes, for placement advice'],
+      ]) {
+        await s.callout(`[data-testid=${id}]`, text, {side: 'left', n: 3, ms: 2600});
+        await s.click(`[data-testid=${id}]`);
+        await s.page.waitForTimeout(700);
+      }
       await s.click('button:has-text("Create install command")');
       await s.page.waitForSelector('[data-testid=install-command]');
       // The helm command is read only for the pin and token the sandbox agent needs; the video shows the controller's one command.
