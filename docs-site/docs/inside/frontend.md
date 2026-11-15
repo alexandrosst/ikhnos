@@ -14,7 +14,7 @@ The interface is a single-page application in `src/`: React, TypeScript and Tail
 
 `src/app/` is the **shell**: routes, layout, and which page loads when. Nothing imports it.
 
-`src/features/<name>/` is one area of the product. Each has its own page, `components/`, `lib/` and `store/`. The features are `topology`, `agents`, `pipeline`, `placement`, `health`, `discovery`, `accounts`, `fusion`, `history`, `links`, `proposals` and `settings`.
+`src/features/<name>/` is one area of the product. Each has its own page, `components/`, `lib/` and `store/`. The features are `topology`, `agents`, `pipeline`, `health`, `discovery`, `accounts`, `fusion`, `history`, `links` and `settings`.
 
 `src/components/`, `src/lib/` and `src/store/` are **shared**: primitives, the API client, the model, and whatever more than one feature needs. Shared code never imports a feature.
 
@@ -27,8 +27,8 @@ Features are in five layers. A feature may use shared code and any feature in a 
 | 5 (highest) | `topology` |
 | 4 | `agents` |
 | 3 | `pipeline` |
-| 2 | `discovery`, `health`, `placement` |
-| 1 (lowest) | `accounts`, `fusion`, `history`, `links`, `proposals`, `settings` |
+| 2 | `discovery`, `health` |
+| 1 (lowest) | `accounts`, `fusion`, `history`, `links`, `settings` |
 
 The map is highest because it may draw on every other feature. The effect to rely on is the other direction: nothing in the lowest layer knows the map exists, so a change in `settings` cannot break the map's code.
 
@@ -49,7 +49,7 @@ If you change a Go type that the API writes, run the wire test, commit the regen
 
 ## The model and the pages
 
-The UI works from an in-browser model of the landscape (`src/lib`). Placement and movability rules live there too and mirror the server's, so the UI can give advice with no server and the two agree. They are tested against the same table of cases. The rest of the state (what is selected, which tab is open) lives in `zustand` stores in `src/store` and in each feature's `store/` folder.
+The UI works from an in-browser model of the landscape (`src/lib`). The rest of the state (what is selected, which tab is open) lives in `zustand` stores in `src/store` and in each feature's `store/` folder.
 
 The map itself is built on React Flow (`@xyflow/react`). Its nodes and edges are computed in `src/features/topology/lib/graph.ts`, which is plain TypeScript and tested without a browser.
 
@@ -63,7 +63,7 @@ A status dot eases between colours. A healthy one sends out a slow ring and a do
 
 | Layer of test | Where | Run with |
 |---|---|---|
-| Logic: model, advice, placement, history, workspace, consent | `tests/*.test.ts` | `npm run test:unit` |
+| Logic: model, history, workspace, consent | `tests/*.test.ts` | `npm run test:unit` |
 | Components and pages | `tests-ui/*.test.tsx` | `npm run test:ui` |
 | In the browser | `e2e/*.spec.ts` | `npm run test:e2e` |
 | The type check and lint | | `npm run build` and `npm run lint` |

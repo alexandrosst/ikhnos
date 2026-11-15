@@ -1,22 +1,20 @@
 ---
 id: roadmap
 title: Roadmap
-description: Where Ikhnos could go next, in the order the pieces unlock each other, and the early research on placement advice and proposals.
+description: Where Ikhnos could go next, in the order the pieces unlock each other.
 ---
 
 # Roadmap
 
 Nothing here is a promise or a date. It is the order in which the pieces unlock each other, and none of it changes the posture the project has held throughout: **read-only, and nothing moves without a person's approval.** Each item is additive to the existing `Decider` contract, the history store or the advice engine, not a redesign of them.
 
-## Early research: placement advice and proposals
+## Placement advice and proposals
 
-Two parts of the product are experimental and not yet part of the story the rest of these docs tell: **Placement**, which judges whether a service would fit and cost less elsewhere, and **Proposals**, which carry a suggested change to what an agent shares to a person who decides. Both are read-only advice, and they are deliberately not mature.
-
-The detail is kept, outside the main navigation: [reading placement advice](../journey/advice.md), [mobility and placement](../user-guide/mobility-and-placement.md), and [how a recommendation is made](../inside/placement-engine.md).
+An earlier version of the interface had two pages for advice: **Placement**, which judged whether a service would fit and cost less elsewhere, and **Proposals**, which carried a suggested change to what an agent shares to a person who decides. Both were read-only and neither was mature, so they are not in the interface of this release. The server keeps the contracts they used (the decider webhook and the proposals API) and the history of the project has the pages.
 
 ## The pluggable decider is the deliberate gap
 
-The `Decider` interface is a real, working plug point today. Any HTTP service that speaks the schema in [`backend/docs/decider-webhook.openapi.yaml`](https://github.com/alexandrosst/ikhnos/blob/main/backend/docs/decider-webhook.openapi.yaml) (OpenAPI 3.1, optionally HMAC-signed request for request) is compared fairly against the built-in *Baseline* and *Follow the heaviest talker* on the **Deciders** tab. But nothing dynamic or learned has been plugged into it yet: it is infrastructure for AI-driven placement, not an example of one.
+The `Decider` interface is a real, working plug point today. Any HTTP service that speaks the schema in [`backend/docs/decider-webhook.openapi.yaml`](https://github.com/alexandrosst/ikhnos/blob/main/backend/docs/decider-webhook.openapi.yaml) (OpenAPI 3.1, optionally HMAC-signed request for request) is a working plug point on the server. Nothing dynamic or learned has been plugged into it yet: it is infrastructure for AI-driven placement, not an example of one.
 
 ## What would make it a better testbed
 

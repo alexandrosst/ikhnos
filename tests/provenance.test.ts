@@ -1,12 +1,6 @@
-// Observation state, evidence and what may be a placement target: the pure rules behind the chips and the exclusion
-// reasons. The server computes the states; these pin how the browser reads and words them.
+// Observation state and evidence: the pure rules behind the chips. The server computes the states; these pin how the browser reads and words them.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { moveTargets } from '../src/lib/movability'
-import { buildDecisionInput } from '../src/lib/placement/deciders'
-import { recommend } from '../src/lib/placement/engine'
-import { DEFAULT_POLICY } from '../src/lib/placement/types'
-import { buildWorld, clusterStatus, excludedClusters, unverifiableClusters } from '../src/lib/placement/world'
 import { ageLabel, CONFIDENCE_TONE, dependencyProvenance, evidenceLevel, evidenceRows, formatAttr, goneInfo, indexModel, needsEvidenceChip, observation, sourceLabel, targetStatus, weakAttributes, type ModelEntity } from '../src/lib/provenance'
 import { DEFAULT_ORG, type Cluster, type Dependency, type MachineNode, type Service, type Site } from '../src/lib/types'
 
@@ -120,80 +114,4 @@ test('dependencyProvenance: sources joined, and the measurement method only when
   assert.deepEqual(dependencyProvenance({ sources: ['observed'], via: 'ebpf' }), { source: 'observed', via: 'eBPF' })
   assert.deepEqual(dependencyProvenance({ sources: ['declared', 'observed'], via: 'conntrack' }), { source: 'declared + observed', via: 'conntrack' })
   assert.deepEqual(dependencyProvenance({ sources: ['declared'] }), { source: 'declared', via: undefined })
-})
-
-/* ---------- a stale, disconnected or revoked cluster is never a target ---------- */
-
-const site = (id: string): Site => ({ id, orgId: DEFAULT_ORG, name: id, kind: 'data-center', lat: 50, lng: 8, country: 'DE' })
-const cluster = (id: string, over: Partial<Cluster> = {}): Cluster => ({
-  orgId: DEFAULT_ORG, source: 'discovered', id, siteId: 's1', name: id, tier: 'cloud', distribution: 'k3s', version: 'v1.30', provider: '', region: '', status: 'healthy', labels: {}, state: 'live', ...over,
-})
-const node = (id: string, clusterId: string, over: Partial<MachineNode> = {}): MachineNode => ({
-  orgId: DEFAULT_ORG, source: 'discovered', id, name: id, clusterId, role: 'worker', kind: 'vm', ip: '', os: '', cpu: 16, memoryGb: 32, status: 'healthy', labels: {},
-  allocatable: { cpu: 16, memoryGb: 32 }, requested: { cpu: 2, memoryGb: 2 }, ...over,
-})
-const service = (id: string, clusterId: string): Service => ({
-  orgId: DEFAULT_ORG, source: 'manual', id, name: id, namespace: 'app', clusterId, kind: 'Deployment', image: '', replicas: 1, nodeIds: [], status: 'healthy', labels: {}, cpuRequestM: 250, memRequestMi: 256,
-})
-const dep = (from: string, to: string): Dependency => ({ id: `${from}-${to}`, orgId: DEFAULT_ORG, from, fromKind: 'service', to, toKind: 'service', protocol: 'TCP', sources: ['observed'], confidence: 'high', stats: { bytesPerSec: 5e6 }, via: 'ebpf' })
-
-function world(over: Record<string, Partial<Cluster>> = {}, nodes: MachineNode[] = [node('n-a', 'a'), node('n-b', 'b'), node('n-c', 'c')]) {
-  return buildWorld({
-    clusters: [cluster('a', over.a), cluster('b', over.b), cluster('c', over.c)],
-    nodes,
-    services: [service('api', 'a'), service('db', 'b')],
-    devices: [],
-    dependencies: [dep('api', 'db')],
-    sites: [site('s1')],
-    siteLinks: [],
-    externalEndpoints: [],
-    agents: [],
-    paths: [],
-  })
-}
-
-test('placement: live clusters with known capacity are targets; the others are excluded with their reason', () => {
-  const w = world({ b: { state: 'stale', stale: true, stateReason: 'stale for 2 h' }, c: { state: 'revoked', stateReason: 'agent revoked 3 h ago' } })
-  const ex = excludedClusters(w)
-  assert.deepEqual(ex.map((x) => [x.cluster.id, x.status.state, x.status.reason]), [['b', 'stale', 'stale for 2 h'], ['c', 'revoked', 'agent revoked 3 h ago']])
-  assert.equal(clusterStatus(w, 'a').eligible, true)
-
-  const targets = moveTargets(w.byService.get('api')!, { clusters: w.clusters, nodes: w.nodes, services: w.services, devices: [], dependencies: w.deps, sites: w.sites })
-  const t = new Map(targets.map((x) => [x.cluster.id, x]))
-  assert.equal(t.has('a'), false) // its own cluster is not a "target"
-  assert.equal(t.get('b')!.fits, false)
-  assert.match(t.get('b')!.blockers.join(' '), /stale for 2 h/)
-  assert.deepEqual(t.get('c')!.excluded, { state: 'revoked', reason: 'agent revoked 3 h ago' })
-  assert.deepEqual(targets.map((x) => x.cluster.id), ['b', 'c'].sort((x, y) => x.localeCompare(y)))
-})
-
-test('placement: a cluster whose capacity is unknown is not excluded (an unknown is not a no): it is listed as "can\'t tell", apart from clusters left out for not being live', () => {
-  const w = world({}, [node('n-a', 'a'), node('n-b', 'b')]) // no node reported for c
-  const ex = excludedClusters(w)
-  assert.deepEqual(ex.map((x) => x.cluster.id), []) // live, so not "excluded"
-  const unsure = unverifiableClusters(w)
-  assert.deepEqual(unsure.map((x) => x.cluster.id), ['c'])
-  assert.equal(unsure[0].nothing, true)
-  assert.match(unsure[0].why, /no nodes are known/)
-  // it is still a live target (an unknown is not a no); it just cannot be certified to have room
-  assert.equal(clusterStatus(w, 'c').capacityUnknown, true)
-  assert.equal(clusterStatus(w, 'c').eligible, true)
-})
-
-test('placement: nothing is recommended for a service whose own cluster is not live, and a stale cluster is never proposed', () => {
-  const w = world({ a: { state: 'disconnected', stateReason: 'agent not connected' } })
-  assert.equal(recommend(w, DEFAULT_POLICY).recommendations.length, 0)
-  const w2 = world({ b: { state: 'stale', stale: true, stateReason: 'stale for 1 d' } })
-  for (const r of recommend(w2, DEFAULT_POLICY).recommendations) assert.notEqual(r.to, 'b')
-})
-
-test('decider input: additive fields say which clusters were left out and why', () => {
-  const w = world({ b: { state: 'stale', stale: true, stateReason: 'stale for 2 h' } })
-  const input = buildDecisionInput(w, DEFAULT_POLICY, new Date(NOW))
-  assert.deepEqual(input.excluded, [{ cluster: 'b', name: 'b', state: 'stale', reason: 'stale for 2 h', kind: 'not-live' }])
-  const b = input.clusters.find((c) => c.id === 'b')!
-  assert.equal(b.eligible, false)
-  assert.equal(input.clusters.find((c) => c.id === 'a')!.eligible, true)
-  assert.equal(input.services.find((s) => s.id === 'db')!.clusterState, 'stale')
-  for (const s of input.services) assert.equal(s.candidates.includes('b'), false)
 })

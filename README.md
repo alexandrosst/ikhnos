@@ -75,7 +75,6 @@ It is built on four commitments:
 - **History.** Every change to anything is a new version with a reason attached. Ask what a cluster looked like an hour ago, or what depends on a service.
 - **Telemetry and FUSION.** Opt-in collectors, regional operators and a bundled Prometheus, Loki, Tempo and Grafana stack with nine dashboards, from the fleet down to a single workload and Ikhnos' own health, opened through the server so nothing is exposed.
 - **Cluster links.** Loss, delay and jitter between clusters you choose to pair, from real traffic and active measurement. The paired clusters must be able to reach each other.
-- **Placement advice.** Where a service would be better off running, with the evidence. Ikhnos never moves anything.
 - **Diagnose.** One button per agent explains what is wrong with it, worst first, with the `kubectl` command for each finding.
 - **Accounts.** Roles, two-factor sign-in (TOTP, email code, passkeys) and an audit trail.
 - **Open interfaces.** A JSON API behind the UI and a token-protected FUSION API with its own reference page.

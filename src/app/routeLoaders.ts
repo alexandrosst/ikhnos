@@ -26,12 +26,10 @@ export const routeLoaders: Record<string, () => Promise<{ default: ComponentType
   '/applications': () => import('@/features/topology/ApplicationsPage'),
   '/sites': () => import('@/features/topology/SitesPage'),
   '/agents': () => import('@/features/agents/AgentsPage'),
-  '/proposals': () => import('@/features/proposals/ProposalsPage'),
   '/pipeline': () => import('@/features/pipeline/PipelinePage'),
   '/fusion': () => import('@/app/FusionRoute'),
   '/history': () => import('@/features/history/HistoryPage'),
   '/system-health': () => import('@/features/health/SystemHealthPage'),
-  '/placement': () => import('@/features/placement/PlacementPage'),
   '/settings': () => import('@/features/settings/SettingsPage'),
   '/team': () => import('@/features/accounts/TeamPage'),
 }

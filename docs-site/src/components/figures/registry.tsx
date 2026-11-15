@@ -1,5 +1,5 @@
 import {TargetArchitecture, ChangeSequence, MigrationRoadmap, WorkingPlan, PlanePlan, CrdFlow} from './history';
-import {ContinuumOverview, SystemAtAGlance, OnboardingJourney, EnrollmentSequence, TrustChain, PlacementPipeline, TelemetryFlow} from './product';
+import {ContinuumOverview, SystemAtAGlance, OnboardingJourney, EnrollmentSequence, TrustChain, TelemetryFlow} from './product';
 import {ServerLayers, FactsToViews, AgentStream, AgentInside, ConfigChannel, DecisionLoop, FrontendLayers} from './inside';
 import {DistributedPlanes, ObservabilityPlanes, ControlPlaneParts, DataPlaneParts, ComponentAnatomy} from './planes';
 import {EntityVersions, BoundedWalk, ExposureOptions, ReleasePipeline} from './memory';
@@ -17,7 +17,6 @@ export const figures = {
   OnboardingJourney,
   EnrollmentSequence,
   TrustChain,
-  PlacementPipeline,
   TelemetryFlow,
   ServerLayers,
   FactsToViews,

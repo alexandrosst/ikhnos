@@ -17,7 +17,6 @@ import { pollEvery } from '@/lib/pollRate'
 import { prefetchRoute } from '@/app/routeLoaders'
 import { PAGE_ICON } from '@/lib/pageIcons'
 import { resumeServer, useServer } from '@/store/server'
-import { useWaitingProposals, usePollWaitingProposals } from '@/features/proposals/store/waitingProposals'
 import { useRawTopology } from '@/store/topology'
 
 // Published by .github/workflows/docs.yml from docs-site/ — see its "Release process" page for the one-time
@@ -58,8 +57,6 @@ const NAV_GROUPS: { label: string; items: NavEntry[] }[] = [
     label: 'Manage',
     items: [
       { to: '/agents', label: 'Agents', icon: PAGE_ICON.agents },
-      { to: '/proposals', label: 'Proposals', icon: PAGE_ICON.proposals },
-      { to: '/placement', label: 'Placement', icon: PAGE_ICON.placement },
       { to: '/history', label: 'History', icon: PAGE_ICON.history },
     ],
   },
@@ -212,7 +209,6 @@ function SidebarNav({
   activeTo,
   approvals,
   found,
-  proposals,
   accountSlot,
   fusionShortcut,
   onSearch,
@@ -223,7 +219,6 @@ function SidebarNav({
   activeTo: string | null
   approvals?: number
   found?: number
-  proposals?: number
   accountSlot: ReactNode
   /** The button beside FUSION: only once signed in, since it reads FUSION's state. */
   fusionShortcut?: ReactNode
@@ -258,7 +253,7 @@ function SidebarNav({
             <div key={group.label} className="flex flex-col gap-1">
               <div className="px-3 text-[11px] font-medium uppercase tracking-wide text-nb-600">{group.label}</div>
               {group.items.map((n) => (
-                <NavItem key={n.to} {...n} slid badge={n.to === '/agents' ? (approvals ?? 0) + (found ?? 0) : n.to === '/proposals' ? proposals : undefined} trailing={n.to === '/fusion' ? fusionShortcut : undefined} />
+                <NavItem key={n.to} {...n} slid badge={n.to === '/agents' ? (approvals ?? 0) + (found ?? 0) : undefined} trailing={n.to === '/fusion' ? fusionShortcut : undefined} />
               ))}
             </div>
           ))}
@@ -314,8 +309,6 @@ function Shell() {
   // Agents holds both what is waiting for an approval and what the agents found for a person to decide (its Suggestions tab): one badge for both.
   const approvals = useRawTopology((s) => s.agents.filter((a) => a.status === 'pending' && a.requestedAt).length)
   const found = useRawTopology((s) => s.suggestions.filter((x) => x.status === 'open').length)
-  const proposals = useWaitingProposals((s) => s.count)
-  usePollWaitingProposals()
   const { pathname } = useLocation()
   // The canvas page wants the full viewport; table pages get a padded container.
   const full = pathname.startsWith('/topology')
@@ -346,7 +339,6 @@ function Shell() {
         activeTo={activeTo}
         approvals={approvals}
         found={found}
-        proposals={proposals}
         accountSlot={<AccountMenu />}
         fusionShortcut={<FusionShortcut />}
         onSearch={() => setSearching(true)}

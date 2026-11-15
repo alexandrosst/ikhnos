@@ -1,4 +1,4 @@
-import { Boxes, Cable, ClipboardCheck, Folders, History, LayoutDashboard, Layers, MapPin, Network, Package, Radio, Route, Server, Waypoints, type LucideIcon } from 'lucide-react'
+import { Boxes, Cable, Folders, History, LayoutDashboard, Layers, MapPin, Network, Package, Radio, Server, Waypoints, type LucideIcon } from 'lucide-react'
 
 /** The icon of each page: the sidebar draws it beside the name, and the page's empty state draws it above its title, so the two always agree. */
 export const PAGE_ICON = {
@@ -13,7 +13,5 @@ export const PAGE_ICON = {
   pipeline: Waypoints,
   fusion: LayoutDashboard,
   agents: Cable,
-  proposals: ClipboardCheck,
-  placement: Route,
   history: History,
 } as const satisfies Record<string, LucideIcon>

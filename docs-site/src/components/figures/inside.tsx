@@ -360,9 +360,9 @@ export function FrontendLayers() {
       {feats(['pipeline'], 226, 100)}
       <T x={150} y={241} small muted>telemetry pipelines</T>
       {row(260, 36)}
-      {feats(['discovery', 'health', 'placement'], 268, 100)}
+      {feats(['discovery', 'health'], 268, 100)}
       {row(302, 36)}
-      {feats(['accounts', 'activity', 'fusion', 'history', 'links', 'proposals', 'settings'], 310, 58)}
+      {feats(['accounts', 'activity', 'fusion', 'history', 'links', 'settings'], 310, 58)}
 
       {row(352, 56, true)}
       <T x={40} y={376} bold>Shared</T>

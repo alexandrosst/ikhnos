@@ -7,7 +7,6 @@ import { prefetchAllRoutesWhenIdle, routeLoaders } from '@/app/routeLoaders'
 // Built from routeLoaders (not `lazy(() => import(...))` inlined here) so Layout's nav can reuse the exact
 // same loader to prefetch a page's chunk on hover/focus - see routeLoaders.ts for why.
 const AgentsPage = lazy(routeLoaders['/agents'])
-const ProposalsPage = lazy(routeLoaders['/proposals'])
 const PipelinePage = lazy(routeLoaders['/pipeline'])
 const FusionPage = lazy(routeLoaders['/fusion'])
 const ApplicationsPage = lazy(routeLoaders['/applications'])
@@ -17,7 +16,6 @@ const HistoryPage = lazy(routeLoaders['/history'])
 const SystemHealthPage = lazy(routeLoaders['/system-health'])
 const NamespacesPage = lazy(routeLoaders['/namespaces'])
 const NodesPage = lazy(routeLoaders['/nodes'])
-const PlacementPage = lazy(routeLoaders['/placement'])
 const SettingsPage = lazy(routeLoaders['/settings'])
 const SitesPage = lazy(routeLoaders['/sites'])
 const TopologyPage = lazy(routeLoaders['/topology'])
@@ -83,13 +81,11 @@ export default function App() {
           <Route path="/sites" element={<SitesPage />} />
           <Route path="/discovery" element={<DiscoveryRedirect />} />
           <Route path="/agents" element={<AgentsPage />} />
-          <Route path="/proposals" element={<ProposalsPage />} />
           <Route path="/pipeline" element={<PipelinePage />} />
           <Route path="/fusion/*" element={<FusionPage />} />
           <Route path="/operators" element={<OperatorsRedirect />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/system-health" element={<SystemHealthPage />} />
-          <Route path="/placement" element={<PlacementPage />} />
           <Route path="/workloads" element={<Navigate to="/services" replace />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/activity" element={<Navigate to="/history?view=people" replace />} />

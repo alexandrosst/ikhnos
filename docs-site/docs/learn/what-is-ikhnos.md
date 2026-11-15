@@ -38,7 +38,7 @@ It does not guess quietly. When a number is a guess, the interface says so. When
 
 ## Who it is for
 
-Ikhnos is for people who run clusters in more than one place and want one picture of all of it, and to see how healthy each place is. A platform team with a cloud region and a few edge sites is the typical case. So is a researcher studying orchestration across the continuum, who wants a faithful, read-only picture to build on. Early research on placement advice is described in the [roadmap](../project/roadmap.md).
+Ikhnos is for people who run clusters in more than one place and want one picture of all of it, and to see how healthy each place is. A platform team with a cloud region and a few edge sites is the typical case. So is a researcher studying orchestration across the continuum, who wants a faithful, read-only picture to build on. Where the project could go next is in the [roadmap](../project/roadmap.md).
 
 It is pre-1.0 software. [Status and limits](../project/status-and-limits.md) says plainly what has been tested, what has never been run for real, and what is not built.
 

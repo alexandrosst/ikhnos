@@ -4,8 +4,7 @@ import { Fragment, useEffect, useMemo, useState, type ComponentProps, type React
 import { Link } from 'react-router-dom'
 import EntityHistory from '@/features/history/components/EntityHistory'
 import { NeedsLook, SourcesFooter } from '@/features/topology/components/EvidenceSection'
-import MobilityPanel from '@/features/placement/components/MobilityPanel'
-import PlacementHint from '@/features/placement/components/PlacementHint'
+import PlacementHint from '@/features/topology/components/PlacementHint'
 import { LinkRow, Section, ShortList } from '@/features/topology/components/InspectorParts'
 import { OverlaySection } from '@/features/topology/components/OverlaySection'
 import PlatformPanel, { PlatformSubtitle } from '@/features/topology/components/PlatformPanel'
@@ -944,9 +943,6 @@ export default function Inspector({
             </Section>
           )
         })()}
-        <Section title="Can it move?">
-          <MobilityPanel service={w} onSelectCluster={(id) => onSelect({ kind: 'cluster', id })} />
-        </Section>
         <Section title={`Runs on (${w.nodeIds.length})`}>
           {w.nodeIds.map((id) => {
             const n = nodes.find((x) => x.id === id)

@@ -8,7 +8,6 @@ import { accelSummary, ageLabel, autoscalerRange, callerIfaceSpeedMbps, count, c
 import { buildMapSites, clampPan, dominantTier, exitIps, groupByProximity, groupLabel, siteConnections, unplacedClusters, worstStatus } from '../src/features/topology/lib/geo'
 import { buildIndex, countryAt, countryShapes, derivePlacementSuggestions, distanceKm, findCities, fold, nearestCity, parseCities, placementCandidates, siteFromCandidate, siteLocationIssue } from '../src/lib/places'
 import { EXONYMS } from '../src/data/exonyms'
-import { moveTargets, movability, type MoveModel } from '../src/lib/movability'
 import { buildSearchIndex, parseSel, searchItems } from '../src/lib/search'
 import { filterSummary } from '../src/features/topology/lib/filter'
 import { narrowFitZoom } from '../src/features/topology/lib/fit'
@@ -826,109 +825,6 @@ test('map: only public addresses are shown as a site\'s exit IP', () => {
   assert.deepEqual(exitIps([{ egressIp: '203.0.113.24' }, { egressIp: '203.0.113.24' }, { egressIp: '10.0.0.5' }, { egressIp: undefined }, { egressIp: '100.64.1.1' }]), ['203.0.113.24'])
   const ms = buildMapSites(seed.sites, seed.clusters, seed.devices, seed.nodes, seed.services)
   assert.deepEqual(ms.find((m) => m.site.id === 'site-pat')?.exitIps, ['203.0.113.24'])
-})
-
-/* ---------- can it move? ---------- */
-
-const mm = (over: Partial<MoveModel> = {}): MoveModel => ({ clusters: seed.clusters, nodes: seed.nodes, services: seed.services, devices: seed.devices, dependencies: seed.dependencies, sites: seed.sites, ...over })
-const svc = (id: string) => seed.services.find((x) => x.id === id)!
-const codes = (id: string, over?: Partial<Service>) => movability({ ...svc(id), ...over }, mm()).reasons.map((r) => r.code)
-
-test('movability: local volumes and machine-bound devices pin a service, with the reason', () => {
-  const kafka = movability(svc('w-kafka'), mm())
-  assert.equal(kafka.verdict, 'pinned')
-  assert.equal(kafka.reasons[0].code, 'local-volume') // worst first
-  assert.match(kafka.reasons[0].text, /local volume/)
-  const mqtt = movability(svc('w-mqtt-a'), mm())
-  assert.equal(mqtt.verdict, 'pinned')
-  assert.ok(codes('w-mqtt-a').includes('attached-device')) // the sensors' gateway is the node it runs on
-})
-
-test('movability: a cloud volume is a caution, not a blocker; policy is spelled out', () => {
-  const reg = movability(svc('w-registry'), mm())
-  assert.equal(reg.verdict, 'careful')
-  assert.ok(reg.reasons.some((r) => r.code === 'volume' && /200 GB/.test(r.text)))
-  assert.ok(reg.reasons.some((r) => r.code === 'residency' && /EU/.test(r.text)))
-})
-
-test('movability: selectors, disruption budgets, single replicas and daemon sets', () => {
-  assert.ok(codes('w-infer-b').includes('arch'))
-  assert.ok(codes('w-train').includes('accelerator'))
-  assert.ok(codes('w-gw', { disruption: { minAvailable: '2', allowed: 0 } }).includes('pdb'))
-  assert.ok(codes('w-orch', { replicas: 1 }).includes('single'))
-  assert.ok(!codes('w-orch', { replicas: 1, autoscaler: { min: 1, max: 3, current: 1 } }).includes('single'))
-  assert.equal(movability({ ...svc('w-orch'), kind: 'DaemonSet' }, mm()).verdict, 'pinned')
-  assert.ok(codes('w-orch', { nodeSelector: { 'kubernetes.io/hostname': 'n-c2' } }).includes('hostname'))
-  // an agent that does not read storage means "no volumes" proves nothing
-  assert.ok(movability({ ...svc('w-orch'), volumes: undefined }, mm({ storageKnown: false })).reasons.some((r) => r.code === 'storage-unknown'))
-})
-
-test('movability: a device dependency with measured loss or jitter names it in the caution, unmeasured ones do not', () => {
-  // w-infer-a talks to dev-act-a (dependency d20) without being plugged into its gateway node - this is
-  // the 'devices' caution's own existing case, re-verified against the current seed before extending it
-  // below. Unmeasured (the seed's own default): the caution text is unchanged from before this session.
-  const plain = movability(svc('w-infer-a'), mm()).reasons.find((r) => r.code === 'devices')!
-  assert.match(plain.text, /Moving far away adds latency to every message\.$/)
-  assert.ok(!/already measures/.test(plain.text), plain.text)
-
-  // Now with d20 actually eBPF-measuring real loss and jitter on that exact link.
-  const degraded = seed.dependencies.map((d) => (d.id === 'd20' ? { ...d, stats: { ...d.stats, lossPct: 3.2 }, jitterMs: 40 } : d))
-  const withEvidence = movability(svc('w-infer-a'), mm({ dependencies: degraded })).reasons.find((r) => r.code === 'devices')!
-  assert.match(withEvidence.text, /already measures 3\.2% packet loss and 40 ms of jitter/, withEvidence.text)
-  assert.equal(withEvidence.severity, plain.severity) // enriches the existing caution, never changes its severity
-
-  // Below the noteworthy thresholds (see movability.ts's own worstLoss/worstJitter comment): nothing is
-  // added, so a merely-present-but-tiny measurement does not clutter the sentence with noise.
-  const tiny = seed.dependencies.map((d) => (d.id === 'd20' ? { ...d, stats: { ...d.stats, lossPct: 0.1 }, jitterMs: 2 } : d))
-  const withTiny = movability(svc('w-infer-a'), mm({ dependencies: tiny })).reasons.find((r) => r.code === 'devices')!
-  assert.ok(!/already measures/.test(withTiny.text), withTiny.text)
-})
-
-test('movability: a plain stateless public service is free', () => {
-  const plain: Service = { ...svc('w-orch'), replicas: 3, sensitivity: 'public', applicationId: undefined, exposure: 'internal', hosts: undefined, volumes: undefined, nodeSelector: undefined, tolerations: undefined, disruption: undefined }
-  const r = movability(plain, mm({ clusters: seed.clusters.map((c) => ({ ...c, trustZone: undefined, dataResidency: undefined })), sites: seed.sites.map((s) => ({ ...s, trustZone: undefined, dataResidency: undefined })) }))
-  assert.equal(r.verdict, 'free')
-  assert.deepEqual(r.reasons, [])
-})
-
-test('moveTargets: residency, trust zone, selectors and capacity rule clusters out, with the reason', () => {
-  const reg = svc('w-registry') // confidential, EU, in the cloud cluster
-  const us = seed.clusters.map((c) => (c.id === 'cl-region' ? { ...c, dataResidency: 'US' } : c))
-  const t = moveTargets(reg, mm({ clusters: us }))
-  const region = t.find((x) => x.cluster.id === 'cl-region')!
-  assert.equal(region.fits, false)
-  assert.match(region.blockers.join(' '), /must stay in EU/)
-  assert.ok(!t.some((x) => x.cluster.id === reg.clusterId))
-  assert.ok(t.findIndex((x) => x.fits) < t.findIndex((x) => !x.fits) || t.every((x) => x.fits)) // fits first
-
-  // restricted edge to a merely private cluster: less trusted
-  const fromEdge = moveTargets(svc('w-mqtt-a'), mm())
-  assert.match(fromEdge.find((x) => x.cluster.id === 'cl-cloud')!.blockers.join(' '), /less trusted/)
-
-  // a selector nobody in the target satisfies
-  const jet = moveTargets(svc('w-infer-a'), mm()).find((x) => x.cluster.id === 'cl-cloud')!
-  assert.match(jet.blockers.join(' '), /jetson-orin/)
-
-  // capacity: ask for far more than any node has free
-  const huge = moveTargets({ ...svc('w-orch'), cpuRequestM: 900000 }, mm())
-  assert.ok(huge.every((x) => x.unknown.length > 0 || x.blockers.some((b) => /free CPU/.test(b))))
-  // a daemon set never moves between clusters
-  assert.ok(moveTargets({ ...svc('w-orch'), kind: 'DaemonSet' }, mm()).every((x) => !x.fits))
-})
-
-test('movability: a kubernetes.io/os selector resolves from MachineNode.os, not just the raw label', () => {
-  // None of the seeded nodes carry a literal kubernetes.io/os label (seed.ts's `n` helper defaults labels to {}),
-  // so this is exactly the stock-Helm-chart nodeSelector that used to come back "does not fit" everywhere even
-  // though every node's (required, always-known) os field answers it.
-  const linux = moveTargets({ ...svc('w-orch'), nodeSelector: { 'kubernetes.io/os': 'linux' } }, mm())
-  assert.ok(linux.some((t) => t.fits), 'a linux selector should fit somewhere: every seeded node is Linux')
-  assert.ok(!linux.some((t) => t.blockers.some((b) => /no node carries/.test(b))))
-
-  // os is required, so unlike arch it resolves definitively: a selector nothing can satisfy is a hard "does not
-  // fit", not a "can't tell" waiting on an agent to report it.
-  const windows = moveTargets({ ...svc('w-orch'), nodeSelector: { 'kubernetes.io/os': 'windows' } }, mm())
-  assert.ok(windows.every((t) => !t.fits))
-  assert.ok(windows.some((t) => t.blockers.some((b) => /no node carries/.test(b))))
 })
 
 /* ---------- saved views and search ---------- */

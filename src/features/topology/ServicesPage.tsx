@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import GoToAgents from '@/components/GoToAgents'
 import { ConfirmModal, ServiceForm } from '@/components/forms'
-import { MobilityChip, useMoveModel } from '@/features/placement/components/MobilityPanel'
 import { GoneRecords } from '@/components/Observations'
 import { Button, ChipList, EmptyState, ClearableChip, GuessDot, ICON_SM, PageHeader, Pill, Select, StatusDot, Table, Td, Th } from '@/components/ui/primitives'
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
@@ -21,12 +20,10 @@ const SERVICE_COLUMNS: ColumnDef[] = [
   { key: 'kind', label: 'Kind' },
   { key: 'runsOn', label: 'Runs on' },
   { key: 'calls', label: 'Calls' },
-  { key: 'mobility', label: 'Mobility' },
 ]
 
 export default function ServicesPage() {
   const { clusters, nodes, services, dependencies, applications, deleteService } = useTopology()
-  const { forService } = useMoveModel()
   const weak = useWeakValue('service')
   const [q, setQ] = useState('')
   const columns = useColumnVisibility('services')
@@ -88,7 +85,6 @@ export default function ServicesPage() {
               {columns.isVisible('kind') && <Th>Kind</Th>}
               {columns.isVisible('runsOn') && <Th>Runs on</Th>}
               {columns.isVisible('calls') && <Th>Calls</Th>}
-              {columns.isVisible('mobility') && <Th>Mobility</Th>}
               <Th>Status</Th>
               <Th className="sticky right-0 bg-nb-925" />
             </tr>
@@ -121,7 +117,6 @@ export default function ServicesPage() {
                 )}
                 {columns.isVisible('runsOn') && <Td><ChipList items={w.nodeIds.map(nodeName)} /></Td>}
                 {columns.isVisible('calls') && <Td>{dependencies.filter((d) => d.from === w.id).length}</Td>}
-                {columns.isVisible('mobility') && <Td><MobilityChip service={w} forService={forService} /></Td>}
                 <Td>{(() => { const o = observation(w); return <StatusDot status={w.status} withLabel notCurrent={o && o.kind !== 'live' ? (o.reason ?? o.label) : undefined} /> })()}</Td>
                 <Td className="sticky right-0 bg-nb-925 group-hover:bg-nb-930"><RowActions onEdit={() => setPanel({ service: w, edit: true })} onDelete={() => setDeleting(w)} /></Td>
               </tr>

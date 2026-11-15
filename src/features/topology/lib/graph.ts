@@ -78,8 +78,6 @@ export type CardData = {
   control?: boolean
   /** Services drawn inside a machine card (infrastructure view overlay). */
   chips?: { id: string; name: string }[]
-  /** Placement advice: where this service would be better off (a cluster name), when the engine has an opinion. */
-  hint?: string
   /** Replicas wanted and ready, for a service that is not fully up. */
   notReady?: string
   /** Replica count of a service, with how many are ready when known: drawn as a strip of small cells on the card. */
@@ -227,8 +225,6 @@ export interface GraphOptions {
   paths?: Path[]
   /** Show the service mesh: its control plane, which services are in it, and what it does to each connection. */
   mesh?: boolean
-  /** Service id → name of the cluster the placement engine would move it to. */
-  hints?: Map<string, string>
   /** Application view, grouped by cluster: draw a sub-box per namespace inside each cluster's box. */
   namespaces?: boolean
   /** Application view: lay services out as a left-to-right dependency chain instead of grouping them into
@@ -457,7 +453,7 @@ export function buildGraph(topology: Topology, o: GraphOptions): { nodes: TopoNo
       // The mesh's own workloads (istiod, ztunnel, gateways) are machinery: shown only with the mesh overlay.
       if (w.mesh?.controlPlane && !o.mesh) continue
       const g = ensureGroup(c)
-      g.items.push(serviceItem(w, c, o.groupBy === 'tier', o.hints?.get(w.id), o.mesh, nodeById, serviceById))
+      g.items.push(serviceItem(w, c, o.groupBy === 'tier', o.mesh, nodeById, serviceById))
       groupOfEntity.set(w.id, g.key)
     }
 
@@ -1049,7 +1045,7 @@ function buildChainGraph(t: Topology, o: GraphOptions): { nodes: TopoNode[]; edg
   const items: Item[] = [
     ...services.map((w) => {
       const c = clusterById.get(w.clusterId)!
-      const item = serviceItem(w, c, true, o.hints?.get(w.id), o.mesh, nodeById, serviceById)
+      const item = serviceItem(w, c, true, o.mesh, nodeById, serviceById)
       return (names.get(w.name) ?? 0) > 1 ? { ...item, data: { ...item.data, clusterTag: c.name } } : item
     }),
     ...deviceLeaves.map((dv) => deviceItem(dv, dv.siteId ? siteById.get(dv.siteId) : undefined, true)),
@@ -1106,13 +1102,13 @@ function tierLabel(t: Tier) {
   return t === 'far-edge' ? 'Far edge' : t[0].toUpperCase() + t.slice(1)
 }
 
-function serviceItem(w: Service, c: Cluster, withCluster: boolean, hint: string | undefined, mesh: boolean | undefined, nodeById: Map<string, MachineNode>, serviceById: Map<string, Service>): Item {
+function serviceItem(w: Service, c: Cluster, withCluster: boolean, mesh: boolean | undefined, nodeById: Map<string, MachineNode>, serviceById: Map<string, Service>): Item {
   const pods = buildPodsView(w.pods, w.name, nodeById, serviceById)
   // With per-pod facts the pod summary says it ("27/30 ready"), so the chip is only for a service without them.
   const notReady = !pods && w.readyReplicas !== undefined && w.readyReplicas < w.replicas
   // One row of small chips under the name; a second for the pod rail (capped, so it always fits its row),
-  // whichever combination of the two is present (mirrors the machine card's own hint/notReady/mesh row).
-  const badgeRow = !!(hint || notReady || (mesh && w.mesh))
+  // whichever combination of the two is present (mirrors the machine card's own notReady/mesh row).
+  const badgeRow = !!(notReady || (mesh && w.mesh))
   const podsRow = !!pods
   const extraRows = (badgeRow ? 1 : 0) + (podsRow ? 1 : 0)
   return {
@@ -1131,7 +1127,6 @@ function serviceItem(w: Service, c: Cluster, withCluster: boolean, hint: string 
       tier: c.tier,
       clusterName: c.name,
       serviceKind: w.kind,
-      hint,
       notReady: notReady ? `${w.readyReplicas}/${w.replicas} ready` : undefined,
       mesh: mesh && w.mesh ? meshChip(w) : undefined,
       pods,

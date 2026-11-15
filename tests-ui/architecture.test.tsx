@@ -16,10 +16,10 @@ import { describe, expect, test } from 'vitest'
 /** The features, lowest layer first. Features in one layer cannot import each other. */
 const LAYERS: string[][] = [
   // Each of these needs nothing of the others.
-  ['accounts', 'fusion', 'history', 'links', 'proposals', 'settings'],
+  ['accounts', 'fusion', 'history', 'links', 'settings'],
   // From here each layer may use any layer listed before it, and none beside it.
   // System health leads to FUSION's Ikhnos self dashboard, so it sits above FUSION.
-  ['discovery', 'health', 'placement'],
+  ['discovery', 'health'],
   ['pipeline'],
   ['agents'],
   ['topology'],

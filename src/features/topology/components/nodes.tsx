@@ -1,7 +1,6 @@
 import { Handle, useStore, type NodeProps } from '@xyflow/react'
 import clsx from 'clsx'
 import {
-  ArrowUpRight,
   BatteryCharging,
   Box,
   Cable,
@@ -77,7 +76,7 @@ function nicSpeedLabel(mbps: number) {
 }
 
 /** One shared shape for every small text pill on a node (a cluster's mesh state, its detected networking,
- * a service's "not ready" or placement-hint chip, a service-count chip) - these had each grown their own
+ * a service's "not ready" chip, a service-count chip) - these had each grown their own
  * near-identical rounded/padding/icon/truncate markup, with small unintentional drift between them (radius,
  * padding, whether an icon was included, two different neutral grays) rather than genuine differences.
  * `tone` takes the caller's own pre-existing background+text color classes (TONE/MESH_TONE/NEUTRAL_TONE
@@ -309,10 +308,10 @@ export const Card = memo(function Card({ data, selected }: NodeProps<CardNode>) 
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <StatusDot status={data.status} className={far ? 'size-3' : 'size-2'} title={data.status} />
           {!far && !isMachine && (data.replicas ? <ReplicaCells replicas={data.replicas} label={data.meta} far={false} /> : <span className="text-[11px] text-nb-500">{data.meta}</span>)}
-          {far && (data.hint || data.notReady) && <span className={clsx('size-2.5 rounded-sm', data.notReady ? 'bg-warn' : 'bg-accent')} title={data.notReady ?? `Better in ${data.hint}`} />}
+          {far && data.notReady && <span className="size-2.5 rounded-sm bg-warn" title={data.notReady} />}
         </div>
       </div>
-      {!far && (data.hint || data.notReady || data.mesh || data.hardware) && (
+      {!far && (data.notReady || data.mesh || data.hardware) && (
         <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
           {data.mesh && (
             <Badge tone={MESH_TONE[data.mesh.tone]} title={data.mesh.title} data-testid="mesh-chip" className="max-w-full">
@@ -320,11 +319,6 @@ export const Card = memo(function Card({ data, selected }: NodeProps<CardNode>) 
             </Badge>
           )}
           {data.notReady && <Badge tone="bg-warn/10 text-warn" title="Fewer replicas are ready than wanted">{data.notReady}</Badge>}
-          {data.hint && (
-            <Badge tone="bg-accent-soft text-accent" icon={ArrowUpRight} title={`The placement advice would move this to ${data.hint}. Open it for the evidence.`} data-testid="placement-hint" className="max-w-full">
-              better in {data.hint}
-            </Badge>
-          )}
           {data.hardware?.hasBattery && (
             <Badge tone={NEUTRAL_TONE} icon={BatteryCharging} title="Node probe: this machine can run without mains power (has a battery)" data-testid="battery-badge">
               Battery

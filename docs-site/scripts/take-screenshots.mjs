@@ -53,11 +53,6 @@ async function sample(browser) {
   for (let i = 0; i < 2; i++) { await page.mouse.wheel(0, -120); await page.waitForTimeout(350); }
   await page.waitForTimeout(1200);
   await both(page, 'readme/ui-map');
-  await page.setViewportSize({width: 1190, height: 800});
-  await page.goto(SAMPLE + '/placement');
-  await page.waitForTimeout(2500);
-  const card = page.locator('article').filter({hasText: 'Not enough evidence to recommend'}).first();
-  await both(page, 'readme/ui-placement', {element: card});
   await ctx.close();
 }
 

@@ -226,65 +226,6 @@ export function TrustChain() {
   );
 }
 
-/** How advice is made, from facts to a recommendation a person can argue with. */
-export function PlacementPipeline() {
-  const f = 'place';
-  return (
-    <Fig id={f} height={548} label="Facts go through hard constraints, a three-valued fit, a cost in points, a confidence taken from the weakest fact, and evidence; a person decides" title="How a recommendation is made" subtitle="Read-only. Every step keeps the source, the confidence and the age of what it used.">
-      <Box x={24} y={64} w={712} h={50} band />
-      <T x={40} y={86} bold>The landscape</T>
-      <T x={40} y={103} small muted>services and what they need, clusters and what is free, links and their round trips, each fact with its source, class and age</T>
-
-      <Box x={24} y={140} w={220} h={112} />
-      <Step x={24} y={140} n={1} />
-      <T x={44} y={164} bold>Hard constraints</T>
-      <Lines x={44} y={184} lines={['Local volumes, node pinning,', 'data residency, trust zones,', 'tier policy, room for CPU and memory.', 'Fail one and it is not a candidate.']} />
-
-      <Box x={270} y={140} w={220} h={112} />
-      <Step x={270} y={140} n={2} />
-      <T x={290} y={164} bold>Three-valued fit</T>
-      <Lines x={290} y={184} lines={['fits, does not fit, can’t tell.', 'Free capacity is an interval.', 'An unknown is not a zero.', 'A guess is not a fact.']} />
-
-      <Box x={516} y={140} w={220} h={112} />
-      <Step x={516} y={140} n={3} />
-      <T x={536} y={164} bold>Cost, in points</T>
-      <Lines x={536} y={184} lines={['Round trips, weighted by traffic;', 'traffic that newly crosses sites;', 'a penalty near full; data to copy.', '1 point is 1 ms of round trip.']} />
-
-      <Arrow fig={f} d="M244 196H270" />
-      <Arrow fig={f} d="M490 196H516" />
-
-      <Box x={24} y={284} w={220} h={112} />
-      <Step x={24} y={284} n={4} />
-      <T x={44} y={308} bold>Confidence</T>
-      <Lines x={44} y={328} lines={['measured, reported, inferred,', 'guess, unknown. The weakest', 'deciding fact sets the level,', 'never an average.']} />
-
-      <Box x={270} y={284} w={220} h={112} />
-      <Step x={270} y={284} n={5} />
-      <T x={290} y={308} bold>Evidence</T>
-      <Lines x={290} y={328} lines={['Each input with its source and', 'age, and the smallest change', 'that would flip the answer,', 'checked by the tests.']} />
-
-      <Box x={516} y={284} w={220} h={112} hi />
-      <Step x={516} y={284} n={6} />
-      <T x={536} y={308} bold>Recommendation</T>
-      <Lines x={536} y={328} lines={['Where, what it would save,', 'how sure, and why. Or: not', 'enough evidence to recommend,', 'with the missing fact named.']} muted={false} />
-
-      <Arrow fig={f} d="M134 252V284" />
-      <Arrow fig={f} d="M380 252V284" />
-      <Arrow fig={f} d="M626 252V284" />
-      <Arrow fig={f} d="M244 340H270" />
-      <Arrow fig={f} d="M490 340H516" />
-
-      <Box x={24} y={420} w={712} h={50} frame dashed />
-      <T x={40} y={442} bold>Deciders, side by side</T>
-      <T x={40} y={460} small muted>Baseline, Follow the heaviest talker, and your own webhook all see the same landscape and are scored on the same answer.</T>
-      <Arrow fig={f} dashed d="M560 420V396" />
-
-      <Box x={24} y={490} w={712} h={40} hi />
-      <T x={380} y={515} anchor="middle" bold>A person decides. Nothing is moved by Ikhnos.</T>
-    </Fig>
-  );
-}
-
 /** Where telemetry goes, and who may see it. */
 export function TelemetryFlow() {
   const f = 'telem';

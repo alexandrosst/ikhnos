@@ -384,7 +384,7 @@ export function ControlPlaneParts() {
 
       <Other x={578} y={64} w={158} h={60} name="You" sub="browser, HTTPS" icon="person" />
       <Card x={578} y={170} w={158} h={282} name="Ikhnos server" color={control} icon="server" hi>
-        <Lines x={592} y={222} lines={['Approves each agent', 'and its access tier.', '', 'Keeps the digital twin,', 'the history and the', 'audit trail.', '', 'Advises on placement.', '', 'Writes the config each', 'agent is sent, and the', 'commands you run for', 'operators.']} />
+        <Lines x={592} y={222} lines={['Approves each agent', 'and its access tier.', '', 'Keeps the digital twin,', 'the history and the', 'audit trail.', '', 'Writes the config each', 'agent is sent, and the', 'commands you run for', 'operators.']} />
       </Card>
       <Arrow fig={f} d="M657 124V170" />
       <T x={665} y={152} small muted>pages, API</T>

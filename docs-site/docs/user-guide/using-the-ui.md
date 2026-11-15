@@ -74,4 +74,3 @@ Invite colleagues from **Members & access**; invitations are one-time links that
 
 **Settings** has three parts: **Account** (you, your password, two-step sign-in and API tokens), **Server** (the address agents dial, the agent image and outgoing email) and **Data** (export, import or clear your topology, and load the sample).
 
-The **Placement** and **Proposals** pages are early research, described in the [roadmap](../project/roadmap.md).

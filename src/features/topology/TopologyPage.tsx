@@ -51,7 +51,6 @@ import { lossBand } from '@/lib/metrics'
 import { lossLabel } from '@/features/topology/lib/lossLabel'
 import { anyMesh, VERDICT_COLOR } from '@/features/topology/lib/mesh'
 import { useAutoPlaceClusters } from '@/lib/usePlacement'
-import { usePlanHints } from '@/lib/placement/usePlacement'
 import { parseSel } from '@/lib/search'
 import { TIER_COLOR, type GroupBy, type ViewKind } from '@/lib/types'
 import { useServer } from '@/store/server'
@@ -272,8 +271,6 @@ function Canvas() {
   }, [selParam, observedReady])
   const paths = usePaths()
   const clusterLinks = useClusterLinks()
-  // Placement advice, shown as a small marker on the services it would move.
-  const hints = usePlanHints()
 
   // Only some clusters or applications, when asked (?clusters=a,b&apps=x). Ids that no longer exist are ignored.
   const rawFilter = useMemo(() => parseFilter(sp), [sp])
@@ -296,10 +293,10 @@ function Canvas() {
   const graph = useMemo(
     () =>
       buildGraph(shown, {
-        view, groupBy, servicesOnNodes, links, devices: showDevices, noise: showNoise, mesh: showMesh, namespaces: showNamespaces, chain: showChain, paths, hints,
+        view, groupBy, servicesOnNodes, links, devices: showDevices, noise: showNoise, mesh: showMesh, namespaces: showNamespaces, chain: showChain, paths,
         clusterLinks,
       }),
-    [shown, view, groupBy, servicesOnNodes, links, showDevices, showNoise, showMesh, showNamespaces, showChain, paths, hints, clusterLinks],
+    [shown, view, groupBy, servicesOnNodes, links, showDevices, showNoise, showMesh, showNamespaces, showChain, paths, clusterLinks],
   )
   const nothingMatches = filtering && shown.clusters.length === 0 && shown.devices.length === 0
 
