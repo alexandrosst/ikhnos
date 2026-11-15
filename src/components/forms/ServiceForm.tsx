@@ -84,10 +84,10 @@ export function ServiceForm({ initial, onClose, defaultClusterId, edit, onDelete
       return (
         <Row label={label} origin={originOf(raw, field)} by={raw?.overrideMeta?.[field]?.by} mono={mono}>
           {value === undefined || value === null || value === '' || value === false ? undefined : (
-            <>
+            <span className="inline-flex items-center">
               {value}
-              {g && <span className="ml-1.5 align-middle"><GuessDot level={g.level} why={g.why} /></span>}
-            </>
+              {g && <GuessDot level={g.level} why={g.why} />}
+            </span>
           )}
         </Row>
       )

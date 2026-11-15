@@ -174,7 +174,7 @@ export function ViewFooter({ onDelete, legend = true }: { onDelete?: () => void;
           <Trash2 size={ICON_SM} /> Delete
         </Button>
       )}
-      {legend && <span className="ml-auto text-xs text-nb-500">Lock: detected · Pencil: set by you</span>}
+      {legend && <span className="ml-auto text-xs text-nb-500">Lock: detected · Pencil: set by you · Dot: not certain</span>}
     </>
   )
 }

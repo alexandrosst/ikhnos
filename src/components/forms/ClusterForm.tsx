@@ -73,10 +73,10 @@ export function ClusterForm({ initial, onClose, edit, onDelete }: { initial: Clu
       return (
         <Row label={label} origin={originOf(raw, field)} by={raw?.overrideMeta?.[field]?.by} mono={mono}>
           {value === undefined || value === null || value === '' || value === false ? undefined : (
-            <>
+            <span className="inline-flex items-center">
               {value}
-              {w && <span className="ml-1.5 align-middle"><GuessDot level={w.level} why={w.why} /></span>}
-            </>
+              {w && <GuessDot level={w.level} why={w.why} />}
+            </span>
           )}
         </Row>
       )
@@ -105,7 +105,7 @@ export function ClusterForm({ initial, onClose, edit, onDelete }: { initial: Clu
                 <Trash2 size={ICON_SM} /> Delete
               </Button>
             )}
-            <span className="ml-auto text-xs text-nb-500">Lock: detected · Pencil: set by you</span>
+            <span className="ml-auto text-xs text-nb-500">Lock: detected · Pencil: set by you · Dot: not certain</span>
           </>
         }
       >

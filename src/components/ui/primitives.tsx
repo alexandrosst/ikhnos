@@ -834,7 +834,7 @@ export function TierBadge({ tier }: { tier: Tier }) {
 export function GuessDot({ why, level = 'guess' }: { why?: string; level?: string }) {
   if (level !== 'guess') return null
   const title = why ? `Probably right, not certain. ${why}` : 'Probably right, not certain.'
-  return <span role="img" aria-label="Not certain" title={title} data-guess className="ml-1.5 inline-block size-1.5 rounded-full bg-nb-500 align-middle" />
+  return <span role="img" aria-label="Not certain" title={title} data-guess className="ml-2 inline-block size-1.5 shrink-0 rounded-full bg-nb-500 align-middle" />
 }
 
 /**
