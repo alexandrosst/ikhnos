@@ -445,7 +445,7 @@ await test('a topology left in the browser by one organisation is not offered to
   server.second = true
   server.ws2 = { rev: 0, updatedBy: '', updatedAt: '' }
   // Someone worked in org-1 in this browser and the tab was closed: their copy stays behind, marked as org-1's.
-  mem.set('ikhnos-workspace-owner', '|org-1')
+  mem.set('ikhnos-workspace-owner', '|u-1|org-1')
   useRawTopology.getState().clear()
   addCluster('left-behind-from-org-1')
   server.signedIn = false
@@ -454,6 +454,24 @@ await test('a topology left in the browser by one organisation is not offered to
   assert.equal(useServer.getState().orgId, 'org-2')
   assert.deepEqual(clusterNames(), [], 'the other organisation\'s topology was wiped, not shown')
   assert.equal(useWorkspace.getState().status, 'saved', 'and the person is not asked whether to upload it')
+  assert.equal(server.puts, 0)
+})
+
+await test('what an earlier deployment left at the same address is not mistaken for this one, even with the same organisation id', async () => {
+  fresh()
+  server.member1 = true
+  server.ws = { rev: 0, updatedBy: '', updatedAt: '' }
+  // A previous server at this address also called its first organisation org-1, but its administrator was somebody else.
+  mem.set('ikhnos-workspace-owner', '|u-from-the-old-server|org-1')
+  mem.set('ikhnos-workspace-pending/org-1', JSON.stringify({ rev: 7 }))
+  useRawTopology.getState().clear()
+  addCluster('from-the-old-deployment')
+  server.signedIn = false
+  await useServer.getState().connect('')
+  await useServer.getState().signIn('alex', 'right password!')
+  assert.deepEqual(clusterNames(), [], 'the old deployment\'s topology was wiped')
+  assert.equal(useWorkspace.getState().status, 'saved', 'and the person is not asked whether to upload it')
+  assert.equal(mem.get('ikhnos-workspace-pending/org-1'), undefined, 'nor is its unsaved-edits marker kept')
   assert.equal(server.puts, 0)
 })
 

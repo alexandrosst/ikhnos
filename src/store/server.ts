@@ -167,11 +167,15 @@ export const useServer = create<ServerStore>((set, get) => {
       set({ orgId: undefined, role: undefined, info: undefined, state: undefined, status: 'connected' })
       return
     }
-    // The browser's copy of a topology belongs to exactly one organisation. Another's is never shown or uploaded.
-    const mark = `${url}|${org.id}`
+    // The browser's copy of a topology belongs to one person in one organisation of one server. Another's is never shown or uploaded.
+    // The person is part of it because every fresh server names its first organisation "default": by organisation alone,
+    // what an earlier deployment at the same address left behind would pass for this one's.
+    const mark = `${url}|${get().user?.id ?? ''}|${org.id}`
     const owner = read(OWNER_KEY)
-    if (owner && owner !== mark) wipeLocal()
-    else {
+    if (owner && owner !== mark) {
+      wipeLocal()
+      forgetPending()
+    } else {
       useObserved.getState().clear()
       useHistoryView.getState().live()
       useSettings.getState().clear()
