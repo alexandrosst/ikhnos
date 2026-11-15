@@ -15,7 +15,7 @@ export default function ColumnPicker({ columns, state }: { columns: ColumnDef[];
 
   return (
     <div className="relative">
-      <MenuButton icon={Columns3} label="Columns" open={open} active={changed} onClick={() => setOpen((o) => !o)} aria-label="Choose columns" data-testid="columns-button" />
+      <MenuButton icon={Columns3} label="Columns" open={open} onClick={() => setOpen((o) => !o)} aria-label="Choose columns" data-testid="columns-button" />
       <MenuPanel open={open} onClose={() => setOpen(false)} className="w-64 overflow-hidden" role="dialog" aria-label="Choose columns" data-testid="columns-menu">
         <div className="flex items-center justify-between border-b border-nb-850 px-3 py-2">
           <span className="text-sm font-medium text-nb-200">Columns</span>

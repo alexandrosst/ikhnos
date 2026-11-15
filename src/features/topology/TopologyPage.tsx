@@ -183,7 +183,6 @@ function Canvas() {
   // The Telemetry tab's own filter: only the lanes where something needs attention or is not working.
   const problemsOnly = isTelemetry && sp.get('problems') === '1'
   // How many options differ from the defaults, so a hidden option is never a mystery.
-  const changedOptions = [!showDevices, showNoise, servicesOnNodes, !links, showLabels, groupBy === 'tier', showMesh, showNamespaces, showChain, showHealthLens].filter(Boolean).length
   const setParam = (k: string, v: string | null) =>
     setSp((p) => {
       const n = new URLSearchParams(p)
@@ -740,7 +739,7 @@ function Canvas() {
           )}
           {isCanvas && (
             <div className="relative">
-              <MenuButton icon={SlidersHorizontal} label="Options" collapse open={openMenu === 'options'} active={changedOptions > 0} onClick={() => toggleMenu('options')} disabled={empty} aria-haspopup="true" aria-label="View options" data-testid="view-options" />
+              <MenuButton icon={SlidersHorizontal} label="Options" collapse open={openMenu === 'options'} onClick={() => toggleMenu('options')} disabled={empty} aria-haspopup="true" aria-label="View options" data-testid="view-options" />
               <MenuPanel open={openMenu === 'options'} onClose={() => setOpenMenu(null)} className="w-72 p-2" role="group" aria-label="View options">
                 {/* Three subsections: what's drawn at all, what instead changes which signal the canvas
                     is reading (a "lens" - recolouring/reinterpreting what's already drawn rather than

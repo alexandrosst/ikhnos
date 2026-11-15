@@ -231,13 +231,15 @@ describe('HistoryPage views', () => {
     expect(screen.queryByTestId('audit-actor')).toBeNull()
   })
 
-  test('beside the feed, an administrator sees the last few things people did, and See all opens People', async () => {
+  test('beside what was detected, an administrator sees the last few things people did, and See all opens People', async () => {
     setup()
     audit.mockResolvedValueOnce({ source: 'local', rows: [
       { id: 2, at: new Date().toISOString(), actor: 'sam', action: 'member-invited', targetKind: 'user', targetId: 'kim', detail: '' },
       { id: 1, at: new Date().toISOString(), actor: 'alex', action: 'agent-approved', targetKind: 'agent', targetId: 'edge-1', detail: '' },
     ] } as never)
     renderAt()
+    expect(screen.queryByTestId('recent-people')).toBeNull() // All already lists them
+    fireEvent.click(screen.getByRole('button', { name: 'Detected' }))
     const card = await screen.findByTestId('recent-people')
     await waitFor(() => expect(within(card).getAllByTestId('recent-people-row')).toHaveLength(2))
     expect(within(card).getAllByTestId('recent-people-row')[0]).toHaveTextContent('sam member invited kim')

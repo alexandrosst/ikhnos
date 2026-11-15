@@ -2,7 +2,6 @@ import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import GoToAgents from '@/components/GoToAgents'
-import ColumnPicker from '@/features/topology/components/ColumnPicker'
 import { ConfirmModal, ServiceForm } from '@/components/forms'
 import { MobilityChip, useMoveModel } from '@/features/placement/components/MobilityPanel'
 import { GoneRecords } from '@/components/Observations'
@@ -13,7 +12,7 @@ import { observation } from '@/lib/provenance'
 import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
 import type { Service } from '@/lib/types'
-import { matches, openOnClick, RowActions, SearchBox, ServiceTraits } from './shared'
+import { matches, openOnClick, RowActions, ListToolbar, ServiceTraits } from './shared'
 
 const SERVICE_COLUMNS: ColumnDef[] = [
   { key: 'cluster', label: 'Cluster' },
@@ -57,8 +56,7 @@ export default function ServicesPage() {
           </Button>
         }
       />
-      <div className="mb-4 flex gap-3">
-        <SearchBox value={q} onChange={setQ} placeholder="Search services by name, namespace, image…" />
+      <ListToolbar q={q} onQ={setQ} placeholder="Search services by name, namespace, image…" columns={SERVICE_COLUMNS} state={columns} empty={services.length === 0}>
         <Select className="w-56" value={clusterFilter} onChange={(e) => setParam('cluster', e.target.value)} aria-label="Cluster">
           <option value="">All clusters</option>
           {clusters.map((c) => (
@@ -68,8 +66,7 @@ export default function ServicesPage() {
         {nsFilter && (
           <ClearableChip onClear={() => setParam('namespace', '')} testId="namespace-filter" label={`Namespace ${nsFilter}: clear this filter`}>Namespace {nsFilter}</ClearableChip>
         )}
-        <ColumnPicker columns={SERVICE_COLUMNS} state={columns} />
-      </div>
+      </ListToolbar>
 
       {services.length === 0 ? (
         <EmptyState

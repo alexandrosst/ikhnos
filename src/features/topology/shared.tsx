@@ -1,4 +1,7 @@
 import { Database, Pencil, Scaling, Search, ShieldCheck, Trash2 } from 'lucide-react'
+import type { ReactNode } from 'react'
+import ColumnPicker from '@/features/topology/components/ColumnPicker'
+import type { ColumnDef, ColumnState } from '@/features/topology/lib/columns'
 import { Button, ICON_MD, ICON_SM, Input, Trait } from '@/components/ui/primitives'
 import { autoscalerRange, disruptionLabel, totalVolumeGb, volumeSize } from '@/lib/present'
 import type { Service } from '@/lib/types'
@@ -8,6 +11,21 @@ export function SearchBox({ value, onChange, placeholder }: { value: string; onC
     <div className="relative w-80">
       <Search size={ICON_MD} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-nb-500" />
       <Input className="pl-9" aria-label={placeholder} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+    </div>
+  )
+}
+
+/**
+ * The row above every list page's table: search, the page's own filters (children), and the column picker. Over a list with
+ * nothing in it none of the three does anything, so `empty` shows nothing and the page's empty state stands alone.
+ */
+export function ListToolbar({ q, onQ, placeholder, columns, state, empty, children }: { q: string; onQ: (v: string) => void; placeholder: string; columns: ColumnDef[]; state: ColumnState; empty?: boolean; children?: ReactNode }) {
+  if (empty) return null
+  return (
+    <div className="mb-4 flex flex-wrap gap-3">
+      <SearchBox value={q} onChange={onQ} placeholder={placeholder} />
+      {children}
+      <ColumnPicker columns={columns} state={state} />
     </div>
   )
 }

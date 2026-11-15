@@ -1,6 +1,5 @@
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
-import ColumnPicker from '@/features/topology/components/ColumnPicker'
 import { ApplicationForm, ConfirmModal } from '@/components/forms'
 import { OriginLine } from '@/components/entity/parts'
 import { Button, ChipList, EmptyState, ICON_SM, PageHeader, Pill, Table, Td, Th } from '@/components/ui/primitives'
@@ -8,7 +7,7 @@ import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/col
 import { originLabel } from '@/lib/present'
 import type { Application } from '@/lib/types'
 import { useTopology } from '@/store/topology'
-import { matches, openOnClick, RowActions, SearchBox } from './shared'
+import { matches, openOnClick, RowActions, ListToolbar } from './shared'
 
 const APPLICATION_COLUMNS: ColumnDef[] = [
   { key: 'description', label: 'Description' },
@@ -39,10 +38,7 @@ export default function ApplicationsPage() {
           </Button>
         }
       />
-      <div className="mb-4 flex flex-wrap gap-3">
-        <SearchBox value={q} onChange={setQ} placeholder="Search applications…" />
-        <ColumnPicker columns={APPLICATION_COLUMNS} state={columns} />
-      </div>
+      <ListToolbar q={q} onQ={setQ} placeholder="Search applications…" columns={APPLICATION_COLUMNS} state={columns} empty={applications.length === 0} />
 
       {applications.length === 0 ? (
         <EmptyState

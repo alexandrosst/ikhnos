@@ -28,7 +28,7 @@ const LAB = { name: 'NETMODE, NTUA', url: 'https://www.netmode.ntua.gr/', logo: 
 
 export function Copyright({ className }: { className?: string }) {
   return (
-    <div className={clsx('space-y-1.5 text-[11px] leading-snug text-nb-600', className)} data-testid="copyright">
+    <div className={clsx('space-y-1.5 text-[11px] leading-snug text-nb-500', className)} data-testid="copyright">
       <p>
         {OWNER} © {COPYRIGHT_YEAR}
         <br />
@@ -37,7 +37,7 @@ export function Copyright({ className }: { className?: string }) {
           href={LICENSE.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="underline decoration-nb-700 underline-offset-2 outline-none hover:text-nb-400 focus-visible:ring-2 focus-visible:ring-nb-400"
+          className="underline decoration-nb-700 underline-offset-2 outline-none hover:text-nb-300 focus-visible:ring-2 focus-visible:ring-nb-400"
           data-testid="license-link"
         >
           {LICENSE.name}

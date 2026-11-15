@@ -1,7 +1,6 @@
 import { Cpu, HardDrive, Plus, Server } from 'lucide-react'
 import { useState } from 'react'
 import GoToAgents from '@/components/GoToAgents'
-import ColumnPicker from '@/features/topology/components/ColumnPicker'
 import { ConfirmModal, NodeForm } from '@/components/forms'
 import { WithIcon } from '@/components/ui/brand'
 import { GoneRecords } from '@/components/Observations'
@@ -13,7 +12,7 @@ import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
 import { accelSummary, formatCpu, formatMemory, podsLabel, podsPercent, requestedPercent } from '@/lib/present'
 import type { MachineNode } from '@/lib/types'
-import { matches, openOnClick, RowActions, SearchBox } from './shared'
+import { matches, openOnClick, RowActions, ListToolbar } from './shared'
 
 const KIND_LABEL = { vm: 'Virtual machine', 'bare-metal': 'Bare metal', 'edge-device': 'Edge device' } as const
 const KIND_ICON = { vm: Server, 'bare-metal': HardDrive, 'edge-device': Cpu } as const
@@ -51,16 +50,14 @@ export default function NodesPage() {
           </Button>
         }
       />
-      <div className="mb-4 flex flex-wrap gap-3">
-        <SearchBox value={q} onChange={setQ} placeholder="Search nodes by name, IP, OS…" />
+      <ListToolbar q={q} onQ={setQ} placeholder="Search nodes by name, IP, OS…" columns={NODE_COLUMNS} state={columns} empty={nodes.length === 0}>
         <Select className="w-56" value={clusterFilter} onChange={(e) => setClusterFilter(e.target.value)}>
           <option value="">All clusters</option>
           {clusters.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </Select>
-        <ColumnPicker columns={NODE_COLUMNS} state={columns} />
-      </div>
+      </ListToolbar>
 
       {nodes.length === 0 ? (
         <EmptyState

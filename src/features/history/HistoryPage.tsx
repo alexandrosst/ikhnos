@@ -142,7 +142,7 @@ function Changes({ conn, admin, switcher, onSeeAll }: { conn: Conn; admin: boole
           <Feed events={events} audit={auditLog} filter={filter} clusterId={clusterId} since={since} hours={hours} />
         </div>
         <aside className="space-y-4" aria-label="About this history">
-          {admin && <RecentPeople conn={conn} tick={tick} onSeeAll={onSeeAll} />}
+          {admin && filter === 'changes' && <RecentPeople conn={conn} tick={tick} onSeeAll={onSeeAll} />}
           <PictureCheck />
           <BusiestLinks conn={conn} />
           <Stored conn={conn} tick={tick} />
@@ -180,7 +180,7 @@ const Card = ({ title, children, label }: { title: string; children: React.React
   </section>
 )
 
-/** The last few things people did, for administrators, beside the feed rather than in it: they come from the server's audit trail, a different record from what Ikhnos noticed. The whole trail is the People view. */
+/** The last few things people did, for administrators, beside what Ikhnos detected. The other two views of the feed already list them, so it appears only beside "Detected". The whole trail is the People view. */
 function RecentPeople({ conn, tick, onSeeAll }: { conn: Conn; tick: number; onSeeAll: () => void }) {
   const [rows, setRows] = useState<AuditRow[] | null>(null)
   useEffect(() => {

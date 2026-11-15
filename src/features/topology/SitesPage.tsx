@@ -1,6 +1,5 @@
 import { AlertTriangle, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import ColumnPicker from '@/features/topology/components/ColumnPicker'
 import { ConfirmModal, SiteForm } from '@/components/forms'
 import ClusterLinks from '@/features/links/components/ClusterLinks'
 import MeasuredPaths from '@/features/topology/components/MeasuredPaths'
@@ -12,7 +11,7 @@ import { usePlaceIndex } from '@/lib/places-data'
 import { countryName } from '@/lib/present'
 import { SITE_KINDS, type Site } from '@/lib/types'
 import { useTopology } from '@/store/topology'
-import { matches, openOnClick, RowActions, SearchBox } from './shared'
+import { matches, openOnClick, RowActions, ListToolbar } from './shared'
 
 const SITE_COLUMNS: ColumnDef[] = [
   { key: 'kind', label: 'Kind' },
@@ -45,10 +44,7 @@ export default function SitesPage() {
           </Button>
         }
       />
-      <div className="mb-4 flex flex-wrap gap-3">
-        <SearchBox value={q} onChange={setQ} placeholder="Search sites…" />
-        <ColumnPicker columns={SITE_COLUMNS} state={columns} />
-      </div>
+      <ListToolbar q={q} onQ={setQ} placeholder="Search sites…" columns={SITE_COLUMNS} state={columns} empty={sites.length === 0} />
 
       {sites.length === 0 ? (
         <EmptyState
@@ -94,8 +90,13 @@ export default function SitesPage() {
         </Table>
       )}
 
-      <MeasuredPaths />
-      <ClusterLinks />
+      {/* Measurements run from a cluster's agent, so with no cluster there is nothing to show or set up. */}
+      {clusters.length > 0 && (
+        <>
+          <MeasuredPaths />
+          <ClusterLinks />
+        </>
+      )}
 
       {panel && (
         <SiteForm

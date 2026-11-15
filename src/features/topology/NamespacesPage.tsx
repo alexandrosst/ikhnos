@@ -2,7 +2,6 @@ import { ArrowRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import GoToAgents from '@/components/GoToAgents'
-import ColumnPicker from '@/features/topology/components/ColumnPicker'
 import { GoneRecords } from '@/components/Observations'
 import { DeclaredLine, InferredLine, ObservedLine } from '@/components/entity/parts'
 import { EmptyState, ICON_SM, PageHeader, Select, Table, Td, Th } from '@/components/ui/primitives'
@@ -10,7 +9,7 @@ import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/col
 import { buildNamespaceRows, excludedWords, rowMatches, scopeLabel, type NamespaceRow } from '@/features/topology/lib/namespaces'
 import { TONE_CLASS } from '@/lib/provenance'
 import { useTopology } from '@/store/topology'
-import { SearchBox } from './shared'
+import { ListToolbar } from './shared'
 
 /** Where a row leads: the services of that namespace. (The topology has no per-namespace focus, the Services page does.) */
 const servicesOf = (r: Pick<NamespaceRow, 'clusterId' | 'name'>) => `/services?cluster=${encodeURIComponent(r.clusterId)}&namespace=${encodeURIComponent(r.name)}`
@@ -41,16 +40,14 @@ export default function NamespacesPage() {
         title="Namespaces"
         description="The namespaces of every cluster, what runs in them, how far each can be trusted right now, and whether an agent was told to look at it."
       />
-      <div className="mb-4 flex flex-wrap gap-3">
-        <SearchBox value={q} onChange={setQ} placeholder="Search namespaces or clusters…" />
+      <ListToolbar q={q} onQ={setQ} placeholder="Search namespaces or clusters…" columns={NAMESPACE_COLUMNS} state={columns} empty={count === 0 && left === 0}>
         <Select className="w-56" value={clusterFilter} onChange={(e) => setClusterFilter(e.target.value)} aria-label="Cluster">
           <option value="">All clusters</option>
           {live.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </Select>
-        <ColumnPicker columns={NAMESPACE_COLUMNS} state={columns} />
-      </div>
+      </ListToolbar>
 
       {count === 0 && left === 0 ? (
         <EmptyState

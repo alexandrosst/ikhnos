@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { BookOpen, Boxes, Cable, ClipboardCheck, Folders, History, Keyboard, LayoutDashboard, Layers, MapPin, Menu, Network, Package, Radio, Route, Search, Server, Settings2, Waypoints } from 'lucide-react'
+import { BookOpen, Boxes, Cable, ClipboardCheck, Folders, History, LayoutDashboard, Layers, MapPin, Menu, Network, Package, Radio, Route, Search, Server, Settings2, Waypoints } from 'lucide-react'
 import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BrandMark, Copyright } from '@/components/ui/brand'
@@ -12,7 +12,6 @@ import CommandPalette from '@/components/CommandPalette'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import FusionShortcut from '@/features/fusion/components/FusionShortcut'
 import HistoryBanner from '@/features/history/components/HistoryBanner'
-import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal'
 import SampleBanner from '@/components/SampleBanner'
 import { pollEvery } from '@/lib/pollRate'
 import { prefetchRoute } from '@/app/routeLoaders'
@@ -216,7 +215,6 @@ function SidebarNav({
   accountSlot,
   fusionShortcut,
   onSearch,
-  onShortcuts,
 }: {
   menu: boolean
   setMenu: (v: boolean) => void
@@ -229,7 +227,6 @@ function SidebarNav({
   /** The button beside FUSION: only once signed in, since it reads FUSION's state. */
   fusionShortcut?: ReactNode
   onSearch: () => void
-  onShortcuts: () => void
 }) {
   return (
     <>
@@ -276,13 +273,6 @@ function SidebarNav({
             <BookOpen size={ICON_SM} /> Documentation
           </a>
           <NavItem to="/settings" label="Settings" icon={Settings2} />
-          <button
-            onClick={onShortcuts}
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-nb-400 transition-colors hover:bg-nb-930 hover:text-nb-300"
-            data-testid="keyboard-shortcuts-open"
-          >
-            <Keyboard size={ICON_SM} /> Keyboard shortcuts
-          </button>
           <Copyright className="mt-3 px-3" />
         </div>
       </aside>
@@ -309,7 +299,6 @@ function LoadingShell() {
         activeTo={null}
         accountSlot={<SkeletonBlock className="mb-1 h-11 w-full rounded-md" />}
         onSearch={() => {}}
-        onShortcuts={() => {}}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
@@ -330,7 +319,6 @@ function Shell() {
   // The canvas page wants the full viewport; table pages get a padded container.
   const full = pathname.startsWith('/topology')
   const [searching, setSearching] = useState(false)
-  const [shortcuts, setShortcuts] = useState(false)
   const navRef = useRef<HTMLElement>(null)
   const activeTo = NAV_GROUPS.flatMap((g) => g.items).find((n) => isNavActive(n.to, pathname))?.to ?? null
   // Below the desktop breakpoint the menu is a drawer, so the page gets the whole width.
@@ -343,21 +331,10 @@ function Shell() {
         setSearching((o) => !o)
       }
       if (e.key === 'Escape') setMenu(false)
-      // "?" opens the shortcuts panel, the same convention Gmail/GitHub/Slack use - but only away from any
-      // text input (including the search palette's own), so it stays typeable as an ordinary character
-      // everywhere a person might actually want to type a literal "?".
-      if (e.key === '?' && !searching) {
-        const el = document.activeElement
-        const typing = el instanceof HTMLElement && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
-        if (!typing) {
-          e.preventDefault()
-          setShortcuts((o) => !o)
-        }
-      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [searching])
+  }, [])
 
   return (
     <div className="flex h-full">
@@ -372,7 +349,6 @@ function Shell() {
         accountSlot={<AccountMenu />}
         fusionShortcut={<FusionShortcut />}
         onSearch={() => setSearching(true)}
-        onShortcuts={() => setShortcuts(true)}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -414,7 +390,6 @@ function Shell() {
       </div>
       <NameOrganisation />
       <CommandPalette open={searching} onClose={() => setSearching(false)} />
-      {shortcuts && <KeyboardShortcutsModal onClose={() => setShortcuts(false)} />}
     </div>
   )
 }

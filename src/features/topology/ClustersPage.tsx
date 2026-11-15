@@ -1,7 +1,6 @@
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import GoToAgents from '@/components/GoToAgents'
-import ColumnPicker from '@/features/topology/components/ColumnPicker'
 import { ClusterForm, ConfirmModal } from '@/components/forms'
 import PlacementHint from '@/features/placement/components/PlacementHint'
 import { DistroIcon, Place, ProviderIcon, WithIcon } from '@/components/ui/brand'
@@ -15,7 +14,7 @@ import { useAutoPlaceClusters, usePlacementSuggestions } from '@/lib/usePlacemen
 import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
 import type { Cluster } from '@/lib/types'
-import { matches, openOnClick, RowActions, SearchBox } from './shared'
+import { matches, openOnClick, RowActions, ListToolbar } from './shared'
 
 const CLUSTER_COLUMNS: ColumnDef[] = [
   { key: 'tier', label: 'Tier' },
@@ -55,10 +54,7 @@ export default function ClustersPage() {
           </Button>
         }
       />
-      <div className="mb-4 flex flex-wrap gap-3">
-        <SearchBox value={q} onChange={setQ} placeholder="Search clusters…" />
-        <ColumnPicker columns={CLUSTER_COLUMNS} state={columns} />
-      </div>
+      <ListToolbar q={q} onQ={setQ} placeholder="Search clusters…" columns={CLUSTER_COLUMNS} state={columns} empty={clusters.length === 0} />
 
       {clusters.length === 0 ? (
         <EmptyState

@@ -1,6 +1,5 @@
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
-import ColumnPicker from '@/features/topology/components/ColumnPicker'
 import { ConfirmModal, DeviceForm } from '@/components/forms'
 import { OriginLine } from '@/components/entity/parts'
 import { DEVICE_ICON } from '@/features/topology/components/nodes'
@@ -8,7 +7,7 @@ import { Button, EmptyState, ICON_SM, PageHeader, Pill, Select, StatusDot, Table
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
 import { CONNECTIVITY, DEVICE_KINDS, type Device } from '@/lib/types'
 import { useTopology } from '@/store/topology'
-import { matches, openOnClick, RowActions, SearchBox } from './shared'
+import { matches, openOnClick, RowActions, ListToolbar } from './shared'
 
 const DEVICE_COLUMNS: ColumnDef[] = [
   { key: 'kind', label: 'Kind' },
@@ -47,8 +46,7 @@ export default function DevicesPage() {
           </Button>
         }
       />
-      <div className="mb-4 flex gap-3">
-        <SearchBox value={q} onChange={setQ} placeholder="Search devices by name, protocol, site…" />
+      <ListToolbar q={q} onQ={setQ} placeholder="Search devices by name, protocol, site…" columns={DEVICE_COLUMNS} state={columns} empty={devices.length === 0}>
         <Select className="w-56" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}>
           <option value="">All sites</option>
           <option value="none">No site</option>
@@ -56,8 +54,7 @@ export default function DevicesPage() {
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </Select>
-        <ColumnPicker columns={DEVICE_COLUMNS} state={columns} />
-      </div>
+      </ListToolbar>
 
       {devices.length === 0 ? (
         <EmptyState
