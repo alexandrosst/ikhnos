@@ -172,7 +172,7 @@ export default function EntityHealthCard({ entity }: { entity: SelfTelemetryEnti
               icon={Waves}
               points={toPoints(entity, 'bandwidthSharePct')}
               valueFormat={pct2}
-              help="Ikhnos's own agent traffic as a share of this cluster's total observed network throughput - never an addition on top of it, since the total already counts every byte on the wire, Ikhnos's included."
+              help="ikhnos's own agent traffic as a share of this cluster's total observed network throughput - never an addition on top of it, since the total already counts every byte on the wire, ikhnos's included."
               badge={flowInterval !== undefined && <Pill title="How often this cluster's flow collector reports, which is what drives this number">Flow report every {flowInterval}s</Pill>}
             />
           ) : (
@@ -243,7 +243,7 @@ export default function EntityHealthCard({ entity }: { entity: SelfTelemetryEnti
 
       {entity.kind === 'agent' && hasWatts && (
         <p className="mt-3 text-xs text-nb-600">
-          That figure is this cluster&apos;s whole host power draw, not Ikhnos&apos;s own slice of it - estimating Ikhnos&apos;s own share is still on the roadmap.
+          That figure is this cluster&apos;s whole host power draw, not ikhnos&apos;s own slice of it - estimating ikhnos&apos;s own share is still on the roadmap.
         </p>
       )}
     </section>

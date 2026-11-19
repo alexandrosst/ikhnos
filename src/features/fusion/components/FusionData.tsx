@@ -13,7 +13,7 @@ function Signals({ list }: { list: FusionSignal[] }) {
   return <span className="inline-flex flex-wrap gap-1">{list.map((s) => <Pill key={s}>{SIGNAL_WORD[s]}</Pill>)}</span>
 }
 
-/** What FUSION holds: for each Ikhnos application the services in it and which signals arrived for them over the last day, and the services
+/** What FUSION holds: for each ikhnos application the services in it and which signals arrived for them over the last day, and the services
  *  with data that belong to none (an exporter, a meter). Read from the same data API an API token reads. */
 export function FusionData() {
   const conn = useServer((s) => s.conn)
@@ -52,7 +52,7 @@ export function FusionData() {
               <div className="sm:ml-auto"><Signals list={a.signals} /></div>
             </li>
           ))}
-          {apps.applications.length === 0 && <li className="px-4 py-3 text-nb-500">No application has been declared in Ikhnos yet.</li>}
+          {apps.applications.length === 0 && <li className="px-4 py-3 text-nb-500">No application has been declared in ikhnos yet.</li>}
         </ul>
       </FusionSection>
 

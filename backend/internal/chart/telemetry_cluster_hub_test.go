@@ -493,7 +493,7 @@ func TestTheHubWithoutTheProberServesTheSeriesOnly(t *testing.T) {
 	}
 }
 
-// With a Secret of your own for the iperf3 credentials the Ikhnos server issues none, so the hub is not given the request secret.
+// With a Secret of your own for the iperf3 credentials the ikhnos server issues none, so the hub is not given the request secret.
 func TestTheHubIsNotGivenTheRequestSecretWhenTheCredentialsAreYourOwn(t *testing.T) {
 	r := render(t, hubArgs("telemetry.clusterLinks.probe.capacity.auth.existingSecret=iperf-keys")...)
 	if _, ok := iperfPodEnv(hubContainerOf(t, r))["IKHNOS_LINK_IPERF_SECRET_FILE"]; ok {

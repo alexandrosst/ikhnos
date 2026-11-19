@@ -1,6 +1,6 @@
 # ikhnos-server
 
-Helm chart for the Ikhnos **server**: the control plane that agents report to, and the web UI. (The agent is a different chart, `ikhnos-agent`, whose install command the server's *Connect a cluster* screen prints.)
+Helm chart for the ikhnos **server**: the control plane that agents report to, and the web UI. (The agent is a different chart, `ikhnos-agent`, whose install command the server's *Connect a cluster* screen prints.)
 
 The full deployment guide, with diagrams, backup and restore, upgrades and troubleshooting, is [`deploy/README.md`](../../README.md). This file documents the chart itself.
 
@@ -78,7 +78,7 @@ On an upgrade the server backfills the graph's `open` property and waits for its
 | `bundled` (default) | a StatefulSet running `neo4j:5.26.30-community` with its own PVC, a headless Service `<fullname>-neo4j`, and a generated password Secret (`randAlphaNum 32`, kept across upgrades with `lookup`, kept on uninstall) unless you give `neo4j.auth.existingSecret`. The server gets `--neo4j-url=http://<svc>.<ns>.svc:7474` and reads the password from a mounted file (`--neo4j-password-file`); no password is ever a command-line argument |
 | `external` | `neo4j.external.url` plus a Secret with the password (and optionally the user name). https, or an in-cluster/loopback http address; anything else is refused unless `neo4j.allowInsecureHttp=true` |
 
-Neo4j **Community edition is licensed GPLv3 and is a single instance** (no clustering). It runs as a separate process and the Ikhnos server only talks to it over HTTP; you are the one distributing or modifying it if you do. Use your own Neo4j (`external`) if that matters to you or if you need Enterprise features.
+Neo4j **Community edition is licensed GPLv3 and is a single instance** (no clustering). It runs as a separate process and the ikhnos server only talks to it over HTTP; you are the one distributing or modifying it if you do. Use your own Neo4j (`external`) if that matters to you or if you need Enterprise features.
 
 The Neo4j image is built for uid 7474; the chart runs it as 7474 non-root with `fsGroup: 7474` and does not set a read-only root file system (the image's entrypoint writes its generated configuration there). `NEO4J_AUTH` is built from the same Secret and only takes effect when the data volume is first initialised. Rotate the password later inside Neo4j (`ALTER CURRENT USER SET PASSWORD`) and update the Secret to match.
 

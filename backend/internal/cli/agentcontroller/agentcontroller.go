@@ -1,4 +1,4 @@
-// Package agentcontroller is the Ikhnos controller's role: it runs internal/controller in a cluster, with the Helm library as its
+// Package agentcontroller is the ikhnos controller's role: it runs internal/controller in a cluster, with the Helm library as its
 // installer. It is not one of the roles of the `ikhnos` binary: it has an image of its own (cmd/controller), because it carries the
 // Helm library and the other roles, which run on every node, must not.
 package agentcontroller
@@ -78,7 +78,7 @@ func Main(args []string) int {
 	linkRepo := fs.String("link-image-repository", cli.Env("IKHNOS_LINK_IMAGE_REPOSITORY", ""), "the cluster-link image's repository, when not the chart's own")
 	maxTier := fs.Int("max-access-tier", cli.Atoi(cli.Env("IKHNOS_MAX_ACCESS_TIER", "2")), "the highest access tier (0, 1 or 2) an IkhnosAgent may ask for: what the controller was given the permissions for")
 	allowTelemetry := fs.Bool("allow-telemetry", cli.Env("IKHNOS_ALLOW_TELEMETRY", "false") == "true", "whether an IkhnosAgent may turn telemetry on: what the controller was given the permissions for")
-	relayTelemetry := fs.Bool("relay-telemetry", cli.Env("IKHNOS_RELAY_TELEMETRY", "false") == "true", "whether the controller acts on the telemetry the Ikhnos server asks of this cluster (which signals, how much of the traces): the agents it installs pass the requests on, and it applies them within what allowTelemetry and the access tier allow, or says why not")
+	relayTelemetry := fs.Bool("relay-telemetry", cli.Env("IKHNOS_RELAY_TELEMETRY", "false") == "true", "whether the controller acts on the telemetry the ikhnos server asks of this cluster (which signals, how much of the traces): the agents it installs pass the requests on, and it applies them within what allowTelemetry and the access tier allow, or says why not")
 	relayDeadline := fs.Duration("relay-deadline", controller.DefaultRelayDeadline, "how long the agent has to be ready after such a request was applied, before the cluster is put back to its own settings")
 	bootstrap := fs.String("bootstrap-configmap", cli.Env("IKHNOS_BOOTSTRAP_CONFIGMAP", ""), "the ConfigMap that holds the spec of the first IkhnosAgent to make (the chart writes it when it is installed with bootstrap values); empty: none")
 	timeout := fs.Duration("timeout", helminstall.DefaultTimeout, "how long one install, upgrade or uninstall may take")

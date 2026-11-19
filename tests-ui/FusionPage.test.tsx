@@ -271,7 +271,7 @@ describe('FusionPage - Data', () => {
     getFusionApplications.mockResolvedValue(apps({ applications: [] }))
     getFusionServices.mockResolvedValue(services({ services: [] }))
     const { unmount } = renderAt('/fusion/data')
-    expect(await screen.findByText('No application has been declared in Ikhnos yet.')).toBeInTheDocument()
+    expect(await screen.findByText('No application has been declared in ikhnos yet.')).toBeInTheDocument()
     unmount()
     getFusionApplications.mockRejectedValue(new ApiError(502, 'The stores did not answer.'))
     getFusionServices.mockRejectedValue(new ApiError(502, 'The stores did not answer.'))

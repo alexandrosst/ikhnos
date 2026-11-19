@@ -103,7 +103,7 @@ func (t Telemetry) Values() ([]Value, error) {
 			l := t.ClusterLinks
 			add(flag("telemetry.clusterLinks.probe.enabled", l.Probe))
 			add(flag("telemetry.clusterLinks.probe.capacity.enabled", l.Probe && l.Throughput))
-			// Only for credentials of your own; empty means Ikhnos issues them (the chart's default), so no value.
+			// Only for credentials of your own; empty means ikhnos issues them (the chart's default), so no value.
 			if own := strings.TrimSpace(l.AuthSecret); l.Probe && l.Throughput && own != "" {
 				add(SetString("telemetry.clusterLinks.probe.capacity.auth.existingSecret", own))
 			}

@@ -178,7 +178,7 @@ func TestTwoMembersOfOneKeyAreOneSeries(t *testing.T) {
 }
 
 // A member is one service in one namespace of one cluster as a single value, so a picker's selection is exact; a part
-// Ikhnos does not know is empty, never a wildcard.
+// ikhnos does not know is empty, never a wildcard.
 func TestMemberNamesOneServiceInOneNamespaceOfOneCluster(t *testing.T) {
 	got := map[string]bool{}
 	for _, s := range mustSeries(infoGroups()) {

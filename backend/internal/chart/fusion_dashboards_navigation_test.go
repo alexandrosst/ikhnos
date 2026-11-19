@@ -11,7 +11,7 @@ import (
 	"ikhnos/internal/link"
 )
 
-// anyDashboard is what the tests below ask of every Ikhnos dashboard.
+// anyDashboard is what the tests below ask of every ikhnos dashboard.
 type anyDashboard struct {
 	UID   string   `json:"uid"`
 	Title string   `json:"title"`
@@ -98,7 +98,7 @@ func TestFusionDashboardsAreOneSetThatNamesItsClusters(t *testing.T) {
 			}
 		}
 		if !menu || nav < 2 {
-			t.Errorf("%s: the Ikhnos menu is %v and it has %d links to related dashboards", n, menu, nav)
+			t.Errorf("%s: the ikhnos menu is %v and it has %d links to related dashboards", n, menu, nav)
 		}
 		for _, v := range d.Templating.List {
 			if v.Name != "cluster" {
@@ -205,7 +205,7 @@ func TestFusionFleetOverview(t *testing.T) {
 			for _, m := range regexp.MustCompile(`\b(?:ikhnos_[a-z_]+|k8s_[a-z_]+)`).FindAllString(q.Expr, -1) {
 				used[m] = true
 			}
-			if p.Type == "table" && p.Title != "Ikhnos applications" && !strings.Contains(q.Expr, "ikhnos_cluster_info") && p.Title == "Node inventory" {
+			if p.Type == "table" && p.Title != "ikhnos applications" && !strings.Contains(q.Expr, "ikhnos_cluster_info") && p.Title == "Node inventory" {
 				t.Errorf("%q has a query that does not put the cluster's name on its rows: %s", p.Title, q.Expr)
 			}
 		}
@@ -317,7 +317,7 @@ func TestFusionDashboardsShowOperatorsAndTableClustersByName(t *testing.T) {
 		}
 	}
 	raw := r.configs["f-fusion-grafana-dashboards"].Data
-	for file, title := range map[string]string{"applications.json": "What Ikhnos has in this application", "workloads.json": "Pods"} {
+	for file, title := range map[string]string{"applications.json": "What ikhnos has in this application", "workloads.json": "Pods"} {
 		var d struct {
 			Panels []struct {
 				Title           string `json:"title"`

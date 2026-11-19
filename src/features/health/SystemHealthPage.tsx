@@ -11,7 +11,7 @@ import { entityLabel, type SelfTelemetryEntity } from '@/lib/selfHealth'
 import { useConn, useServer } from '@/store/server'
 
 /**
- * System health has a dashboard of its own in Grafana now ("Ikhnos self": the server, and every cluster's agent by name, with history and
+ * System health has a dashboard of its own in Grafana now ("ikhnos self": the server, and every cluster's agent by name, with history and
  * the moments agents joined or left). This is the way there, and what is below it is the same figures as they are right now, for a server
  * with no FUSION to draw them.
  */
@@ -28,10 +28,10 @@ function InGrafana() {
           <h2 className="text-sm font-medium text-nb-300">History and comparison are in Grafana</h2>
           <p className="mt-0.5 max-w-2xl text-sm text-nb-500">
             {up
-              ? 'The “Ikhnos self” dashboard draws the server and every cluster’s agent over time, by cluster name, and marks the moments agents joined or left.'
+              ? 'The “ikhnos self” dashboard draws the server and every cluster’s agent over time, by cluster name, and marks the moments agents joined or left.'
               : admin
-                ? 'The “Ikhnos self” dashboard comes with FUSION. Turn FUSION on, and this page links to it.'
-                : 'The “Ikhnos self” dashboard comes with FUSION; an administrator can open it.'}
+                ? 'The “ikhnos self” dashboard comes with FUSION. Turn FUSION on, and this page links to it.'
+                : 'The “ikhnos self” dashboard comes with FUSION; an administrator can open it.'}
           </p>
         </div>
       </div>
@@ -39,7 +39,7 @@ function InGrafana() {
         {admin && !up && <Link to="/fusion" className={buttonClass('secondary')}>Go to FUSION</Link>}
         {up && (
           <button type="button" className={buttonClass('primary')} disabled={page.opening} onClick={() => void page.open('grafana', { dashboard: 'ikhnos-self' })} data-testid="health-open-grafana">
-            <ExternalLink size={ICON_SM} aria-hidden /> Open “Ikhnos self”
+            <ExternalLink size={ICON_SM} aria-hidden /> Open “ikhnos self”
           </button>
         )}
       </div>
@@ -54,7 +54,7 @@ function InGrafana() {
 const POLL_MS = 15_000
 
 /**
- * What running Ikhnos itself costs, broken out per entity (the server process, and every connected
+ * What running ikhnos itself costs, broken out per entity (the server process, and every connected
  * agent/cluster) - see backend/internal/server/admin_telemetry.go's own doc comment for exactly what the
  * API behind this returns and why. Read-only and diagnostic: nothing here is editable, and polling stays
  * coarse on purpose (see POLL_MS above).
@@ -65,7 +65,7 @@ export default function SystemHealthPage() {
   if (status !== 'connected') {
     return (
       <>
-        <PageHeader title="System Health" description="What running Ikhnos itself costs, in your own clusters." />
+        <PageHeader title="System Health" description="What running ikhnos itself costs, in your own clusters." />
         <EmptyState
           title="System Health needs a server"
           description="Connect to a server to see what its own process, and every connected agent's, is actually costing - memory, goroutines, CPU, and (when the hardware exposes them) network and power share."
@@ -108,7 +108,7 @@ function Connected({ conn }: { conn: Conn }) {
     <>
       <PageHeader
         title="System health"
-        description="What running Ikhnos itself costs, in your own clusters: memory, goroutines and CPU of the server and each agent."
+        description="What running ikhnos itself costs, in your own clusters: memory, goroutines and CPU of the server and each agent."
       />
       <InGrafana />
       {error && <ErrorBanner className="mb-4">{error}</ErrorBanner>}

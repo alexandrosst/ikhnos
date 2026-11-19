@@ -26,7 +26,7 @@ import (
 // Main returns the process exit code.
 func Main(args []string) int {
 	fs := cli.NewFlagSet("ikhnos cert-renew", os.Stderr)
-	server := fs.String("server", cli.Env("IKHNOS_SERVER", ""), "the Ikhnos server's agent address, host:port")
+	server := fs.String("server", cli.Env("IKHNOS_SERVER", ""), "the ikhnos server's agent address, host:port")
 	pin := fs.String("ca-pin", cli.Env("IKHNOS_CA_PIN", ""), "pin of the server CA (sha256/... or the legacy hex fingerprint)")
 	ns := fs.String("namespace", cli.Env("POD_NAMESPACE", ""), "the namespace of the Secrets (the pod's own)")
 	secrets := fs.String("secrets", cli.Env("IKHNOS_RENEW_SECRETS", ""), "Secrets to keep renewed, comma separated; each holds tls.crt, tls.key and ca.crt")

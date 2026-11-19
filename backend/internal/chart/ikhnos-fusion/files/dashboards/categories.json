@@ -105,7 +105,7 @@
           "text": "All",
           "value": "$__all"
         },
-        "description": "Narrows the pod panels of the Kubernetes row and everything in the Application row to the services of one Ikhnos application (a service in one namespace of one cluster; traces are matched by service name only). All applications (the default) leaves everything as it was. The System row, the node and kube-system panels never follow it."
+        "description": "Narrows the pod panels of the Kubernetes row and everything in the Application row to the services of one ikhnos application (a service in one namespace of one cluster; traces are matched by service name only). All applications (the default) leaves everything as it was. The System row, the node and kube-system panels never follow it."
       },
       {
         "name": "cluster",

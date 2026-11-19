@@ -683,7 +683,7 @@ describe('ClusterLinks', () => {
       seed('admin', [])
       render(<ClusterLinks />)
       expect(screen.getByTestId('links-requirement')).toHaveTextContent(LINK_REQUIREMENT)
-      expect(LINK_REQUIREMENT).toMatch(/two clusters that each run the Ikhnos agent with Cluster links on/)
+      expect(LINK_REQUIREMENT).toMatch(/two clusters that each run the ikhnos agent with Cluster links on/)
       expect(LINK_REQUIREMENT).toMatch(/send telemetry to FUSION \(a local operator\)/)
       fireEvent.click(screen.getByTestId('add-pair'))
       expect(screen.getByTestId('add-pair-requirement')).toHaveTextContent(LINK_REQUIREMENT)

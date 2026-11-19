@@ -243,7 +243,7 @@ type Fused struct {
 	SystemLogs *SystemLogs `json:"systemLogs,omitempty"`
 	// Queries are the caller's own queries that are not about one resource (promql); the others sit on the resources.
 	Queries []QueryResult `json:"queries,omitempty"`
-	// Changes are events Ikhnos recorded about the trace's services, nodes and clusters around the trace (include=changes).
+	// Changes are events ikhnos recorded about the trace's services, nodes and clusters around the trace (include=changes).
 	Changes []ChangeEvent `json:"changes,omitempty"`
 	// SpansOmitted counts spans the span_* filters left out; the trace's spanCount is that of the whole trace.
 	SpansOmitted int               `json:"spansOmitted,omitempty"`
@@ -886,7 +886,7 @@ func (c *Client) metricServices(ctx context.Context, s Scope, tr TimeRange) ([]s
 // Overview is one application at a glance: which signals it has and a few of the most recent and most interesting
 // things in each, ready to follow into a fused trace.
 type Overview struct {
-	// ID and Services are set for an Ikhnos application: its id and the service names its telemetry may carry.
+	// ID and Services are set for an ikhnos application: its id and the service names its telemetry may carry.
 	ID          string         `json:"id,omitempty"`
 	Services    []string       `json:"services,omitempty"`
 	Name        string         `json:"name"`
@@ -909,7 +909,7 @@ func (c *Client) ServiceOverview(ctx context.Context, s Scope, name string, tr T
 	return c.overview(ctx, s, name, name, tr)
 }
 
-// ApplicationOverview reads the overview of one Ikhnos application: the same things as for a service, over all of its
+// ApplicationOverview reads the overview of one ikhnos application: the same things as for a service, over all of its
 // services (the focus the Scope gets from the application).
 func (c *Client) ApplicationOverview(ctx context.Context, s Scope, g *AppGroup, tr TimeRange) (*Overview, error) {
 	fs, err := s.FocusOn(g)

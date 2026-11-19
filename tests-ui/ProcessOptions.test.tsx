@@ -5,7 +5,7 @@ import { describe, expect, test } from 'vitest'
 import ProcessOptions from '@/features/pipeline/components/telemetry/ProcessOptions'
 import { emptyTelemetry, TAG_LIMIT, type TelemetryInput } from '@/lib/install'
 
-// The guided wizard's "Tags, masking and sampling" section: what Ikhnos adds on its own, the tags a person adds, masking and
+// The guided wizard's "Tags, masking and sampling" section: what ikhnos adds on its own, the tags a person adds, masking and
 // cost, and the debug exporter. All of it is plain state on the telemetry draft; nothing here fetches.
 
 let latest: TelemetryInput = emptyTelemetry

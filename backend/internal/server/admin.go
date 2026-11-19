@@ -60,9 +60,9 @@ type Admin struct {
 	// Fusion switches the FUSION bundled with the server's chart on and off. Nil when the server was installed without
 	// it or without the permission to scale it; the endpoints then report it as unavailable and say why.
 	Fusion *fusion.FusionControl
-	// extras replaces the platform-backed provider of what Ikhnos knows (topology, applications, events) for a test.
+	// extras replaces the platform-backed provider of what ikhnos knows (topology, applications, events) for a test.
 	extras fusionapi.Extras
-	// appCache holds the Ikhnos applications for a few seconds: working them out builds the whole state document (every agent
+	// appCache holds the ikhnos applications for a few seconds: working them out builds the whole state document (every agent
 	// and the topology) and a dashboard or a script reading the API many times a second would otherwise redo it each time.
 	appCache appGroupCache
 	// links is the organisation's links API (see linksAPI).

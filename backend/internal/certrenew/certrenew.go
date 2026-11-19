@@ -74,7 +74,7 @@ type Result struct {
 
 // Config says what to keep renewed, and where to ask.
 type Config struct {
-	Server  string // host:port of the Ikhnos server's agent listener
+	Server  string // host:port of the ikhnos server's agent listener
 	CAPin   string // the server CA's pin, as for the agent
 	Client  kubernetes.Interface
 	Targets []Target

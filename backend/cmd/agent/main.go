@@ -1,6 +1,6 @@
 // Command agent runs inside a cluster (or beside one, for development) and reports what it discovers.
 //
-// It is a thin wrapper: the same code is `ikhnos agent` in the single Ikhnos binary (cmd/ikhnos), which is what
+// It is a thin wrapper: the same code is `ikhnos agent` in the single ikhnos binary (cmd/ikhnos), which is what
 // the container image and the Helm chart run. This binary keeps the old name working for development and tests.
 package main
 

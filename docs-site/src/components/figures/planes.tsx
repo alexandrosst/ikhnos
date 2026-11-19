@@ -1,5 +1,5 @@
 /*
- * The figures of "The parts of Ikhnos and how they fit": the two planes and where each has a part, what each plane is made of, and what
+ * The figures of "The parts of ikhnos and how they fit": the two planes and where each has a part, what each plane is made of, and what
  * each part is as a piece of software. Control plane parts are drawn in the cloud colour and data plane parts in the edge colour (the two tier
  * colours that are free for this), every part has a small icon so it can be found again from one figure to the next, and a dashed outline
  * always means optional.
@@ -154,7 +154,7 @@ function Card({x, y, w, h, name, sub, lines, color, icon, dashed, hi, children}:
   );
 }
 
-/** A plain outlined box for something that is not a part of Ikhnos (the Kubernetes API, a browser). */
+/** A plain outlined box for something that is not a part of ikhnos (the Kubernetes API, a browser). */
 function Other({x, y, w, h, name, sub, lines, icon}: {x: number; y: number; w: number; h: number; name: string; sub?: string; lines?: string[]; icon: IconKind}) {
   return <Card x={x} y={y} w={w} h={h} name={name} sub={sub} lines={lines} color={edge} icon={icon} />;
 }
@@ -196,7 +196,7 @@ export function DistributedPlanes() {
       <T x={c2.x + c2.w / 2} y={170} anchor="middle" small muted>No part of its own.</T>
       <T x={c2.x + c2.w / 2} y={188} anchor="middle" small muted>The server keeps a record</T>
       <T x={c2.x + c2.w / 2} y={204} anchor="middle" small muted>of the operator here.</T>
-      <Card x={c3.x} y={104} w={c3.w} h={112} name="Ikhnos server" lines={['Approvals, the twin,', 'history, the audit', 'trail and the pages']} color={control} icon="server" hi />
+      <Card x={c3.x} y={104} w={c3.w} h={112} name="ikhnos server" lines={['Approvals, the twin,', 'history, the audit', 'trail and the pages']} color={control} icon="server" hi />
 
       {/* the data row */}
       <Card x={c1.x} y={268} w={c1.w} h={110} name="Local operator" lines={['Collectors on every node', 'and one for the cluster']} color={data} icon="local" />
@@ -269,7 +269,7 @@ export function ObservabilityPlanes() {
     );
   };
   return (
-    <Fig id={f} width={1088} textScale={1.2} height={740} label="Ikhnos has a control plane and a data plane. In the control plane, the server holds the observability intent, which covers discovery and the observability posture, and the topology and history. The intent goes down to a discovery agent in each cloud, edge and far-edge cluster, and the topology comes back up. In the data plane, each cluster has a local operator with telemetry extractors feeding an OpenTelemetry collector. Telemetry goes through regional operators to FUSION's central operator, then into Prometheus for metrics, Loki for logs and Tempo for traces. The server keeps the topology and its history in Neo4j. FUSION's shared API gives outside consumers, models, tools and people, the fused data, and reads the topology from the server." title="Inside Ikhnos: control plane and data plane">
+    <Fig id={f} width={1088} textScale={1.2} height={740} label="ikhnos has a control plane and a data plane. In the control plane, the server holds the observability intent, which covers discovery and the observability posture, and the topology and history. The intent goes down to a discovery agent in each cloud, edge and far-edge cluster, and the topology comes back up. In the data plane, each cluster has a local operator with telemetry extractors feeding an OpenTelemetry collector. Telemetry goes through regional operators to FUSION's central operator, then into Prometheus for metrics, Loki for logs and Tempo for traces. The server keeps the topology and its history in Neo4j. FUSION's shared API gives outside consumers, models, tools and people, the fused data, and reads the topology from the server." title="Inside ikhnos: control plane and data plane">
       {[[34, 'Set the intent'], [184, 'Agents discover'], [342, 'Operators collect'], [514, 'FUSION keeps it']].map(([x, label], i) => (
         <g key={label}>
           {badge(x as number, 54, i + 1)}
@@ -358,7 +358,7 @@ export function ObservabilityPlanes() {
 export function ControlPlaneParts() {
   const f = 'ctlparts';
   return (
-    <Fig id={f} height={500} label="The control plane. In a cluster, the controller and the agent never call each other: they leave notes in the IkhnosAgent resource. The controller installs the agent chart through the Kubernetes API, and the agent reads the Kubernetes API. The agent dials out to the Ikhnos server, which people reach in a browser." title="The control plane" subtitle="The server, and in each cluster an agent, a controller and a resource. The agent and the controller never call each other.">
+    <Fig id={f} height={500} label="The control plane. In a cluster, the controller and the agent never call each other: they leave notes in the IkhnosAgent resource. The controller installs the agent chart through the Kubernetes API, and the agent reads the Kubernetes API. The agent dials out to the ikhnos server, which people reach in a browser." title="The control plane" subtitle="The server, and in each cluster an agent, a controller and a resource. The agent and the controller never call each other.">
       <rect x="24" y="64" width="506" height="388" rx="14" fill={control} fillOpacity="0.04" stroke={rule} strokeWidth="1.25" />
       <T x={40} y={86} bold>In a cluster</T>
       <T x={130} y={86} small muted>the agent is one Helm release, the controller another</T>
@@ -383,7 +383,7 @@ export function ControlPlaneParts() {
       <T x={40} y={424} small muted>Without a controller, a person runs the helm command and there is no resource.</T>
 
       <Other x={578} y={64} w={158} h={60} name="You" sub="browser, HTTPS" icon="person" />
-      <Card x={578} y={170} w={158} h={282} name="Ikhnos server" color={control} icon="server" hi>
+      <Card x={578} y={170} w={158} h={282} name="ikhnos server" color={control} icon="server" hi>
         <Lines x={592} y={222} lines={['Approves each agent', 'and its access tier.', '', 'Keeps the digital twin,', 'the history and the', 'audit trail.', '', 'Writes the config each', 'agent is sent, and the', 'commands you run for', 'operators.']} />
       </Card>
       <Arrow fig={f} d="M657 124V170" />
@@ -439,7 +439,7 @@ export function DataPlaneParts() {
 
       <Card x={24} y={424} w={232} h={86} name="Agent" sub="control plane" lines={['Reads the collectors’ counters, so it', 'can say where data stops.']} color={control} icon="agent" />
       <Arrow fig={f} dashed d="M140 424V400" />
-      <Card x={282} y={424} w={454} h={86} name="Ikhnos server" sub="control plane" lines={['Generates each operator’s configuration and certificates.', 'It is not on the path either: the data never passes through it.']} color={control} icon="server" />
+      <Card x={282} y={424} w={454} h={86} name="ikhnos server" sub="control plane" lines={['Generates each operator’s configuration and certificates.', 'It is not on the path either: the data never passes through it.']} color={control} icon="server" />
       <Arrow fig={f} dashed d="M382 424V400" />
       <Arrow fig={f} dashed d="M622 424V400" />
       <T x={24} y={534} small color={quiet}>Solid arrows carry data, as OTLP. Dashed arrows are the control plane looking at, or configuring, the data plane.</T>
@@ -466,7 +466,7 @@ export function ComponentAnatomy() {
   const h = 72;
   const gap = 8;
   return (
-    <Fig id={f} height={y0 + ROWS.length * (h + gap) + 24} label="A table of the seven parts of Ikhnos, each with how it runs, whom it talks to, and what it holds. Server, agent, controller and the IkhnosAgent resource are the control plane; local operator, regional operator and FUSION are the data plane." title="What each part is" subtitle="How it runs, whom it talks to, and what it holds. A dashed outline means optional.">
+    <Fig id={f} height={y0 + ROWS.length * (h + gap) + 24} label="A table of the seven parts of ikhnos, each with how it runs, whom it talks to, and what it holds. Server, agent, controller and the IkhnosAgent resource are the control plane; local operator, regional operator and FUSION are the data plane." title="What each part is" subtitle="How it runs, whom it talks to, and what it holds. A dashed outline means optional.">
       <Pill x={24} y={60} w={118} color={control}>Control plane</Pill>
       <Pill x={152} y={60} w={96} color={data}>Data plane</Pill>
       <T x={86} y={y0 - 8} small bold>Part</T>

@@ -147,7 +147,7 @@ export default function OperatorCreated({
   if (exposure !== 'cluster') {
     steps.push({
       key: 'address',
-      title: 'Tell Ikhnos where other clusters reach it',
+      title: 'Tell ikhnos where other clusters reach it',
       body: (
         <div data-testid="operator-created-address">
           Once it is running, use the “Reachable at” action on this operator’s row. After that, every command that points at it uses that address.

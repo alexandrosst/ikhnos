@@ -77,7 +77,7 @@ type ClusterLinks struct {
 	Probe bool `json:"probe"`
 	// Throughput also lets this cluster run and answer throughput tests (iperf3). It needs Probe.
 	Throughput bool `json:"throughput"`
-	// AuthSecret is a Secret of the person's own holding iperf3's credentials. Empty: Ikhnos issues them.
+	// AuthSecret is a Secret of the person's own holding iperf3's credentials. Empty: ikhnos issues them.
 	AuthSecret string `json:"authSecret"`
 }
 

@@ -1,7 +1,7 @@
 {
   "uid": "ikhnos-applications",
   "title": "Applications",
-  "description": "One Ikhnos application at a glance: the services it is made of, and their pods, traces and logs. Pick the application, then its services: each entry is a service in one namespace of one cluster, so a selection is exact for metrics, pods and logs. Pods are matched by the name of their Deployment, StatefulSet or DaemonSet being the service, in the namespace and cluster of the entry. Traces are matched by service name only (a span says nothing reliable about its cluster, and the trace store cannot filter on a pair of attributes taken from a list), so two entries with the same service name in different namespaces share their traces.",
+  "description": "One ikhnos application at a glance: the services it is made of, and their pods, traces and logs. Pick the application, then its services: each entry is a service in one namespace of one cluster, so a selection is exact for metrics, pods and logs. Pods are matched by the name of their Deployment, StatefulSet or DaemonSet being the service, in the namespace and cluster of the entry. Traces are matched by service name only (a span says nothing reliable about its cluster, and the trace store cannot filter on a pair of attributes taken from a list), so two entries with the same service name in different namespaces share their traces.",
   "tags": [
     "ikhnos",
     "applications"
@@ -35,7 +35,7 @@
         "sort": 1,
         "multi": false,
         "includeAll": false,
-        "description": "An application from Ikhnos. Its services are written to Prometheus once a minute while FUSION runs."
+        "description": "An application from ikhnos. Its services are written to Prometheus once a minute while FUSION runs."
       },
       {
         "name": "namespace",
@@ -63,7 +63,7 @@
             "$__all"
           ]
         },
-        "description": "Narrows the list of members below to those in these namespaces. A member Ikhnos knows no namespace for is kept by All.",
+        "description": "Narrows the list of members below to those in these namespaces. A member ikhnos knows no namespace for is kept by All.",
         "allValue": ".*"
       },
       {
@@ -122,7 +122,7 @@
             "$__all"
           ]
         },
-        "description": "The services of this application, each as service/namespace/cluster, so a selection is exact: a service in two namespaces is two entries, and choosing one never selects the other. All means exactly the entries listed, not every service there is. An empty part is something Ikhnos does not know."
+        "description": "The services of this application, each as service/namespace/cluster, so a selection is exact: a service in two namespaces is two entries, and choosing one never selects the other. All means exactly the entries listed, not every service there is. An empty part is something ikhnos does not know."
       },
       {
         "name": "service",
@@ -226,7 +226,7 @@
     {
       "id": 7,
       "type": "table",
-      "title": "What Ikhnos has in this application",
+      "title": "What ikhnos has in this application",
       "datasource": {
         "type": "prometheus",
         "uid": "fusion-metrics"
@@ -250,7 +250,7 @@
           "format": "table"
         }
       ],
-      "description": "The services Ikhnos groups into the application, as the labels their telemetry carries. Edit the application in Ikhnos and this follows within a minute; the telemetry itself is not changed.",
+      "description": "The services ikhnos groups into the application, as the labels their telemetry carries. Edit the application in ikhnos and this follows within a minute; the telemetry itself is not changed.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -864,7 +864,7 @@
           "query": "{ resource.service.name =~ \"${service:pipe}\" } | rate() by (resource.service.name)"
         }
       ],
-      "description": "Traces of the application's services that reached the store. Needs the trace store's metrics generator, which this chart turns on (tempo.traceqlMetrics). Traces are matched by service name only: a trace can cross clusters, and spans that did not pass an Ikhnos agent carry no cluster id, so the cluster choice does not narrow them.",
+      "description": "Traces of the application's services that reached the store. Needs the trace store's metrics generator, which this chart turns on (tempo.traceqlMetrics). Traces are matched by service name only: a trace can cross clusters, and spans that did not pass an ikhnos agent carry no cluster id, so the cluster choice does not narrow them.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -926,7 +926,7 @@
           "query": "{ resource.service.name =~ \"${service:pipe}\" && status = error } | rate() by (resource.service.name)"
         }
       ],
-      "description": "Spans that ended in an error. Traces are matched by service name only: a trace can cross clusters, and spans that did not pass an Ikhnos agent carry no cluster id, so the cluster choice does not narrow them.",
+      "description": "Spans that ended in an error. Traces are matched by service name only: a trace can cross clusters, and spans that did not pass an ikhnos agent carry no cluster id, so the cluster choice does not narrow them.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -989,7 +989,7 @@
           "tableType": "traces"
         }
       ],
-      "description": "The latest traces that touched any of the application's services. Open one to follow it to its logs and metrics. Traces are matched by service name only: a trace can cross clusters, and spans that did not pass an Ikhnos agent carry no cluster id, so the cluster choice does not narrow them.",
+      "description": "The latest traces that touched any of the application's services. Open one to follow it to its logs and metrics. Traces are matched by service name only: a trace can cross clusters, and spans that did not pass an ikhnos agent carry no cluster id, so the cluster choice does not narrow them.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []

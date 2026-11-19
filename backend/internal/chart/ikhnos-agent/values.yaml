@@ -40,7 +40,7 @@ rbac:
 controller:
   # The IkhnosAgent that keeps this agent installed, when a controller does. The controller sets it; leave it empty with Helm. When set,
   # an agent the server revokes marks that resource (the chart gives it the right to patch that one object, nothing else) and the
-  # controller removes the agent and its identity: revoking in Ikhnos leaves nothing of it in the cluster.
+  # controller removes the agent and its identity: revoking in ikhnos leaves nothing of it in the cluster.
   resource: ""
   # Whether the server may ask this cluster to collect more or less telemetry (which signals, how much of the traces; never where it goes).
   # Off (default), a request is answered "refused" and nothing is written. On, the agent hands the request to the controller through the
@@ -53,7 +53,7 @@ identity:
   # uninstall by mistake cannot cost the agent its identity, and installing the chart again picks the same agent up. true: a
   # post-delete hook (a Job that runs `ikhnos purge-identity` with a Role that can delete that one Secret and nothing else) removes
   # it too, so one `helm uninstall` leaves nothing of the agent in the cluster. The agent is not coming back under that identity,
-  # so decommission it in Ikhnos as well (the page says so). `helm uninstall --no-hooks` skips the hook.
+  # so decommission it in ikhnos as well (the page says so). `helm uninstall --no-hooks` skips the hook.
   purgeOnUninstall: false
 
 enrollment:
@@ -165,7 +165,7 @@ resources:
   limits: {memory: 192Mi}
 
 # Where the agent's pod may run. It is a single ordinary pod; these are the usual Kubernetes scheduling knobs.
-# The default keeps Ikhnos's pods off Windows nodes (the image is Linux only). Your own entries are merged with it;
+# The default keeps ikhnos's pods off Windows nodes (the image is Linux only). Your own entries are merged with it;
 # to drop it, set `--set 'nodeSelector.kubernetes\.io/os=null'`.
 nodeSelector:
   kubernetes.io/os: linux
@@ -183,7 +183,7 @@ priorityClassName: ""
 #     - {name: GODEBUG, value: "madvdontneed=1"}
 extraEnv: []
 
-# Outbound proxy for the AGENT, for clusters that reach the Internet (or your Ikhnos server) only through one.
+# Outbound proxy for the AGENT, for clusters that reach the Internet (or your ikhnos server) only through one.
 # The agent's connection to the server is gRPC over mutual TLS. grpc-go honours the standard proxy variables: it asks the
 # proxy for an HTTP CONNECT tunnel to the server and speaks TLS through it, so the proxy sees only the server's address,
 # never the content, and never terminates TLS (a proxy that tries to would be refused: the agent trusts only the server's
@@ -215,7 +215,7 @@ networkPolicy:
   # your network, and a wrong egress policy silently cuts the agent off. When enabled the agent may reach ONLY:
   #   - DNS: the cluster DNS pods in kube-system (k8s-app=kube-dns), plus dnsCIDRs if you use a node-local DNS cache
   #   - the Kubernetes API server: apiServerCIDRs on apiServerPorts
-  #   - the Ikhnos server: serverCIDRs on the port of server.address
+  #   - the ikhnos server: serverCIDRs on the port of server.address
   #   - anything you list in extraEgress (raw NetworkPolicy egress rules; e.g. the addresses connection timing
   #     may reach, if measurements.enabled)
   # apiServerCIDRs and serverCIDRs are required (a NetworkPolicy cannot match a host name). For the API server list the
@@ -257,8 +257,8 @@ networkPolicy:
 
 # Optional node probe: a tiny read-only DaemonSet that tells the agent what kind of machine each node
 # really is (virtual machine or bare metal, the hypervisor, the board model, how it connects). The
-# Kubernetes API cannot say this; without the probe Ikhnos can only guess and marks the guess as
-# low confidence. Off by default: it is the only part of Ikhnos that runs on every node.
+# Kubernetes API cannot say this; without the probe ikhnos can only guess and marks the guess as
+# low confidence. Off by default: it is the only part of ikhnos that runs on every node.
 #
 # What it reads: CPU flags, DMI vendor/product strings, the device-tree model, which kinds of network
 # interface are up, whether a battery exists. Never serial numbers, MAC addresses, disks or processes.
@@ -356,7 +356,7 @@ flowObserver:
     enabled: false
   # Leave empty to generate one on first install and keep it across upgrades. Separate from the probe's.
   secret: ""
-  # Runs the same image as the agent, with the argument `flow` (see `image` above). It is the one part of Ikhnos that runs
+  # Runs the same image as the agent, with the argument `flow` (see `image` above). It is the one part of ikhnos that runs
   # as root (runAsUser: 0, set in the pod spec, not in the image): loading the eBPF program needs it.
   #
   # Receiver policy. Collectors run in the host network, so the agent sees them arriving from an address of the NODE
@@ -381,7 +381,7 @@ flowObserver:
 # discovery above. Off by default, signal by signal. Every enabled signal is normalized to OpenTelemetry
 # the moment it is collected: one embedded OpenTelemetry Collector (the Contrib distribution) receives
 # from whichever sources are turned on below and forwards them, as OTLP, to telemetry.export - your own
-# backend, not this server. Ikhnos does not ingest or store telemetry itself yet; this chart only
+# backend, not this server. ikhnos does not ingest or store telemetry itself yet; this chart only
 # collects it and hands it off in a standard, vendor-neutral shape.
 #
 # Each signal below names:
@@ -400,7 +400,7 @@ flowObserver:
 #               that has no OpenTelemetry-native receiver at all. Only energy needs this today (bundle-kepler).
 telemetry:
   # The collector this chart deploys is the upstream OpenTelemetry Collector Contrib distribution, not the
-  # Ikhnos image - it needs the community's receivers (hostmetrics, kubeletstats, k8scluster, k8sobjects,
+  # ikhnos image - it needs the community's receivers (hostmetrics, kubeletstats, k8scluster, k8sobjects,
   # filelog) that only that distribution ships. Pin collectorImage.digest the same way image.digest works
   # above, once you have picked a version to trust.
   collectorImage:
@@ -471,7 +471,7 @@ telemetry:
     # connection is noticed within time + timeout, instead of after the operating system gives up on it (about 15 minutes).
     # Empty `time` (the default) sends none. A server accepts pings no more often than its own policy allows - a stock
     # OTLP/gRPC receiver, like grpc-go in general, one per 5 minutes - and answers a more frequent client with GOAWAY
-    # "too_many_pings" (an error level line in the log, the connection re-opened, the data still delivered). The Ikhnos
+    # "too_many_pings" (an error level line in the log, the connection re-opened, the data still delivered). The ikhnos
     # regional operator accepts a ping every 30s; for any other destination check its policy before setting this. At least
     # 10s (gRPC raises a smaller value to it).
     keepalive:
@@ -506,9 +506,9 @@ telemetry:
         caFile: ""
         serverName: ""    # verify the destination's certificate against THIS name instead of the endpoint's host - for reaching a
                            # regional operator at a LoadBalancer/Ingress address while its certificate is for its in-cluster name.
-                           # Ikhnos's install command sets it when it points you at an operator's advertised address.
+                           # ikhnos's install command sets it when it points you at an operator's advertised address.
         # Present a client certificate on top of (or instead of) caSecretName/caFile above - e.g. when your destination
-        # is an Ikhnos regional operator with receiver.tls.mtls on. Off by default in this file, but a
+        # is an ikhnos regional operator with receiver.tls.mtls on. Off by default in this file, but a
         # regional operator's own "point this cluster at me" reminder always sets this on with the
         # certificate it minted for exactly this purpose (see CreateOperator/IssueOperatorClientTLS) - this
         # default only matters if you hand-edit these values or mint your own certificate some other way.
@@ -1015,9 +1015,9 @@ telemetry:
       interval: 30s     # how often the cluster collector scrapes it
     # The link hub, which runs whenever metrics.enabled is true: a pod of its own that makes the series above and answers the prober and the responders, so that the agent - the one
     # process that holds this cluster's identity - listens for none of them. The agent keeps deciding what is served (it still receives
-    # the peers from the Ikhnos server and admits the node collectors' reports); it sends the hub the rows it has admitted and the
+    # the peers from the ikhnos server and admits the node collectors' reports); it sends the hub the rows it has admitted and the
     # configuration to serve over two messages signed with `secret` below, and the hub serves them. The hub runs the same image as
-    # `ikhnos link-hub`, holds no credential of the Ikhnos server and no Kubernetes token, makes no outbound connection, and keeps serving
+    # `ikhnos link-hub`, holds no credential of the ikhnos server and no Kubernetes token, makes no outbound connection, and keeps serving
     # what it was last told while the agent is away. The Service ikhnos-agent-link-metrics keeps its name and so does every address the
     # collector, the prober and the responders use; only the pods behind it change. Needs metrics.enabled.
     # (`hub.enabled` is no longer a choice and is ignored if a release still carries it, so that such a release upgrades.)
@@ -1106,7 +1106,7 @@ telemetry:
       # it carries and where it starts to drop: TCP with one stream and with several, in each direction, and a UDP ramp. They
       # are heavy, so they run rarely, one at a time (never beside the probe), within a daily byte budget, and they wait while
       # real traffic is using the link. Each responder pod then also runs an iperf3 server on `port`: open TCP and UDP `port`
-      # between paired clusters. iperf3 accepts anyone who can reach that port, so the server runs in authenticated mode: with credentials the Ikhnos server issues
+      # between paired clusters. iperf3 accepts anyone who can reach that port, so the server runs in authenticated mode: with credentials the ikhnos server issues
       # (auth.automatic, the default) or a Secret of your own (auth.existingSecret). responder.allowFrom does not apply to it, and is
       # refused alongside this only when neither applies.
       capacity:
@@ -1137,11 +1137,11 @@ telemetry:
             requests: {cpu: 10m, memory: 16Mi}
             limits: {memory: 64Mi}
         auth:
-          # By default (automatic: true) the Ikhnos server issues the iperf3 credentials of each pair that asks for throughput tests and
+          # By default (automatic: true) the ikhnos server issues the iperf3 credentials of each pair that asks for throughput tests and
           # delivers them to this cluster through the agent, over the channel it already has: nothing to create, nothing to name. The
           # server pods then ask the agent for their key (a signed request, answered sealed) and run iperf3 in authenticated mode, and
           # run nothing at all until they have it; the prober gets only the client credentials of the pairs it tests. Nothing is written
-          # to a Secret or a disk. Needs an Ikhnos server that issues them; with an older one the tests wait for credentials that never
+          # to a Secret or a disk. Needs an ikhnos server that issues them; with an older one the tests wait for credentials that never
           # come. automatic: false runs the server open (no authentication) unless existingSecret is set.
           automatic: true
           # Your own credentials instead: a Secret in this namespace for iperf3's authenticated mode. It wins over automatic, the pods read
@@ -1369,7 +1369,7 @@ telemetry:
   # upstream as of this chart's pinned collectorImage - the schema may still change) to both collector
   # ConfigMaps: it reports this collector's health, effective config, and available components to an OpAMP
   # server, if one is actually listening at server.endpoint. This is report-only and forward-compatible with
-  # a future Ikhnos-side OpAMP server / control-plane component - it does NOT accept remote config push
+  # a future ikhnos-side OpAMP server / control-plane component - it does NOT accept remote config push
   # itself (that needs the separate OpAMP "Supervisor" process pattern wrapping the collector, which this
   # chart does not implement). Safe to leave off; nothing here works without a server to report to.
   opamp:

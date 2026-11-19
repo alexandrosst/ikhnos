@@ -14,10 +14,10 @@ import (
 	"ikhnos/internal/kernel"
 )
 
-// The two pages FUSION has of its own - Prometheus's and Grafana's - are opened from the Ikhnos UI through the server, so
+// The two pages FUSION has of its own - Prometheus's and Grafana's - are opened from the ikhnos UI through the server, so
 // they need no Ingress, no second login and no port-forward, and the stores stay inside the cluster. The
 // server is the only way in: it signs the person in (an administrator of FUSION's organisation, by the session cookie, or - for the new tab the UI opens, which carries no session cookie - by the page cookie a one-time ticket gives, see fusion_ui_access.go),
-// strips what must not reach the other side (their Ikhnos cookie and any credentials) and, for Grafana, tells it who
+// strips what must not reach the other side (their ikhnos cookie and any credentials) and, for Grafana, tells it who
 // they are in the one header it trusts (X-WEBAUTH-USER).
 //
 // The trust that implies, stated plainly: these pages are served from the same origin as the UI. Both are our own
@@ -165,7 +165,7 @@ func (a *Admin) fusionUI(component string) http.Handler {
 				// (The proxy itself drops the hop-by-hop headers, and with Rewrite also Forwarded and X-Forwarded-*: what
 				// the person's own proxy said about them is not a claim to repeat to the page.)
 				h := pr.Out.Header
-				// Nothing of ours goes through: not the person's Ikhnos session, not credentials, not forwarding claims -
+				// Nothing of ours goes through: not the person's ikhnos session, not credentials, not forwarding claims -
 				// and above all not a sign-in header of the client's own making.
 				h.Del("Cookie")
 				h.Del("Authorization")

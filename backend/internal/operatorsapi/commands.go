@@ -140,7 +140,7 @@ func RouteValues(op store.Operator, endpoint string, m store.Modality) []install
 }
 
 // InstallCommand is installCommand's own twin for the regional-operator chart: simpler, since this
-// chart does not dial the Ikhnos server unless its opt-in heartbeat is on (see store.Operator's own
+// chart does not dial the ikhnos server unless its opt-in heartbeat is on (see store.Operator's own
 // comment) - there is no server.address or enrollment.key here, only where the operator exports to and how
 // its receiver authenticates what exports into it. Returns the `helm install` command and, for a bearer
 // operator only, a companion Secret command for the receiver token, shown once.

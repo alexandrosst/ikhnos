@@ -8,12 +8,12 @@ import (
 	"ikhnos/internal/fusionapi"
 )
 
-// appInfoEvery is how often the info series of the Ikhnos applications is written into FUSION's Prometheus. Prometheus
+// appInfoEvery is how often the info series of the ikhnos applications is written into FUSION's Prometheus. Prometheus
 // treats a series as present for five minutes after its last sample, so a minute keeps it always there while a deleted
 // application or a service taken out of one drops out within five.
 const appInfoEvery = time.Minute
 
-// PushApplicationInfo writes the info series (fusionapi.AppInfoMetric) for the applications Ikhnos knows into FUSION's
+// PushApplicationInfo writes the info series (fusionapi.AppInfoMetric) for the applications ikhnos knows into FUSION's
 // Prometheus and reports how many series it wrote, and whether it left some out (there is a cap on one push). It writes
 // nothing, and says so with no error, when FUSION is not running or this server has no applications to give: there is no one
 // to read them yet.

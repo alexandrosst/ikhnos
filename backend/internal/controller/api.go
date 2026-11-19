@@ -1,9 +1,9 @@
-// Package controller keeps one Ikhnos agent installed in the cluster it runs in, from an IkhnosAgent resource: the resource says what
+// Package controller keeps one ikhnos agent installed in the cluster it runs in, from an IkhnosAgent resource: the resource says what
 // the agent is to be (the server it enrols with, its access level, its collectors and scope), the controller installs the agent chart
 // that is embedded in the same release to match, upgrades it when the resource changes, and uninstalls it (and, when asked, deletes its
 // identity) when the resource is deleted.
 //
-// It is an optional way to ask for what the Connect page's `helm install` asks for, and nothing else about Ikhnos depends on it. The
+// It is an optional way to ask for what the Connect page's `helm install` asks for, and nothing else about ikhnos depends on it. The
 // server stays the only owner of what is approved and trusted; this controller never talks to it and holds no credential for it. Which
 // Helm values a set of choices makes is install.AgentChoices, the same code the Connect page's command uses.
 package controller

@@ -10,7 +10,7 @@ const GITHUB_OWNER = 'alexandrosst';
 const GITHUB_REPO = 'ikhnos';
 
 const config: Config = {
-  title: 'Ikhnos',
+  title: 'ikhnos',
   tagline: 'Observability across the cloud–edge computing continuum.',
   favicon: 'img/favicon.svg',
 
@@ -96,16 +96,16 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'Ikhnos',
+      title: 'ikhnos',
       logo: {
-        alt: 'Ikhnos',
+        alt: 'ikhnos',
         src: 'img/logo.svg',
       },
       items: [
         {to: '/docs/learn/what-is-ikhnos', label: 'Learn', position: 'left', activeBasePath: '/docs/learn'},
         {to: '/docs/journey/', label: 'Get started', position: 'left', activeBasePath: '/docs/journey'},
         {to: '/docs/user-guide/using-the-ui', label: 'Guides', position: 'left', activeBasePath: '/docs/user-guide'},
-        {to: '/docs/inside/', label: 'Inside Ikhnos', position: 'left', activeBasePath: '/docs/inside'},
+        {to: '/docs/inside/', label: 'Inside ikhnos', position: 'left', activeBasePath: '/docs/inside'},
         {to: '/docs/reference/', label: 'Reference', position: 'left', activeBasePath: '/docs/reference'},
         {type: 'search', position: 'right'},
         {
@@ -121,7 +121,7 @@ const config: Config = {
         {
           title: 'Learn',
           items: [
-            {label: 'What is Ikhnos', to: '/docs/learn/what-is-ikhnos'},
+            {label: 'What is ikhnos', to: '/docs/learn/what-is-ikhnos'},
             {label: 'How it works', to: '/docs/learn/how-it-works'},
             {label: 'Concepts in plain words', to: '/docs/learn/concepts'},
           ],
@@ -137,7 +137,7 @@ const config: Config = {
         {
           title: 'Build on it',
           items: [
-            {label: 'Inside Ikhnos', to: '/docs/inside/'},
+            {label: 'Inside ikhnos', to: '/docs/inside/'},
             {label: 'Contributing', to: '/docs/contributing/developer-guide'},
             {label: 'Roadmap', to: '/docs/project/roadmap'},
           ],
@@ -151,7 +151,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Ikhnos is open source under the Apache License 2.0.`,
+      copyright: `ikhnos is open source under the Apache License 2.0.`,
     },
     prism: {
       theme: prismThemes.oneLight,

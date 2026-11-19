@@ -107,7 +107,7 @@ export function ExposeCard({ expose, testId }: { expose: NonNullable<AddressCand
   )
 }
 
-/** The addresses Ikhnos found for an operator from what its cluster's agent reports, to pick from instead of typing.
+/** The addresses ikhnos found for an operator from what its cluster's agent reports, to pick from instead of typing.
  *  Picking one only fills the field below; nothing is saved until Save. A failed lookup shows nothing: typing still works. */
 function AddressCandidatesList({ operatorId, value, onPick }: { operatorId: string; value: string; onPick: (address: string) => void }) {
   const [refresh, setRefresh] = useState(0)

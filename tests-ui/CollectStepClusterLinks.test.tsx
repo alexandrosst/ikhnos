@@ -23,12 +23,12 @@ describe('CollectStep: Cluster links', () => {
     expect(screen.getByTestId('t-links-probe').closest('label')).toHaveTextContent(/TCP 8861 and UDP 18900–18919 with no address translation \(NAT\)/)
     expect(screen.queryByTestId('t-links-own-credentials')).toBeNull()
     fireEvent.click(screen.getByTestId('t-links-throughput'))
-    // Nothing is required: Ikhnos issues the credentials, and the field sits closed under an Advanced disclosure.
+    // Nothing is required: ikhnos issues the credentials, and the field sits closed under an Advanced disclosure.
     expect(telemetryProblems(latest)).toEqual([])
     const details = screen.getByTestId('t-links-own-credentials') as HTMLDetailsElement
     expect(details.open).toBe(false)
     expect(details).toHaveTextContent('Advanced: use my own iperf3 credentials')
-    expect(details).toHaveTextContent(/Ikhnos issues the credentials/)
+    expect(details).toHaveTextContent(/ikhnos issues the credentials/)
     fireEvent.change(screen.getByTestId('t-links-secret'), { target: { value: 'Bad_Name' } })
     expect(telemetryProblems(latest).join(' ')).toMatch(/credential Secret name/)
     fireEvent.change(screen.getByTestId('t-links-secret'), { target: { value: 'ikhnos-link-iperf' } })

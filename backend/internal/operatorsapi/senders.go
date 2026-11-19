@@ -239,7 +239,7 @@ func diagnoseSender(in diagnosisInput) *SenderDiagnosisDoc {
 	}
 	if !in.Connected {
 		return &SenderDiagnosisDoc{Where: FaultSender, Title: who + "'s agent is not connected",
-			Detail: "Ikhnos cannot see how exporting is going until the agent reconnects, so nothing here says whether the operator or the address is at fault."}
+			Detail: "ikhnos cannot see how exporting is going until the agent reconnects, so nothing here says whether the operator or the address is at fault."}
 	}
 	// The address was tested from this cluster and nothing answered, and data is not flowing: the address is what to look at,
 	// and it can be said before the exporter has failed at all.

@@ -18,7 +18,7 @@ const LAYERS: string[][] = [
   // Each of these needs nothing of the others.
   ['accounts', 'fusion', 'history', 'links', 'settings'],
   // From here each layer may use any layer listed before it, and none beside it.
-  // System health leads to FUSION's Ikhnos self dashboard, so it sits above FUSION.
+  // System health leads to FUSION's ikhnos self dashboard, so it sits above FUSION.
   ['discovery', 'health'],
   ['pipeline'],
   ['agents'],

@@ -6,7 +6,7 @@ import Figure from '@site/src/components/Figure';
 import styles from './index.module.css';
 
 const principles: [string, string][] = [
-  ['Read-only', 'The agent reads the Kubernetes API, never your Secrets or ConfigMaps, and writes only its own identity, its certificates and its own status. Ikhnos never deploys or moves your workloads: changes are commands you run.'],
+  ['Read-only', 'The agent reads the Kubernetes API, never your Secrets or ConfigMaps, and writes only its own identity, its certificates and its own status. ikhnos never deploys or moves your workloads: changes are commands you run.'],
   ['Outbound only', 'The agent opens every connection, over mutual TLS. No inbound firewall rule on a cluster, and the server never holds a kubeconfig.'],
   ['Narrow, never widen', 'Observability intent sets how far each part may look. Each layer can narrow it and none can widen it. Telemetry stays off until you turn a signal on.'],
   ['Scoped reads', 'FUSION\u2019s API is read-only. A token is limited to signals, namespaces and clusters, and the stores behind it are never exposed.'],
@@ -17,7 +17,7 @@ const principles: [string, string][] = [
 const paths: [string, string, string, string][] = [
   ['/docs/learn/what-is-ikhnos', 'New here', 'Learn what it is', 'The problem it solves, how it works in ten minutes, and the words it uses, with no prior knowledge assumed.'],
   ['/docs/journey/', 'Ready to try it', 'Your first hour', 'From an empty cluster to a connected, approved one you can explore, step by step, with what you should see after each.'],
-  ['/docs/inside/', 'Want to build on it', 'Inside Ikhnos', 'How the server, the agent and the interface are put together, and why. Drawn, then explained.'],
+  ['/docs/inside/', 'Want to build on it', 'Inside ikhnos', 'How the server, the agent and the interface are put together, and why. Drawn, then explained.'],
 ];
 
 const features: [string, string][] = [
@@ -34,7 +34,7 @@ const features: [string, string][] = [
 export default function Home() {
   const logo = useBaseUrl('/img/logo.svg');
   return (
-    <Layout title="Ikhnos" description="Observability across the cloud–edge computing continuum: topology discovery and telemetry collection for your Kubernetes clusters, driven by an observability intent.">
+    <Layout title="ikhnos" description="Observability across the cloud–edge computing continuum: topology discovery and telemetry collection for your Kubernetes clusters, driven by an observability intent.">
       <header className={styles.hero}>
         <div className={styles.heroInner}>
           <div className={styles.heroText}>
@@ -53,7 +53,7 @@ export default function Home() {
           </div>
           <div className={styles.heroShot}>
             <ThemedImage
-              alt="The Ikhnos topology view: a cloud cluster, a regional edge cluster and far-edge clusters with their services and the dependencies between them"
+              alt="The ikhnos topology view: a cloud cluster, a regional edge cluster and far-edge clusters with their services and the dependencies between them"
               sources={{light: useBaseUrl('/img/readme/topology-loop-light.webp'), dark: useBaseUrl('/img/readme/topology-loop-dark.webp')}}
             />
           </div>

@@ -1,4 +1,4 @@
-// Package install writes the commands a person pastes into a shell to put Ikhnos on a cluster: the helm command that installs or
+// Package install writes the commands a person pastes into a shell to put ikhnos on a cluster: the helm command that installs or
 // upgrades a chart, and (later) the Secret and kubectl lines that go with it.
 //
 // Nothing else in the server builds such a command. A command is described as a value (what to install, where, with which Helm

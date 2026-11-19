@@ -10,7 +10,7 @@ import type { Site } from '@/lib/types'
 /* ---------- ownership ---------- */
 
 /** The product's name as the footer's copyright line gives it, shown in the menu and on the sign-in page. */
-export const OWNER = 'Ikhnos'
+export const OWNER = 'ikhnos'
 
 /** The year of the first release, as in the LICENSE file. A copyright year names when the work appeared, so it is not the current year. */
 export const COPYRIGHT_YEAR = 2026

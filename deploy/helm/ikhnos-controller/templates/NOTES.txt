@@ -1,13 +1,13 @@
-Ikhnos controller {{ .Chart.AppVersion }} — {{ if .Release.IsInstall }}installed{{ else }}upgraded{{ end }} as "{{ .Release.Name }}" in {{ .Release.Namespace }}. It may install agents up to access tier {{ .Values.maxAccessTier }}.
+ikhnos controller {{ .Chart.AppVersion }} — {{ if .Release.IsInstall }}installed{{ else }}upgraded{{ end }} as "{{ .Release.Name }}" in {{ .Release.Namespace }}. It may install agents up to access tier {{ .Values.maxAccessTier }}.
 {{- if include "controller.bootstrapSpec" . }}
 
 NEXT  The agent was asked for in this command. Watch it:
   kubectl -n {{ .Release.Namespace }} get ikhnosagents -w
-  Then approve it in the Ikhnos UI under Agents.
+  Then approve it in the ikhnos UI under Agents.
 {{- else }}
 
 NEXT  Ask for an agent
-  The Connect a cluster page in the Ikhnos UI prints the enrolment Secret and the IkhnosAgent to apply; the chart
+  The Connect a cluster page in the ikhnos UI prints the enrolment Secret and the IkhnosAgent to apply; the chart
   README has the same example. Then:
   kubectl -n {{ .Release.Namespace }} get ikhnosagents
   Approve it in the UI under Agents.
@@ -17,7 +17,7 @@ NEXT  Ask for an agent
 ALSO DO
   ⚠ Helm does not upgrade a chart's CRDs. If this version changes the IkhnosAgent definition, apply it:
       helm show crds <this chart> --version <this version> | kubectl apply --server-side --force-conflicts -f -
-    (The commands the Ikhnos page writes for this controller start with that step, so running them is enough.)
+    (The commands the ikhnos page writes for this controller start with that step, so running them is enough.)
 {{- end }}
 
 This controller never talks to the server. Deleting an IkhnosAgent uninstalls its agent; add spec.purgeIdentityOnDelete: true

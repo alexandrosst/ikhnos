@@ -98,7 +98,7 @@ ENTRYPOINT ["/ikhnos"]
 
 # The controller (optional): `controller` watches the IkhnosAgent resources of its namespace and keeps one release of the agent chart
 # (embedded in the binary) installed to match. Its chart is deploy/helm/ikhnos-controller; it gives the pod the namespace and the agent
-# image to install. No shell, nonroot, and it holds no credential for the Ikhnos server: it never talks to it.
+# image to install. No shell, nonroot, and it holds no credential for the ikhnos server: it never talks to it.
 FROM gcr.io/distroless/static-debian12:nonroot AS controller
 COPY --from=build /out/controller /controller
 USER 65532:65532

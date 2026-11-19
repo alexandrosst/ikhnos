@@ -1,6 +1,6 @@
 # The decision loop for agent access
 
-An **advisor** (any program: a rule set, a model, a script) looks at what Ikhnos knows, for example through the
+An **advisor** (any program: a rule set, a model, a script) looks at what ikhnos knows, for example through the
 [effective model API](model-api.md), and **proposes** a change to one agent's access. A person decides. If the
 proposal is accepted, the change is made by the same code a manual change uses, and later the server records an
 **Outcome**: what the advisor predicted beside what was observed.

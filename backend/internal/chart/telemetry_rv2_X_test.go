@@ -291,7 +291,7 @@ func TestAgentRv2XUndeliverableDestinationsFailTheRender(t *testing.T) {
 	}
 }
 
-// The install command Ikhnos prints for a source cluster leaves a placeholder default destination behind when every signal
+// The install command ikhnos prints for a source cluster leaves a placeholder default destination behind when every signal
 // type has a route of its own; it is never rendered, so it must not be judged (placeholder:4317 with protocol http would be).
 func TestAgentRv2XUnusedDefaultDestinationIsNotJudged(t *testing.T) {
 	routes := []string{"--set", "telemetry.resourceUsage.metrics.enabled=true", "--set", "telemetry.export.otlp.endpoint=placeholder:4317", "--set", "telemetry.export.otlp.protocol=http",

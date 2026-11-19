@@ -8,7 +8,7 @@ import (
 )
 
 // newDataGuard is the guard of the data API over FUSION, with what the server supplies it: the credentials a request carries,
-// the address it came from, the limiters it shares with the rest of the API, and what Ikhnos knows. Everything that can change
+// the address it came from, the limiters it shares with the rest of the API, and what ikhnos knows. Everything that can change
 // after the routes are mounted is read per request.
 func (a *Admin) newDataGuard() *fusionhttp.Guard {
 	return &fusionhttp.Guard{

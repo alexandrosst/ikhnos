@@ -315,7 +315,7 @@ func TestFuseTraceJoinsTopologyNeighbours(t *testing.T) {
 		}
 	}
 	if audit.Topology != nil {
-		t.Fatal("a service Ikhnos does not know has no topology")
+		t.Fatal("a service ikhnos does not know has no topology")
 	}
 	tp := cart.Topology
 	if tp == nil || tp.Service.ID != "s-cart" || tp.Service.Cluster != "cl-1" {

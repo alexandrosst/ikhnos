@@ -1,12 +1,12 @@
 ---
 id: status-and-limits
 title: Status and limits
-description: What Ikhnos does today, how it was tested, what has never been run for real, and what is not built.
+description: What ikhnos does today, how it was tested, what has never been run for real, and what is not built.
 ---
 
 # Status and limits
 
-Ikhnos is **pre-1.0**. It discovers and shows; it does not deploy anything and it never moves anything (access tiers 3 and 4 are reserved and refused). This page says plainly how far the testing goes and where it stops, so you can judge it before you put it near a cluster that matters.
+ikhnos is **pre-1.0**. It discovers and shows; it does not deploy anything and it never moves anything (access tiers 3 and 4 are reserved and refused). This page says plainly how far the testing goes and where it stops, so you can judge it before you put it near a cluster that matters.
 
 ## Where it stands
 

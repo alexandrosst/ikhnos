@@ -1,4 +1,4 @@
-// Command server is the Ikhnos control plane: it enrolls agents, receives what they
+// Command server is the ikhnos control plane: it enrolls agents, receives what they
 // discover, and serves the JSON API and UI.
 package main
 
@@ -439,10 +439,10 @@ func run(log *slog.Logger, selfProbe probeOpts, dataDir, agentListen, agentAddr,
 		// The renewal has no signed-in user to take an organisation from, and the platform core has none: FUSION's
 		// central operator lives in the main organisation, so it runs on that organisation's view of the core.
 		go renewFusionCertificate(log, admin.Fusion, admin.Fusion.OrgCore(core.Fusion))
-		// Telemetry does not carry which Ikhnos application a service is in, so the tools that read Prometheus directly
+		// Telemetry does not carry which ikhnos application a service is in, so the tools that read Prometheus directly
 		// are given it as a series of its own.
 		go admin.RunApplicationInfo(context.Background(), log)
-		// What running Ikhnos costs (the server's and each cluster's agent's memory, CPU and so on) is the Ikhnos self dashboard's.
+		// What running ikhnos costs (the server's and each cluster's agent's memory, CPU and so on) is the ikhnos self dashboard's.
 		go admin.RunSelfMetrics(context.Background(), log)
 	}
 	probes, probeSrv, err := serveSelfProbe(log, selfProbe)

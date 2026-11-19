@@ -1,7 +1,7 @@
 {
   "uid": "ikhnos-self",
-  "title": "Ikhnos self",
-  "description": "What running Ikhnos costs and whether it is healthy: the server process (memory, CPU, goroutines, garbage collection, agents connected, flow received) and the agent of each cluster, by cluster name. Written by the Ikhnos server into FUSION every minute; it replaces the System health page.",
+  "title": "ikhnos self",
+  "description": "What running ikhnos costs and whether it is healthy: the server process (memory, CPU, goroutines, garbage collection, agents connected, flow received) and the agent of each cluster, by cluster name. Written by the ikhnos server into FUSION every minute; it replaces the System health page.",
   "tags": [
     "ikhnos",
     "self"
@@ -368,7 +368,7 @@
         "graphMode": "area",
         "textMode": "value"
       },
-      "description": "Resident memory of the server process. The colour steps are guides, not limits Ikhnos enforces."
+      "description": "Resident memory of the server process. The colour steps are guides, not limits ikhnos enforces."
     },
     {
       "id": 5,
@@ -430,7 +430,7 @@
         "graphMode": "area",
         "textMode": "value"
       },
-      "description": "CPU the server process used since its previous sample (every 30 s), in percent of one CPU; above 100 it is using more than one core. The colour steps are guides, not limits Ikhnos enforces."
+      "description": "CPU the server process used since its previous sample (every 30 s), in percent of one CPU; above 100 it is using more than one core. The colour steps are guides, not limits ikhnos enforces."
     },
     {
       "id": 6,
@@ -555,7 +555,7 @@
         "graphMode": "area",
         "textMode": "value"
       },
-      "description": "Milliseconds in every second the Go garbage collector stopped the server (10 ms is 1 %). The colour steps are guides, not limits Ikhnos enforces."
+      "description": "Milliseconds in every second the Go garbage collector stopped the server (10 ms is 1 %). The colour steps are guides, not limits ikhnos enforces."
     },
     {
       "id": 8,
@@ -637,7 +637,7 @@
         "graphMode": "none",
         "textMode": "value"
       },
-      "description": "Clusters whose agent has sent its figures to the server in the last few minutes (the chosen clusters). Fewer than the clusters Ikhnos knows means an agent is disconnected; the delivery health dashboard says whether its telemetry is arriving."
+      "description": "Clusters whose agent has sent its figures to the server in the last few minutes (the chosen clusters). Fewer than the clusters ikhnos knows means an agent is disconnected; the delivery health dashboard says whether its telemetry is arriving."
     },
     {
       "id": 10,
@@ -814,7 +814,7 @@
         "graphMode": "none",
         "textMode": "value"
       },
-      "description": "Resident memory of the agent that uses the most. The colour steps are guides, not limits Ikhnos enforces."
+      "description": "Resident memory of the agent that uses the most. The colour steps are guides, not limits ikhnos enforces."
     },
     {
       "id": 12,
@@ -878,7 +878,7 @@
         "graphMode": "none",
         "textMode": "value"
       },
-      "description": "CPU of the agent that uses the most, in percent of one CPU. The colour steps are guides, not limits Ikhnos enforces."
+      "description": "CPU of the agent that uses the most, in percent of one CPU. The colour steps are guides, not limits ikhnos enforces."
     },
     {
       "id": 13,

@@ -77,10 +77,10 @@ type Guard struct {
 	// AuthFailures throttles failed authentications per address, the same limiter as the rest of the API; Reads limits how fast
 	// one authenticated caller may read.
 	AuthFailures, Reads *kernel.Limiter
-	// Extras is what Ikhnos itself knows (applications, topology, events); nil on a server with no platform behind it.
+	// Extras is what ikhnos itself knows (applications, topology, events); nil on a server with no platform behind it.
 	Extras func() fusionapi.Extras
 	// Links answers the latest figures of the links between clusters. It reads the links the organisation watches (its settings), which
-	// are Ikhnos's and not this package's; the route and its description are here.
+	// are ikhnos's and not this package's; the route and its description are here.
 	Links Handler
 	// Now is the clock a time range is read against.
 	Now func() time.Time

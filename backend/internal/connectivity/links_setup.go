@@ -144,7 +144,7 @@ func LinkSetupSteps(l kernel.LinkSetting, a, b SetupEnd, haveFusion bool, now ti
 	for _, e := range ends {
 		switch {
 		case !e.HasAgent:
-			add(StepAgent, e, StepTodo, "%s has no approved agent, so it can neither measure its pairs nor be measured. Install the Ikhnos agent there and approve it under Agents.", e.name())
+			add(StepAgent, e, StepTodo, "%s has no approved agent, so it can neither measure its pairs nor be measured. Install the ikhnos agent there and approve it under Agents.", e.name())
 		case e.Note != nil && e.Note.Code == NoteTier:
 			add(StepAgent, e, StepTodo, "The agent of %s is at access tier %d. Link measuring needs tier 2, so the agent is not told which clusters to measure. Raise its access tier to 2 under Agents.", e.name(), e.Tier)
 		case e.Note != nil && e.Note.Code == NotePaused:

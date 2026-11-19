@@ -31,8 +31,8 @@ func (g *Guard) Status(w http.ResponseWriter, r *http.Request, c *fusionapi.Clie
 	httpkit.WriteJSON(w, 200, statusDoc{Fusion: st, Access: access})
 }
 
-// Applications lists the Ikhnos applications, each with its services and which signals FUSION has for them in the range.
-// An application here is what Ikhnos calls one (a group of services); the services themselves, as the telemetry names them, are
+// Applications lists the ikhnos applications, each with its services and which signals FUSION has for them in the range.
+// An application here is what ikhnos calls one (a group of services); the services themselves, as the telemetry names them, are
 // listed by fusionServices.
 func (g *Guard) Applications(w http.ResponseWriter, r *http.Request, c *fusionapi.Client, who Caller) {
 	tr, err := Range(r, g.Now())
@@ -53,8 +53,8 @@ func (g *Guard) Applications(w http.ResponseWriter, r *http.Request, c *fusionap
 	httpkit.WriteJSON(w, 200, applicationsDoc{Applications: fusionapi.DescribeGroups(groups, svcs), Sources: sources, Warnings: orEmpty(warnings), From: tr.From, To: tr.To})
 }
 
-// Services lists the services that have telemetry (their service.name), each with its signals and the Ikhnos
-// applications it is in. These are what the telemetry itself calls an application, which is not what Ikhnos does.
+// Services lists the services that have telemetry (their service.name), each with its signals and the ikhnos
+// applications it is in. These are what the telemetry itself calls an application, which is not what ikhnos does.
 func (g *Guard) Services(w http.ResponseWriter, r *http.Request, c *fusionapi.Client, who Caller) {
 	tr, err := Range(r, g.Now())
 	if err != nil {
@@ -90,7 +90,7 @@ func (g *Guard) Services(w http.ResponseWriter, r *http.Request, c *fusionapi.Cl
 	httpkit.WriteJSON(w, 200, servicesDoc{Services: out, Sources: sources, Warnings: orEmpty(warnings), From: tr.From, To: tr.To})
 }
 
-// Application is one Ikhnos application at a glance, named by its id or its name.
+// Application is one ikhnos application at a glance, named by its id or its name.
 func (g *Guard) Application(w http.ResponseWriter, r *http.Request, c *fusionapi.Client, who Caller) {
 	tr, err := Range(r, g.Now())
 	if err != nil {

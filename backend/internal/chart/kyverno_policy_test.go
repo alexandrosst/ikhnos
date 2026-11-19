@@ -16,7 +16,7 @@ func kyvernoMatch(pattern, ref string) bool {
 	return regexp.MustCompile(re).MatchString(ref)
 }
 
-// Every image Ikhnos publishes (the agent, the server, the controller and the cluster-link prober) is verified in each form a pod can
+// Every image ikhnos publishes (the agent, the server, the controller and the cluster-link prober) is verified in each form a pod can
 // name it. A reference by digest, which is what the install commands print when a digest is given, matched nothing, so the pods that
 // were most carefully pinned were admitted unverified.
 func TestTheSignaturePolicyCoversEveryImageInEveryForm(t *testing.T) {

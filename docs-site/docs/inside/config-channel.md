@@ -6,7 +6,7 @@ description: The Config an agent is told, the digest that names it, the echo tha
 
 # How the server knows what is in force
 
-There is a gap between *sending* an instruction and *knowing it took effect*. A server that assumes the first means the second will, sooner or later, show a green tick next to an agent that is still collecting what you told it to stop. Ikhnos closes the gap with a digest and an echo.
+There is a gap between *sending* an instruction and *knowing it took effect*. A server that assumes the first means the second will, sooner or later, show a green tick next to an agent that is still collecting what you told it to stop. ikhnos closes the gap with a digest and an echo.
 
 <Figure name="ConfigChannel" caption="Six steps, and then three conditions stated about every agent. The comparison is of two names, never a guess." />
 

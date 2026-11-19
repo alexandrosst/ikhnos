@@ -375,7 +375,7 @@ function ChangePasswordScreen() {
 }
 
 /**
- * Stands in front of the app when an Ikhnos server is in use: sign-in first, then (when required)
+ * Stands in front of the app when an ikhnos server is in use: sign-in first, then (when required)
  * a forced password change. Without a server the app opens directly and works on the browser's own copy.
  */
 export default function AuthGate({ children }: { children: ReactNode }) {

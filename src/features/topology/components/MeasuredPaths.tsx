@@ -65,7 +65,7 @@ export default function MeasuredPaths() {
       </p>
 
       {ordered.length === 0 ? (
-        <EmptyState data-testid="no-paths" description={`Nothing has been measured yet. ${status !== 'connected' ? 'Paths are measured by agents reporting to an Ikhnos server.' : measuring.length === 0 ? 'Enable measurements on an agent to start.' : 'Results appear within a couple of minutes.'}`} />
+        <EmptyState data-testid="no-paths" description={`Nothing has been measured yet. ${status !== 'connected' ? 'Paths are measured by agents reporting to an ikhnos server.' : measuring.length === 0 ? 'Enable measurements on an agent to start.' : 'Results appear within a couple of minutes.'}`} />
       ) : (
         <Table>
           <thead>

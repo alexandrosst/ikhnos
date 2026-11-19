@@ -1,5 +1,5 @@
 {{- if .Values.switch.managed }}
-# What the Ikhnos server changes while it manages FUSION (see fusion.settingsName in _helpers.tpl): each store's retention
+# What the ikhnos server changes while it manages FUSION (see fusion.settingsName in _helpers.tpl): each store's retention
 # and, for Prometheus, the size limit that keeps it from filling its volume. This is only ever written by the server after
 # the first install; an upgrade renders the live values back.
 apiVersion: v1

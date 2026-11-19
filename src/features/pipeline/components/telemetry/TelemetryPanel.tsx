@@ -239,7 +239,7 @@ function TelemetryPanelBody({
         text: result.command,
         action,
         controller: result.controller,
-        endpointNote: theirs && theirs !== draft.exportEndpoint.trim() ? `These commands send to ${theirs}, the address Ikhnos has for ${operatorLabel}.` : undefined,
+        endpointNote: theirs && theirs !== draft.exportEndpoint.trim() ? `These commands send to ${theirs}, the address ikhnos has for ${operatorLabel}.` : undefined,
       })
     } catch (e) {
       setGenError({ snapshot: asked, message: explainIntentError(e) })

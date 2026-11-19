@@ -104,7 +104,7 @@ func (OperatorStatus) WireWords() []string {
 
 // DestinationKind is where a regional operator (or a local operator's own TelemetryIntent) re-exports
 // what it collects. "operator" points at another regional operator in this organisation directly - see
-// Core.validateDestination - rather than at an arbitrary external endpoint. Ikhnos's fleet is two
+// Core.validateDestination - rather than at an arbitrary external endpoint. ikhnos's fleet is two
 // tiers: that target operator's own export is not itself re-validated or chained any further.
 type DestinationKind string
 

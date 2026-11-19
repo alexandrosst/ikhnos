@@ -2,7 +2,7 @@
 {{- if $probe.enabled }}
 {{- $cap := $probe.capacity }}
 {{- $auth := and $cap.enabled $cap.auth.existingSecret }}
-{{- /* $auto: the Ikhnos server issues the iperf3 credentials and the pods fetch them from the agent (no Secret of your own named). */ -}}
+{{- /* $auto: the ikhnos server issues the iperf3 credentials and the pods fetch them from the agent (no Secret of your own named). */ -}}
 {{- $auto := include "agent.linkIperf" . }}
 {{- if and $probe.peersSecret .Values.flowObserver.secret (eq (toString $probe.peersSecret) (toString .Values.flowObserver.secret)) }}
 {{- fail "telemetry.clusterLinks.probe.peersSecret must differ from flowObserver.secret: the link prober holds the first, and with the second it could sign flow reports." }}
@@ -128,7 +128,7 @@ spec:
             # under TMPDIR or /tmp; on a read-only root that fails unless /tmp is a volume.
             - {name: tmp, mountPath: /tmp}
         {{- if and $cap.enabled $auto }}
-        # iperf3's server, for the throughput tests, when the Ikhnos server issues the credentials. `ikhnos link-iperf-server` asks the
+        # iperf3's server, for the throughput tests, when the ikhnos server issues the credentials. `ikhnos link-iperf-server` asks the
         # agent for this cluster's key and users (a signed request, answered sealed), writes them to the in-memory volume below and runs
         # iperf3 -s with them. It runs no server at all until it has them: there is never an unauthenticated one. It has no access to the
         # Kubernetes API, and it mounts the request secret, which no other container of the pod (nor the prober) has.
@@ -222,7 +222,7 @@ spec:
               - {key: private.pem, path: private.pem}
               - {key: users.csv, path: users.csv}
         {{- else if $auto }}
-        # The credentials the Ikhnos server issued, fetched from the agent: in memory, private to this pod, gone with it. Never a Secret.
+        # The credentials the ikhnos server issued, fetched from the agent: in memory, private to this pod, gone with it. Never a Secret.
         - name: iperf-auth
           emptyDir: {medium: Memory, sizeLimit: 1Mi}
         - name: iperf-request

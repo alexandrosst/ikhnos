@@ -36,7 +36,7 @@ tolerations: []
 affinity: {}
 
 # Who turns FUSION on and off. Off (the default) is a plain install: everything runs. With managed on, the
-# Ikhnos server owns the switch - it scales the stores and the central gateway between 0 and 1 itself - so a
+# ikhnos server owns the switch - it scales the stores and the central gateway between 0 and 1 itself - so a
 # `helm upgrade` keeps whatever the server last decided (the live replica count) instead of resetting it, and
 # initialReplicas (0 = standing by, nothing running, volumes kept) only applies to the very first install.
 switch:
@@ -108,7 +108,7 @@ central:
     maxStreams: 100000
   # The gateway's TLS Secret (tls.crt, tls.key: its own server certificate; ca.crt: the CA every sender's client
   # certificate must chain to) is "<name>-central-receiver-tls" and is not a value: this chart creates it empty and the
-  # Ikhnos server fills it in by that name, so a different name would leave the gateway with no certificate. A gateway
+  # ikhnos server fills it in by that name, so a different name would leave the gateway with no certificate. A gateway
   # with none does not start, which is why a fresh managed install stands by at 0 replicas.
   resources:
     requests: {cpu: 50m, memory: 96Mi}
@@ -134,7 +134,7 @@ prometheus:
   # altogether. The 15% left is room for the write-ahead log, the head and compaction, which are written outside the
   # blocks the limit counts. Whichever of retention and this is hit first wins.
   retentionSize: ""
-  # The path the Ikhnos server serves Prometheus's own page under ("Open Prometheus" in the UI); the server strips it
+  # The path the ikhnos server serves Prometheus's own page under ("Open Prometheus" in the UI); the server strips it
   # before the request arrives. Empty = Prometheus believes it lives at the root, which is right only when you reach it
   # some other way.
   webPrefix: /fusion/prometheus/
@@ -207,7 +207,7 @@ tempo:
 
 # Grafana, already connected to the stores: Prometheus, Loki and Tempo are its provisioned data sources (a log line links
 # to its trace, a trace to its logs) and one starter dashboard shows what is arriving. It has no login page and no
-# anonymous access: it is reached only through the Ikhnos server (an administrator, at /fusion/grafana/), which signs the
+# anonymous access: it is reached only through the ikhnos server (an administrator, at /fusion/grafana/), which signs the
 # person in to it (basic auth is off; its built-in admin has a random password in a Secret this chart generates and keeps
 # across upgrades). Off here means no Grafana at all; the three stores are unaffected.
 grafana:
@@ -227,7 +227,7 @@ grafana:
 
 # Isolates the stores' pods. On by default: the stores authenticate nothing, so this is the only thing between them and
 # every other pod in the cluster. Allowed in: the other pods of this release (the central gateway, Grafana and, when
-# installed with the Ikhnos server, the server itself) and whatever allowedIngress names - nothing by default, so no pod of
+# installed with the ikhnos server, the server itself) and whatever allowedIngress names - nothing by default, so no pod of
 # another release or namespace reaches a store, whatever labels it carries. Regional operators send to the central gateway,
 # which is in this release; only one routed straight to a store (an export route pointing at Prometheus, Loki or Tempo)
 # needs an entry, and it should name the operator's own namespace. A cluster whose network plugin does not enforce

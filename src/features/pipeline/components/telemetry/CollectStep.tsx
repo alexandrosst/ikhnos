@@ -103,7 +103,7 @@ export function ClusterLinksFields({ value, onChange, testIdPrefix }: { value: T
         <details className="rounded-lg border border-nb-850 px-3 py-2 text-sm" data-testid={`${testIdPrefix}-links-own-credentials`} open={value.clusterLinksAuthSecret !== ''}>
           <summary className="cursor-pointer text-nb-300">Advanced: use my own iperf3 credentials</summary>
           <div className="pt-2">
-            <Field label="Secret with the iperf3 credentials (optional)" hint="Leave empty: Ikhnos issues the credentials, keeps them in memory in each cluster and rotates them on request, so there is nothing to create. To use your own, name a Secret that exists in every cluster of the mesh, with the keys private.pem, public.pem, users.csv, username and password.">
+            <Field label="Secret with the iperf3 credentials (optional)" hint="Leave empty: ikhnos issues the credentials, keeps them in memory in each cluster and rotates them on request, so there is nothing to create. To use your own, name a Secret that exists in every cluster of the mesh, with the keys private.pem, public.pem, users.csv, username and password.">
               <Input value={value.clusterLinksAuthSecret} onChange={(e) => set('clusterLinksAuthSecret', e.target.value)} placeholder="ikhnos-link-iperf" data-testid={`${testIdPrefix}-links-secret`} />
             </Field>
           </div>

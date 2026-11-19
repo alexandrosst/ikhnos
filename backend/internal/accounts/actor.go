@@ -69,7 +69,7 @@ func ActorFrom(ctx context.Context) Actor {
 }
 
 // reservedActors are the words the audit trail uses for the server and for no one: a username may not be one of them, in any case,
-// because Ikhnos treats names that differ only in case as one name. They are exactly the names of the actors above that are not a
+// because ikhnos treats names that differ only in case as one name. They are exactly the names of the actors above that are not a
 // person or an agent.
 var reservedActors = func() map[string]bool {
 	m := map[string]bool{}

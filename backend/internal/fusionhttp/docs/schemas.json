@@ -23,18 +23,18 @@
       "clusters": {"type": "array", "items": {"type": "string"}, "description": "Empty means every cluster."},
       "rawQueries": {"type": "boolean", "description": "Whether PromQL, LogQL and TraceQL as written are allowed (only when nothing is limited)."},
       "expiresAt": {"type": "string", "format": "date-time"}}}}},
-  "ApplicationService": {"type": "object", "properties": {"id": {"type": "string", "description": "The service's id in Ikhnos (the topology's, or the record's of a service written in by hand)."}, "name": {"type": "string"}, "namespace": {"type": "string"}, "cluster": {"type": "string"}, "kind": {"type": "string"},
+  "ApplicationService": {"type": "object", "properties": {"id": {"type": "string", "description": "The service's id in ikhnos (the topology's, or the record's of a service written in by hand)."}, "name": {"type": "string"}, "namespace": {"type": "string"}, "cluster": {"type": "string"}, "kind": {"type": "string"},
     "aliases": {"type": "array", "items": {"type": "string"}, "description": "Other names its telemetry may carry as service.name (its app label)."},
     "signals": {"type": "array", "items": {"type": "string"}, "description": "The signals FUSION has for it in the range, matched by service name."}}},
-  "Application": {"type": "object", "description": "An Ikhnos application: a group of services.", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "description": {"type": "string"},
+  "Application": {"type": "object", "description": "An ikhnos application: a group of services.", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "description": {"type": "string"},
     "services": {"type": "array", "items": {"$ref": "#/components/schemas/ApplicationService"}},
     "signals": {"type": "array", "items": {"type": "string"}, "description": "The signals any of its services has in the range."},
     "namespaces": {"type": "array", "items": {"type": "string"}}, "clusters": {"type": "array", "items": {"type": "string"}},
-    "unresolvedMembers": {"type": "integer", "description": "Members Ikhnos has an id for but cannot tie to a running service (a cluster that is not connected, a service that has gone), so they are not listed. Absent when none."}}},
+    "unresolvedMembers": {"type": "integer", "description": "Members ikhnos has an id for but cannot tie to a running service (a cluster that is not connected, a service that has gone), so they are not listed. Absent when none."}}},
   "ApplicationList": {"type": "object", "properties": {"applications": {"type": "array", "items": {"$ref": "#/components/schemas/Application"}},
     "sources": {"$ref": "#/components/schemas/Sources"}, "warnings": {"type": "array", "items": {"type": "string"}, "description": "Why a source failed, and which lists were built from a sample and may miss services."}, "from": {"type": "string", "format": "date-time"}, "to": {"type": "string", "format": "date-time"}}},
   "ServiceItem": {"type": "object", "properties": {"name": {"type": "string"}, "signals": {"type": "array", "items": {"type": "string"}},
-    "applications": {"type": "array", "items": {"type": "string"}, "description": "The Ikhnos applications this service is in; empty for a service no application has."}}},
+    "applications": {"type": "array", "items": {"type": "string"}, "description": "The ikhnos applications this service is in; empty for a service no application has."}}},
   "ServiceList": {"type": "object", "example": {"services": [{"name": "checkout", "signals": ["metrics", "logs", "traces"], "applications": ["Shop"]}, {"name": "node-exporter", "signals": ["metrics"], "applications": []}], "sources": {"metrics": "ok", "logs": "ok", "traces": "ok"}, "warnings": [], "from": "2026-10-24T11:00:00Z", "to": "2026-10-24T12:00:00Z"}, "properties": {"services": {"type": "array", "items": {"$ref": "#/components/schemas/ServiceItem"}},
     "sources": {"$ref": "#/components/schemas/Sources"}, "warnings": {"type": "array", "items": {"type": "string"}, "description": "Why a source failed, and which lists were built from a sample and may miss services."}, "from": {"type": "string", "format": "date-time"}, "to": {"type": "string", "format": "date-time"}}},
   "Overview": {"type": "object", "properties": {"id": {"type": "string", "description": "An application's id (not set for a service)."}, "name": {"type": "string"}, "services": {"type": "array", "items": {"type": "string"}, "description": "For an application: the service names its telemetry may carry."}, "signals": {"type": "array", "items": {"type": "string"}},
@@ -58,7 +58,7 @@
       "restarts": {"type": "integer"}, "staleLinks": {"type": "integer"}}},
     "services": {"type": "array", "items": {"type": "object", "properties": {
       "key": {"type": "string", "description": "`name/namespace/cluster`: the identity telemetry knows the service by, and the `member` label of the application info series."},
-      "id": {"type": "string", "description": "The service's id in Ikhnos."}, "name": {"type": "string"}, "namespace": {"type": "string"}, "cluster": {"type": "string"}, "kind": {"type": "string"},
+      "id": {"type": "string", "description": "The service's id in ikhnos."}, "name": {"type": "string"}, "namespace": {"type": "string"}, "cluster": {"type": "string"}, "kind": {"type": "string"},
       "image": {"type": "string"}, "status": {"type": "string"}, "replicas": {"type": "integer"}, "readyReplicas": {"type": "integer"}, "restarts": {"type": "integer"},
       "telemetry": {"type": "object", "properties": {"member": {"type": "string"}, "filter": {"type": "object", "description": "The label values its telemetry carries.", "properties": {
         "ikhnos_cluster_id": {"type": "string"}, "k8s_namespace_name": {"type": "string"}, "service_name": {"type": "array", "items": {"type": "string"}, "description": "Its name and its aliases."},
@@ -76,7 +76,7 @@
     "externals": {"type": "array", "description": "Addresses outside the clusters its services talk to. Only for a token that is not limited to certain namespaces or clusters.", "items": {"type": "object", "properties": {
       "id": {"type": "string"}, "name": {"type": "string"}, "port": {"type": "integer"}, "protocol": {"type": "string"}, "calledBy": {"type": "array", "items": {"type": "string"}, "description": "Keys of its services that call it."}}}},
     "changes": {"type": "array", "description": "Newest first: events about the application, its services and the links shown.", "items": {"$ref": "#/components/schemas/ChangeEvent"}},
-    "unresolvedMembers": {"type": "integer", "description": "Members Ikhnos has an id for but cannot tie to a running service."},
+    "unresolvedMembers": {"type": "integer", "description": "Members ikhnos has an id for but cannot tie to a running service."},
     "truncated": {"type": "object", "description": "Which parts were cut at their maximum: 2000 links, 200 neighbours, 50 addresses, 100 events.", "properties": {
       "links": {"type": "boolean"}, "neighbours": {"type": "boolean"}, "externals": {"type": "boolean"}, "changes": {"type": "boolean"}}}}},
   "Sources": {"type": "object", "additionalProperties": {"type": "string", "enum": ["ok", "not requested", "not allowed", "unavailable", "error"]},
@@ -139,13 +139,13 @@
     "error": {"type": "string", "description": "Why this query has no series; the others are not affected."}}},
   "Neighbour": {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "kind": {"type": "string", "enum": ["service", "external"]},
     "namespace": {"type": "string"}, "cluster": {"type": "string"}, "protocol": {"type": "string"}, "port": {"type": "integer"}, "confidence": {"type": "string"}, "stale": {"type": "boolean"}}},
-  "ResourceTopology": {"type": "object", "description": "Fused with topology: what Ikhnos knows about the service behind a resource, as of now (associated by name, namespace and cluster, not proven).", "properties": {
+  "ResourceTopology": {"type": "object", "description": "Fused with topology: what ikhnos knows about the service behind a resource, as of now (associated by name, namespace and cluster, not proven).", "properties": {
     "service": {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "namespace": {"type": "string"}, "cluster": {"type": "string"}, "kind": {"type": "string"},
       "image": {"type": "string"}, "status": {"type": "string"}, "replicas": {"type": "integer"}, "readyReplicas": {"type": "integer"}, "restarts": {"type": "integer"},
-      "applications": {"type": "array", "items": {"type": "string"}, "description": "The names of the Ikhnos applications the service is in."}}},
+      "applications": {"type": "array", "items": {"type": "string"}, "description": "The names of the ikhnos applications the service is in."}}},
     "calls": {"type": "array", "items": {"$ref": "#/components/schemas/Neighbour"}, "description": "Services and external addresses it was seen calling."},
     "calledBy": {"type": "array", "items": {"$ref": "#/components/schemas/Neighbour"}, "description": "Services seen calling it."}}},
-  "ChangeEvent": {"type": "object", "description": "Something Ikhnos recorded about the landscape near the trace.", "properties": {
+  "ChangeEvent": {"type": "object", "description": "Something ikhnos recorded about the landscape near the trace.", "properties": {
     "time": {"type": "string", "format": "date-time"}, "kind": {"type": "string", "description": "For example service-scaled, node-status, cluster-added."},
     "targetKind": {"type": "string", "enum": ["cluster", "node", "service", "dependency", "application", "agent"]}, "targetId": {"type": "string"}, "name": {"type": "string"},
     "cluster": {"type": "string"}, "clusterName": {"type": "string"}, "detail": {"type": "string"}, "cause": {"type": "string"}, "severity": {"type": "string"},

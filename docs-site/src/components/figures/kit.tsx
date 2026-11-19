@@ -1,7 +1,7 @@
 import {createContext, useContext, type ReactNode} from 'react';
 
 /*
- * The drawing kit every Ikhnos figure is made from.
+ * The drawing kit every ikhnos figure is made from.
  *
  * A figure is plain SVG in a React component: nothing is rendered by another program, nothing is exported
  * from a drawing tool, and every colour is a CSS variable, so a figure follows light and dark mode and can

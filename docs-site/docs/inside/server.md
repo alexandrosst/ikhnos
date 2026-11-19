@@ -1,7 +1,7 @@
 ---
 id: server
 title: The server, in layers
-description: How the Ikhnos server is cut into packages, what may use what, and which tests hold the lines.
+description: How the ikhnos server is cut into packages, what may use what, and which tests hold the lines.
 ---
 
 # The server, in layers

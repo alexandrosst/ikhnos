@@ -4,7 +4,7 @@ import type { AccessTier, Agent, Cluster, Dependency, ExternalEndpoint, MachineN
 
 /* ---------- what the server sends ---------- */
 
-/** The knobs an administrator can turn. Everything else in Ikhnos works without them. */
+/** The knobs an administrator can turn. Everything else in ikhnos works without them. */
 /** Two clusters whose link an administrator asked to have measured; see `Settings.Links` on the server. */
 export type LinkPair = W.LinkSetting
 

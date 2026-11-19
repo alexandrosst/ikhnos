@@ -1,6 +1,6 @@
 apiVersion: v2
 name: ikhnos-controller
-description: Optional. Keeps an Ikhnos agent installed in this cluster from an IkhnosAgent resource, so `kubectl apply` can be the way an agent is asked for. It installs the same agent chart the Connect page's helm command does, and never talks to the Ikhnos server.
+description: Optional. Keeps an ikhnos agent installed in this cluster from an IkhnosAgent resource, so `kubectl apply` can be the way an agent is asked for. It installs the same agent chart the Connect page's helm command does, and never talks to the ikhnos server.
 type: application
 version: 0.1.0
 appVersion: "0.1.0-dev"

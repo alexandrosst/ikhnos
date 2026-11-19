@@ -1,12 +1,12 @@
 ---
 id: concepts
 title: Concepts in plain words
-description: Every term Ikhnos uses, in a sentence or two, grouped by what it is about, with a link to where it is explained in full.
+description: Every term ikhnos uses, in a sentence or two, grouped by what it is about, with a link to where it is explained in full.
 ---
 
 # Concepts in plain words
 
-Ikhnos has a small vocabulary and uses it consistently. This page is the one place to look a word up. Each entry is the short version; the last column leads to the full one.
+ikhnos has a small vocabulary and uses it consistently. This page is the one place to look a word up. Each entry is the short version; the last column leads to the full one.
 
 ## The parts
 
@@ -27,8 +27,8 @@ Ikhnos has a small vocabulary and uses it consistently. This page is the one pla
 | **Tier** (cloud, edge, far edge) | A label you give a cluster for where it sits on the continuum. It groups the views and shapes the cost of a move. It changes nothing about how the agent behaves. | [System overview](../architecture/overview.md) |
 | **Site** | A physical or logical place: a region, a factory, a shop. Clusters and devices belong to sites. | [Using the UI](../user-guide/using-the-ui.md) |
 | **Device** | A thing that is not a cluster, such as a sensor, camera or controller, that services talk to. | [Using the UI](../user-guide/using-the-ui.md) |
-| **Application** | A group of services that belong together. Ikhnos suggests groupings from traffic; you accept, correct or dismiss them. | [Namespaces and services](../user-guide/namespaces-and-services.md) |
-| **Suggestion** | Something Ikhnos noticed and did not decide on its own, such as a likely application grouping. It waits on the Agents page. | [Using the UI](../user-guide/using-the-ui.md) |
+| **Application** | A group of services that belong together. ikhnos suggests groupings from traffic; you accept, correct or dismiss them. | [Namespaces and services](../user-guide/namespaces-and-services.md) |
+| **Suggestion** | Something ikhnos noticed and did not decide on its own, such as a likely application grouping. It waits on the Agents page. | [Using the UI](../user-guide/using-the-ui.md) |
 
 ## Trust
 

@@ -17,7 +17,7 @@ import (
 	"ikhnos/internal/workspace"
 )
 
-// fusionExtras gives a fused read what Ikhnos itself knows (fusionapi.Extras): the observed topology of the FUSION
+// fusionExtras gives a fused read what ikhnos itself knows (fusionapi.Extras): the observed topology of the FUSION
 // organisation and the events recorded about it. Both come from the server's own state, not from the three stores.
 type fusionExtras struct{ a *Admin }
 
@@ -50,7 +50,7 @@ func (e fusionExtras) Topology(ctx context.Context) (*fusionapi.TopologyView, er
 		return nil, &fusionapi.Error{Status: 503, Msg: "the organisation's topology is not available"}
 	}
 	v := topologyView(doc)
-	// Say which Ikhnos applications each service is in, from the applications as last worked out (reused for appGroupTTL,
+	// Say which ikhnos applications each service is in, from the applications as last worked out (reused for appGroupTTL,
 	// so reading many traces does not read and parse the workspace for each). The topology is still worth returning when
 	// they cannot be had, so a failure here leaves the services unannotated.
 	groups, _ := e.Applications(ctx)
@@ -114,7 +114,7 @@ func topologyAt(ctx context.Context, c *Core, appID string, at time.Time) (*fusi
 	return topologyView(landscape.StateDoc{GeneratedAt: p.At.UTC().Format(time.RFC3339), Topology: topo}), members, nil
 }
 
-// appGroupTTL is how long the applications are reused: an application edited in Ikhnos shows in the API within this.
+// appGroupTTL is how long the applications are reused: an application edited in ikhnos shows in the API within this.
 const appGroupTTL = 10 * time.Second
 
 // appGroupCache is the applications as last worked out, shared by every request of this server.
@@ -124,7 +124,7 @@ type appGroupCache struct {
 	groups []fusionapi.AppGroup
 }
 
-// Applications are the Ikhnos applications of the organisation, each with the services in it as the topology knows them.
+// Applications are the ikhnos applications of the organisation, each with the services in it as the topology knows them.
 // A failure is not cached; a result is, for appGroupTTL, and callers get their own copy of the slice header.
 func (e fusionExtras) Applications(ctx context.Context) ([]fusionapi.AppGroup, error) {
 	c := &e.a.appCache
@@ -176,7 +176,7 @@ func appGroups(data []byte, doc landscape.StateDoc) []fusionapi.AppGroup {
 	for i, s := range doc.Topology.Services {
 		byID[s.ID] = i
 	}
-	// A service a person wrote into Ikhnos by hand is not in the interpreted topology (that is what the agents saw), but the
+	// A service a person wrote into ikhnos by hand is not in the interpreted topology (that is what the agents saw), but the
 	// record itself says what it is called and where it runs, which is all telemetry can be matched with.
 	declared := map[string]map[string]any{}
 	for _, r := range d.Records["service"] {
@@ -207,7 +207,7 @@ func appGroups(data []byte, doc landscape.StateDoc) []fusionapi.AppGroup {
 			} else if r, ok := declared[id]; ok && str(r, "name") != "" {
 				m = fusionapi.AppMember{ID: id, Name: str(r, "name"), Namespace: str(r, "namespace"), Cluster: str(r, "clusterId"), Kind: str(r, "kind")}
 			} else {
-				// A member Ikhnos has an id for but cannot tie to a running service: a cluster that is not connected, or a
+				// A member ikhnos has an id for but cannot tie to a running service: a cluster that is not connected, or a
 				// service that has gone. Counted, so a caller can be told why an application looks empty.
 				g.Unresolved++
 				continue

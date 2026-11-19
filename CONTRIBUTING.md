@@ -1,16 +1,16 @@
-# Contributing to Ikhnos
+# Contributing to ikhnos
 
 Thank you for looking. Issues, questions and pull requests are all welcome. This is the short version; the [developer guide](https://alexandrosst.github.io/ikhnos/docs/contributing/developer-guide) (sources in [`docs-site/docs/contributing`](docs-site/docs/contributing/developer-guide.md)) covers building, running an agent without a cluster, and where things live.
 
 ## Before you start
 
 - **Small fix or clear bug:** open a pull request directly.
-- **New feature, or anything that changes behaviour:** open an issue first so we can agree on the shape. Ikhnos has a few deliberate rules that a change must not break, and it is cheaper to find that out before the code is written.
+- **New feature, or anything that changes behaviour:** open an issue first so we can agree on the shape. ikhnos has a few deliberate rules that a change must not break, and it is cheaper to find that out before the code is written.
 - **Not sure it is a bug:** ask in an issue. Say what you ran, what you saw and what you expected.
 
 ## The rules a change has to respect
 
-- **Read-only.** Nothing in the agent writes to a cluster, and nothing in Ikhnos deploys or moves anything without a person approving it.
+- **Read-only.** Nothing in the agent writes to a cluster, and nothing in ikhnos deploys or moves anything without a person approving it.
 - **The server only narrows trust.** What an agent reports can be reduced by the server, never widened past what the cluster's own Helm install allows.
 - **Say when you cannot tell.** Advice has three answers, *fits*, *does not fit* and *can't tell*. A missing fact is named in the answer; it is never filled with a guess that looks like a measurement.
 - **One writer.** The server holds one SQLite writer. Do not add a second.

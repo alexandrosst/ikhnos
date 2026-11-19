@@ -1,7 +1,7 @@
 {
   "uid": "ikhnos-link-matrix",
   "title": "Link quality matrix",
-  "description": "Every cluster against every other at a glance: loss, delay, jitter, connect time, throughput and how fresh each measurement is, as matrices with the sending cluster in the row and the receiving cluster in the column, and every pair on one line. Cluster names, where Ikhnos has one. Follow a pair into Cluster links for its history.",
+  "description": "Every cluster against every other at a glance: loss, delay, jitter, connect time, throughput and how fresh each measurement is, as matrices with the sending cluster in the row and the receiving cluster in the column, and every pair on one line. Cluster names, where ikhnos has one. Follow a pair into Cluster links for its history.",
   "tags": [
     "ikhnos",
     "links"

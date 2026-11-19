@@ -1,7 +1,7 @@
 {
   "uid": "ikhnos-fleet",
   "title": "Fleet overview",
-  "description": "All clusters side by side, by name: what is enrolled and what is sending, how many nodes and pods each has and whether they are healthy, how long since each last sent data, what the agents cost, the node inventory, and the Ikhnos applications. Start here, then follow a cluster into Clusters and nodes or Delivery health.",
+  "description": "All clusters side by side, by name: what is enrolled and what is sending, how many nodes and pods each has and whether they are healthy, how long since each last sent data, what the agents cost, the node inventory, and the ikhnos applications. Start here, then follow a cluster into Clusters and nodes or Delivery health.",
   "tags": [
     "ikhnos",
     "fleet"
@@ -76,7 +76,7 @@
         "expr": "changes(ikhnos_self_connected_agents[2m]) > 0",
         "step": "1m",
         "titleFormat": "Agents connected changed",
-        "textFormat": "The server's connected agents changed; see Ikhnos self."
+        "textFormat": "The server's connected agents changed; see ikhnos self."
       }
     ]
   },
@@ -118,7 +118,7 @@
     },
     {
       "type": "link",
-      "title": "Ikhnos self",
+      "title": "ikhnos self",
       "url": "/d/ikhnos-self",
       "tooltip": "The server and the agents themselves",
       "icon": "dashboard",
@@ -232,7 +232,7 @@
         "graphMode": "none",
         "textMode": "value"
       },
-      "description": "Clusters Ikhnos has enrolled and given a name (the server writes ikhnos_cluster_info every minute). Zero is orange: nothing is enrolled, or the server is not writing its series into FUSION."
+      "description": "Clusters ikhnos has enrolled and given a name (the server writes ikhnos_cluster_info every minute). Zero is orange: nothing is enrolled, or the server is not writing its series into FUSION."
     },
     {
       "id": 3,
@@ -368,7 +368,7 @@
         "graphMode": "area",
         "textMode": "value"
       },
-      "description": "Agents with an open stream to the Ikhnos server. A cluster can send telemetry with its agent disconnected and the other way round; this and the one beside it are different questions."
+      "description": "Agents with an open stream to the ikhnos server. A cluster can send telemetry with its agent disconnected and the other way round; this and the one beside it are different questions."
     },
     {
       "id": 5,
@@ -804,7 +804,7 @@
         "graphMode": "none",
         "textMode": "value"
       },
-      "description": "Ikhnos applications that have at least one service Ikhnos can match with telemetry (the server writes ikhnos_application_info every minute)."
+      "description": "ikhnos applications that have at least one service ikhnos can match with telemetry (the server writes ikhnos_application_info every minute)."
     },
     {
       "id": 12,
@@ -866,7 +866,7 @@
         "graphMode": "none",
         "textMode": "value"
       },
-      "description": "Resident memory of the agent that uses the most; see Ikhnos self for every agent."
+      "description": "Resident memory of the agent that uses the most; see ikhnos self for every agent."
     },
     {
       "id": 13,
@@ -1125,7 +1125,7 @@
                 "id": "links",
                 "value": [
                   {
-                    "title": "Ikhnos self for this cluster",
+                    "title": "ikhnos self for this cluster",
                     "url": "/d/ikhnos-self?var-cluster=${__data.fields.ikhnos_cluster_id}&${__url_time_range}"
                   }
                 ]
@@ -1426,7 +1426,7 @@
           }
         }
       ],
-      "description": "Every cluster Ikhnos knows, with the cluster's nodes, pods, restarts, how long ago it last sent data and what its agent costs. A cluster that is known and silent is still a row. Click the name for its nodes, the data age for its delivery, the agent for Ikhnos self."
+      "description": "Every cluster ikhnos knows, with the cluster's nodes, pods, restarts, how long ago it last sent data and what its agent costs. A cluster that is known and silent is still a row. Click the name for its nodes, the data age for its delivery, the agent for ikhnos self."
     },
     {
       "id": 16,
@@ -2211,7 +2211,7 @@
     {
       "id": 26,
       "type": "table",
-      "title": "Ikhnos applications",
+      "title": "ikhnos applications",
       "datasource": {
         "type": "prometheus",
         "uid": "fusion-metrics"
@@ -2336,7 +2336,7 @@
           }
         }
       ],
-      "description": "Each Ikhnos application with how many service names, clusters and namespaces it spans. Click the application for its pods, traces and logs."
+      "description": "Each ikhnos application with how many service names, clusters and namespaces it spans. Click the application for its pods, traces and logs."
     }
   ]
 }

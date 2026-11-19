@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// The throughput tests' iperf3 credentials are issued by the Ikhnos server by default (capacity.auth.automatic). These tests pin what
+// The throughput tests' iperf3 credentials are issued by the ikhnos server by default (capacity.auth.automatic). These tests pin what
 // that means for the pods: who mounts which Secret, that the responder never runs an open server, and that the manual mode
 // (auth.existingSecret) is untouched.
 

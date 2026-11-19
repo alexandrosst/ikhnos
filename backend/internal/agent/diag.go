@@ -675,9 +675,9 @@ func (r *runner) noteCertRenewal(res certrenew.Result) {
 	}
 	msg := fmt.Sprintf("The telemetry certificate in Secret %s ends on %s and could not be renewed: %v.", res.Target.Name, res.NotAfter.UTC().Format("2006-01-02"), res.Err)
 	if res.Refused {
-		msg += " The server refused: this cluster may no longer send to that operator, or the agent was revoked. If that is not intended, open the operator in Ikhnos and choose Install again to put a new certificate in this Secret."
+		msg += " The server refused: this cluster may no longer send to that operator, or the agent was revoked. If that is not intended, open the operator in ikhnos and choose Install again to put a new certificate in this Secret."
 	} else {
-		msg += " It is retried automatically; check that this cluster can reach the Ikhnos server."
+		msg += " It is retried automatically; check that this cluster can reach the ikhnos server."
 	}
 	r.probs.raise(key, CodeCertRenewalFailing, sev, msg, 0)
 }

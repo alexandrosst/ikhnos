@@ -9,7 +9,7 @@ import (
 	"ikhnos/internal/model"
 )
 
-// What Ikhnos itself knows about the things a trace ran on, joined to the fused object: which services each service
+// What ikhnos itself knows about the things a trace ran on, joined to the fused object: which services each service
 // calls and is called by (the observed topology), and what changed around the trace (scalings, restarts, node and
 // cluster events). The data lives in the server, not in the three stores, so the server hands it over through Extras.
 
@@ -24,11 +24,11 @@ const (
 type Extras interface {
 	// Topology is the landscape as the server last worked it out.
 	Topology(ctx context.Context) (*TopologyView, error)
-	// Applications are the Ikhnos applications of the organisation (groups of services a person or discovery made) and the
+	// Applications are the ikhnos applications of the organisation (groups of services a person or discovery made) and the
 	// services in each, as of the last saved workspace.
 	Applications(ctx context.Context) ([]AppGroup, error)
 	// Changes lists events recorded between since and until, newest last, at most limit of them. clusters narrows them to
-	// those Ikhnos cluster ids, and targetIDs to the events about those ids (services, dependencies, applications, nodes,
+	// those ikhnos cluster ids, and targetIDs to the events about those ids (services, dependencies, applications, nodes,
 	// clusters), when they are not empty.
 	Changes(ctx context.Context, since, until time.Time, clusters, targetIDs []string, limit int) ([]ChangeEvent, error)
 }
@@ -59,7 +59,7 @@ type TopoService struct {
 	Ready     int               `json:"readyReplicas"`
 	Restarts  int               `json:"restarts,omitempty"`
 	Labels    map[string]string `json:"-"`
-	// Applications names the Ikhnos applications this service is in, AppIDs says which they are.
+	// Applications names the ikhnos applications this service is in, AppIDs says which they are.
 	Applications []string `json:"applications,omitempty"`
 	AppIDs       []string `json:"-"`
 }
@@ -69,8 +69,8 @@ func (s TopoService) Key() model.ServiceKey {
 	return model.ServiceKey{Cluster: s.Cluster, Namespace: s.Namespace, Name: s.Name}
 }
 
-// AppGroup is an Ikhnos application: a named group of services. What FUSION calls an "application" elsewhere is a single
-// service.name; this is the grouping a person made in Ikhnos, which telemetry itself does not carry.
+// AppGroup is an ikhnos application: a named group of services. What FUSION calls an "application" elsewhere is a single
+// service.name; this is the grouping a person made in ikhnos, which telemetry itself does not carry.
 type AppGroup struct {
 	ID          string      `json:"id"`
 	Name        string      `json:"name"`
@@ -78,14 +78,14 @@ type AppGroup struct {
 	Members     []AppMember `json:"services"`
 	// Origin and Confidence say how the application came to be (a person, or discovery).
 	Origin, Confidence string `json:"-"`
-	// Unresolved counts the members Ikhnos has an id for but cannot tie to a service (a cluster that is not connected, a
+	// Unresolved counts the members ikhnos has an id for but cannot tie to a service (a cluster that is not connected, a
 	// service that has gone): they cannot be matched with telemetry, so they are not in Members.
 	Unresolved int `json:"-"`
 }
 
 // AppMember is one service of an application, by the identity telemetry carries.
 type AppMember struct {
-	// ID is the service's id in Ikhnos (the topology's, or the record's of a service a person wrote in by hand).
+	// ID is the service's id in ikhnos (the topology's, or the record's of a service a person wrote in by hand).
 	ID        string `json:"id,omitempty"`
 	Name      string `json:"name"`
 	Namespace string `json:"namespace,omitempty"`
@@ -180,9 +180,9 @@ type ChangeEvent struct {
 	Resource string `json:"resource,omitempty"`
 }
 
-// ResourceTopology is what Ikhnos knows about the service behind a resource.
+// ResourceTopology is what ikhnos knows about the service behind a resource.
 type ResourceTopology struct {
-	// Service is the service as Ikhnos sees it, matched by name, namespace and cluster.
+	// Service is the service as ikhnos sees it, matched by name, namespace and cluster.
 	Service *TopoService `json:"service,omitempty"`
 	// Calls are the services and external addresses it was seen calling; CalledBy those seen calling it.
 	Calls    []Neighbour `json:"calls"`
@@ -479,10 +479,10 @@ func (c *Client) fuseIkhnos(ctx context.Context, s Scope, f *Fused, looked []*Re
 		setSource(SourceTopology, SourceOK)
 		n, amb := attachTopology(view, s, looked)
 		if amb > 0 {
-			note("topology: %d resource(s) were left unmatched because several services of Ikhnos have their name and they carry no namespace or cluster to tell them apart", amb)
+			note("topology: %d resource(s) were left unmatched because several services of ikhnos have their name and they carry no namespace or cluster to tell them apart", amb)
 		}
 		if n == 0 && amb == 0 && len(looked) > 0 {
-			note("topology: none of the trace's services is known to Ikhnos by that name, namespace and cluster")
+			note("topology: none of the trace's services is known to ikhnos by that name, namespace and cluster")
 		}
 	}
 	if !opts.Changes {
@@ -529,10 +529,10 @@ const changesRead = 2000
 func (o *FuseOptions) ikhnosJoins(f *Fused) {
 	if o.Topology {
 		f.Sources[SourceTopology] = SourceNotRequested
-		f.Joins[SourceTopology] = "associated, not proven: the service Ikhnos knows by the same name, namespace and cluster, and the traffic it has seen to and from it as of now (the topology is not kept per trace). A resource that carries no namespace or cluster matches only when exactly one service has its name; when several do it has no match, and a warning says so"
+		f.Joins[SourceTopology] = "associated, not proven: the service ikhnos knows by the same name, namespace and cluster, and the traffic it has seen to and from it as of now (the topology is not kept per trace). A resource that carries no namespace or cluster matches only when exactly one service has its name; when several do it has no match, and a warning says so"
 	}
 	if o.Changes {
 		f.Sources[SourceChanges] = SourceNotRequested
-		f.Joins[SourceChanges] = fmt.Sprintf("associated, not proven: events Ikhnos recorded about the trace's services, the traffic seen to and from them, the applications they are in, and its nodes and clusters, from %s before the trace to %s after it", o.ChangesBefore, o.Pad)
+		f.Joins[SourceChanges] = fmt.Sprintf("associated, not proven: events ikhnos recorded about the trace's services, the traffic seen to and from them, the applications they are in, and its nodes and clusters, from %s before the trace to %s after it", o.ChangesBefore, o.Pad)
 	}
 }

@@ -54,17 +54,17 @@
 
 ## What it is
 
-Ikhnos (ἴχνος) is Greek for "trace" or "footprint". It provides visibility across the cloud-edge continuum, revealing where workloads run and how they communicate.
+ikhnos (ἴχνος) is Greek for "trace" or "footprint". It provides visibility across the cloud-edge continuum, revealing where workloads run and how they communicate.
 
 It shows Kubernetes clusters, from cloud to edge and far edge, as one picture: an **application view** (services and the dependencies between them) and an **infrastructure view** (nodes, capacity, links). A small read-only **agent** in each cluster dials out to a single **server** and reports what it sees. How far it looks is your [observability intent](https://alexandrosst.github.io/ikhnos/docs/learn/observability-intent). On top of that sit history, measured links between clusters, and telemetry you can read in Grafana, collected under the same intent.
 
 ## Design principles
 
-Ikhnos is meant to be pointed at clusters that matter, so these are rules the code and the Helm chart enforce. [The trust model](https://alexandrosst.github.io/ikhnos/docs/architecture/trust-model) shows where each one is held.
+ikhnos is meant to be pointed at clusters that matter, so these are rules the code and the Helm chart enforce. [The trust model](https://alexandrosst.github.io/ikhnos/docs/architecture/trust-model) shows where each one is held.
 
 | Principle | What it means |
 |---|---|
-| **Read-only** | The agent reads the Kubernetes API, never your Secrets or ConfigMaps, and writes only its own identity, its certificates and its own status. Ikhnos never deploys or moves your workloads: changes are commands you run, apart from an optional in-cluster controller that is off until you turn it on. |
+| **Read-only** | The agent reads the Kubernetes API, never your Secrets or ConfigMaps, and writes only its own identity, its certificates and its own status. ikhnos never deploys or moves your workloads: changes are commands you run, apart from an optional in-cluster controller that is off until you turn it on. |
 | **Outbound only** | The agent opens every connection to the server, over mutual TLS. The server needs no route into a cluster and never holds a kubeconfig. |
 | **Narrow, never widen** | The [observability intent](https://alexandrosst.github.io/ikhnos/docs/learn/observability-intent) sets how far each part may look, per cluster and per signal. Each layer can narrow it and none can widen it. Telemetry stays off until you turn a signal on. |
 | **Scoped reads** | FUSION's API is read-only. A token is limited to signals, namespaces and clusters, and the stores behind it are never exposed. |
@@ -77,7 +77,7 @@ Ikhnos is meant to be pointed at clusters that matter, so these are rules the co
 - **Topology.** Application, Infrastructure, Map and Telemetry views of the same landscape, with clusters tiered cloud, edge or far edge. Plus Clusters, Applications, Sites, Nodes, Namespaces, Services and Devices as tables.
 - **Discovery that asks first.** Connect a cluster from the UI: it prints the exact `helm install`, and an approval code that only the cluster's own pod log shows turns "someone had a token" into "this is the agent I meant".
 - **History.** Every change to anything is a new version with a reason attached. Ask what a cluster looked like an hour ago, or what depends on a service.
-- **Telemetry and FUSION.** Opt-in collectors, regional operators and a bundled Prometheus, Loki, Tempo and Grafana stack with nine dashboards, from the fleet down to a single workload and Ikhnos' own health, opened through the server so nothing is exposed.
+- **Telemetry and FUSION.** Opt-in collectors, regional operators and a bundled Prometheus, Loki, Tempo and Grafana stack with nine dashboards, from the fleet down to a single workload and ikhnos' own health, opened through the server so nothing is exposed.
 - **Cluster links.** Loss, delay and jitter between clusters you choose to pair, from real traffic and active measurement. The paired clusters must be able to reach each other.
 - **Diagnose.** One button per agent explains what is wrong with it, worst first, with the `kubectl` command for each finding.
 - **Accounts.** Roles, two-factor sign-in (TOTP, email code, passkeys) and an audit trail.
@@ -88,11 +88,11 @@ Ikhnos is meant to be pointed at clusters that matter, so these are rules the co
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs-site/static/img/readme/observability-intent-dark.svg">
-    <img alt="The Ikhnos server holds the observability intent and keeps the topology and its history in Neo4j. Discovery agents in cloud, edge and far-edge clusters receive the intent and report the topology. Local operators send telemetry through regional operators to FUSION, which keeps metrics, logs and traces behind one shared API for outside consumers" src="docs-site/static/img/readme/observability-intent-light.svg" width="900">
+    <img alt="The ikhnos server holds the observability intent and keeps the topology and its history in Neo4j. Discovery agents in cloud, edge and far-edge clusters receive the intent and report the topology. Local operators send telemetry through regional operators to FUSION, which keeps metrics, logs and traces behind one shared API for outside consumers" src="docs-site/static/img/readme/observability-intent-light.svg" width="900">
   </picture>
 </p>
 
-Ikhnos has two planes. The **control plane** is the server. It holds your [observability intent](https://alexandrosst.github.io/ikhnos/docs/learn/observability-intent), which sets what to observe and where, and it keeps the topology and its history. A read-only **discovery agent** in each cluster dials out to it, applies the intent itself and reports what it finds.
+ikhnos has two planes. The **control plane** is the server. It holds your [observability intent](https://alexandrosst.github.io/ikhnos/docs/learn/observability-intent), which sets what to observe and where, and it keeps the topology and its history. A read-only **discovery agent** in each cluster dials out to it, applies the intent itself and reports what it finds.
 
 The **data plane** carries telemetry and nothing else. A **local operator** in each cluster collects the signals you chose and sends them on, straight to FUSION or through a **regional operator** that gathers several clusters. **FUSION** keeps metrics, logs and traces, with Grafana beside them, behind one shared API. The API reads the topology from the server when a question needs it.
 
@@ -114,7 +114,7 @@ Whatever the part, it is said in the same terms:
 
 It can only be narrowed, never widened, and a person approves anything wider. The agent discovers the topology and configures collection: telemetry extractors feed the local operator's collector, and regional collectors feed FUSION.
 
-The documentation goes into each part: [how it works in ten minutes](https://alexandrosst.github.io/ikhnos/docs/learn/how-it-works) for the idea, and [Inside Ikhnos](https://alexandrosst.github.io/ikhnos/docs/inside/) for the server's layers, the agent's stream and the model.
+The documentation goes into each part: [how it works in ten minutes](https://alexandrosst.github.io/ikhnos/docs/learn/how-it-works) for the idea, and [Inside ikhnos](https://alexandrosst.github.io/ikhnos/docs/inside/) for the server's layers, the agent's stream and the model.
 
 ## Quickstart
 
@@ -180,16 +180,16 @@ The [documentation site](https://alexandrosst.github.io/ikhnos/) is written for 
 
 | I am... | Start with |
 |---|---|
-| New to Ikhnos and want to know what it is | [What is Ikhnos?](https://alexandrosst.github.io/ikhnos/docs/learn/what-is-ikhnos), then [How it works in ten minutes](https://alexandrosst.github.io/ikhnos/docs/learn/how-it-works) |
+| New to ikhnos and want to know what it is | [What is ikhnos?](https://alexandrosst.github.io/ikhnos/docs/learn/what-is-ikhnos), then [How it works in ten minutes](https://alexandrosst.github.io/ikhnos/docs/learn/how-it-works) |
 | Ready to try it, and have never seen it | [Your first hour](https://alexandrosst.github.io/ikhnos/docs/journey/): six steps from nothing to a connected cluster and your first look around, with what you should see after each |
 | Running it for real | [Production cluster](https://alexandrosst.github.io/ikhnos/docs/installation/production-cluster), [Connecting a cluster](https://alexandrosst.github.io/ikhnos/docs/installation/connecting-a-cluster), [Troubleshooting](https://alexandrosst.github.io/ikhnos/docs/troubleshooting/common-errors) |
 | Looking something up | [Using the interface](https://alexandrosst.github.io/ikhnos/docs/user-guide/using-the-ui), [Reference](https://alexandrosst.github.io/ikhnos/docs/reference/): Helm values, flags and the permissions table |
-| Reading or changing the code | [Inside Ikhnos](https://alexandrosst.github.io/ikhnos/docs/inside/), then the [developer guide](https://alexandrosst.github.io/ikhnos/docs/contributing/developer-guide) |
+| Reading or changing the code | [Inside ikhnos](https://alexandrosst.github.io/ikhnos/docs/inside/), then the [developer guide](https://alexandrosst.github.io/ikhnos/docs/contributing/developer-guide) |
 | Deciding whether to depend on it | [Status and limits](https://alexandrosst.github.io/ikhnos/docs/project/status-and-limits) and the [roadmap](https://alexandrosst.github.io/ikhnos/docs/project/roadmap) |
 
 ## Status
 
-Ikhnos is **pre-1.0**. It discovers and shows; it never deploys or moves anything. It has been tested end to end on k3s, with real eBPF programs against real loopback traffic, and under `-race`. It has **not** been run on a production cluster, with two live clusters, or against a running service mesh; EKS, GKE and AKS are expected to work and untested.
+ikhnos is **pre-1.0**. It discovers and shows; it never deploys or moves anything. It has been tested end to end on k3s, with real eBPF programs against real loopback traffic, and under `-race`. It has **not** been run on a production cluster, with two live clusters, or against a running service mesh; EKS, GKE and AKS are expected to work and untested.
 
 The full, itemised account of what was and was not verified, and what is not built (OIDC, ambient-mesh attribution and more), is on [Status and limits](https://alexandrosst.github.io/ikhnos/docs/project/status-and-limits). Please read it before depending on this.
 
@@ -216,13 +216,13 @@ Releases are signed with cosign, keylessly. Please report a vulnerability privat
 
 ## License
 
-Ikhnos is released under the [Apache License 2.0](LICENSE).
+ikhnos is released under the [Apache License 2.0](LICENSE).
 
-**Dependencies.** The npm packages in the UI are MIT, ISC, BSD or CC0, plus one OFL font. The Go modules built into the binaries are Apache-2.0, MIT, BSD or ISC, plus three MPL-2.0 modules, a file-level copyleft that does not reach Ikhnos's own code. None is GPL or AGPL. This was read from each package's license file in November 2026; check it again before a release.
+**Dependencies.** The npm packages in the UI are MIT, ISC, BSD or CC0, plus one OFL font. The Go modules built into the binaries are Apache-2.0, MIT, BSD or ISC, plus three MPL-2.0 modules, a file-level copyleft that does not reach ikhnos's own code. None is GPL or AGPL. This was read from each package's license file in November 2026; check it again before a release.
 
-**The eBPF program.** One file, `backend/internal/flow/ebpf/flow.c`, is dual-licensed MIT or GPL-2.0, because the Linux kernel only lets an eBPF program use some of its helper functions if it declares a GPL-compatible license. It does not change the license of the rest of Ikhnos. The libbpf headers next to it are LGPL-2.1 or BSD-2-Clause, with their own license file.
+**The eBPF program.** One file, `backend/internal/flow/ebpf/flow.c`, is dual-licensed MIT or GPL-2.0, because the Linux kernel only lets an eBPF program use some of its helper functions if it declares a GPL-compatible license. It does not change the license of the rest of ikhnos. The libbpf headers next to it are LGPL-2.1 or BSD-2-Clause, with their own license file.
 
-**Software it runs next to.** These are separate programs that the server talks to over the network. They are not part of this repository and not linked into Ikhnos, and their own licenses apply to them:
+**Software it runs next to.** These are separate programs that the server talks to over the network. They are not part of this repository and not linked into ikhnos, and their own licenses apply to them:
 
 - Neo4j Community Edition (GPLv3) is the server's graph store. To use your own instance, set `neo4j.mode: external` ([`deploy/README.md`](deploy/README.md#neo4j)).
 - Grafana, Loki and Tempo (AGPLv3) run only if you turn FUSION on.

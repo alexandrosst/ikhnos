@@ -201,7 +201,7 @@ func TestServicesFocusAlsoSelectsPodMetricsByWorkload(t *testing.T) {
 	}
 }
 
-// An application with members Ikhnos cannot tie to a service says so, so "has no services" is not a riddle.
+// An application with members ikhnos cannot tie to a service says so, so "has no services" is not a riddle.
 func TestAnApplicationWithOnlyUnresolvedMembersSaysWhy(t *testing.T) {
 	_, err := Scope{}.FocusOn(&AppGroup{ID: "app-core", Name: "app-core", Unresolved: 3})
 	if err == nil || !strings.Contains(err.Error(), "3 of its members") {

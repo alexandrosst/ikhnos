@@ -87,7 +87,7 @@ type Capacity struct {
 	// User, KeyFile (the server's RSA public key) and PasswordFile select iperf3's authenticated mode, in which the server
 	// refuses anyone without the credentials.
 	User, KeyFile, PasswordFile string
-	// AutoAuth says the install lets the Ikhnos server issue the credentials (Peer.Iperf): a peer without them is not tested,
+	// AutoAuth says the install lets the ikhnos server issue the credentials (Peer.Iperf): a peer without them is not tested,
 	// and counts as an `auth` failure, rather than being tried without authentication. The credentials of User, KeyFile and
 	// PasswordFile, when set, take precedence for every peer.
 	AutoAuth bool

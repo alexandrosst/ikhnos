@@ -1,4 +1,4 @@
-Ikhnos server {{ .Chart.AppVersion }} — {{ if .Release.IsInstall }}installed{{ else }}upgraded{{ end }} as "{{ .Release.Name }}" in {{ .Release.Namespace }}.
+ikhnos server {{ .Chart.AppVersion }} — {{ if .Release.IsInstall }}installed{{ else }}upgraded{{ end }} as "{{ .Release.Name }}" in {{ .Release.Namespace }}.
 {{- $fn := include "ikhnos.fullname" . }}
 {{- $ns := .Release.Namespace }}
 

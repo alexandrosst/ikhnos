@@ -39,7 +39,7 @@ const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1)
 /**
  * The tags a person puts on everything this install emits. Written to the chart as one list, inserted rather
  * than overwritten (a name an application already sets on its own telemetry keeps the application's value),
- * and the `ikhnos.` names are refused because those are what Ikhnos adds itself. `suggestion` is a
+ * and the `ikhnos.` names are refused because those are what ikhnos adds itself. `suggestion` is a
  * name and value worth offering in one click (the cluster's own name), left out once it is already there.
  */
 export function TagEditor({ value, onChange, testIdPrefix, suggestion }: { value: TelemetryInput; onChange: (v: TelemetryInput) => void; testIdPrefix: string; suggestion?: TagEntry }) {
@@ -126,7 +126,7 @@ export function DebugChoice({ value, onChange, testIdPrefix }: { value: Telemetr
 
 /**
  * What happens to telemetry between being collected and leaving the cluster, beside the destination: everything has a sensible default, so
- * most people only look at the two `basics` (masking, and how many traces to keep). `more` is what Ikhnos adds on its own, your tags, the
+ * most people only look at the two `basics` (masking, and how many traces to keep). `more` is what ikhnos adds on its own, your tags, the
  * collector environment, a way to check it works, and the extra processors (filters, tail sampling) behind a disclosure of their own.
  */
 export default function ProcessOptions({

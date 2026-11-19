@@ -275,7 +275,7 @@ export function CrdFlow() {
       <text x="24" y="48" fontSize="11.5" fill={quiet}>Solid: the existing stream. Dashed: a person or GitOps is in the path.</text>
       <g>
         {box(24, 100, 208, 328, false)}
-        <text x="40" y="124" fontWeight="600" fill={ink}>Ikhnos server</text>
+        <text x="40" y="124" fontWeight="600" fill={ink}>ikhnos server</text>
         {['The intent kit compiles one', 'InstallSpec. Renderers:', 'command, values file,', 'or CR manifest.'].map((l, i) => <text key={l} x="40" y={144 + i * 16} fontSize="11.5" fill={quiet}>{l}</text>)}
         <text x="40" y="228" fontSize="11.5" fontWeight="600" fill={ink}>Never writes a CR into</text>
         <text x="40" y="244" fontSize="11.5" fontWeight="600" fill={ink}>a cluster.</text>

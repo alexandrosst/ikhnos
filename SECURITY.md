@@ -6,17 +6,17 @@ Please do **not** open a public issue for a security problem.
 
 Report it privately through GitHub: on the repository page, **Security → Report a vulnerability**. Include what you found, how to reproduce it, which version or commit, and what you think an attacker could do with it. If the finding involves a running system, please test only against your own.
 
-You will get an acknowledgement and an assessment from the maintainer. Ikhnos is a small, pre-1.0 project, so no response time is promised here; if you have heard nothing after a week, a short note on the same report is welcome.
+You will get an acknowledgement and an assessment from the maintainer. ikhnos is a small, pre-1.0 project, so no response time is promised here; if you have heard nothing after a week, a short note on the same report is welcome.
 
 ## Supported versions
 
-Ikhnos is pre-1.0. Only the latest release and the `main` branch receive fixes.
+ikhnos is pre-1.0. Only the latest release and the `main` branch receive fixes.
 
 ## What is in scope
 
 The server, the agent, the node probe and the traffic observer, the Helm charts and the images published from this repository, and the documentation where it could lead someone to an insecure setup. Findings about the trust model are especially welcome: enrollment and approval codes, certificate issuance and revocation, the access-tier chain, sign-in and two-factor, tenant isolation, and the server's outbound calls.
 
-Out of scope: third-party software the chart can bundle (Neo4j, Prometheus, Loki, Tempo, Grafana) unless the way Ikhnos configures it creates the problem; findings that need an already-compromised cluster admin; denial of service by a user the server already trusts.
+Out of scope: third-party software the chart can bundle (Neo4j, Prometheus, Loki, Tempo, Grafana) unless the way ikhnos configures it creates the problem; findings that need an already-compromised cluster admin; denial of service by a user the server already trusts.
 
 ## How the design limits the damage
 

@@ -249,7 +249,7 @@ func TestStarterDashboardDoesNotDependOnTargetInfo(t *testing.T) {
 	}
 }
 
-// The Ikhnos dashboards (clusters and nodes, namespaces and workloads with logs, delivery health) are JSON Grafana can load,
+// The ikhnos dashboards (clusters and nodes, namespaces and workloads with logs, delivery health) are JSON Grafana can load,
 // carry the tag the navigation menu is built from, and only point at data sources that are provisioned. With the log and
 // trace stores off their panels are dropped rather than left broken.
 func TestFusionIkhnosDashboards(t *testing.T) {
@@ -403,7 +403,7 @@ func TestFusionApplicationsDashboardFollowsTheInfoSeries(t *testing.T) {
 			t.Errorf("%s All = %q: it must expand to the application's own services, or choosing All shows every service", v.Name, v.AllValue)
 		}
 		if (v.Name == "namespace" || v.Name == "cluster") && v.AllValue != ".*" {
-			t.Errorf("%s All = %q: a member Ikhnos knows no namespace or cluster for is written without that label, and .+ would hide it", v.Name, v.AllValue)
+			t.Errorf("%s All = %q: a member ikhnos knows no namespace or cluster for is written without that label, and .+ would hide it", v.Name, v.AllValue)
 		}
 	}
 	for n, seen := range want {

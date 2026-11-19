@@ -74,7 +74,7 @@ type applicationsDoc struct {
 	Warnings     []string            `json:"warnings"`
 }
 
-// serviceDoc is one service that has telemetry, with the Ikhnos applications it is in.
+// serviceDoc is one service that has telemetry, with the ikhnos applications it is in.
 type serviceDoc struct {
 	fusionapi.Application
 	Applications []string `json:"applications"`

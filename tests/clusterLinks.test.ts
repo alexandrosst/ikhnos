@@ -228,7 +228,7 @@ test('the page\'s own checks are left out only where the server says the same of
 })
 
 test('what a pair needs is stated in the words the person will look for', () => {
-  assert.match(LINK_REQUIREMENT, /two clusters that each run the Ikhnos agent with Cluster links on/)
+  assert.match(LINK_REQUIREMENT, /two clusters that each run the ikhnos agent with Cluster links on/)
   assert.match(LINK_REQUIREMENT, /the cluster that runs the probes also has to send telemetry to FUSION \(a local operator\)/)
 })
 

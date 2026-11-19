@@ -84,7 +84,7 @@ func TagProblems(tags []Tag) []string {
 			continue
 		}
 		if strings.HasPrefix(strings.ToLower(key), ReservedTagPrefix) {
-			out = append(out, fmt.Sprintf("“%s” starts with %s, which is reserved for what Ikhnos adds itself", key, ReservedTagPrefix))
+			out = append(out, fmt.Sprintf("“%s” starts with %s, which is reserved for what ikhnos adds itself", key, ReservedTagPrefix))
 		}
 		if strings.ContainsFunc(key, unicode.IsSpace) {
 			out = append(out, fmt.Sprintf("“%s”: a tag name cannot contain spaces", key))
@@ -171,7 +171,7 @@ func (t Telemetry) Problems() []string {
 		out = append(out, scrapeTargetProblem(t.Accelerators.Endpoint, "Accelerators: the existing Prometheus endpoint")...)
 	}
 	if l := t.ClusterLinks; s.ClusterLinks && !t.kept(KeptClusterLinksOptions) && l.Probe && l.Throughput {
-		// Optional: left empty, Ikhnos issues the iperf3 credentials. Only a name that was typed has to be a valid one.
+		// Optional: left empty, ikhnos issues the iperf3 credentials. Only a name that was typed has to be a valid one.
 		if secret := strings.TrimSpace(l.AuthSecret); secret != "" && !secretName.MatchString(secret) {
 			out = append(out, "Cluster links: the credential Secret name uses lowercase letters, digits, - and . only")
 		}

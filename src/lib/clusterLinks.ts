@@ -247,7 +247,7 @@ export const normalizeLinksLatest = (d: Partial<LinksLatest> | undefined): Links
 })
 
 /** What a pair needs, said where the person starts: the section's intro, the Add pair dialog and the telemetry wizard. */
-export const LINK_REQUIREMENT = 'A pair needs two clusters that each run the Ikhnos agent with Cluster links on; the cluster that runs the probes also has to send telemetry to FUSION (a local operator).'
+export const LINK_REQUIREMENT = 'A pair needs two clusters that each run the ikhnos agent with Cluster links on; the cluster that runs the probes also has to send telemetry to FUSION (a local operator).'
 
 /** The marks of the four states. The words are for screen readers and for the title; the shapes differ, so colour is never the only difference. */
 export const STEP_MARK: Record<SetupState, { word: string }> = {

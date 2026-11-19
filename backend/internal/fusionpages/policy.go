@@ -47,7 +47,7 @@ var (
 	grafanaDenied = []string{"/api/live/"}
 )
 
-// grafanaLoginPrefix namespaces the people Ikhnos signs in to Grafana, so that no Ikhnos username can ever be the login of a
+// grafanaLoginPrefix namespaces the people ikhnos signs in to Grafana, so that no ikhnos username can ever be the login of a
 // Grafana user that is not theirs.
 const grafanaLoginPrefix = "ikhnos-"
 
@@ -188,14 +188,14 @@ func ScrubResponse(h http.Header) {
 	}
 }
 
-// GrafanaLogin is the login Grafana is told a signed-in person has (X-WEBAUTH-USER): the Ikhnos username under a prefix.
-// Sent as it was, the first account every server has - "admin", Ikhnos's bootstrap user - would be Grafana's own built-in
+// GrafanaLogin is the login Grafana is told a signed-in person has (X-WEBAUTH-USER): the ikhnos username under a prefix.
+// Sent as it was, the first account every server has - "admin", ikhnos's bootstrap user - would be Grafana's own built-in
 // administrator, and Grafana would sign the person in as that Server Admin whatever role they were given. The prefix keeps
 // the two name spaces apart: "ikhnos-admin" is an ordinary user Grafana creates on first sight, with the role it is
 // configured to give people who arrive this way.
 //
 // The name is kept to what a Grafana login can safely hold - lowercase letters, digits and . @ - _ - which is every
-// character an Ikhnos username may have (see usernameRe), lowercased because Ikhnos treats names that differ only in case as
+// character an ikhnos username may have (see usernameRe), lowercased because ikhnos treats names that differ only in case as
 // one account, and so does Grafana. Anything else (it cannot arise from a valid username; this is only so a name that
 // somehow has one can never put a stray character into the header) is written as +hex+, and "+" itself is written that way
 // too, so no two names give the same login.

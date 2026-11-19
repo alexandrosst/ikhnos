@@ -1,7 +1,7 @@
 {{- include "agent.telemetryValidate" . -}}
 {{/* Egress lockdown for the telemetry workloads (host/cluster collectors and Kepler; the accelerators
      DaemonSet has a policy of its own below) - separate from networkPolicy.egress in egress.yaml, which only ever covers
-     the agent pod itself (different labels, and its egress targets - the API server, the Ikhnos server
+     the agent pod itself (different labels, and its egress targets - the API server, the ikhnos server
      - are fixed CIDR lists set once for the whole cluster, unlike a telemetry export destination, which is
      whatever the operator configured under telemetry.export.otlp.endpoint). Off by default, same
      reasoning as networkPolicy.egress: the right answer depends on your CNI and network, and a wrong

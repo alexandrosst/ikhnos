@@ -41,7 +41,7 @@
           "text": "All",
           "value": "$__all"
         },
-        "description": "Narrows the dashboard to the services of one Ikhnos application: each service in the one namespace of the one cluster the application names, so a service that exists in two namespaces is never mixed up. All applications (the default) leaves everything as it was. Cluster, Namespace and Workload still apply on top."
+        "description": "Narrows the dashboard to the services of one ikhnos application: each service in the one namespace of the one cluster the application names, so a service that exists in two namespaces is never mixed up. All applications (the default) leaves everything as it was. Cluster, Namespace and Workload still apply on top."
       },
       {
         "name": "cluster",
@@ -236,7 +236,7 @@
       "type": "link",
       "title": "Applications",
       "url": "/d/ikhnos-applications",
-      "tooltip": "The same pods grouped by Ikhnos application",
+      "tooltip": "The same pods grouped by ikhnos application",
       "icon": "dashboard",
       "keepTime": true,
       "includeVars": false,

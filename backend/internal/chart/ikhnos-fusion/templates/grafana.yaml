@@ -3,7 +3,7 @@
 {{- $name := printf "%s-grafana" (include "fusion.name" .) }}
 {{- $sel := include "fusion.selector" (dict "root" . "component" "grafana") }}
 {{- $admin := printf "%s-admin" $name }}
-# The password of Grafana's built-in `admin`. Nobody is meant to use it: the Ikhnos server signs people in through the
+# The password of Grafana's built-in `admin`. Nobody is meant to use it: the ikhnos server signs people in through the
 # proxy header and basic auth is off below. It is random so that the account is not admin:admin if that is ever
 # reached some other way, and it is carried forward on upgrade (as the central gateway's Secret is) so a `helm upgrade`
 # does not change what the Grafana database was seeded with. Under `helm template`, where `lookup` answers nothing, it is
@@ -71,7 +71,7 @@ spec:
           image: {{ include "fusion.image" (dict "image" $g.image "component" "grafana") | quote }}
           imagePullPolicy: {{ $g.image.pullPolicy | default "IfNotPresent" }}
           env:
-            # Reached only through the Ikhnos server, which has already signed the person in and says who they are in
+            # Reached only through the ikhnos server, which has already signed the person in and says who they are in
             # X-WEBAUTH-USER; there is no login page and no anonymous access. The NetworkPolicy keeps every other pod away.
             # Basic auth is off because Grafana's built-in admin would otherwise answer to it from any pod that reaches the
             # Service; with it off, a request is accepted only on the proxy header. The server sends that header as

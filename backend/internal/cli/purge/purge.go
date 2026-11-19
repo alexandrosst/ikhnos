@@ -28,7 +28,7 @@ const (
 )
 
 // ErrNotOurs is returned for a Secret that exists but is not one of this chart's.
-var ErrNotOurs = errors.New("the Secret is not labelled as part of Ikhnos, so it is not deleted")
+var ErrNotOurs = errors.New("the Secret is not labelled as part of ikhnos, so it is not deleted")
 
 // Secret deletes the named Secret, once, and says what it did. A Secret that is already gone is success (the hook may run
 // again). The delete is conditional on the UID that was read, so a Secret that was replaced in between is not the one removed.

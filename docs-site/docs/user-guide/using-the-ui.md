@@ -66,7 +66,7 @@ Invite colleagues from **Members & access**; invitations are one-time links that
 
 ## History
 
-**History** is a timeline of what Ikhnos noticed and what people did, newest first. Use the bar at the top to go back to a moment, and open any cluster, node or service to see what changed about it and why. With Neo4j enabled you can view the whole landscape as of an earlier time. Editing is off until you return to now. Without Neo4j, the same events are kept, but not the point-in-time views.
+**History** is a timeline of what ikhnos noticed and what people did, newest first. Use the bar at the top to go back to a moment, and open any cluster, node or service to see what changed about it and why. With Neo4j enabled you can view the whole landscape as of an earlier time. Editing is off until you return to now. Without Neo4j, the same events are kept, but not the point-in-time views.
 
 **Recent by people** is the record of who did what, for administrators. It can be filtered and exported as CSV, and it cannot be edited.
 

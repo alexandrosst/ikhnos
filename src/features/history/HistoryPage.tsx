@@ -31,7 +31,7 @@ export default function HistoryPage() {
       <>
         <PageHeader title="History" description="What changed, when, and what it looked like." />
         <EmptyState
-          title="History is recorded by an Ikhnos server"
+          title="History is recorded by an ikhnos server"
           description="Connect to a server and it records the landscape as it changes: every scaling, migration, node joining or leaving and image change, with a snapshot you can scrub back through. This browser alone cannot see what happened while it was closed."
         />
       </>
@@ -180,7 +180,7 @@ const SideCard = ({ title, children, label }: { title: string; children: React.R
   </Card>
 )
 
-/** The last few things people did, for administrators, beside what Ikhnos detected. The other two views of the feed already list them, so it appears only beside "Detected". The whole trail is the People view. */
+/** The last few things people did, for administrators, beside what ikhnos detected. The other two views of the feed already list them, so it appears only beside "Detected". The whole trail is the People view. */
 function RecentPeople({ conn, tick, onSeeAll }: { conn: Conn; tick: number; onSeeAll: () => void }) {
   const [rows, setRows] = useState<AuditRow[] | null>(null)
   useEffect(() => {

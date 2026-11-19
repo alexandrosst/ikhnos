@@ -10,7 +10,7 @@ import (
 )
 
 // The cluster info series: what lets a dashboard show the name of a cluster where the metrics carry only its id. The link
-// series (internal/link) are keyed by cluster ids, which do not change, and carry no names; for each cluster Ikhnos knows
+// series (internal/link) are keyed by cluster ids, which do not change, and carry no names; for each cluster ikhnos knows
 // the server writes
 //
 //	ikhnos_cluster_info{cluster, cluster_name} 1
@@ -67,7 +67,7 @@ func EncodeClusterInfo(cs []ClusterName, at time.Time) []byte {
 		points = protowire.AppendTag(points, 1, protowire.BytesType) // Gauge.data_points
 		points = protowire.AppendBytes(points, dp)
 	}
-	return gaugeRequest(ClusterInfoMetric, "The name of each cluster Ikhnos knows, by the cluster id the link series are keyed by.", points)
+	return gaugeRequest(ClusterInfoMetric, "The name of each cluster ikhnos knows, by the cluster id the link series are keyed by.", points)
 }
 
 // PushClusterInfo writes the cluster info series and reports how many series it sent. With no named cluster it sends nothing:

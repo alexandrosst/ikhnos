@@ -1,6 +1,6 @@
 package fusionhttp
 
-// Ops is the whole data API, described once: every route, in the order the description lists them. The routes that read Ikhnos's own
+// Ops is the whole data API, described once: every route, in the order the description lists them. The routes that read ikhnos's own
 // link settings are not this package's to answer (Guard.Links); every other handler is a method of the guard. A nil guard describes
 // the API all the same, which is how the OpenAPI document is built before there is a server.
 func (g *Guard) Ops() []Op {
@@ -20,17 +20,17 @@ func (g *Guard) Ops() []Op {
 		{Method: "GET", Path: "/status", Tag: "Service", Summary: "Is FUSION up, and what may I read?",
 			Description: "Whether the stores are running and what the credential you present may read: its signals, namespaces and clusters, and when it expires.",
 			Response:    "Status", Handler: g.Status},
-		{Method: "GET", Path: "/applications", Tag: "Applications", Summary: "List the Ikhnos applications",
-			Description: "The applications Ikhnos groups services into (made by a person or found by discovery), each with its services and which signals (metrics, logs, traces) FUSION has for them in the range. Pass an application's `id` or `name` as `application` to the reads below to read only that application. A token limited to certain namespaces or clusters sees only the services of an application in them, and no application with none there. The services as telemetry names them are listed by `/services`.",
+		{Method: "GET", Path: "/applications", Tag: "Applications", Summary: "List the ikhnos applications",
+			Description: "The applications ikhnos groups services into (made by a person or found by discovery), each with its services and which signals (metrics, logs, traces) FUSION has for them in the range. Pass an application's `id` or `name` as `application` to the reads below to read only that application. A token limited to certain namespaces or clusters sees only the services of an application in them, and no application with none there. The services as telemetry names them are listed by `/services`.",
 			Params:      rng, Response: "ApplicationList", Handler: g.Applications},
-		{Method: "GET", Path: "/applications/{name}", Tag: "Applications", Summary: "One Ikhnos application at a glance",
+		{Method: "GET", Path: "/applications/{name}", Tag: "Applications", Summary: "One ikhnos application at a glance",
 			Description: "The signals the application has across all of its services, its most recent traces and failing traces, its latest error logs and the metric names it reports: the places to go on from. `name` is the application's id or name.",
 			PathParams:  []string{"name"}, Params: rng, Response: "Overview", Handler: g.Application},
-		{Method: "GET", Path: "/applications/{name}/topology", Tag: "Applications", Summary: "The topology of one Ikhnos application",
-			Description: "The application's services with their health, the traffic between them and with everything else (the other services and addresses outside the clusters), and what Ikhnos recorded about all of that in the window before. Each service carries the labels its telemetry is found by (`telemetry.filter`), so the telemetry itself is read with `application` on the other routes: this answer is pointers, not data. Without `at` it is the landscape now; with it, as the graph database remembered it at that moment (and `history is not enabled` without one). A token limited to certain namespaces or clusters sees only the services, neighbours and links it may see, and no addresses outside the clusters. `name` is the application's id or name.",
+		{Method: "GET", Path: "/applications/{name}/topology", Tag: "Applications", Summary: "The topology of one ikhnos application",
+			Description: "The application's services with their health, the traffic between them and with everything else (the other services and addresses outside the clusters), and what ikhnos recorded about all of that in the window before. Each service carries the labels its telemetry is found by (`telemetry.filter`), so the telemetry itself is read with `application` on the other routes: this answer is pointers, not data. Without `at` it is the landscape now; with it, as the graph database remembered it at that moment (and `history is not enabled` without one). A token limited to certain namespaces or clusters sees only the services, neighbours and links it may see, and no addresses outside the clusters. `name` is the application's id or name.",
 			PathParams:  []string{"name"}, Params: []string{"at", "window", "noise", "format"}, Response: "ApplicationTopology", Handler: g.AppTopology},
 		{Method: "GET", Path: "/services", Tag: "Services", Summary: "List the services that have telemetry",
-			Description: "Every service FUSION has data for in the range (its `service.name`), with which signals it has and the Ikhnos applications it is in. This includes infrastructure that reports under a name of its own, such as an exporter or an energy meter; `applications` is empty for those.",
+			Description: "Every service FUSION has data for in the range (its `service.name`), with which signals it has and the ikhnos applications it is in. This includes infrastructure that reports under a name of its own, such as an exporter or an energy meter; `applications` is empty for those.",
 			Params:      join(rng, []string{"application"}), Response: "ServiceList", Handler: g.Services},
 		{Method: "GET", Path: "/services/{name}", Tag: "Services", Summary: "One service at a glance",
 			Description: "The signals the service has, its most recent traces and failing traces, its latest error logs and the metric names it reports.",

@@ -312,7 +312,7 @@ func TestTheApplicationSeriesAreWrittenOnlyWhileFusionRuns(t *testing.T) {
 	}
 }
 
-// Accepting a grouping suggestion in Ikhnos creates the application and nothing else: the services belong to it because their
+// Accepting a grouping suggestion in ikhnos creates the application and nothing else: the services belong to it because their
 // own labels pointed at it (the hint), which is not stored as a membership. A service a person put somewhere else is not
 // taken, a deleted application is not an application, and a hint at an application that does not exist is nothing.
 func TestAServiceBelongsToTheApplicationItsLabelsSuggestOnceThatApplicationExists(t *testing.T) {

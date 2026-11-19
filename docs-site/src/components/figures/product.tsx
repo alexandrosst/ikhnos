@@ -35,7 +35,7 @@ export function ContinuumOverview() {
         </g>
       ))}
       <Box x={24} y={330} w={712} h={44} hi />
-      <T x={380} y={357} anchor="middle" bold>Ikhnos answers all three, and never changes anything.</T>
+      <T x={380} y={357} anchor="middle" bold>ikhnos answers all three, and never changes anything.</T>
     </Fig>
   );
 }
@@ -50,7 +50,7 @@ export function SystemAtAGlance() {
   ];
   const fusion = ['Grafana', 'Prometheus', 'Loki', 'Tempo', 'Central operator'];
   return (
-    <Fig id={f} height={524} label="Agents in clusters dial out to one Ikhnos server; a browser reads the server; optional FUSION stores telemetry" title="The parts of Ikhnos, and who starts each connection" subtitle="Solid arrows start where they begin. Dashed parts are optional.">
+    <Fig id={f} height={524} label="Agents in clusters dial out to one ikhnos server; a browser reads the server; optional FUSION stores telemetry" title="The parts of ikhnos, and who starts each connection" subtitle="Solid arrows start where they begin. Dashed parts are optional.">
       <Box x={24} y={64} w={200} h={420} frame />
       <T x={40} y={84} bold>Your clusters</T>
       {clusters.map(([y, name, color]) => (
@@ -64,7 +64,7 @@ export function SystemAtAGlance() {
       ))}
 
       <Box x={288} y={64} w={248} h={336} hi />
-      <T x={304} y={90} bold>Ikhnos server</T>
+      <T x={304} y={90} bold>ikhnos server</T>
       <T x={304} y={107} small muted>one replica, one SQLite writer</T>
       <Box x={304} y={122} w={216} h={44} />
       <T x={316} y={142} bold mono color={accent}>:8443</T><T x={366} y={142} bold>agent port</T>
@@ -148,7 +148,7 @@ export function OnboardingJourney() {
 /** How a cluster goes from nothing to a certificate: two secrets that never travel together. */
 export function EnrollmentSequence() {
   const f = 'enroll';
-  const lives: [number, number, string][] = [[84, 100, 'You'], [264, 120, 'Ikhnos server'], [450, 150, 'Agent, in the cluster'], [662, 120, 'Agent pod log']];
+  const lives: [number, number, string][] = [[84, 100, 'You'], [264, 120, 'ikhnos server'], [450, 150, 'Agent, in the cluster'], [662, 120, 'Agent pod log']];
   const calls: [number, number, number, boolean, string, string][] = [
     [84, 264, 130, false, '1  Connect a cluster', ''],
     [264, 84, 170, true, '2  Command with a one-time token and the CA pin', ''],
@@ -277,7 +277,7 @@ export function TelemetryFlow() {
       <T x={627} y={314} small muted anchor="middle">nine dashboards, read-only data</T>
 
       <Box x={282} y={384} w={454} h={96} hi />
-      <T x={298} y={408} bold>Ikhnos server</T>
+      <T x={298} y={408} bold>ikhnos server</T>
       <Lines x={298} y={428} lines={['Decides what may leave a cluster, and where it may go.', 'Opens Grafana and Prometheus for you, behind your sign-in.', 'Reads the stores through one token-protected API.']} muted={false} />
       <Arrow fig={f} dashed d="M590 384V336" />
       <T x={24} y={420} small bold>Design rules</T>

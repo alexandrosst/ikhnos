@@ -1,7 +1,7 @@
 ---
 id: roadmap
 title: Roadmap
-description: Where Ikhnos could go next, in the order the pieces unlock each other.
+description: Where ikhnos could go next, in the order the pieces unlock each other.
 ---
 
 # Roadmap

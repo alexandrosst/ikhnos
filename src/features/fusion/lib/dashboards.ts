@@ -21,7 +21,7 @@ export const DASHBOARDS: readonly ShippedDashboard[] = [
   { uid: 'ikhnos-link-matrix', title: 'Link quality matrix', group: 'Links', about: 'Every cluster against every other at a glance: loss, delay, jitter, throughput and freshness.' },
   { uid: 'ikhnos-delivery', title: 'Delivery health', group: 'Telemetry', about: 'Is the data arriving: freshness per cluster, through which operator, which signals, and the collectors themselves.' },
   { uid: 'ikhnos-categories', title: 'Telemetry by category', group: 'Telemetry', about: 'What FUSION holds, grouped by what it is about.' },
-  { uid: 'ikhnos-self', title: 'Ikhnos self', group: 'Ikhnos', about: 'What running Ikhnos costs and whether it is healthy: the server process and every cluster’s agent.', clusterPicker: true },
+  { uid: 'ikhnos-self', title: 'ikhnos self', group: 'Ikhnos', about: 'What running ikhnos costs and whether it is healthy: the server process and every cluster’s agent.', clusterPicker: true },
 ]
 
 export const DASHBOARD_GROUPS = ['Fleet', 'Kubernetes', 'Links', 'Telemetry', 'Ikhnos'] as const

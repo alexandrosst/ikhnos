@@ -67,7 +67,7 @@ backend/               Go module "ikhnos" (Go 1.26)
   cmd/controller       The optional controller for the IkhnosAgent resource
   cmd/probe, cmd/flow  The node probe and the flow observer
   proto/               The agent protocol (agent.proto); generated code is in gen/
-  internal/            About sixty packages, in layers. See "Inside Ikhnos: the server".
+  internal/            About sixty packages, in layers. See "Inside ikhnos: the server".
   docs/                Design notes that change with the code
   internal/chart/      The agent, operator and FUSION charts, embedded in the server
 
@@ -75,7 +75,7 @@ deploy/helm/           The server chart and the controller chart
 docs-site/             This documentation site (Docusaurus)
 ```
 
-The layering rules, and the tests that hold them, are explained in [Inside Ikhnos](../inside/index.md): start with [the server](../inside/server.md) and [the web UI](../inside/frontend.md). When a test named for an architecture rule fails, read its message; do not edit the test to make a change pass.
+The layering rules, and the tests that hold them, are explained in [Inside ikhnos](../inside/index.md): start with [the server](../inside/server.md) and [the web UI](../inside/frontend.md). When a test named for an architecture rule fails, read its message; do not edit the test to make a change pass.
 
 ## Telemetry doctor
 

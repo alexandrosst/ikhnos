@@ -1,7 +1,7 @@
 ---
 id: design-history
 title: Design history
-description: The plan Ikhnos was restructured by, drawn as it was agreed, with what became of each part. These figures are plans, not descriptions of the system today.
+description: The plan ikhnos was restructured by, drawn as it was agreed, with what became of each part. These figures are plans, not descriptions of the system today.
 ---
 
 # Design history
@@ -9,12 +9,12 @@ description: The plan Ikhnos was restructured by, drawn as it was agreed, with w
 Every other page in this section draws the system as it is. This page is different on purpose. It keeps the **plan** the system was restructured by, drawn as it was agreed, so a reader can see where an odd-looking choice came from and what was decided against.
 
 :::caution Plans, not facts
-The figures here were drawn in October 2026, when the restructuring was under way. They show the *target* and the *order of work* at that moment. Some of what they show is built, some changed on contact with the code, and some is deliberately not done. Each figure is followed by what became of it. For the system as it is, use the other pages in [Inside Ikhnos](index.md).
+The figures here were drawn in October 2026, when the restructuring was under way. They show the *target* and the *order of work* at that moment. Some of what they show is built, some changed on contact with the code, and some is deliberately not done. Each figure is followed by what became of it. For the system as it is, use the other pages in [Inside ikhnos](index.md).
 :::
 
 ## Why there was a plan
 
-Ikhnos grew by adding features. By the time it was first prepared for others to run, the server was a single package of about thirty thousand lines in which any file could use any other, the same rules were written in several places, and the browser kept the one copy of the model that mattered. Adding the next feature meant touching all of it.
+ikhnos grew by adding features. By the time it was first prepared for others to run, the server was a single package of about thirty thousand lines in which any file could use any other, the same rules were written in several places, and the browser kept the one copy of the model that mattered. Adding the next feature meant touching all of it.
 
 The plan asked for one change of shape and no new feature until it was done: *every feature as one loop*.
 
@@ -48,7 +48,7 @@ The plan followed a single change through seven stops, to find the seams where a
 
 <Figure name="CrdFlow" caption="The server renders; people apply; an optional controller reconciles. The server never needs write access to your cluster." />
 
-**What became of it.** This is built as an option. The server renders the install, and an optional controller with one custom resource, `IkhnosAgent`, keeps a Helm release of the agent chart to match it. The Connect page offers the same install as a resource in a second tab. Without the controller, the same output is a command a person runs. See [Installing and removing what Ikhnos installs](../architecture/lifecycle.md).
+**What became of it.** This is built as an option. The server renders the install, and an optional controller with one custom resource, `IkhnosAgent`, keeps a Helm release of the agent chart to match it. The Connect page offers the same install as a resource in a second tab. Without the controller, the same output is a command a person runs. See [Installing and removing what ikhnos installs](../architecture/lifecycle.md).
 
 ## Where things stand
 

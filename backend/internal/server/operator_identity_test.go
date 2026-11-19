@@ -85,7 +85,7 @@ func TestAnOperatorCertificateThatStatesAnotherKindIsNotRenewed(t *testing.T) {
 	}
 }
 
-// An agent's certificate (the Ikhnos CA signs those) is not an operator's, and is refused by the renewal of operator certificates.
+// An agent's certificate (the ikhnos CA signs those) is not an operator's, and is refused by the renewal of operator certificates.
 func TestAnAgentsCertificateIsNotRenewedAsAnOperators(t *testing.T) {
 	s := newRenewSetup(t)
 	id, key, leaf := s.e.approvedAgent(t, "11111111-2222-4333-8444-555555555555")

@@ -10,7 +10,7 @@ traces   Tempo        {{ include "fusion.name" . }}-tempo.{{ .Release.Namespace 
 {{- end }}
 
 {{- if .Values.grafana.enabled }}
-grafana  Grafana      http://{{ include "fusion.name" . }}-grafana.{{ .Release.Namespace }}.svc:3000   (no login page: open it from the Ikhnos server, at /fusion/grafana/)
+grafana  Grafana      http://{{ include "fusion.name" . }}-grafana.{{ .Release.Namespace }}.svc:3000   (no login page: open it from the ikhnos server, at /fusion/grafana/)
 {{- end }}
 
 {{- if .Values.prometheus.enabled }}

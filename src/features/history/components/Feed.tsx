@@ -17,7 +17,7 @@ const SEVERITY: Record<ChangeEvent['severity'], { dot: string; label: string }> 
 const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 
 /**
- * What changed and what people did, on one vertical line, newest first and grouped by day: a ring for something Ikhnos noticed (filled when
+ * What changed and what people did, on one vertical line, newest first and grouped by day: a ring for something ikhnos noticed (filled when
  * it needs a look), a square for a person. Twenty at a time; "Show earlier" adds twenty more.
  */
 export default function Feed({ events, audit, filter, clusterId, since, hours }: { events: ChangeEvent[] | null; audit: AuditEvent[]; filter: FeedFilter; clusterId: string; since: number; hours: number }) {

@@ -1,4 +1,4 @@
-// Command controller keeps an Ikhnos agent installed in the cluster it runs in, from an IkhnosAgent resource. See internal/controller.
+// Command controller keeps an ikhnos agent installed in the cluster it runs in, from an IkhnosAgent resource. See internal/controller.
 // It is its own binary and image: it carries the Helm library, which the roles of the `ikhnos` binary (that run on every node) do not.
 package main
 

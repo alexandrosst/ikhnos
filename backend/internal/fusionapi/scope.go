@@ -57,7 +57,7 @@ type Scope struct {
 	// that limits it.
 	Namespaces []string
 	Clusters   []string
-	// The Focus fields narrow the lists, searches and metric reads this package builds to one Ikhnos application, resolved by the
+	// The Focus fields narrow the lists, searches and metric reads this package builds to one ikhnos application, resolved by the
 	// server to its services and the namespaces and clusters they run in. They are not rights the caller lacks but a choice the
 	// caller made, so they are kept apart from Namespaces and Clusters: Unrestricted, NamespaceVisible and ClusterVisible, and
 	// with them what a caller may see of a trace or send as a raw query, look at the rights alone. A focus is applied only to

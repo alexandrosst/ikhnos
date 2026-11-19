@@ -67,7 +67,7 @@ spec:
             {{- end }}
             - --web.listen-address=:9090
             {{- with $p.webPrefix }}
-            # Opened from the Ikhnos server at <server>/fusion/prometheus/, which strips that prefix before it reaches here:
+            # Opened from the ikhnos server at <server>/fusion/prometheus/, which strips that prefix before it reaches here:
             # the page must know the prefix to write its own links (external-url), and serve from the root (route-prefix).
             - --web.external-url=http://localhost:9090{{ . }}
             - --web.route-prefix=/

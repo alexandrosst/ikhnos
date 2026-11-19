@@ -10,7 +10,7 @@ import (
 	"ikhnos/internal/model"
 )
 
-// The topology of one Ikhnos application: its services, the traffic they have with each other and with everything else, and
+// The topology of one ikhnos application: its services, the traffic they have with each other and with everything else, and
 // what changed around them. It is a set of pointers, not telemetry: each service says by which labels its metrics, logs and
 // traces are found, and the caller reads them with `application=<id>` on any other route.
 

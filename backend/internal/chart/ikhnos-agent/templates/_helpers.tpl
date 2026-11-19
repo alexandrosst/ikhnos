@@ -103,7 +103,7 @@ IfNotPresent
 {{- end -}}
 {{- end -}}
 {{/* The secret the responder's iperf3-server pods sign their request for the server credentials with (telemetry.clusterLinks.probe.capacity,
-     when the Ikhnos server issues the credentials). Shared with the agent and the responder pods only: not with the prober, which would
+     when the ikhnos server issues the credentials). Shared with the agent and the responder pods only: not with the prober, which would
      otherwise be able to ask for the private key, and not with anything that signs flow reports. Same mechanism as the secrets above. */}}
 {{- define "agent.linkIperfSecretName" -}}ikhnos-agent-link-iperf{{- end -}}
 {{- define "agent.linkIperfSecret" -}}
@@ -114,7 +114,7 @@ IfNotPresent
 {{- end -}}
 {{- end -}}
 {{- define "agent.linkIperfSecretRevision" -}}{{ .Values.telemetry.clusterLinks.probe.capacity.auth.requestSecret | default "generated" | sha256sum }}{{- end -}}
-{{/* True when the Ikhnos server issues the iperf3 credentials of the throughput tests and delivers them through the agent: the tests are
+{{/* True when the ikhnos server issues the iperf3 credentials of the throughput tests and delivers them through the agent: the tests are
      on, no Secret of your own is named (that wins), and auth.automatic has not been switched off. */}}
 {{- define "agent.linkIperf" -}}{{- $c := .Values.telemetry.clusterLinks.probe.capacity -}}{{- if and .Values.telemetry.clusterLinks.metrics.enabled .Values.telemetry.clusterLinks.probe.enabled $c.enabled $c.auth.automatic (not $c.auth.existingSecret) -}}true{{- end -}}{{- end -}}
 {{/* True when the prober is on (and so the peer list is answered, by the hub). */}}

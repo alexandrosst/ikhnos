@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// Collectors are the parts of the agent that run on every node. They are separate opt-ins because nothing else in Ikhnos does that.
+// Collectors are the parts of the agent that run on every node. They are separate opt-ins because nothing else in ikhnos does that.
 type Collectors struct {
 	// NodeProbe reads facts about each machine (virtual machine or bare metal, model, kernel).
 	NodeProbe bool `json:"nodeProbe"`

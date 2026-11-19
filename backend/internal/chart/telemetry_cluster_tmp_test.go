@@ -134,7 +134,7 @@ func TestTheNotesWarnWhenTheThroughputServerIsOpen(t *testing.T) {
 		t.Errorf("no warning for an open iperf3 server:\n%s", got)
 	}
 	if got := notes("telemetry.clusterLinks.probe.capacity.enabled=true"); strings.Contains(got, warn) {
-		t.Errorf("warning although Ikhnos issues the credentials:\n%s", got)
+		t.Errorf("warning although ikhnos issues the credentials:\n%s", got)
 	}
 	if got := notes("telemetry.clusterLinks.probe.capacity.enabled=true", "telemetry.clusterLinks.probe.capacity.auth.existingSecret=k"); strings.Contains(got, warn) {
 		t.Errorf("warning although the server authenticates:\n%s", got)

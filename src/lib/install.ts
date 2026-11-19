@@ -165,7 +165,7 @@ export interface TelemetryInput {
   clusterLinksProbe: boolean
   /** Only meaningful when the probe is on: also let this cluster run and answer throughput tests (iperf3). They load the link, so which pairs run them is chosen per pair. */
   clusterLinksThroughput: boolean
-  /** Optional with the throughput tests: a Secret of your own holding iperf3's credentials, the same in every cluster of the mesh. Empty (the default): Ikhnos issues the credentials and the chart asks for no Secret; the server never runs unauthenticated either way. */
+  /** Optional with the throughput tests: a Secret of your own holding iperf3's credentials, the same in every cluster of the mesh. Empty (the default): ikhnos issues the credentials and the chart asks for no Secret; the server never runs unauthenticated either way. */
   clusterLinksAuthSecret: string
   /** Set by the seed when `clusterLinksProbe` and `clusterLinksThroughput` were read from what the cluster runs (the controller reports the link prober's features), not left at their defaults. The Secret of your own credentials is still not reported. */
   clusterLinksRunning?: boolean
@@ -433,7 +433,7 @@ export function tagProblems(tags: TagEntry[]): string[] {
       out.push('Every tag needs a name')
       continue
     }
-    if (key.toLowerCase().startsWith(RESERVED_TAG_PREFIX)) out.push(`“${key}” starts with ${RESERVED_TAG_PREFIX}, which is reserved for what Ikhnos adds itself`)
+    if (key.toLowerCase().startsWith(RESERVED_TAG_PREFIX)) out.push(`“${key}” starts with ${RESERVED_TAG_PREFIX}, which is reserved for what ikhnos adds itself`)
     if (/\s/.test(key)) out.push(`“${key}”: a tag name cannot contain spaces`)
     if (seen.has(key)) out.push(`“${key}” is listed twice`)
     seen.add(key)
@@ -627,7 +627,7 @@ export function telemetryProblems(t: TelemetryInput, measurementsOn?: boolean): 
   if (t.accelerators && t.acceleratorsSource === 'existing') out.push(...scrapeTargetProblem(t.acceleratorsExistingEndpoint, 'Accelerators: the existing Prometheus endpoint'))
   if (t.clusterLinks && !isKept(t, 'clusterLinksOptions') && t.clusterLinksProbe && t.clusterLinksThroughput) {
     const secret = t.clusterLinksAuthSecret.trim()
-    // Optional: left empty, Ikhnos issues the iperf3 credentials. Only a name that was typed has to be a valid one.
+    // Optional: left empty, ikhnos issues the iperf3 credentials. Only a name that was typed has to be a valid one.
     if (secret && !SECRET_NAME.test(secret)) out.push('Cluster links: the credential Secret name uses lowercase letters, digits, - and . only')
   }
   if (t.networkLatency && measurementsOn === false) out.push('Network latency re-emits the path measurements extra, so turn that on too, or it will report nothing')

@@ -217,7 +217,7 @@ const VIDEOS = {
     title: 'A tour of the interface',
     landscape: true,
     async run(s) {
-      await s.intro('/topology', 'A tour of Ikhnos', 'Every page, in a minute', {dismiss: true});
+      await s.intro('/topology', 'A tour of ikhnos', 'Every page, in a minute', {dismiss: true});
       await s.callout('nav >> text=Topology', 'Topology: your clusters and what runs in them, as one picture', {side: 'right', n: 1, ms: 3800});
       await s.click('button:has-text("Infrastructure")');
       await s.callout('button:has-text("Infrastructure")', 'Infrastructure: the same landscape as machines, capacity and links', {side: 'bottom', n: 2, ms: 3800});
@@ -488,7 +488,7 @@ const VIDEOS = {
       await s.page.waitForTimeout(3000);
       await s.endTerminal();
       await s.click('[role=dialog] button:has-text("I have run it"), [role=dialog] button:has-text("Check that data arrives")');
-      await s.callout('[role=dialog]', 'Ikhnos then checks that the data really arrives', {side: 'left', ms: 3800, spot: false});
+      await s.callout('[role=dialog]', 'ikhnos then checks that the data really arrives', {side: 'left', ms: 3800, spot: false});
       await s.page.waitForSelector('[data-testid=telemetry-guided-done], [role=dialog] button:has-text("Done")', {timeout: 150000});
       await s.click('[role=dialog] button:has-text("Done")');
       // The collector the commands installed now shows on Pipeline, with the picture of what it collects and where it goes.

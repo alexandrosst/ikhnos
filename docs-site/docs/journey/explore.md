@@ -22,13 +22,13 @@ Your cluster is in. This page is a short, guided look at what you now have. The 
 
 **Infrastructure** shows the nodes underneath: virtual machines, bare metal, edge devices, with an optional overlay of which services run on which node. **Map** places clusters and sites on a map, and **Telemetry** shows the path telemetry takes, once you have set any up.
 
-With only one cluster connected the picture will be small. That is correct: Ikhnos shows what its agents report and nothing it has not seen. The two things that make the dependency lines appear are the traffic observer (an extra from step 4) and time.
+With only one cluster connected the picture will be small. That is correct: ikhnos shows what its agents report and nothing it has not seen. The two things that make the dependency lines appear are the traffic observer (an extra from step 4) and time.
 
 ## Clusters, and the tables
 
 **Clusters** lists every cluster with its tier, status and how long ago it last reported. Nodes, Namespaces, Services and Devices are the same model as tables, and every table can be searched, sorted and filtered. Press <kbd>Ctrl</kbd> + <kbd>K</kbd> from anywhere to search the whole landscape.
 
-A cluster has a **tier**: cloud, edge or far edge. Ikhnos guesses a sensible one; you can correct it. The tier groups the views and shapes the cost of moving a service, so it is worth a quick check.
+A cluster has a **tier**: cloud, edge or far edge. ikhnos guesses a sensible one; you can correct it. The tier groups the views and shapes the cost of moving a service, so it is worth a quick check.
 
 ## Agents: what each one is allowed to see
 
@@ -38,7 +38,7 @@ It shows the three settings from step 4 side by side: **ceiling**, **approved** 
 
 Each row has a **Diagnose** button. It says in a line how many things there are to look at (or that there is nothing to do), shows each as a short card, worst first, with the first thing to do and a button that copies its `kubectl` command, and opens to the full explanation on a click. What was checked is folded below, with a dot for each check. When something looks off, start there.
 
-The **Suggestions** tab is where Ikhnos puts things it noticed and did not decide for you: a likely grouping of services into an application, or traffic that points at a cluster you have not connected yet. Accept, correct or dismiss each one. Nothing is applied automatically.
+The **Suggestions** tab is where ikhnos puts things it noticed and did not decide for you: a likely grouping of services into an application, or traffic that points at a cluster you have not connected yet. Accept, correct or dismiss each one. Nothing is applied automatically.
 
 ## History: ask what a cluster looked like
 

@@ -181,7 +181,7 @@ func streamSelectors(expr string) []string {
 	return out
 }
 
-// infoLabels are the labels of the info series Ikhnos writes (application, member, service_id, ...), as the encoder writes them.
+// infoLabels are the labels of the info series ikhnos writes (application, member, service_id, ...), as the encoder writes them.
 func infoLabels(t *testing.T) map[string]bool {
 	t.Helper()
 	s := fusionapi.AppInfoSeries{Application: "a", ApplicationID: "a", Service: "s", Namespace: "n", Cluster: "c", ServiceID: "i"}

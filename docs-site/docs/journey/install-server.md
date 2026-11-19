@@ -1,7 +1,7 @@
 ---
 id: install-server
 title: "2. Install the server"
-description: One secret and one Helm command start the Ikhnos server on your cluster. What each line does, and how to know it worked.
+description: One secret and one Helm command start the ikhnos server on your cluster. What each line does, and how to know it worked.
 ---
 
 <StepBar n={2} of={6} title="Install the server" />
@@ -23,9 +23,9 @@ helm install ikhnos-server oci://ghcr.io/alexandrosst/ikhnos-server \
 
 ## What each part does
 
-**The namespace** is where everything of the server lives, so removing Ikhnos later is one deletion. `--create-namespace` makes it for you.
+**The namespace** is where everything of the server lives, so removing ikhnos later is one deletion. `--create-namespace` makes it for you.
 
-**The sealing key** encrypts the few things the server must be able to read back: people's second-factor secrets, the mail password if you configure mail, and the secret of a decider. You do not have to make it: the chart creates it the first time it installs, keeps it across upgrades, and keeps it even if you remove Ikhnos, so a reinstall on the same volume still opens the database. When the install finishes, its notes say how to copy the key. Do that, and store the copy somewhere other than the cluster: if the key is lost, those few secrets cannot be recovered. (To bring your own key, or to turn sealing off for a throwaway trial, see [Sealing secrets at rest](https://github.com/alexandrosst/ikhnos/blob/main/deploy/README.md#sealing-secrets-at-rest).)
+**The sealing key** encrypts the few things the server must be able to read back: people's second-factor secrets, the mail password if you configure mail, and the secret of a decider. You do not have to make it: the chart creates it the first time it installs, keeps it across upgrades, and keeps it even if you remove ikhnos, so a reinstall on the same volume still opens the database. When the install finishes, its notes say how to copy the key. Do that, and store the copy somewhere other than the cluster: if the key is lost, those few secrets cannot be recovered. (To bring your own key, or to turn sealing off for a throwaway trial, see [Sealing secrets at rest](https://github.com/alexandrosst/ikhnos/blob/main/deploy/README.md#sealing-secrets-at-rest).)
 
 **`agent.service.type=NodePort`** opens the agent port, 8443 inside the pod, as port 30443 on every node. NodePort works on any cluster, which is why it is used here. On a managed cloud you would use a load balancer instead.
 

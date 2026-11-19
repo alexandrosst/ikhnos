@@ -404,7 +404,7 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
       </div>
       {phase === 'form' && (
         <div className="space-y-5">
-          <Field label="Cluster name" hint="How it appears in Ikhnos. You can rename it later.">
+          <Field label="Cluster name" hint="How it appears in ikhnos. You can rename it later.">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="edge-patras" autoFocus />
           </Field>
           {max >= 1 && (
@@ -432,7 +432,7 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
                 title="Node hardware and network"
                 tags={<Tag>pod on each node</Tag>}
                 summary="Virtual machine or bare metal, device model, disks, uplinks and tunnels."
-                why="Kubernetes cannot say whether a node is a virtual machine or a physical server, so Ikhnos otherwise guesses and marks the guess as uncertain. A small pod on every node reads the CPU model and flags, the hypervisor, the firmware and board vendor and product, the ARM board model, the disks (capacity and type), the network interfaces including uplinks and VPN tunnels, and the node's own addresses - never serial numbers, MAC addresses or processes. It needs the host's /sys and network, so a namespace that enforces the Pod Security baseline must be labelled privileged."
+                why="Kubernetes cannot say whether a node is a virtual machine or a physical server, so ikhnos otherwise guesses and marks the guess as uncertain. A small pod on every node reads the CPU model and flags, the hypervisor, the firmware and board vendor and product, the ARM board model, the disks (capacity and type), the network interfaces including uplinks and VPN tunnels, and the node's own addresses - never serial numbers, MAC addresses or processes. It needs the host's /sys and network, so a namespace that enforces the Pod Security baseline must be labelled privileged."
               />
               {max >= 2 && (
                 <OptionRow
@@ -582,7 +582,7 @@ export default function ConnectClusterWizard({ open, onClose, nodeProbe }: { ope
                   <details className="mt-1.5">
                     <summary className="cursor-pointer text-nb-300">If helm says not found or unauthorized</summary>
                     <p className="mt-1">
-                      They have not been published yet, or the registry is private. Ask whoever manages this Ikhnos server to publish them (see the deployment guide) or grant the cluster's registry credentials access.
+                      They have not been published yet, or the registry is private. Ask whoever manages this ikhnos server to publish them (see the deployment guide) or grant the cluster's registry credentials access.
                       {info?.install?.chartFile && (
                         <> To skip the registry for just the chart, use the copy this server already serves: <code className="font-mono">curl -fLO {shArg(`${baseUrl || window.location.origin}/charts/${info.install.chartFile}`)}</code>, then change the start of the command to <code className="font-mono">helm install ikhnos-agent ./{info.install.chartFile}</code> and drop <code className="font-mono">--version</code>.</>
                       )}

@@ -25,7 +25,7 @@ import (
 
 // How the agent gets in: it makes a key and a random approval code, saves both, and only then asks the
 // server to enroll it (sending a hash of the code, never the code). It prints the code in its own log.
-// An administrator who can read that log types the code in Ikhnos to approve the cluster.
+// An administrator who can read that log types the code in ikhnos to approve the cluster.
 //
 // Everything before the certificate arrives can be repeated safely: the server recognises the same token
 // with the same key as the same enrollment. So the agent may crash or lose a response at any point and
@@ -70,7 +70,7 @@ func (r *runner) logCode(id *Identity, why string) {
 	// greps for it (grep -i "approval code" returns a line where the code visibly appears twice). A fixed
 	// label in the message plus the single value in "code" still leads the line and is still its own
 	// field for anything that searches logs by field, without the duplication.
-	r.log.Info("APPROVAL CODE (enter it in Ikhnos to approve this cluster)",
+	r.log.Info("APPROVAL CODE (enter it in ikhnos to approve this cluster)",
 		"code", id.ApprovalCode, "why", why, "kubectl", "kubectl -n ikhnos-system logs deploy/ikhnos-agent | grep -i 'approval code'")
 }
 
@@ -343,11 +343,11 @@ func (r *runner) logEnded(reason string) {
 	if r.cfg.MarkRevoked != nil {
 		r.log.Error("this agent was revoked or rejected and will not connect again: "+reason+". "+
 			"A controller keeps it, and it removes the agent now, its identity with it. "+
-			"To connect this cluster again, create a new enrollment token in Ikhnos and run the install command again with it.", "reason", reason)
+			"To connect this cluster again, create a new enrollment token in ikhnos and run the install command again with it.", "reason", reason)
 		return
 	}
 	r.log.Error("this agent was revoked or rejected and will not connect again: "+reason+". "+
-		"Revocation is permanent. To connect this cluster again, create a new enrollment token in Ikhnos and run `helm upgrade` with it "+
+		"Revocation is permanent. To connect this cluster again, create a new enrollment token in ikhnos and run `helm upgrade` with it "+
 		"(--reset-then-reuse-values --set enrollment.token=..., Helm 3.14 or newer; without it the upgrade drops the settings the install was given, server.address among them). This agent does not contact the server any more.", "reason", reason)
 }
 
@@ -423,7 +423,7 @@ func (r *runner) noteServerTime(serverUnix int64) {
 			dir = "behind"
 			skew = -skew
 		}
-		r.log.Warn(fmt.Sprintf("this machine's clock is %s %s the Ikhnos server's. Certificates are checked against the clock, so this can show up as "+
+		r.log.Warn(fmt.Sprintf("this machine's clock is %s %s the ikhnos server's. Certificates are checked against the clock, so this can show up as "+
 			"\"certificate expired\" or \"not yet valid\" errors. Fix time synchronisation (NTP, chrony) on the cluster's nodes", skew.Round(time.Second), dir))
 	}
 }

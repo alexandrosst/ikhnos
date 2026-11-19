@@ -102,7 +102,7 @@ describe('LocalOperatorPicture', () => {
   test('says that the tool behind a source is the owner\'s, and who keeps the release', () => {
     show(diag(healthy, ['resourceUsage']), ['resourceUsage'], { keptByController: true })
     fireEvent.click(screen.getByTestId('operator-picture-toggle'))
-    expect(screen.getByTestId('operator-picture-note')).toHaveTextContent(/Kept by the Ikhnos controller.*tool reads each source is the cluster owner/)
+    expect(screen.getByTestId('operator-picture-note')).toHaveTextContent(/Kept by the ikhnos controller.*tool reads each source is the cluster owner/)
   })
 
   test('with nothing collected there is nothing to draw, and it says how to start', () => {

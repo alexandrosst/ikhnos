@@ -218,7 +218,7 @@ export function agentVerdict(a: Agent, now: number): Verdict {
   const { state, silentMs: since } = agentLiveness(a, now)
   if (state === 'unknown') return { state: 'unknown', reason: 'Not connected live, so there is nothing to judge it by.' }
   const todo: Todo = { steps: agentSteps(a, 'the agent'), action: { kind: 'agents', label: 'Open in Agents' } }
-  if (state === 'down') return { state: 'down', reason: `Has not reported for ${since === undefined ? 'a while' : duration(since)}. What Ikhnos knows about this cluster is out of date.`, todo }
+  if (state === 'down') return { state: 'down', reason: `Has not reported for ${since === undefined ? 'a while' : duration(since)}. What ikhnos knows about this cluster is out of date.`, todo }
   if (state === 'late') return { state: 'attention', reason: `Its heartbeat is late: the last one was ${duration(since!)} ago.`, todo }
   return { state: 'healthy' }
 }

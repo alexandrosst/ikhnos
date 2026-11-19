@@ -33,12 +33,12 @@ var Agent = newChart(agentFiles, "ikhnos-agent")
 
 // RegionalOperator is the ikhnos-regional-operator chart: a standalone OTel Collector that aggregates
 // telemetry already exported by a set of agents' clusters and re-exports it further up. It does not dial
-// the Ikhnos server unless its opt-in heartbeat is turned on (see store.Operator's own comment) - its
+// the ikhnos server unless its opt-in heartbeat is turned on (see store.Operator's own comment) - its
 // only relationship to Agent is that both are packaged and served the same way.
 var RegionalOperator = newChart(operatorFiles, "ikhnos-regional-operator")
 
 // Fusion is the ikhnos-fusion chart: Prometheus, Loki and Tempo, one durable pod per signal type, which a
-// regional operator exports into. It never talks to the Ikhnos server. The Service names a regional operator is
+// regional operator exports into. It never talks to the ikhnos server. The Service names a regional operator is
 // pointed at are a contract of this chart (fusion.name in its _helpers.tpl), so changing them is a breaking change.
 var Fusion = newChart(fusionFiles, "ikhnos-fusion")
 

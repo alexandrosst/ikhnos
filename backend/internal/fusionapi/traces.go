@@ -70,7 +70,7 @@ type Resource struct {
 	LogsTruncated bool       `json:"logsTruncated,omitempty"`
 	// Queries are the caller's own PromQL queries, evaluated for this resource over the trace's window (promql).
 	Queries []QueryResult `json:"queries,omitempty"`
-	// Topology is what Ikhnos knows about the service: what it calls and what calls it (include=topology).
+	// Topology is what ikhnos knows about the service: what it calls and what calls it (include=topology).
 	Topology *ResourceTopology `json:"topology,omitempty"`
 }
 

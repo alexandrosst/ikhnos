@@ -1,17 +1,17 @@
 ---
 id: intro
 slug: /
-title: Ikhnos documentation
+title: ikhnos documentation
 description: "Observability across the cloud–edge computing continuum: topology discovery and telemetry collection for your Kubernetes clusters, driven by an observability intent."
 ---
 
-# Ikhnos documentation
+# ikhnos documentation
 
 **See everything, touch nothing.** Observability across the cloud–edge computing continuum: topology discovery and telemetry collection for your Kubernetes clusters, driven by an observability intent.
 
 <Shot src="readme/topology-loop" ext="webp" alt="The sites of a landscape in Berlin, Paris and Athens on a map, with the traffic between them moving along the links" caption="Berlin, Paris and Athens on the sample landscape. The dashes move with the traffic between sites." />
 
-Ikhnos does this the same way for every cluster:
+ikhnos does this the same way for every cluster:
 
 - **One command per cluster.** Run it, approve the cluster, and it appears. No kubeconfig is handed over, and no inbound port is opened.
 - **Read-only by design.** A small agent looks. It cannot change anything.
@@ -21,11 +21,11 @@ Ikhnos does this the same way for every cluster:
 
 <Cards>
   <Card to="/docs/learn/observability-intent" kicker="The one idea" title="Observability intent">How far each part may look, in one page. It can only be narrowed, never widened.</Card>
-  <Card to="/docs/learn/what-is-ikhnos" kicker="Never heard of it" title="What is Ikhnos?">The problem it solves, what it does and does not do, and who it is for. Five minutes.</Card>
+  <Card to="/docs/learn/what-is-ikhnos" kicker="Never heard of it" title="What is ikhnos?">The problem it solves, what it does and does not do, and who it is for. Five minutes.</Card>
   <Card to="/docs/journey/" kicker="Start here to use it" title="Your first hour">Six steps from nothing to a connected cluster and your first look around. Written for someone who has never seen it.</Card>
   <Card to="/docs/getting-started/quickstart" kicker="I know what I am doing" title="Quickstart">One recipe that works on any cluster. Copy, paste, done.</Card>
   <Card to="/docs/user-guide/using-the-ui" kicker="It is running" title="Using the interface">Every page of the UI, what it shows and what you can do there.</Card>
-  <Card to="/docs/inside/" kicker="I want to understand or contribute" title="Inside Ikhnos">How it is built: layers, the agent protocol, the model, trust and telemetry.</Card>
+  <Card to="/docs/inside/" kicker="I want to understand or contribute" title="Inside ikhnos">How it is built: layers, the agent protocol, the model, trust and telemetry.</Card>
   <Card to="/docs/reference/" kicker="I need a value" title="Reference">Helm values, command-line flags and the permissions table.</Card>
 </Cards>
 

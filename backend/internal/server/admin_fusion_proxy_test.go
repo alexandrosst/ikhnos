@@ -127,7 +127,7 @@ func TestFusionPagesAreForAdministratorsOnly(t *testing.T) {
 }
 
 // What reaches Grafana: who the person is, in the one header it trusts, set by the server whatever the browser sent; none
-// of the person's Ikhnos cookie or credentials. What comes back: no cookies, Grafana's own policy kept, no caching.
+// of the person's ikhnos cookie or credentials. What comes back: no cookies, Grafana's own policy kept, no caching.
 func TestFusionGrafanaGetsTheSignedInPersonAndNothingElse(t *testing.T) {
 	p := newPageRig(t)
 	r := p.get(fusionGrafanaPath+"explore", withCookie(p.admin), withHeader("X-WEBAUTH-USER", "someone-else"), withHeader("X-Webauth-Role", "Admin"),
@@ -137,7 +137,7 @@ func TestFusionGrafanaGetsTheSignedInPersonAndNothingElse(t *testing.T) {
 	}
 	got := p.last("grafana")
 	if got.Header.Get("X-WEBAUTH-USER") != "ikhnos-root" {
-		t.Errorf("signed in as %q, want the real person under the Ikhnos prefix (ikhnos-root)", got.Header.Get("X-WEBAUTH-USER"))
+		t.Errorf("signed in as %q, want the real person under the ikhnos prefix (ikhnos-root)", got.Header.Get("X-WEBAUTH-USER"))
 	}
 	if got.Header.Get("X-Webauth-Role") != "" {
 		t.Error("a client-supplied X-WEBAUTH-* header reached Grafana")
@@ -500,9 +500,9 @@ func TestFusionProxyDoesNotReadTheClusterForEveryAsset(t *testing.T) {
 	}
 }
 
-// Grafana has a built-in administrator called "admin", and Ikhnos's own first account has the same name. Sent as it was,
+// Grafana has a built-in administrator called "admin", and ikhnos's own first account has the same name. Sent as it was,
 // that account would be signed in to Grafana as its Server Admin whatever role Grafana is configured to give people who
-// arrive through the proxy: so the login Grafana is told always carries Ikhnos's prefix.
+// arrive through the proxy: so the login Grafana is told always carries ikhnos's prefix.
 func TestGrafanaIsToldANamespacedLoginSoTheBootstrapAdminIsNotGrafanasAdmin(t *testing.T) {
 	p := newPageRig(t)
 	_, cookie := p.user(t, "admin", accounts.RoleAdmin)
@@ -510,7 +510,7 @@ func TestGrafanaIsToldANamespacedLoginSoTheBootstrapAdminIsNotGrafanasAdmin(t *t
 		t.Fatalf("%d %s", r.Code, r.Body.String())
 	}
 	if got := p.last("grafana").Header.Get("X-WEBAUTH-USER"); got != "ikhnos-admin" {
-		t.Fatalf("Grafana was told %q for the Ikhnos account admin, want ikhnos-admin", got)
+		t.Fatalf("Grafana was told %q for the ikhnos account admin, want ikhnos-admin", got)
 	}
 }
 

@@ -110,9 +110,9 @@ export type FusionStatus = W.FusionStatus
 
 export type FusionSignal = W.Signal
 
-/** One service of an Ikhnos application, with the signals FUSION has for it (GET /fusion/applications). */
+/** One service of an ikhnos application, with the signals FUSION has for it (GET /fusion/applications). */
 export type FusionApplicationService = W.AppServiceView
-/** An Ikhnos application as the data API lists it: what it is made of and which signals FUSION holds for it in the range. */
+/** An ikhnos application as the data API lists it: what it is made of and which signals FUSION holds for it in the range. */
 export type FusionApplication = W.AppView
 /** Every service FUSION has data for (its service.name), with the applications it is in; empty for infrastructure that reports under its own name. */
 export type FusionServiceItem = W.ServiceDoc
@@ -440,7 +440,7 @@ export const api = {
   listFusionTokens: (c: Conn) => call<FusionAccessToken[]>(c, 'GET', '/api/v1/fusion/tokens'),
   createFusionToken: (c: Conn, req: NewFusionAccessToken) => call<CreatedFusionAccessToken>(c, 'POST', '/api/v1/fusion/tokens', req),
   revokeFusionToken: (c: Conn, id: string) => call<void>(c, 'DELETE', `/api/v1/fusion/tokens/${encodeURIComponent(id)}`),
-  /** What FUSION holds, by Ikhnos application and by service, over the last day. */
+  /** What FUSION holds, by ikhnos application and by service, over the last day. */
   getFusionApplications: (c: Conn) => call<FusionApplications>(c, 'GET', '/api/v1/fusion/applications?from=now-24h'),
   getFusionServices: (c: Conn) => call<FusionServices>(c, 'GET', '/api/v1/fusion/services?from=now-24h'),
   getFusionRetention: (c: Conn) => call<FusionRetention>(c, 'GET', '/api/v1/fusion/retention'),
@@ -512,7 +512,7 @@ export const api = {
   // DependencySeriesPoint for why each field can be missing on a given point.
   dependencySeries: (c: Conn, dependencyId: string, hours: number) =>
     call<{ points?: DependencySeriesPoint[] }>(c, 'GET', `/api/v1/history/dependency/${encodeURIComponent(dependencyId)}/series?hours=${hours}`).then((r) => r.points ?? []),
-  // What running Ikhnos itself costs, per entity (the server, and every connected agent) - see
+  // What running ikhnos itself costs, per entity (the server, and every connected agent) - see
   // admin_telemetry.go's own doc comment for the exact response shape. Entities with no self-telemetry
   // history yet are left out server-side, not returned with an empty samples array.
   selfTelemetry: (c: Conn) => call<SelfTelemetryEntity[]>(c, 'GET', '/api/v1/telemetry/self'),
@@ -544,14 +544,14 @@ export const api = {
   recordNow: (c: Conn) => call<void>(c, 'POST', '/api/v1/history/record'),
 }
 
-/** What probe() above learns from its one request: whether an Ikhnos server is even there, and - when
+/** What probe() above learns from its one request: whether an ikhnos server is even there, and - when
  *  someone is already signed in - the session it would otherwise take a second /api/v1/auth/me round trip
  *  to fetch. See probe()'s own doc comment for why that body is worth carrying along instead of discarding
  *  it. */
 export type ProbeResult = { status: 'session'; session: Session } | { status: 'signin' } | { status: 'none' }
 
 /**
- * Is there an Ikhnos server at this address? The answer is 'session' when the answer is JSON with a
+ * Is there an ikhnos server at this address? The answer is 'session' when the answer is JSON with a
  * signed-in session (200), 'signin' for a JSON "not signed in" (401), and 'none' for anything else, such as
  * a static host returning the app's HTML.
  *

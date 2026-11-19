@@ -8,7 +8,7 @@ description: Use the Connect a cluster wizard to get the one install command for
 
 # Connect a cluster
 
-A cluster joins Ikhnos by running a small agent. You do not create the agent anywhere by hand: a wizard in the interface prints the exact command, already filled in with this server's address, the fingerprint of its certificate authority, and a one-time token.
+A cluster joins ikhnos by running a small agent. You do not create the agent anywhere by hand: a wizard in the interface prints the exact command, already filled in with this server's address, the fingerprint of its certificate authority, and a one-time token.
 
 <Video src="connect-a-cluster" label="The Connect a cluster wizard: name the cluster, choose what the agent may read, copy the install command, run it, and wait for the agent" caption="The wizard from start to the moment the agent connects. This one uses the **kubectl (controller)** tab: one command installs the optional controller, which asks for the agent. The output is what the chart prints; the token in the command works once." />
 
@@ -38,7 +38,7 @@ This is the **ceiling**. It is enforced by Kubernetes itself, through the permis
 **Collect more** is independent of the access level. Each row is a switch, off until you turn it on, and each says what it puts in the cluster: a pod on each node, or nothing extra because it runs inside the agent. You can add any of them after the install, so it is fine to start with none.
 
 - **Node hardware and network** (a pod on each node) tells virtual machines from bare metal, and reports the device model, the disks, and the uplinks and tunnels. It never reports serial numbers, MAC addresses or processes. It needs the host's `/sys` and network, so a namespace that enforces the Pod Security baseline must be labelled privileged.
-- **Traffic between services** (a pod on each node, with extra privileges) counts connections and bytes using eBPF or the kernel's connection table, which is what lets Ikhnos draw real dependencies. It asks for more than the others, so read what it is allowed to do before you switch it on.
+- **Traffic between services** (a pod on each node, with extra privileges) counts connections and bytes using eBPF or the kernel's connection table, which is what lets ikhnos draw real dependencies. It asks for more than the others, so read what it is allowed to do before you switch it on.
 - **Round-trip times** (runs in the agent) times TCP connections to a few outside addresses, to measure the paths between clusters. On its own it times the addresses you add on the **Sites** page; with **Traffic between services** also on, it can offer the ones your workloads call most.
 
 The traffic and round-trip rows need the **Services** level. If you choose **Infrastructure** they stay in view, dimmed and off, with a note saying what they need.

@@ -17,7 +17,7 @@ describe('feed', () => {
     expect(items.map((i) => i.id)).toEqual(['a:b', 'e:a', 'e:c'])
   })
 
-  test('the filter picks what Ikhnos noticed or what people did', () => {
+  test('the filter picks what ikhnos noticed or what people did', () => {
     const e = [ev('a', at(0))]
     const a = [act('b', at(0))]
     expect(buildFeed(e, a, { filter: 'changes' }).map((i) => i.type)).toEqual(['change'])

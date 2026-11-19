@@ -1,5 +1,5 @@
 /*
- * The figures for someone who works on Ikhnos, or wants to know how it is built: the layers of the server, how facts become
+ * The figures for someone who works on ikhnos, or wants to know how it is built: the layers of the server, how facts become
  * views, the agent and its stream, how a Config is known to be in force, the decision loop and the layers of the frontend.
  * They draw what the code is today. Where a figure names a package, a message or a test, it is the one in the repository.
  */
@@ -239,7 +239,7 @@ export function AgentInside() {
       <Arrow fig={f} both d="M180 369H222" />
 
       <Box x={540} y={316} w={196} h={94} hi />
-      <T x={556} y={342} bold>Ikhnos server</T>
+      <T x={556} y={342} bold>ikhnos server</T>
       <Lines x={556} y={362} lines={['agent port, mutual TLS', 'Config comes back on', 'the same stream']} />
       <Arrow fig={f} both accented d="M494 369H540" />
 

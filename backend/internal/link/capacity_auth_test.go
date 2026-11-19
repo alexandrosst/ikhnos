@@ -60,7 +60,7 @@ func TestTheIssuedCredentialsAuthenticateTheTestsAndThePasswordStaysOutOfTheArgu
 	mustNotContain(t, "the log", log.String())
 }
 
-// When the install lets Ikhnos issue the credentials, a peer it has issued none for is never tested without authentication.
+// When the install lets ikhnos issue the credentials, a peer it has issued none for is never tested without authentication.
 func TestWithoutIssuedCredentialsNothingIsTestedUnauthenticatedAndTheFailureIsAuth(t *testing.T) {
 	f := &fakeIperf{}
 	c, log := capWithIssuedCredentials(t, f, nil, func(c *Capacity) { c.AutoAuth = true })

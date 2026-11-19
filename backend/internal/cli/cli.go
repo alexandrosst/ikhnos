@@ -1,4 +1,4 @@
-// Package cli is what the three Ikhnos roles share: the in-cluster agent (cli/agent), the node probe (cli/probe) and the
+// Package cli is what the three ikhnos roles share: the in-cluster agent (cli/agent), the node probe (cli/probe) and the
 // node flow collector (cli/flow). They ship as ONE binary, `ikhnos`, that picks its role from its first argument
 // (`ikhnos agent ...`, `ikhnos probe ...`, `ikhnos flow ...`), so a cluster pulls a single image. cmd/agent,
 // cmd/probe and cmd/flow are thin wrappers over the same Main functions, for development and for anything that still runs
@@ -22,12 +22,12 @@ var Version = "0.1.0-dev"
 
 // Roles names the subcommands `ikhnos` accepts, in the order help lists them.
 var Roles = []struct{ Name, Summary string }{
-	{"agent", "the in-cluster agent: discovers the cluster and reports to the Ikhnos server (read-only)"},
+	{"agent", "the in-cluster agent: discovers the cluster and reports to the ikhnos server (read-only)"},
 	{"probe", "the optional node probe: tells the agent what kind of machine a node is (read-only)"},
 	{"flow", "the optional node flow collector: counts connections between workloads (needs root and BPF)"},
 	{"link-prober", "the optional cluster-link prober: measures loss and delay to paired clusters in both directions (OWAMP)"},
 	{"link-hub", "the optional cluster-link hub: makes the passive link series and answers the prober and the responders, told what to serve by the agent"},
-	{"link-iperf-server", "the iperf3 server of the throughput tests when Ikhnos issues the credentials: fetches them from the agent, fails closed"},
+	{"link-iperf-server", "the iperf3 server of the throughput tests when ikhnos issues the credentials: fetches them from the agent, fails closed"},
 	{"cert-renew", "the regional operator's sidecar: renews its TLS certificates before they expire"},
 	{"purge-identity", "deletes the agent's identity Secret: the chart's post-delete hook, when the install asked for it"},
 }

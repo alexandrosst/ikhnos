@@ -1,14 +1,14 @@
 ---
 id: what-is-ikhnos
-title: What is Ikhnos
-description: The problem Ikhnos solves, what it does and deliberately does not do, and who it is for. No prior knowledge assumed.
+title: What is ikhnos
+description: The problem ikhnos solves, what it does and deliberately does not do, and who it is for. No prior knowledge assumed.
 ---
 
-# What is Ikhnos
+# What is ikhnos
 
-Ikhnos shows you everything you run on Kubernetes, in every place you run it, and how each place is doing. It watches. It never changes anything.
+ikhnos shows you everything you run on Kubernetes, in every place you run it, and how each place is doing. It watches. It never changes anything.
 
-If that sentence already tells you what you need, go straight to [your first hour](../journey/index.md). If you want to know why this is hard, and what Ikhnos does about it, read on. Nothing on this page assumes you have used it, or anything like it.
+If that sentence already tells you what you need, go straight to [your first hour](../journey/index.md). If you want to know why this is hard, and what ikhnos does about it, read on. Nothing on this page assumes you have used it, or anything like it.
 
 ## The problem
 
@@ -18,9 +18,9 @@ Most teams start with one Kubernetes cluster, and for one cluster the tools you 
 
 Every cluster can tell you about itself. Nothing tells you about all of them together. So three simple questions turn into a lot of manual work: where is everything, is it healthy, and what talks to what? Answering them well takes facts from many places, and an honest account of which of those facts you actually know.
 
-## What Ikhnos does
+## What ikhnos does
 
-Ikhnos does three things, in this order.
+ikhnos does three things, in this order.
 
 **It observes.** You install a small program, the **agent**, in each cluster. It reads what the cluster contains (nodes, namespaces, workloads, services) and, if you allow it, how the pieces talk to each other and how far apart the clusters are. It sends this to one **server**.
 
@@ -30,7 +30,7 @@ Ikhnos does three things, in this order.
 
 ## What it deliberately does not do
 
-It does not deploy anything. It does not move anything. It has no credentials to change a cluster, and the server never holds a kubeconfig. Changing anything is yours to do, with your own tools. This is a design choice, not a missing feature, and it is why you can point Ikhnos at clusters that matter.
+It does not deploy anything. It does not move anything. It has no credentials to change a cluster, and the server never holds a kubeconfig. Changing anything is yours to do, with your own tools. This is a design choice, not a missing feature, and it is why you can point ikhnos at clusters that matter.
 
 It does not ask your clusters to open any inbound port. Every connection starts at the agent and goes out to the server.
 
@@ -38,7 +38,7 @@ It does not guess quietly. When a number is a guess, the interface says so. When
 
 ## Who it is for
 
-Ikhnos is for people who run clusters in more than one place and want one picture of all of it, and to see how healthy each place is. A platform team with a cloud region and a few edge sites is the typical case. So is a researcher studying orchestration across the continuum, who wants a faithful, read-only picture to build on. Where the project could go next is in the [roadmap](../project/roadmap.md).
+ikhnos is for people who run clusters in more than one place and want one picture of all of it, and to see how healthy each place is. A platform team with a cloud region and a few edge sites is the typical case. So is a researcher studying orchestration across the continuum, who wants a faithful, read-only picture to build on. Where the project could go next is in the [roadmap](../project/roadmap.md).
 
 It is pre-1.0 software. [Status and limits](../project/status-and-limits.md) says plainly what has been tested, what has never been run for real, and what is not built.
 

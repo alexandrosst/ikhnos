@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
-// The self series: what running Ikhnos costs, as gauges Grafana can draw. The server's own process and each cluster's
+// The self series: what running ikhnos costs, as gauges Grafana can draw. The server's own process and each cluster's
 // agent report their memory, goroutines and CPU to the server (GET /telemetry/self shows the last hour of it), and the
 // server writes the newest figure of each into FUSION's Prometheus every minute, with the info series (see AppInfoMetric):
 //
@@ -119,9 +119,9 @@ func (s SelfSample) serverPoints() []selfPoint {
 		connected = f64(float64(*s.ConnectedAgents))
 	}
 	return []selfPoint{
-		{SelfRSSBytes, "Resident memory of the Ikhnos server process.", f64(float64(s.RSSBytes))},
-		{SelfGoroutines, "Goroutines of the Ikhnos server process.", f64(float64(s.Goroutines))},
-		{SelfCPUPercent, "CPU the Ikhnos server process used since the previous sample, in percent of one CPU.", s.CPUPercent},
+		{SelfRSSBytes, "Resident memory of the ikhnos server process.", f64(float64(s.RSSBytes))},
+		{SelfGoroutines, "Goroutines of the ikhnos server process.", f64(float64(s.Goroutines))},
+		{SelfCPUPercent, "CPU the ikhnos server process used since the previous sample, in percent of one CPU.", s.CPUPercent},
 		{SelfConnectedAgents, "Agents with an open stream to the server, in the organisation FUSION belongs to.", connected},
 		{SelfFlowIngestBps, "Bytes per second of flow reports the server receives from its agents.", s.FlowIngestBytesPerSec},
 		{SelfModelCacheHit, "Share of requests for the effective model served from the cache since the previous sample, in percent.", s.ModelCacheHitPercent},
@@ -131,9 +131,9 @@ func (s SelfSample) serverPoints() []selfPoint {
 
 func (s SelfSample) agentPoints() []selfPoint {
 	return []selfPoint{
-		{AgentSelfRSSBytes, "Resident memory of the Ikhnos agent of a cluster.", f64(float64(s.RSSBytes))},
-		{AgentSelfGoroutines, "Goroutines of the Ikhnos agent of a cluster.", f64(float64(s.Goroutines))},
-		{AgentSelfCPUPercent, "CPU the Ikhnos agent of a cluster used since the previous sample, in percent of one CPU.", s.CPUPercent},
+		{AgentSelfRSSBytes, "Resident memory of the ikhnos agent of a cluster.", f64(float64(s.RSSBytes))},
+		{AgentSelfGoroutines, "Goroutines of the ikhnos agent of a cluster.", f64(float64(s.Goroutines))},
+		{AgentSelfCPUPercent, "CPU the ikhnos agent of a cluster used since the previous sample, in percent of one CPU.", s.CPUPercent},
 		{AgentSelfBandwidth, "Share of the cluster's observed network throughput that is the agent's own traffic to the server, in percent.", s.BandwidthSharePercent},
 		{AgentSelfWatts, "Power draw of the nodes of a cluster that report it (RAPL), summed.", s.Watts},
 		{AgentSelfFlowInterval, "Seconds between the flow reports of the agent of a cluster.", nonZero(s.FlowIntervalSeconds)},

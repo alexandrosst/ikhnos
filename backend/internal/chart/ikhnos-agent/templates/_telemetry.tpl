@@ -185,7 +185,7 @@
 {{- fail "telemetry.clusterLinks.probe.capacity.port must differ from telemetry.clusterLinks.probe.responder.port" -}}
 {{- end -}}
 {{- if and $probe.responder.allowFrom (not $cap.auth.existingSecret) (not $cap.auth.automatic) -}}
-{{- fail "telemetry.clusterLinks.probe.responder.allowFrom restricts the one-way probe only; iperf3 has no allow-list, so the throughput tests (capacity.enabled) would be open to anyone who can reach capacity.port. Leave telemetry.clusterLinks.probe.capacity.auth.automatic on (Ikhnos issues the credentials), or set telemetry.clusterLinks.probe.capacity.auth.existingSecret (iperf3's authenticated mode), or leave capacity off" -}}
+{{- fail "telemetry.clusterLinks.probe.responder.allowFrom restricts the one-way probe only; iperf3 has no allow-list, so the throughput tests (capacity.enabled) would be open to anyone who can reach capacity.port. Leave telemetry.clusterLinks.probe.capacity.auth.automatic on (ikhnos issues the credentials), or set telemetry.clusterLinks.probe.capacity.auth.existingSecret (iperf3's authenticated mode), or leave capacity off" -}}
 {{- end -}}
 {{- if $cap.auth.requestSecret -}}
 {{- if or (eq (toString $cap.auth.requestSecret) (toString $probe.peersSecret)) (eq (toString $cap.auth.requestSecret) (toString .Values.flowObserver.secret)) -}}
@@ -507,7 +507,7 @@ redaction:
 {{- end }}
 {{- end -}}
 
-{{/* Ikhnos provenance: stamps this release's org/cluster/telemetry-grant identity onto every signal
+{{/* ikhnos provenance: stamps this release's org/cluster/telemetry-grant identity onto every signal
      this agent emits, as plain resource attributes - ikhnos.org.id, ikhnos.cluster.id,
      ikhnos.intent.id. Unlike every other processor above, this one is never a user on/off toggle and
      is not meant to be hand-edited in values.yaml: telemetry.resource.* is filled in by the server's own
@@ -1619,7 +1619,7 @@ echo "kepler preflight: the kernel accepts eBPF tracing programs (or the probe c
 {{- $t := .Values.telemetry -}}
 {{- $root := . -}}
 {{- /* Only destinations that something is sent to: a default destination every signal type has a route around is never
-       rendered, and a stale value in it (the install command Ikhnos prints leaves one) must not fail the install. */ -}}
+       rendered, and a stale value in it (the install command ikhnos prints leaves one) must not fail the install. */ -}}
 {{- range (include "agent.telemetryDestinationsInUse" . | fromJsonArray) -}}
 {{- if and .c.endpoint (ne .c.protocol "zipkin") -}}
 {{- include "agent.telemetryDestinationCheck" (dict "root" $root "c" .c "what" .name "m" .m) -}}
@@ -1722,7 +1722,7 @@ echo "kepler preflight: the kernel accepts eBPF tracing programs (or the probe c
 {{- end -}}
 {{- end -}}
 {{- if and $t.clusterLinks.probe.enabled $t.clusterLinks.probe.capacity.enabled (not $t.clusterLinks.probe.capacity.auth.existingSecret) (not $t.clusterLinks.probe.capacity.auth.automatic) -}}
-{{- $w = append $w (printf "telemetry.clusterLinks.probe.capacity.enabled with capacity.auth.automatic=false runs an iperf3 server on every node (host network, port %v) without authentication: anyone who can reach that port can run full-rate TCP or UDP tests against the node, which uses its bandwidth and CPU, and one client holds the server's single test slot so the prober's own tests are refused meanwhile. Leave telemetry.clusterLinks.probe.capacity.auth.automatic on (Ikhnos issues the credentials), set telemetry.clusterLinks.probe.capacity.auth.existingSecret (iperf3's authenticated mode), or restrict the port with a firewall." $t.clusterLinks.probe.capacity.port) -}}
+{{- $w = append $w (printf "telemetry.clusterLinks.probe.capacity.enabled with capacity.auth.automatic=false runs an iperf3 server on every node (host network, port %v) without authentication: anyone who can reach that port can run full-rate TCP or UDP tests against the node, which uses its bandwidth and CPU, and one client holds the server's single test slot so the prober's own tests are refused meanwhile. Leave telemetry.clusterLinks.probe.capacity.auth.automatic on (ikhnos issues the credentials), set telemetry.clusterLinks.probe.capacity.auth.existingSecret (iperf3's authenticated mode), or restrict the port with a firewall." $t.clusterLinks.probe.capacity.port) -}}
 {{- end -}}
 {{- if and $t.clusterLinks.probe.enabled (not $t.clusterLinks.probe.responder.allowFrom) -}}
 {{- $w = append $w (printf "telemetry.clusterLinks.probe.responder.allowFrom is empty: the OWAMP control port (%v) is open on every node in the host network, to anyone who can reach it, within the responder's rate and disk limits. On nodes with public addresses set allowFrom to the peers' node CIDRs, or restrict the port with a firewall." $t.clusterLinks.probe.responder.port) -}}

@@ -24,7 +24,7 @@ stringData:
   secret: {{ include "agent.linkHubSecret" . | quote }}
 ---
 # The link hub: the pod that makes the cluster-link series and answers the link prober and the responders, so that the agent, which holds the
-# cluster's identity, does not listen for them. Same image as the agent, run as `ikhnos link-hub`. It has no credential of the Ikhnos server and no
+# cluster's identity, does not listen for them. Same image as the agent, run as `ikhnos link-hub`. It has no credential of the ikhnos server and no
 # Kubernetes token (no ServiceAccount token is mounted), and no outbound connection: the agent tells it what to serve over a signed message and
 # it serves that until told otherwise, also while the agent is gone.
 apiVersion: apps/v1

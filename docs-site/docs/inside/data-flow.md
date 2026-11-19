@@ -6,7 +6,7 @@ description: How what agents observe and what people declare are kept apart, com
 
 # From facts to what you see
 
-Ikhnos's model of a landscape has two authors. **Agents** report what is true now: clusters, nodes, namespaces, workloads, flows. **People** say what should be true: sites, devices, links they know about, policies, and corrections to something observed. The twin is the rule that keeps those two apart, combines them when something asks, and never lets one pass for the other.
+ikhnos's model of a landscape has two authors. **Agents** report what is true now: clusters, nodes, namespaces, workloads, flows. **People** say what should be true: sites, devices, links they know about, policies, and corrections to something observed. The twin is the rule that keeps those two apart, combines them when something asks, and never lets one pass for the other.
 
 <Figure name="FactsToViews" caption="Two inputs, one combination step, four readers. Everything below the combination is read-only." />
 

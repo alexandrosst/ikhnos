@@ -103,7 +103,7 @@ func (a *Admin) RunSelfMetrics(ctx context.Context, log *slog.Logger) {
 		switch {
 		case err != nil && !failing:
 			failing = true
-			log.Warn("could not write FUSION's self series; the Ikhnos self dashboard in Grafana is empty until it can", "err", err)
+			log.Warn("could not write FUSION's self series; the ikhnos self dashboard in Grafana is empty until it can", "err", err)
 		case err == nil && failing:
 			failing = false
 			log.Info("FUSION's self series are being written again", "series", n)

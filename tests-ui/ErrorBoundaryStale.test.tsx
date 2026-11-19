@@ -18,7 +18,7 @@ describe('ErrorBoundary and a new deploy', () => {
     reloadSpy.mockReturnValue(true)
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     render(<ErrorBoundary><Broken message="Failed to fetch dynamically imported module: https://x/assets/Wizard-1.js" /></ErrorBoundary>)
-    expect(screen.getByTestId('updating')).toHaveTextContent('Ikhnos was updated')
+    expect(screen.getByTestId('updating')).toHaveTextContent('ikhnos was updated')
   })
 
   test('when a reload was just done, it says what happened and what to do instead of looping', () => {

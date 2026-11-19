@@ -1,7 +1,7 @@
 import { kindLabel, type ChangeEvent } from '@/lib/history'
 import type { AuditEvent } from '@/lib/types'
 
-/** What the history list shows: everything, only what Ikhnos noticed, or only what people did. */
+/** What the history list shows: everything, only what ikhnos noticed, or only what people did. */
 export type FeedFilter = 'all' | 'changes' | 'people'
 
 export type FeedItem =
@@ -24,7 +24,7 @@ export function actionWhat(a: Pick<AuditEvent, 'action' | 'targetKind'>): string
 }
 
 /**
- * One list, newest first, of what Ikhnos noticed and what people did. The changes arrive already narrowed by the server (window and cluster);
+ * One list, newest first, of what ikhnos noticed and what people did. The changes arrive already narrowed by the server (window and cluster);
  * the actions are kept locally, so the window and the cluster are applied here: an action belongs to a cluster when it was done to that cluster.
  */
 export function buildFeed(events: ChangeEvent[], audit: AuditEvent[], o: { filter: FeedFilter; clusterId?: string; since?: number }): FeedItem[] {

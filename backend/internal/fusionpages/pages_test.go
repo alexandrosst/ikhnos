@@ -159,7 +159,7 @@ func TestLocalLocation(t *testing.T) {
 func TestGrafanaLogin(t *testing.T) {
 	for in, want := range map[string]string{
 		"admin":           "ikhnos-admin",
-		"Alex.Smith@x.io": "ikhnos-alex.smith@x.io", // case only: Ikhnos reads these as one account
+		"Alex.Smith@x.io": "ikhnos-alex.smith@x.io", // case only: ikhnos reads these as one account
 		"first_last-2":    "ikhnos-first_last-2",
 		"a b":             "ikhnos-a+20+b", // cannot come from a valid username; never reaches the header as it is
 		"a+b":             "ikhnos-a+2b+b",

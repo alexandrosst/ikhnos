@@ -1,6 +1,6 @@
 # ikhnos-agent
 
-Read-only discovery agent for Ikhnos. One Deployment, one image, three optional roles (`agent` always
+Read-only discovery agent for ikhnos. One Deployment, one image, three optional roles (`agent` always
 runs; `probe` and `flow` are opt-in DaemonSets). Dials out to the server named in `server.address` — nothing
 in the cluster it watches needs to be reachable from outside.
 
@@ -20,7 +20,7 @@ the commands you'd only need occasionally, not at every install.
 
 ## What it can see, by access tier
 
-- **Tier 0, "registered only"**: the UID of the `kube-system` namespace, which is how Ikhnos tells
+- **Tier 0, "registered only"**: the UID of the `kube-system` namespace, which is how ikhnos tells
   clusters apart. Nothing else.
 - **Tier 1, "infrastructure"**: the cluster's identity, plus nodes, storage classes and ingress classes. No
   namespaces, workloads or pods.
@@ -78,10 +78,10 @@ helm upgrade <release> <chart> -n <namespace> --reset-then-reuse-values --set ac
 Not `--reuse-values`: that swaps the new chart's defaults for the old release's whole set of values, so a setting the
 newer chart added (every telemetry option that came after your install, for one) is missing and the render fails.
 `--reset-then-reuse-values` starts from the new chart's defaults and puts what you set on top. This is also what the
-commands printed by the Ikhnos UI use.
+commands printed by the ikhnos UI use.
 
 The cluster owner decides this; the server can approve up to whatever tier is installed and never beyond
-it. **Narrowing the approved tier in the Ikhnos UI does not shrink what is granted in the cluster** — that
+it. **Narrowing the approved tier in the ikhnos UI does not shrink what is granted in the cluster** — that
 is a reporting control on the agent, not an RBAC control. The agent's detail page in the UI prints the exact
 `helm upgrade ... --set access.tier=N` that actually removes the wider `ClusterRole`/`ClusterRoleBinding`
 once you're ready to do that.
@@ -106,15 +106,15 @@ kubectl -n <namespace> delete secret ikhnos-agent-identity
 
 `controller.resource` is set by the controller, never by hand: it names the `IkhnosAgent` that keeps this agent, and gives the agent the right to patch that one object so that a revoked agent can mark it and be removed.
 
-`controller.relayTelemetry` (default `false`) lets the agent pass on a request from the Ikhnos server to collect more or less telemetry: which signals, and how much of the traces. The agent cannot apply it, so it writes it under `status.requested` of the `IkhnosAgent` that keeps it (and reads `status.relay` back); the controller checks it against what you allowed (`allowTelemetry`, the access tier), applies it with Helm, or says why not. Only *what* is collected can be asked for, never *where* it goes, and no credential. It needs `controller.resource`, so it is set by the controller too. Left off, a request from the server is answered "this cluster keeps its own settings", and the agent is given no right to read the resource.
+`controller.relayTelemetry` (default `false`) lets the agent pass on a request from the ikhnos server to collect more or less telemetry: which signals, and how much of the traces. The agent cannot apply it, so it writes it under `status.requested` of the `IkhnosAgent` that keeps it (and reads `status.relay` back); the controller checks it against what you allowed (`allowTelemetry`, the access tier), applies it with Helm, or says why not. Only *what* is collected can be asked for, never *where* it goes, and no credential. It needs `controller.resource`, so it is set by the controller too. Left off, a request from the server is answered "this cluster keeps its own settings", and the agent is given no right to read the resource.
 
 To have `helm uninstall` remove it as well, install (or upgrade) with `--set identity.purgeOnUninstall=true`. A post-delete hook then runs a
 short Job (`ikhnos purge-identity`) with a Role of its own that can read and delete that one Secret and nothing else, and removes the Role and
 the Job again when it has finished; a failed Job stays, for `kubectl logs`, and fails the uninstall. The agent is not coming back under that
-identity, so remove its record in Ikhnos too. `helm uninstall --no-hooks` skips the hook, as it skips every hook. Leave the option off when an
+identity, so remove its record in ikhnos too. `helm uninstall --no-hooks` skips the hook, as it skips every hook. Leave the option off when an
 uninstall might be a mistake: the kept Secret is what lets a reinstall pick the same agent up.
 
-Ikhnos's server keeps its record of this cluster until you remove it on the Discovery page — uninstalling
+ikhnos's server keeps its record of this cluster until you remove it on the Discovery page — uninstalling
 the chart does not do that for you.
 
 ## Node probe (`nodeProbe.enabled`)
@@ -133,7 +133,7 @@ collector started are counted when they next open.
 
 ## Telemetry (`telemetry.*`)
 
-Independent of the access tier above, on its own ServiceAccount, and never reported to the Ikhnos server
+Independent of the access tier above, on its own ServiceAccount, and never reported to the ikhnos server
 itself — it goes straight to whatever OTLP endpoint `telemetry.export.otlp.endpoint` names. The agent tells the server
 which signals are on and a few effective settings (the export address, redaction, sampling), never the data. The host
 collector (for signals that can only be observed per-node) mounts several host paths read-only (kubelet

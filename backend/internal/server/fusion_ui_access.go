@@ -67,7 +67,7 @@ func (a *Admin) redeemFusionTicket(w http.ResponseWriter, r *http.Request, ticke
 			httpkit.WriteErr(w, http.StatusTooManyRequests, "too many failed attempts, wait a minute")
 			return
 		}
-		httpkit.WriteErr(w, http.StatusUnauthorized, "this link has expired - open the page again from Ikhnos")
+		httpkit.WriteErr(w, http.StatusUnauthorized, "this link has expired - open the page again from ikhnos")
 		return
 	case fusionpages.Busy:
 		// The ticket was not spent: the same link works again in a moment.

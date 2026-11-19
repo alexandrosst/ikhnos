@@ -1,12 +1,12 @@
 ---
 id: observability-intent
 title: Observability intent
-description: One idea that covers everything in Ikhnos that watches your clusters. You decide how much each part may see, and it can only be narrowed, never widened.
+description: One idea that covers everything in ikhnos that watches your clusters. You decide how much each part may see, and it can only be narrowed, never widened.
 ---
 
 # Observability intent
 
-**See everything, touch nothing.** Ikhnos watches your clusters, and *observability intent* is how you say how far. It is one idea, and it covers every part that looks at a cluster: the discovery agent, the local operators that collect telemetry, and the regional operators that gather it.
+**See everything, touch nothing.** ikhnos watches your clusters, and *observability intent* is how you say how far. It is one idea, and it covers every part that looks at a cluster: the discovery agent, the local operators that collect telemetry, and the regional operators that gather it.
 
 <Figure name="ObservabilityPlanes" caption="The intent goes down from the server to the agents. Telemetry goes up to FUSION." />
 

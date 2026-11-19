@@ -487,7 +487,7 @@ test('seeding: only a draft standing for an install that has telemetry has anyth
   assert.equal(reported.energySource, 'existing')
 })
 
-test('cluster links: throughput tests need no Secret, Ikhnos issues the iperf3 credentials', () => {
+test('cluster links: throughput tests need no Secret, ikhnos issues the iperf3 credentials', () => {
   const t: TelemetryInput = { ...emptyTelemetry, clusterLinks: true, clusterLinksThroughput: true, exportEndpoint: 'x:4317' }
   assert.deepEqual(telemetryProblems(t), [])
 })

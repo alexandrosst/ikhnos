@@ -1,4 +1,4 @@
-# Deploying the Ikhnos server on Kubernetes
+# Deploying the ikhnos server on Kubernetes
 
 This guide covers the **server** (control plane and web UI) and its databases. The chart is [`deploy/helm/ikhnos-server`](helm/ikhnos-server) (its [README](helm/ikhnos-server/README.md) documents every value and which server flags each one needs). Agents run in the clusters you observe and are installed with the command the server prints; see [Connect the first cluster](#connect-the-first-cluster).
 
@@ -28,7 +28,7 @@ This guide covers the **server** (control plane and web UI) and its databases. T
 
 ## Prerequisites
 
-* Kubernetes 1.25 or newer and Helm 3.14 or newer (Helm 3.14 added `--reset-then-reuse-values`, which every `helm upgrade` command Ikhnos prints for an agent or a regional operator uses).
+* Kubernetes 1.25 or newer and Helm 3.14 or newer (Helm 3.14 added `--reset-then-reuse-values`, which every `helm upgrade` command ikhnos prints for an agent or a regional operator uses).
 * A default **StorageClass** that provisions volumes (the server needs one PersistentVolumeClaim; bundled Neo4j needs another).
 * A way to expose two ports (see [The two ports](#the-two-ports)): a LoadBalancer or NodePort for agents, and a Gateway (HTTPRoute) for the UI. On k3s and kind a NodePort and `kubectl port-forward` are enough.
 * A DNS name for agents to dial, and a certificate for the UI (cert-manager works well). A public IP address also works for agents.
@@ -251,7 +251,7 @@ helm upgrade ikhnos-server deploy/helm/ikhnos-server -n ikhnos -f values-prod.ya
 ```
 
 * Use your values file rather than `--reuse-values`, so new chart values pick up their defaults deliberately.
-* The same applies to the upgrade commands Ikhnos prints for an **agent** or a **regional operator** (they keep what you set at install, since there is no values file to point at): they use `--reset-then-reuse-values` (Helm 3.14+), never `--reuse-values`. `--reuse-values` replaces the new chart's defaults with the values the old release was installed with, so a setting a newer chart added after your install does not exist and the upgrade can fail with a nil-pointer error in a template; `--reset-then-reuse-values` starts from the new chart's defaults and puts your own values on top.
+* The same applies to the upgrade commands ikhnos prints for an **agent** or a **regional operator** (they keep what you set at install, since there is no values file to point at): they use `--reset-then-reuse-values` (Helm 3.14+), never `--reuse-values`. `--reuse-values` replaces the new chart's defaults with the values the old release was installed with, so a setting a newer chart added after your install does not exist and the upgrade can fail with a nil-pointer error in a template; `--reset-then-reuse-values` starts from the new chart's defaults and puts your own values on top.
 * The Deployment uses `Recreate` (a ReadWriteOnce volume cannot be mounted twice): expect a gap of seconds to a minute in which the UI is down and agents are reconnecting. They reconnect on their own and no agent re-enrolls.
 * **Data migration.** The server upgrades its SQLite schema in place when it starts (a version marker in the database), and Neo4j upgrades its store when a newer image opens it. Neither is designed to go backwards: **take a backup before every upgrade** (a VolumeSnapshot, or a [cold backup](#backup-and-restore)) and roll back by restoring it, not by re-deploying an older image over a migrated database.
 * **Graph schema upgrade.** The first recording after an upgrade that changes what a Neo4j version holds creates one new version for each entity whose document lost fields (live readings are no longer part of a version). On start the server also runs a one-time backfill of the `open` property on versions and relationships and waits for the new indexes: a full scan that can take a while on a large database and is retried every 5 seconds until it succeeds. The Neo4j user needs permission for `CALL db.awaitIndexes`. Do not run an old and a new server version against the same Neo4j at the same time.
@@ -393,7 +393,7 @@ Neo4j holds topology history, events, the audit trail and workspace revisions. T
 | `bundled` (default) | you want history and have no Neo4j | StatefulSet with the official `neo4j` Community image, its own PVC, a generated or supplied password Secret, a headless Service, probes on HTTP 7474, resource requests and limits, optional NetworkPolicy |
 | `external` | you already run Neo4j (Aura, an operator, your own) | `neo4j.external.url` and `neo4j.external.existingSecret`; https, or an in-cluster/loopback http address |
 
-**Licence and shape.** Neo4j Community edition is GPLv3 and single-instance (no clustering, no online backup). The chart runs it as a separate process; the Ikhnos server only talks to it over HTTP. Use `external` with your own licensed or managed Neo4j if you need HA or Enterprise features, or want to keep the GPL software out of your deployment.
+**Licence and shape.** Neo4j Community edition is GPLv3 and single-instance (no clustering, no online backup). The chart runs it as a separate process; the ikhnos server only talks to it over HTTP. Use `external` with your own licensed or managed Neo4j if you need HA or Enterprise features, or want to keep the GPL software out of your deployment.
 
 **Passwords.** The server reads the password from a file (`--neo4j-password-file`), never from a command-line argument. Bundled: the chart generates a 32-character secret on first install and reuses it on every upgrade (`lookup`); it stays if you uninstall, so a reinstall over the same volume still matches. Supply your own with `neo4j.auth.existingSecret`. In GitOps flows that render with `helm template` (no `lookup`) always supply your own Secret.
 

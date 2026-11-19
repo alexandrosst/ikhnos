@@ -1,7 +1,7 @@
 {
   "uid": "ikhnos-links",
   "title": "Cluster links",
-  "description": "The connection between clusters that are measured as pairs: loss and delay in each direction, round trip, traffic, the route and what the throughput tests find. Clusters are shown by name where Ikhnos has one, and by cluster id where it has not (the Pairs table lists both).",
+  "description": "The connection between clusters that are measured as pairs: loss and delay in each direction, round trip, traffic, the route and what the throughput tests find. Clusters are shown by name where ikhnos has one, and by cluster id where it has not (the Pairs table lists both).",
   "tags": [
     "ikhnos",
     "links"
@@ -109,7 +109,7 @@
     },
     {
       "type": "link",
-      "title": "Ikhnos self",
+      "title": "ikhnos self",
       "url": "/d/ikhnos-self",
       "tooltip": "Are the agents that run the probes healthy?",
       "icon": "dashboard",

@@ -39,7 +39,7 @@ function SectionTabs() {
 }
 
 /**
- * FUSION, the stores and API that come with Ikhnos, as a section of its own: Overview (what needs attention, then the parts), Data (what it
+ * FUSION, the stores and API that come with ikhnos, as a section of its own: Overview (what needs attention, then the parts), Data (what it
  * holds), Access (who may read it) and Settings (how long it keeps data, and the switch). The state and the retention are read once here, so
  * the status beside the tabs and the problems on the Overview come from the same answers.
  */

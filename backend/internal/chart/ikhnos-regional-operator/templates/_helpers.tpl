@@ -188,7 +188,7 @@ linkerd.io/inject: disabled
 {{- define "operator.validate" -}}
 {{- include "operator.exportValidate" . -}}
 {{- if dig "renew" "enabled" false .Values.AsMap -}}
-{{- if not (and (dig "renew" "server" "" .Values.AsMap) (dig "renew" "caPin" "" .Values.AsMap)) -}}{{- fail "renew.enabled needs renew.server (the Ikhnos server's agent address, host:port) and renew.caPin: the install command Ikhnos prints sets both" -}}{{- end -}}
+{{- if not (and (dig "renew" "server" "" .Values.AsMap) (dig "renew" "caPin" "" .Values.AsMap)) -}}{{- fail "renew.enabled needs renew.server (the ikhnos server's agent address, host:port) and renew.caPin: the install command ikhnos prints sets both" -}}{{- end -}}
 {{- end -}}
 {{- /* retry_on_failure.max_interval is 30s (operator.exporterResilienceYAML) and the collector refuses to start when
        max_elapsed_time is shorter than it, which the schema's duration pattern cannot say: the pod would crash-loop
@@ -234,12 +234,12 @@ linkerd.io/inject: disabled
 {{- fail (printf "service.type=%s would publish the receiver outside the cluster with nothing to authenticate it. Enable receiver.auth (a bearer token) or receiver.tls with receiver.tls.mtls (a required client certificate), or set service.allowUnauthenticated=true if the receiver is meant to be open." .Values.service.type) -}}
 {{- end -}}
 {{- if .Values.heartbeat.enabled -}}
-{{- if not .Values.heartbeat.url -}}{{- fail "heartbeat.enabled requires heartbeat.url (the Ikhnos server's heartbeat address, https://<server>/api/v1/operator-heartbeat)" -}}{{- end -}}
+{{- if not .Values.heartbeat.url -}}{{- fail "heartbeat.enabled requires heartbeat.url (the ikhnos server's heartbeat address, https://<server>/api/v1/operator-heartbeat)" -}}{{- end -}}
 {{- if not (regexMatch "^https?://[^\\s/]+" (toString .Values.heartbeat.url)) -}}{{- fail (printf "heartbeat.url must be an http(s) URL, got %q" (toString .Values.heartbeat.url)) -}}{{- end -}}
 {{- if and (not (hasPrefix "https://" (toString .Values.heartbeat.url))) (not .Values.heartbeat.allowPlainHTTP) -}}
 {{- fail "heartbeat.url must be https:// - the heartbeat secret is sent with every request. Set heartbeat.allowPlainHTTP=true only for a throwaway test server on a trusted network." -}}
 {{- end -}}
-{{- if not .Values.heartbeat.auth.secretName -}}{{- fail "heartbeat.enabled requires heartbeat.auth.secretName (a Secret holding the heartbeat secret Ikhnos minted for this operator - not the receiver token)" -}}{{- end -}}
+{{- if not .Values.heartbeat.auth.secretName -}}{{- fail "heartbeat.enabled requires heartbeat.auth.secretName (a Secret holding the heartbeat secret ikhnos minted for this operator - not the receiver token)" -}}{{- end -}}
 {{- if and .Values.heartbeat.tls.caSecretName (not (hasPrefix "https://" (toString .Values.heartbeat.url))) -}}
 {{- fail "heartbeat.tls.caSecretName only applies to an https:// heartbeat.url" -}}
 {{- end -}}

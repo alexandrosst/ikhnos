@@ -1,7 +1,7 @@
 ---
 id: prepare
 title: "1. Prepare"
-description: What to have ready before installing Ikhnos, how to make a local cluster for a first try, and how to find the address agents will use.
+description: What to have ready before installing ikhnos, how to make a local cluster for a first try, and how to find the address agents will use.
 ---
 
 <StepBar n={1} of={6} title="Prepare" />
@@ -30,7 +30,7 @@ minikube start
 ```
 
 :::tip[Your first cluster can be the one you connect]
-Ikhnos is meant to watch many clusters, but for a first try it is perfectly good to connect the same cluster the server runs in. You will see the whole flow, and you can add a second one later.
+ikhnos is meant to watch many clusters, but for a first try it is perfectly good to connect the same cluster the server runs in. You will see the whole flow, and you can add a second one later.
 :::
 
 ## The check
@@ -46,7 +46,7 @@ helm version --short
 A list with at least one node whose status is `Ready`, and a Helm version of `v3.8` or newer.
 </See>
 
-If `kubectl` cannot connect, the problem is between your machine and the cluster, and nothing in Ikhnos can fix it yet. Fix that first.
+If `kubectl` cannot connect, the problem is between your machine and the cluster, and nothing in ikhnos can fix it yet. Fix that first.
 
 ## An address your agents can reach
 

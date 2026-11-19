@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// The iperf3 credentials of the throughput tests. The Ikhnos server issues them (see server/linkcreds.go) and delivers them in the
+// The iperf3 credentials of the throughput tests. The ikhnos server issues them (see server/linkcreds.go) and delivers them in the
 // Config the agent already receives; this file is what the agent, the prober and the responder do with them. They are secret
 // material, so everything here is built to keep them out of logs, errors, metrics and API answers:
 //

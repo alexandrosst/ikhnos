@@ -1,6 +1,6 @@
 # CA key: backup, restore and rotation
 
-The Ikhnos CA (`<data-dir>/pki/ca.crt` and `ca.key`) signs every agent certificate and the
+The ikhnos CA (`<data-dir>/pki/ca.crt` and `ca.key`) signs every agent certificate and the
 agent-facing server certificate. Whoever holds `ca.key` can issue certificates the server trusts, so
 treat it like any other signing key.
 
@@ -97,7 +97,7 @@ both CAs are trusted.
 
 ## Operator CAs and operator certificates
 
-A regional operator has its own CA, separate from the Ikhnos CA above. Its receiver and client
+A regional operator has its own CA, separate from the ikhnos CA above. Its receiver and client
 certificates last 30 days and are renewed by their holders (an install from before renewal keeps its
 365-day certificates until its first renewal). Revoking an operator or a sender stops renewal; it does
 not revoke a certificate, which stops working when it ends, within 30 days (up to 365 for a legacy

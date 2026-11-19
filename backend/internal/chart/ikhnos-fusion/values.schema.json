@@ -5,7 +5,7 @@
   "properties": {
     "enabled": {
       "type": "boolean",
-      "description": "read by a parent chart's dependency condition (the Ikhnos server chart's fusion.enabled); unused when installed on its own"
+      "description": "read by a parent chart's dependency condition (the ikhnos server chart's fusion.enabled); unused when installed on its own"
     },
     "global": {
       "type": "object"
@@ -270,7 +270,7 @@
           }
         },
         "receiver": {
-          "description": "Retired. The gateway's TLS Secret is always <name>-central-receiver-tls, because the Ikhnos server fills it in by that name. Only the empty string an earlier release stored is still accepted, so a --reuse-values upgrade does not fail; anything else is refused instead of silently ignored.",
+          "description": "Retired. The gateway's TLS Secret is always <name>-central-receiver-tls, because the ikhnos server fills it in by that name. Only the empty string an earlier release stored is still accepted, so a --reuse-values upgrade does not fail; anything else is refused instead of silently ignored.",
           "type": "object",
           "additionalProperties": false,
           "properties": {

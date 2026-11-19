@@ -154,7 +154,7 @@ func TestFusionCentralReloadsItsCertificateAndPublishesOnlyGRPCWhenExposed(t *te
 	}
 }
 
-// The gateway's TLS Secret is named by the chart alone, because the Ikhnos server patches exactly
+// The gateway's TLS Secret is named by the chart alone, because the ikhnos server patches exactly
 // <name>-central-receiver-tls: it cannot be renamed by a value, and the retired value is refused unless empty (the
 // empty string an earlier release stored must not break a --reuse-values upgrade).
 func TestFusionCentralTLSSecretNameIsNotConfigurable(t *testing.T) {

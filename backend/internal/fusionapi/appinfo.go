@@ -15,7 +15,7 @@ import (
 )
 
 // The application info series: what lets the tools that read Prometheus directly (Grafana, PromQL written by hand) filter by
-// Ikhnos application, which telemetry itself does not carry. For each service of each application the server writes
+// ikhnos application, which telemetry itself does not carry. For each service of each application the server writes
 //
 //	ikhnos_application_info{application, application_id, service_name, k8s_namespace_name, ikhnos_cluster_id, member, service_id} 1
 //
@@ -23,7 +23,7 @@ import (
 //
 //	up * on(service_name, k8s_namespace_name) group_left(application) ikhnos_application_info{application="Shop"}
 //
-// It is written again every minute from what Ikhnos knows at that moment (an application edited in the UI changes the
+// It is written again every minute from what ikhnos knows at that moment (an application edited in the UI changes the
 // series within a minute, and one deleted stops being written and falls out of Prometheus' five-minute lookback), so a
 // query for "now" sees the present membership. The samples themselves are kept for the retention period like any other,
 // so a query over a past range sees the membership of that time, as far back as the series was written.
@@ -39,7 +39,7 @@ const (
 	infoApplication   = "application"
 	infoApplicationID = "application_id"
 	// infoMember names one service in one namespace of one cluster as a single value, "service/namespace/cluster" (a part
-	// Ikhnos does not know is empty). A dashboard's picker offers these, so a selection is exact: choosing two members of
+	// ikhnos does not know is empty). A dashboard's picker offers these, so a selection is exact: choosing two members of
 	// two namespaces never also selects the pairing of the first's service with the second's namespace.
 	infoMember = "member"
 	// infoServiceID is the id the graph and the topology know the service by (sv-...), so a series reads back to Neo4j
@@ -120,7 +120,7 @@ func EncodeAppInfo(series []AppInfoSeries, at time.Time) []byte {
 		points = protowire.AppendTag(points, 1, protowire.BytesType) // Gauge.data_points
 		points = protowire.AppendBytes(points, dp)
 	}
-	return gaugeRequest(AppInfoMetric, "The services of each Ikhnos application, with the labels their telemetry carries.", points)
+	return gaugeRequest(AppInfoMetric, "The services of each ikhnos application, with the labels their telemetry carries.", points)
 }
 
 // gaugeRequest wraps data points (already encoded Gauge.data_points) into an OTLP/HTTP metrics request body for one gauge.

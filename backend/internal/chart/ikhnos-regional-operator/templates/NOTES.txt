@@ -1,4 +1,4 @@
-Ikhnos regional operator {{ .Chart.AppVersion }} — {{ if .Release.IsInstall }}installed{{ else }}upgraded{{ end }} as "{{ .Release.Name }}" in {{ .Release.Namespace }}.
+ikhnos regional operator {{ .Chart.AppVersion }} — {{ if .Release.IsInstall }}installed{{ else }}upgraded{{ end }} as "{{ .Release.Name }}" in {{ .Release.Namespace }}.
 
   Receives  {{ include "operator.name" . }}.{{ .Release.Namespace }}.svc:4317 (gRPC) · :4318 (HTTP)
   Auth      {{ if .Values.receiver.auth.enabled }}bearer token (Secret {{ .Values.receiver.auth.secretName }}/{{ .Values.receiver.auth.secretKey }}){{ if and .Values.receiver.tls.enabled .Values.receiver.tls.mtls }} + required mTLS client certificate{{ end }}{{ else if and .Values.receiver.tls.enabled .Values.receiver.tls.mtls }}client certificate required (mTLS), no bearer token{{ else }}none{{ end }}
@@ -15,7 +15,7 @@ Ikhnos regional operator {{ .Chart.AppVersion }} — {{ if .Release.IsInstall }}
 
 NEXT  Point a source cluster at it
   Each source cluster's agent release needs a `helm upgrade` setting telemetry.export.otlp.endpoint to the receiver
-  above. The Ikhnos UI prints the exact command for every source cluster named when the operator was created.
+  above. The ikhnos UI prints the exact command for every source cluster named when the operator was created.
   Delivering?  kubectl -n {{ .Release.Namespace }} logs deploy/{{ include "operator.name" . }} | grep "Exporting failed"
 {{- if .Values.selfMetrics.enabled }}
                or its own metrics: kubectl -n {{ .Release.Namespace }} port-forward deploy/{{ include "operator.name" . }} {{ .Values.selfMetrics.port }}

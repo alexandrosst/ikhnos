@@ -1,4 +1,4 @@
-// Command ikhnos is the one binary (and one container image) behind every part of Ikhnos that runs in a cluster.
+// Command ikhnos is the one binary (and one container image) behind every part of ikhnos that runs in a cluster.
 // Its first argument picks the role:
 //
 //	ikhnos agent   the in-cluster agent (Deployment)
@@ -6,7 +6,7 @@
 //	ikhnos flow    the optional node flow collector (DaemonSet, needs root and BPF)
 //	ikhnos link-prober   the optional cluster-link prober (Deployment; OWAMP is in the link image)
 //	ikhnos link-hub   the optional cluster-link hub: the passive link series, and the answers to the prober and the responders (Deployment)
-//	ikhnos link-iperf-server   the iperf3 server of the throughput tests when Ikhnos issues the credentials (runs in the responder pod)
+//	ikhnos link-iperf-server   the iperf3 server of the throughput tests when ikhnos issues the credentials (runs in the responder pod)
 //	ikhnos cert-renew   the regional operator's sidecar that keeps its TLS Secrets from expiring
 //	ikhnos purge-identity   deletes the agent's identity Secret (the agent chart's post-delete hook, when asked for)
 //	ikhnos version

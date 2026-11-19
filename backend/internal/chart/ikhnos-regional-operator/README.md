@@ -2,7 +2,7 @@
 
 A standalone OTel Collector that aggregates telemetry a set of already-approved clusters' own
 `ikhnos-agent` releases already export, and re-exports it as one stream. One Deployment, one image,
-no RBAC and no channel to the Ikhnos server at all — see
+no RBAC and no channel to the ikhnos server at all — see
 [Regional operators](https://alexandrosst.github.io/ikhnos/docs/architecture/regional-operators)
 for the full architecture and why those boundaries are deliberate.
 
@@ -13,7 +13,7 @@ the commands you'd only need occasionally, not at every install.
 
 ## What it is, and isn't
 
-- **By default it never dials the Ikhnos server.** There is no `server.address` or enrollment anywhere
+- **By default it never dials the ikhnos server.** There is no `server.address` or enrollment anywhere
   in this chart. The server only ever learns that the operator exists and what it's configured to do, never
   the data passing through it. The one exception is the opt-in [heartbeat](#heartbeat-opt-in) below, off
   unless you set `heartbeat.enabled`.
@@ -22,7 +22,7 @@ the commands you'd only need occasionally, not at every install.
   only relays and re-processes telemetry that already arrived over OTLP; it never watches this cluster's
   own object graph the way `ikhnos-agent`'s `k8sattributes` processor does, so there is no
   `telemetry.scope` or namespace filter here either.
-- **What it checks is inbound only, and for an operator Ikhnos creates today it is the client
+- **What it checks is inbound only, and for an operator ikhnos creates today it is the client
   certificate alone.** The install command sets `receiver.tls.enabled` + `receiver.tls.mtls`, so only a
   source cluster presenting a certificate signed by this operator's own private CA (in `ca.crt` of the receiver TLS
   Secret, the same CA that signed the receiver's own certificate) can send anything - a certificate from another
@@ -38,18 +38,18 @@ the commands you'd only need occasionally, not at every install.
 ## Heartbeat (opt-in)
 
 Off by default. With `heartbeat.enabled: false` this chart renders exactly what it did before the heartbeat
-existed and never contacts the Ikhnos server. Turn it on and the Ikhnos UI can show this operator as
+existed and never contacts the ikhnos server. Turn it on and the ikhnos UI can show this operator as
 online, offline or last-seen.
 
 **What is sent.** Every `heartbeat.intervalSeconds` (default 60; 10 to 60 allowed) the collector probes its own
 health endpoint on `127.0.0.1` (the one the liveness probe uses) and a separate metrics pipeline - fed by
 nothing else, sharing no receiver, processor or exporter with the pipelines that relay your telemetry - POSTs
 that single result (`httpcheck.status`) to `heartbeat.url`. **It carries no telemetry**: nothing you relay, no
-logs or traces, no cluster or workload data, nothing from `export.*` or `receiver.*`. Ikhnos discards the
+logs or traces, no cluster or workload data, nothing from `export.*` or `receiver.*`. ikhnos discards the
 body and records only that an authenticated request arrived, and when.
 
 **Its credential.** A heartbeat secret, separate from the receiver bearer token (which must never be reused for
-a call in the opposite direction). Ikhnos mints it once - when the operator is created with the heartbeat
+a call in the opposite direction). ikhnos mints it once - when the operator is created with the heartbeat
 on, or from the operator's heartbeat action - and prints the exact commands:
 
 ```
@@ -59,7 +59,7 @@ helm upgrade <release> <chart> --namespace <ns> --reset-then-reuse-values \
   --set heartbeat.auth.secretName=<release>-heartbeat-auth
 ```
 
-Rotating it in Ikhnos stops the old secret working at once; replace the Secret and restart the Deployment
+Rotating it in ikhnos stops the old secret working at once; replace the Secret and restart the Deployment
 (`kubectl rollout restart`) and the heartbeat resumes. Until then the collector logs `401` for each attempt.
 
 **TLS.** `heartbeat.url` must be `https://`. The server's certificate is verified against the image's normal
@@ -75,11 +75,11 @@ permit an `http://` URL for a throwaway test and sends the secret unencrypted.
 Certificates last 30 days and are renewed by the pod that holds them. With `renew.enabled` (the install command sets it
 with `renew.server` and `renew.caPin`) a `cert-renew` sidecar looks every `renew.interval` (1h) at the receiver's
 certificate, the client certificate of an mTLS destination and any Secrets in `renew.extraSecrets`, and with less than 20
-days left asks the Ikhnos server for a new one. It makes a new key in the pod and proves it holds the old certificate, so
+days left asks the ikhnos server for a new one. It makes a new key in the pod and proves it holds the old certificate, so
 the key never leaves the pod and no token is involved; the server decides again at every renewal, and a deleted or
 revoked operator is not renewed. The sidecar runs the same image as the discovery agent (`renew.image.tag`, default the
 chart's appVersion). It alone gets the service account's token, and a `Role` lets it get and update exactly the
-Secrets it renews. With `networkPolicy.egress` on, let the pod reach the Ikhnos server and the Kubernetes API server
+Secrets it renews. With `networkPolicy.egress` on, let the pod reach the ikhnos server and the Kubernetes API server
 (`networkPolicy.egress.extraEgress`). An operator installed before renewal existed has `renew.enabled=false`; run its
 install command again once to turn it on.
 
@@ -109,7 +109,7 @@ A renewed certificate, or one you replaced yourself, is picked up in one of two 
   of common backends are listed in ikhnos-agent's README, "Where the data goes".
 - **Proxy (`export.proxy`).** Same semantics as the agent's: the exporters read `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY`;
   OTLP/gRPC uses `HTTPS_PROXY` only (a CONNECT tunnel); `NO_PROXY` always holds `localhost`, `127.0.0.1`, `::1`, `.svc`,
-  `.cluster.local` plus `export.proxy.noProxy`. The heartbeat to the Ikhnos server goes through the proxy too. Credentials
+  `.cluster.local` plus `export.proxy.noProxy`. The heartbeat to the ikhnos server goes through the proxy too. Credentials
   in the proxy URL belong in a Secret (`export.proxy.secretName`, keys `HTTPS_PROXY`, optionally `HTTP_PROXY`). With
   `networkPolicy.egress` on, allow the proxy's address and port. `extraEnv` and `dnsConfig` (ndots) are available as well.
 - **What the receiver accepts.** gRPC pings from a sender's `telemetry.export.keepalive` (one every 30s, also while idle; a
@@ -153,7 +153,7 @@ OTLP/gRPC port. A `NodePort` gets a random port from Kubernetes each time its Se
 `service.nodePort` to keep it (it must be inside your cluster's node-port range, 30000-32767 by default). Remember that a node address is one node, and often a private one. An
 Ingress in front must pass TLS through to the pod (the client certificate is checked here, not at the Ingress).
 
-Publishing the receiver is refused at render time unless it authenticates its senders (`receiver.auth.enabled`, or `receiver.tls.enabled` with `receiver.tls.mtls`), so an install cannot put an open receiver on an address anyone can reach; `service.allowUnauthenticated=true` says that is meant. The install command Ikhnos prints always sets a gate.
+Publishing the receiver is refused at render time unless it authenticates its senders (`receiver.auth.enabled`, or `receiver.tls.enabled` with `receiver.tls.mtls`), so an install cannot put an open receiver on an address anyone can reach; `service.allowUnauthenticated=true` says that is meant. The install command ikhnos prints always sets a gate.
 
 ## Checking on it
 
@@ -195,7 +195,7 @@ Without `service.nodePort` Kubernetes assigns the port and a recreated Service g
 
 This chart's own install does not reach into any other cluster. Each source cluster's own
 `ikhnos-agent` release needs a separate `helm upgrade --reset-then-reuse-values --set telemetry.export.otlp.endpoint=...`
-pointed at this operator's receiver (`<release>.<namespace>.svc:4317`) — Ikhnos prints the exact command
+pointed at this operator's receiver (`<release>.<namespace>.svc:4317`) — ikhnos prints the exact command
 for every source cluster named when the operator was created. Nothing here applies that for you, and adding
 a cluster later is the same `helm upgrade` against that cluster's own release, not against this chart.
 
@@ -222,7 +222,7 @@ policy**: the egress policy always lets DNS through to kube-dns/CoreDNS and Node
   network, and a wrong one silently cuts a pipeline off rather than failing loudly.
 - **`heartbeat`** — the opt-in liveness report described above: `enabled`, `url`, `intervalSeconds`, `auth`
   (the Secret holding the heartbeat secret), `tls` (an optional private CA) and `allowPlainHTTP`.
-- **`renew`** — the certificate-renewal sidecar described above: `enabled`, `server` (the Ikhnos server's agent address, `host:port`), `caPin` (`sha256/<base64>`, as the install command prints it), `extraSecrets`, `interval`, `image` (`tag`) and `resources`.
+- **`renew`** — the certificate-renewal sidecar described above: `enabled`, `server` (the ikhnos server's agent address, `host:port`), `caPin` (`sha256/<base64>`, as the install command prints it), `extraSecrets`, `interval`, `image` (`tag`) and `resources`.
 - **`export.proxy` / `export.timeout` / `export.keepalive` / `export.checkPorts`, `extraEnv`, `dnsConfig`** — reaching the destination
   through a proxy, the per-attempt timeout, idle-connection pings, the port check, extra environment and pod DNS options,
   described above.
@@ -240,14 +240,14 @@ helm uninstall <release> -n <namespace>
 ```
 
 There is no identity Secret to preserve here (unlike `ikhnos-agent`'s `ikhnos-agent-identity`) —
-this chart holds no long-lived identity of its own, only the receiver credential (client-CA certificate or bearer token) you gave it. Ikhnos
+this chart holds no long-lived identity of its own, only the receiver credential (client-CA certificate or bearer token) you gave it. ikhnos
 keeps its own record of the operator until you remove it in the UI; uninstalling the chart does not do
 that for you, and any source cluster still pointed at this receiver will simply fail to export until its
 own `telemetry.export.otlp.endpoint` is changed.
 
 ## No chaining, yet
 
-`export.otlp.endpoint` can point at another regional operator's receiver address, but the Ikhnos server
+`export.otlp.endpoint` can point at another regional operator's receiver address, but the ikhnos server
 refuses to create or update an operator whose `Destination` names another operator (`DestinationKind:
 "operator"`) — see [Regional operators § How one is created](https://alexandrosst.github.io/ikhnos/docs/architecture/regional-operators#how-one-is-created).
 This is a deliberate, named gap, not an oversight: the mechanism exists, the decision layer that should

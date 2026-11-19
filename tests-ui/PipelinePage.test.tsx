@@ -598,7 +598,7 @@ describe('PipelinePage', () => {
     expect(steps[0]).toHaveTextContent('1Create the receiver token Secret')
     // A node port is the default, so the last step tells where to record the address, after the install.
     expect(steps[steps.length - 2]).toHaveTextContent(`${steps.length - 1}Install the operator`)
-    expect(steps[steps.length - 1]).toHaveTextContent('Tell Ikhnos where other clusters reach it')
+    expect(steps[steps.length - 1]).toHaveTextContent('Tell ikhnos where other clusters reach it')
   })
 
   test('when the server also minted a receiver TLS certificate, its Secret is a step of its own, before the install', async () => {

@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-// IperfServerRunner is the iperf3 server of one node when the Ikhnos server issues the credentials. It replaces running iperf3
+// IperfServerRunner is the iperf3 server of one node when the ikhnos server issues the credentials. It replaces running iperf3
 // directly in the responder pod: it asks the agent for this cluster's server credentials (FetchIperfServer), keeps them in a
 // private in-memory directory, and runs iperf3 -s with them.
 //
@@ -140,7 +140,7 @@ func (r *IperfServerRunner) apply(ctx context.Context, creds IperfServer) {
 			r.stop()
 		}
 		r.clearFiles()
-		r.say("no-credentials", "no iperf3 credentials are issued for this cluster, so the iperf3 server is not running (no pair asks this cluster to serve throughput tests, or the Ikhnos server has not issued them yet)")
+		r.say("no-credentials", "no iperf3 credentials are issued for this cluster, so the iperf3 server is not running (no pair asks this cluster to serve throughput tests, or the ikhnos server has not issued them yet)")
 		return
 	}
 	sum := sha256.Sum256([]byte(creds.PrivateKeyPEM.Reveal() + "\x00" + creds.UsersCSV.Reveal()))
@@ -149,7 +149,7 @@ func (r *IperfServerRunner) apply(ctx context.Context, creds IperfServer) {
 	}
 	if err := r.writeFiles(creds); err != nil {
 		// Without the files there is nothing to authenticate with: do not leave an older server running on credentials the
-		// Ikhnos server has replaced.
+		// ikhnos server has replaced.
 		r.stop()
 		r.clearFiles()
 		r.say("write-failed", "could not write the iperf3 credentials; the iperf3 server is not running", "err", err.Error())
@@ -170,7 +170,7 @@ func (r *IperfServerRunner) apply(ctx context.Context, creds IperfServer) {
 		return
 	}
 	r.proc, r.cur = p, sum
-	r.say("serving", "the iperf3 server is running with credentials issued by Ikhnos (authenticated mode)")
+	r.say("serving", "the iperf3 server is running with credentials issued by ikhnos (authenticated mode)")
 }
 
 // say logs a message when the state changes, not on every pass.

@@ -10,7 +10,7 @@ import (
 	"ikhnos/internal/fusionapi"
 )
 
-// selfDashboard is the "Ikhnos self" dashboard as the tests below look at it.
+// selfDashboard is the "ikhnos self" dashboard as the tests below look at it.
 type selfDashboard struct {
 	UID     string   `json:"uid"`
 	Title   string   `json:"title"`
@@ -97,7 +97,7 @@ const selfNameOfCluster = `label_replace(topk by (cluster) (1, ikhnos_cluster_in
 func TestFusionIkhnosSelfDashboardShowsEverythingTheServerWrites(t *testing.T) {
 	full := fusionRender(t, "f")
 	d := loadSelfDashboard(t, full)
-	if d.UID != "ikhnos-self" || d.Title != "Ikhnos self" || d.Refresh != "30s" || !slices.Contains(d.Tags, "ikhnos") {
+	if d.UID != "ikhnos-self" || d.Title != "ikhnos self" || d.Refresh != "30s" || !slices.Contains(d.Tags, "ikhnos") {
 		t.Errorf("uid %q title %q refresh %q tags %v", d.UID, d.Title, d.Refresh, d.Tags)
 	}
 	var dropdown, toDelivery bool
@@ -106,7 +106,7 @@ func TestFusionIkhnosSelfDashboardShowsEverythingTheServerWrites(t *testing.T) {
 		toDelivery = toDelivery || l.URL == "/d/ikhnos-delivery"
 	}
 	if !dropdown || !toDelivery {
-		t.Errorf("links %+v: want the Ikhnos menu and a way to delivery health", d.Links)
+		t.Errorf("links %+v: want the ikhnos menu and a way to delivery health", d.Links)
 	}
 	if len(d.Templating.List) != 1 {
 		t.Fatalf("variables %+v", d.Templating.List)

@@ -29,7 +29,7 @@ function awaitsAnAction(r: AddressCandidates): boolean {
   return !!r.expose || (!!r.serverCluster && r.serverCluster.state !== 'known') || r.candidates.every((x) => x.kind === 'recorded')
 }
 
-/** The addresses Ikhnos found for a regional operator from what its cluster's agent reports. `refresh` is bumped to ask again. `null` until the answer
+/** The addresses ikhnos found for a regional operator from what its cluster's agent reports. `refresh` is bumped to ask again. `null` until the answer
  *  arrives, and for good when the lookup fails: a missing list is a convenience lost, never an error to show.
  *
  *  While the answer says it is waiting for something done outside this page (a command to run, a cluster to connect) it asks again every few

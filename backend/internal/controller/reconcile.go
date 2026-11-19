@@ -160,7 +160,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, name string) (time.Duration,
 }
 
 // removeRevoked is what the controller does for an agent that says the server revoked it: delete the resource. The finalizer then takes
-// the usual way out (finish): the release is uninstalled, and its identity with it. Revoking in Ikhnos leaves nothing of the agent.
+// the usual way out (finish): the release is uninstalled, and its identity with it. Revoking in ikhnos leaves nothing of the agent.
 func (r *Reconciler) removeRevoked(ctx context.Context, obj *unstructured.Unstructured) error {
 	reason, _ := revokedReason(obj)
 	r.log().Info("the agent was revoked by the server; removing it", "name", obj.GetName(), "reason", reason)

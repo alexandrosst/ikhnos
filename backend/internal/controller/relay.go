@@ -15,7 +15,7 @@ import (
 	"ikhnos/internal/relay"
 )
 
-// The telemetry relay, the controller's part. The agent writes what the Ikhnos server asked of the cluster under status.requested (package
+// The telemetry relay, the controller's part. The agent writes what the ikhnos server asked of the cluster under status.requested (package
 // relay); the controller reads it, and either applies it or says why not under status.relay.
 //
 // A request is an overlay on the owner's spec.telemetry: the set of signals and the share of the traces, and nothing else. Where the data

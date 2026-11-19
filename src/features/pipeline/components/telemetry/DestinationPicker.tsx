@@ -295,7 +295,7 @@ export default function DestinationPicker({
                 <span className="flex size-4 shrink-0 items-center justify-center text-nb-400" aria-hidden><Plus size={ICON_SM} /></span>
                 <span className="min-w-0 flex-1 basis-48">
                   <span className="block text-sm font-medium text-nb-300">Deploy a new regional operator for me</span>
-                  <span className="block text-xs text-nb-500">It receives from several clusters and forwards. Ikhnos gives you the commands.</span>
+                  <span className="block text-xs text-nb-500">It receives from several clusters and forwards. ikhnos gives you the commands.</span>
                 </span>
               </button>
             )}

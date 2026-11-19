@@ -91,7 +91,7 @@ describe('SystemHealthPage - full data', () => {
     selfTelemetry.mockResolvedValue([serverEntity, fullAgent])
     renderPage()
 
-    expect(await screen.findByText('Ikhnos server')).toBeInTheDocument()
+    expect(await screen.findByText('ikhnos server')).toBeInTheDocument()
     expect(screen.getByText('edge-cluster')).toBeInTheDocument()
 
     // Both entities' last sample is recent, so both read as live.
@@ -106,7 +106,7 @@ describe('SystemHealthPage - full data', () => {
     expect(screen.getByText('Node probe every 180s')).toBeInTheDocument()
 
     // The server entity never gets bandwidth/watts tiles at all - it has no cluster of its own.
-    const serverCard = screen.getByText('Ikhnos server').closest('section') as HTMLElement
+    const serverCard = screen.getByText('ikhnos server').closest('section') as HTMLElement
     expect(within(serverCard).queryByText('Bandwidth share')).toBeNull()
     expect(within(serverCard).queryByText('Host watts')).toBeNull()
 
@@ -235,7 +235,7 @@ describe('the way to Grafana', () => {
     expect(screen.queryByTestId('health-open-grafana')).toBeNull()
     expect(await screen.findByText('Nothing sampled yet')).toBeInTheDocument()
   })
-  test('with Grafana up the button opens the Ikhnos self dashboard', async () => {
+  test('with Grafana up the button opens the ikhnos self dashboard', async () => {
     fusionStatus = { links: { grafana: '/fusion/grafana/' } }
     render(<SystemHealthPage />)
     ;(await screen.findByTestId('health-open-grafana')).click()

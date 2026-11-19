@@ -1,6 +1,6 @@
 # ikhnos-controller
 
-Optional. Keeps an Ikhnos agent installed in this cluster from an `IkhnosAgent` resource, so `kubectl apply` can be the way an agent is asked for. It installs the same agent chart the Connect a cluster page's `helm install` does, from the same choices, and never talks to the Ikhnos server. The reasoning, and what it deliberately does not do, is in [Installing and removing what Ikhnos installs](../../../docs-site/docs/architecture/lifecycle.md).
+Optional. Keeps an ikhnos agent installed in this cluster from an `IkhnosAgent` resource, so `kubectl apply` can be the way an agent is asked for. It installs the same agent chart the Connect a cluster page's `helm install` does, from the same choices, and never talks to the ikhnos server. The reasoning, and what it deliberately does not do, is in [Installing and removing what ikhnos installs](../../../docs-site/docs/architecture/lifecycle.md).
 
 ## Install, and ask for the agent, in one command
 
@@ -138,7 +138,7 @@ Delete the `IkhnosAgent` first (the controller uninstalls the agent), then `helm
 
 ## The server's telemetry requests (`relay.telemetry`)
 
-The Ikhnos server can ask a cluster to collect more or less telemetry: which signals, and how much of the traces. It is the *what* only. It never says where the data goes, and sends no credential: the destination is in your `IkhnosAgent`, and the server cannot change it. The one-command install turns this on; with `relay.telemetry=false` (the chart's default when you install the chart yourself) the cluster keeps its own settings and answers the server so.
+The ikhnos server can ask a cluster to collect more or less telemetry: which signals, and how much of the traces. It is the *what* only. It never says where the data goes, and sends no credential: the destination is in your `IkhnosAgent`, and the server cannot change it. The one-command install turns this on; with `relay.telemetry=false` (the chart's default when you install the chart yourself) the cluster keeps its own settings and answers the server so.
 
 With it on, the agents the controller installs pass a request to the controller through `status.requested` of their resource, and the controller:
 

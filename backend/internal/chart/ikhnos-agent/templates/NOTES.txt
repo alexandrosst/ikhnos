@@ -1,4 +1,4 @@
-Ikhnos agent {{ .Chart.AppVersion }} — {{ if .Release.IsInstall }}installed{{ else }}upgraded{{ end }} as "{{ .Release.Name }}" in {{ .Release.Namespace }}.
+ikhnos agent {{ .Chart.AppVersion }} — {{ if .Release.IsInstall }}installed{{ else }}upgraded{{ end }} as "{{ .Release.Name }}" in {{ .Release.Namespace }}.
 
   Access    tier {{ include "agent.tier" . }} ({{ include "agent.tierName" . }})
   Scope     {{ if .Values.scope.namespaces }}{{ join ", " .Values.scope.namespaces }}{{ else if .Values.scope.selector }}namespaces labelled {{ .Values.scope.selector }}{{ else }}all namespaces{{ end }}{{ if .Values.scope.exclude }} (except {{ join ", " .Values.scope.exclude }}){{ end }}
@@ -23,7 +23,7 @@ Ikhnos agent {{ .Chart.AppVersion }} — {{ if .Release.IsInstall }}installed{{ 
 
 NEXT  Approve this cluster
   kubectl -n {{ .Release.Namespace }} logs deploy/ikhnos-agent | grep -i "approval code"
-  Enter the code under Agents in the Ikhnos UI and choose the tier. Nothing is reported before you do.
+  Enter the code under Agents in the ikhnos UI and choose the tier. Nothing is reported before you do.
 {{- end }}
 {{- $warnings := list }}
 {{- with include "agent.telemetryExportSecrets" . | fromJsonArray }}{{- $warnings = append $warnings (printf "Secrets that must exist in %s before the collectors can start: %s." $.Release.Namespace (join "; " .)) }}{{- end }}

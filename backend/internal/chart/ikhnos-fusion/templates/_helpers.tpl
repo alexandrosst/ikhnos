@@ -105,7 +105,7 @@ affinity: {{- toYaml . | nindent 2 }}
 
 {{/* The central gateway: the one door into FUSION. Named <name>-central like the stores are <name>-<store>. */}}
 {{- define "fusion.central" -}}{{- printf "%s-central" (include "fusion.name" .) -}}{{- end -}}
-{{/* Derived, never a value: the Ikhnos server writes the certificates into <name>-central-receiver-tls and the Role it
+{{/* Derived, never a value: the ikhnos server writes the certificates into <name>-central-receiver-tls and the Role it
      is granted names that Secret, so the chart cannot let it be renamed. */}}
 {{- define "fusion.centralTLSSecret" -}}{{- printf "%s-receiver-tls" (include "fusion.central" .) -}}{{- end -}}
 
@@ -197,9 +197,9 @@ sending_queue:
   {{- end }}
 {{- end -}}
 
-{{/* ---- Settings the Ikhnos server owns once it manages FUSION (switch.managed) ----
+{{/* ---- Settings the ikhnos server owns once it manages FUSION (switch.managed) ----
 
-     With switch.managed on, how long each store keeps its data and how big its volume is are changed from the Ikhnos UI,
+     With switch.managed on, how long each store keeps its data and how big its volume is are changed from the ikhnos UI,
      not by `helm upgrade`: the server writes them into the ConfigMap "<name>-settings" and restarts the store that
      changed, and a store reads them from there as environment variables. This chart creates the ConfigMap with the values
      below on the first install and then renders what is already in the cluster, so an upgrade keeps what the server last

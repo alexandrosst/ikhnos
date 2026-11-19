@@ -56,8 +56,8 @@ trust model](./agent-trust-model.md).
 A regional operator is a second, explicit fan-in tier above per-cluster telemetry — a standalone
 `otel-contrib` collector that receives what a set of already-approved clusters already export, and
 re-exports it as one stream. The important property, worth stating precisely rather than loosely: **it
-never dials the Ikhnos server, because it has nothing that could — not because a firewall stops it.**
-The chart ships zero Ikhnos client code; nothing in it knows the control-plane API exists, holds a
+never dials the ikhnos server, because it has nothing that could — not because a firewall stops it.**
+The chart ships zero ikhnos client code; nothing in it knows the control-plane API exists, holds a
 client certificate, or has any credential the server would accept over the agent port. That's a barrier
 made of an absent capability, not a network boundary.
 

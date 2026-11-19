@@ -524,7 +524,7 @@ func (c *Service) RequestLoginEmailCode(ctx context.Context, ip, pending string)
 	if err != nil {
 		return err
 	}
-	if err := c.Mailer().send(u.Email, "Your Ikhnos sign-in code", emailCodeBody(code, "sign in")); err != nil {
+	if err := c.Mailer().send(u.Email, "Your ikhnos sign-in code", emailCodeBody(code, "sign in")); err != nil {
 		return kernel.Errf(kernel.KindInternal, "could not send the sign-in email: %v", err)
 	}
 	return nil
@@ -856,7 +856,7 @@ func (c *Service) RequestEmailVerification(ctx context.Context, p Principal, ema
 	if err != nil {
 		return err
 	}
-	if err := c.Mailer().send(addr, "Your Ikhnos verification code", emailCodeBody(code, "confirm this email address")); err != nil {
+	if err := c.Mailer().send(addr, "Your ikhnos verification code", emailCodeBody(code, "confirm this email address")); err != nil {
 		return kernel.Errf(kernel.KindInternal, "could not send the verification email: %v", err)
 	}
 	return c.Store.SetEmail(ctx, p.User.ID, addr, nil)

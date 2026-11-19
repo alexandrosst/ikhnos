@@ -1,12 +1,12 @@
 ---
 id: index
-title: Inside Ikhnos
-description: How Ikhnos is built, for someone who wants to contribute, review it, or remember why a part works the way it does. A tour of the repository and one page for each part.
+title: Inside ikhnos
+description: How ikhnos is built, for someone who wants to contribute, review it, or remember why a part works the way it does. A tour of the repository and one page for each part.
 ---
 
-# Inside Ikhnos
+# Inside ikhnos
 
-This section is for people who work on Ikhnos, review it, or need to remember why a part is the way it is. If you only want to run it, the [journey](../journey/index.md) is the better place to start. If you want the idea in ten minutes first, read [How it works](../learn/how-it-works.md); this section assumes you have.
+This section is for people who work on ikhnos, review it, or need to remember why a part is the way it is. If you only want to run it, the [journey](../journey/index.md) is the better place to start. If you want the idea in ten minutes first, read [How it works](../learn/how-it-works.md); this section assumes you have.
 
 The pages here follow one rule. Every figure draws the system **as it is in the code today**. Where a figure names a package, a message or a test, it is the one in the repository. Plans and the reasons behind older choices live on [Design history](design-history.md), with dates, so you never mistake a plan for a fact.
 
@@ -41,7 +41,7 @@ These are not preferences. Most are held by a test that fails with the rule it e
 
 **Read-only by construction.** The agent holds list and watch permission and nothing else. It never reads Secrets or ConfigMaps. The server never writes to a cluster on its own; the optional controller is the one thing that does, and only for what an administrator asked for.
 
-**The agent dials out.** No cluster needs an inbound port for Ikhnos. Every connection between a cluster and the server is opened by the agent.
+**The agent dials out.** No cluster needs an inbound port for ikhnos. Every connection between a cluster and the server is opened by the agent.
 
 **Authority only narrows on the way down.** A ceiling set at install time, an approval, and the agent's own check form a chain. The server may narrow it. It may never widen it, and the agent checks again.
 
@@ -65,6 +65,6 @@ These pages go deeper on one subject each.
 
 **Links and memory.** [Cluster links](../architecture/cluster-links.md) and [System memory](../architecture/system-memory.md).
 
-**Operating.** [Exposing the agent port](../architecture/exposure-options.md), [Installing and removing what Ikhnos installs](../architecture/lifecycle.md) and [Regional operators: certificates and removal](../architecture/regional-operators-lifecycle.md).
+**Operating.** [Exposing the agent port](../architecture/exposure-options.md), [Installing and removing what ikhnos installs](../architecture/lifecycle.md) and [Regional operators: certificates and removal](../architecture/regional-operators-lifecycle.md).
 
 Ready to change something? Go to the [developer guide](../contributing/developer-guide.md).

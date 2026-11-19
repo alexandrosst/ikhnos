@@ -19,10 +19,10 @@ You have a server, one connected cluster, and a first look around. Here is what 
 
 ## Before you rely on it
 
-Read [Status and limits](../project/status-and-limits.md). Ikhnos is pre-1.0, and that page says plainly what has been tested, what has never been run for real, and what is not built.
+Read [Status and limits](../project/status-and-limits.md). ikhnos is pre-1.0, and that page says plainly what has been tested, what has never been run for real, and what is not built.
 
 Keep a copy of the sealing key somewhere other than the cluster. The install notes printed the command that reads it, and it is a Secret named `ikhnos-server-sealing` in the `ikhnos` namespace. The server is one replica with one database on a volume, so a backup of that volume, together with the key, is what you restore from. The repository's [backup guide](https://github.com/alexandrosst/ikhnos/blob/main/deploy/BACKUP.md) covers what to keep, how to take a consistent copy, and what an upgrade does to your data.
 
 ## To see how it works inside
 
-If you came to understand it rather than only to run it, [Inside Ikhnos](../inside/index.md) is next. It draws the server's layers, the agent's stream, and how facts become the views, at the level of the code.
+If you came to understand it rather than only to run it, [Inside ikhnos](../inside/index.md) is next. It draws the server's layers, the agent's stream, and how facts become the views, at the level of the code.

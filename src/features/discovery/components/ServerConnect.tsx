@@ -15,7 +15,7 @@ export default function ServerConnect({ open, onClose }: { open: boolean; onClos
     <Modal
       open={open}
       onClose={onClose}
-      title="Connect to an Ikhnos server"
+      title="Connect to an ikhnos server"
       description="The server enrolls clusters, receives what their agents discover and keeps the shared topology. You will be asked to sign in."
       footer={
         <>

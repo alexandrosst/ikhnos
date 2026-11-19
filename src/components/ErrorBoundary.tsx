@@ -31,7 +31,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode; labe
     if (this.state.held) {
       return (
         <div className="flex h-full min-h-40 flex-col items-center justify-center gap-3 p-8 text-center text-sm text-nb-400" role="status" data-testid="updating">
-          <p>Ikhnos was updated, and this page needs to load the new version. It has not reloaded by itself because a dialog is showing something that cannot be shown again.</p>
+          <p>ikhnos was updated, and this page needs to load the new version. It has not reloaded by itself because a dialog is showing something that cannot be shown again.</p>
           <Button variant="primary" onClick={() => window.location.reload()} data-testid="reload-now">Reload now</Button>
         </div>
       )
@@ -39,7 +39,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode; labe
     if (this.state.reloading) {
       return (
         <div className="flex h-full min-h-40 items-center justify-center p-8 text-sm text-nb-400" role="status" data-testid="updating">
-          Ikhnos was updated. Loading the new version…
+          ikhnos was updated. Loading the new version…
         </div>
       )
     }
@@ -49,7 +49,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode; labe
         <div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 p-8 text-center" role="alert">
           <p className="text-sm font-medium text-nb-300">Something went wrong showing this page.</p>
           <p className="max-w-md text-sm text-nb-500">{stale
-              ? 'Ikhnos was updated since this page was opened, and its files could not be loaded. Reload the page (Cmd/Ctrl+Shift+R); if it keeps happening, tell an administrator.'
+              ? 'ikhnos was updated since this page was opened, and its files could not be loaded. Reload the page (Cmd/Ctrl+Shift+R); if it keeps happening, tell an administrator.'
               : `${this.state.error.message || 'An unexpected error occurred.'} Switching pages usually recovers; if it keeps happening, tell an administrator.`}</p>
         </div>
       )

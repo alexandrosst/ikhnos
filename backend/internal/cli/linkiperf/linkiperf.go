@@ -1,5 +1,5 @@
 // Package linkiperf is `ikhnos link-iperf-server`: the iperf3 server of the throughput tests, run in the responder pod when the
-// Ikhnos server issues the credentials. It fetches this cluster's server key and users from the agent (a signed request with a
+// ikhnos server issues the credentials. It fetches this cluster's server key and users from the agent (a signed request with a
 // secret of its own, answered sealed), writes them to a private in-memory directory, and runs iperf3 -s in authenticated mode
 // with them. With no credentials it runs nothing. See link.IperfServerRunner.
 package linkiperf
