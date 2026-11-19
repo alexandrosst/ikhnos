@@ -38,13 +38,18 @@ type TopologyView struct {
 	At       time.Time
 	Services []TopoService
 	Nodes    []TopoNode
+	// Clusters are the clusters of the topology, for the name a service's placement gives its cluster.
+	Clusters []TopoCluster
 	Links    []TopoLink
 	// Externals names the addresses outside the clusters that services were seen talking to, by id.
 	Externals map[string]string
 }
 
 // TopoNode is one node of the topology.
-type TopoNode struct{ ID, Name, Cluster string }
+type TopoNode struct{ ID, Name, Cluster, Role, Zone string }
+
+// TopoCluster is one cluster of the topology.
+type TopoCluster struct{ ID, Name, Tier string }
 
 // TopoService is one service of the topology.
 type TopoService struct {
@@ -62,6 +67,9 @@ type TopoService struct {
 	// Applications names the ikhnos applications this service is in, AppIDs says which they are.
 	Applications []string `json:"applications,omitempty"`
 	AppIDs       []string `json:"-"`
+	// NodeIDs are the nodes the service runs on, and PodsOnNode how many of its pods each one holds (empty below tier 2, where pods are not read).
+	NodeIDs    []string       `json:"-"`
+	PodsOnNode map[string]int `json:"-"`
 }
 
 // Key is the identity telemetry knows the service by.

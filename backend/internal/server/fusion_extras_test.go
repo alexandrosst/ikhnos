@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -112,8 +113,10 @@ func anyStrings(v any) []string {
 
 func TestTheTopologyViewCarriesWhatTheFusedReadJoins(t *testing.T) {
 	doc := landscape.StateDoc{GeneratedAt: "2026-10-05T12:00:00Z", Topology: model.Topology{
-		Services: []model.Service{{ID: "s1", Name: "cart", Namespace: "shop", ClusterID: "cl-1", Kind: "Deployment", Replicas: 3, ReadyReplicas: 2, Restarts: 5, Labels: map[string]string{"app": "cart"}}},
-		Nodes:    []model.Node{{ID: "n1", Name: "node-a", ClusterID: "cl-1"}},
+		Services: []model.Service{{ID: "s1", Name: "cart", Namespace: "shop", ClusterID: "cl-1", Kind: "Deployment", Replicas: 3, ReadyReplicas: 2, Restarts: 5, Labels: map[string]string{"app": "cart"},
+			NodeIDs: []string{"n1"}, Pods: []model.Pod{{Name: "cart-1", NodeID: "n1"}, {Name: "cart-2", NodeID: "n1"}, {Name: "cart-3"}}}},
+		Nodes:    []model.Node{{ID: "n1", Name: "node-a", ClusterID: "cl-1", Role: "worker", Zone: "z1"}},
+		Clusters: []model.Cluster{{ID: "cl-1", Name: "athens-edge", Tier: "edge"}},
 		Dependencies: []model.Dependency{{ID: "d1", From: "s1", FromKind: "service", To: "x1", ToKind: "external", Protocol: "tcp", Port: 443, Confidence: "high", Noise: ""},
 			{From: "s1", FromKind: "service", To: "s9", ToKind: "service", Noise: "dns"}},
 		ExternalEndpoints: []model.ExternalEndpoint{{ID: "x1", Host: "198.51.100.7", Port: 443}, {ID: "x2", Host: "h", Name: "GitHub"}},
@@ -124,6 +127,12 @@ func TestTheTopologyViewCarriesWhatTheFusedReadJoins(t *testing.T) {
 	}
 	if len(v.Nodes) != 1 || v.Nodes[0].ID != "n1" || v.Nodes[0].Name != "node-a" || v.Nodes[0].Cluster != "cl-1" || v.Links[0].ID != "d1" {
 		t.Fatalf("%+v %+v", v.Nodes, v.Links)
+	}
+	if sv := v.Services[0]; !slices.Equal(sv.NodeIDs, []string{"n1"}) || sv.PodsOnNode["n1"] != 2 || len(sv.PodsOnNode) != 1 {
+		t.Fatalf("where the service runs: %+v", sv)
+	}
+	if v.Nodes[0].Role != "worker" || v.Nodes[0].Zone != "z1" || len(v.Clusters) != 1 || v.Clusters[0] != (fusionapi.TopoCluster{ID: "cl-1", Name: "athens-edge", Tier: "edge"}) {
+		t.Fatalf("%+v %+v", v.Nodes, v.Clusters)
 	}
 	if len(v.Links) != 2 || v.Links[0].Port != 443 || v.Links[1].Noise != "dns" || v.Externals["x1"] != "198.51.100.7:443" || v.Externals["x2"] != "GitHub" || v.At.IsZero() {
 		t.Fatalf("%+v %v", v.Links, v.Externals)

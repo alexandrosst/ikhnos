@@ -24,7 +24,8 @@ npm install
 npm run lint
 npm run test:unit
 npm run test:ui
-python3 -m unittest discover examples/fusion   # the Python example, against a stand-in server
+python3 -m unittest discover examples/fusion     # the Python examples, each against a stand-in server
+python3 -m unittest discover examples/topology
 npm run build            # type-check + production build
 
 # backend

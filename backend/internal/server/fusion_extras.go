@@ -247,10 +247,14 @@ func topologyView(doc landscape.StateDoc) *fusionapi.TopologyView {
 	}
 	for _, s := range topo.Services {
 		v.Services = append(v.Services, fusionapi.TopoService{ID: s.ID, Name: s.Name, Namespace: s.Namespace, Cluster: s.ClusterID,
-			Kind: string(s.Kind), Image: s.Image, Status: string(s.Status), Replicas: int(s.Replicas), Ready: int(s.ReadyReplicas), Restarts: int(s.Restarts), Labels: s.Labels})
+			Kind: string(s.Kind), Image: s.Image, Status: string(s.Status), Replicas: int(s.Replicas), Ready: int(s.ReadyReplicas), Restarts: int(s.Restarts), Labels: s.Labels,
+			NodeIDs: s.NodeIDs, PodsOnNode: podsOnNode(s.Pods)})
 	}
 	for _, n := range topo.Nodes {
-		v.Nodes = append(v.Nodes, fusionapi.TopoNode{ID: n.ID, Name: n.Name, Cluster: n.ClusterID})
+		v.Nodes = append(v.Nodes, fusionapi.TopoNode{ID: n.ID, Name: n.Name, Cluster: n.ClusterID, Role: string(n.Role), Zone: n.Zone})
+	}
+	for _, c := range topo.Clusters {
+		v.Clusters = append(v.Clusters, fusionapi.TopoCluster{ID: c.ID, Name: c.Name, Tier: string(c.Tier)})
 	}
 	for _, d := range topo.Dependencies {
 		l := fusionapi.TopoLink{ID: d.ID, From: d.From, To: d.To, FromKind: string(d.FromKind), ToKind: string(d.ToKind), Protocol: d.Protocol,
@@ -312,4 +316,19 @@ func (e fusionExtras) Changes(ctx context.Context, since, until time.Time, clust
 			Cluster: ev.ClusterID, ClusterName: ev.ClusterName, Detail: ev.Detail, Cause: ev.Cause, Severity: string(ev.Severity)})
 	}
 	return out, nil
+}
+
+// podsOnNode counts a service's pods by the node they run on (a pod whose node the topology does not know has none to count).
+func podsOnNode(pods []model.Pod) map[string]int {
+	var m map[string]int
+	for _, p := range pods {
+		if p.NodeID == "" {
+			continue
+		}
+		if m == nil {
+			m = map[string]int{}
+		}
+		m[p.NodeID]++
+	}
+	return m
 }

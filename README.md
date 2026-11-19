@@ -172,7 +172,7 @@ for item in found["results"]:
             print("  ", span["service"], log["line"])
 ```
 
-A fuller script, with a test that runs it against a stand-in server, is in [`examples/fusion`](examples/fusion). The [API reference](https://alexandrosst.github.io/ikhnos/docs/architecture/fusion-api) lists every call.
+A fuller script, with a test that runs it against a stand-in server, is in [`examples/fusion`](examples/fusion), and one that reads an application's topology (where each service runs and which calls cross clusters) is in [`examples/topology`](examples/topology). The [API reference](https://alexandrosst.github.io/ikhnos/docs/architecture/fusion-api) lists every call.
 
 ## Documentation
 

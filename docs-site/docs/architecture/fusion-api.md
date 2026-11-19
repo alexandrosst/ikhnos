@@ -280,10 +280,42 @@ curl -s -H "Authorization: Bearer $TOKEN" "$ADDR/api/v1/fusion/applications/Shop
 | `at` | Read the topology as of this time instead of now ([history](#history)). |
 | `window` | How far back traffic is counted. Default 24 hours, at most 7 days. |
 | `noise` | Whether links classed as noise are shown. |
+| `placement` | `true` adds, to each service of the application, where it runs (see [Where a service runs](#where-a-service-runs)). Off by default. |
 | `format` | `json` (the default) or `nodelink`: the same services and links as a directed multigraph in the node-link form that NetworkX (`nx.node_link_graph(d, edges="links")`), D3 and `jq` read as it is. Nodes are `service:<key>` and `external:<id>`, each link has a `source` (the client), a `target` (the server) and a `key` that is the id of the dependency, so two parallel links are two links. It holds what the JSON holds for that caller, and none of the telemetry pointers or changes. |
 
+- With `format=nodelink`, the service nodes carry the same `placement`.
 - It follows the token's scope like `/applications`: a limited token sees only the part of the application, and the links and neighbours, in its namespaces and clusters. An application none of whose services it can see answers `404`.
 - The answer is capped at 2000 links, 200 neighbours, 50 external addresses and 100 changes. When something was cut, the response says so.
+
+### Where a service runs
+
+With `placement=true`, each service the topology knows gets a `placement`: the cluster it runs in and the nodes that hold its pods.
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$ADDR/api/v1/fusion/applications/Shop/topology?placement=true"
+```
+
+```json
+{
+  "name": "cart",
+  "cluster": "cl-1",
+  "placement": {
+    "cluster": {"id": "cl-1", "name": "athens-edge", "tier": "edge"},
+    "nodes": [
+      {"id": "n-7", "name": "edge-a", "role": "worker", "zone": "z1", "pods": 2},
+      {"id": "n-9", "name": "edge-b", "role": "worker", "pods": 1}
+    ]
+  }
+}
+```
+
+- `pods` is how many of the service's pods run on that node. It is there only where the agent reads pods (access tier 2); where it does not, `pods` is left out and the node list can be shorter or empty.
+- A node the topology does not know is not listed, so a service can have fewer nodes than replicas, and a service on no known node has an empty `nodes`.
+- A service the topology does not know has no `placement`.
+- It is the same for a past time with `at`: the cluster and nodes are those of the recording the answer is drawn from.
+- It needs nothing beyond the token's scope. A token sees the placement of the services it may see, and the cluster of each is one it may see.
+
+A script that prints the placement and finds the calls that cross clusters is in [`examples/topology`](https://github.com/alexandrosst/ikhnos/tree/main/examples/topology), with a test that runs it against a stand-in server (`python3 -m unittest discover examples/topology`).
 
 ### History
 

@@ -42,6 +42,8 @@ type NodeLinkNode struct {
 	Ready    *int   `json:"readyReplicas,omitempty"`
 	Port     int    `json:"port,omitempty"`
 	Protocol string `json:"protocol,omitempty"`
+	// Placement is where the service runs, with `placement=true`.
+	Placement *AppPlacement `json:"placement,omitempty"`
 }
 
 // NodeLinkEdge is traffic seen from a source (the client) to a target (the server). Key is the id of the dependency, which the changes
@@ -82,7 +84,7 @@ func (t *AppTopology) NodeLink() NodeLinkGraph {
 			rp = &r
 		}
 		add(NodeLinkNode{ID: "service:" + s.Key, Type: "service", Name: s.Name, Namespace: s.Namespace, Cluster: s.Cluster, Kind: s.Kind, Member: true,
-			Status: s.Status, Replicas: rp, Ready: rd})
+			Status: s.Status, Replicas: rp, Ready: rd, Placement: s.Placement})
 	}
 	for _, o := range t.Neighbours {
 		add(NodeLinkNode{ID: "service:" + o.Key, Type: "service", Name: o.Name, Namespace: o.Namespace, Cluster: o.Cluster})

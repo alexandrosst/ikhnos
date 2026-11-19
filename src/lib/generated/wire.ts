@@ -243,6 +243,25 @@ export interface AppInfo {
   confidence?: string
 }
 
+export interface AppPlacement {
+  cluster: AppPlacementCluster
+  nodes: AppPlacementNode[]
+}
+
+export interface AppPlacementCluster {
+  id: string
+  name?: string
+  tier?: string
+}
+
+export interface AppPlacementNode {
+  id: string
+  name: string
+  role?: string
+  zone?: string
+  pods?: number
+}
+
 export interface AppServiceView {
   id?: string
   name: string
@@ -310,6 +329,7 @@ export interface AppTopoSvc {
   readyReplicas: number
   restarts: number
   telemetry: AppTelemetry
+  placement?: AppPlacement
 }
 
 export interface AppTopology {

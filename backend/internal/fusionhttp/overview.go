@@ -135,6 +135,10 @@ func (g *Guard) AppTopology(w http.ResponseWriter, r *http.Request, c *fusionapi
 	if err == nil {
 		noise, err = fusionapi.ParseBool("noise", q.Get("noise"), false)
 	}
+	var placement bool
+	if err == nil {
+		placement, err = fusionapi.ParseBool("placement", q.Get("placement"), false)
+	}
 	var format string
 	if err == nil {
 		format, err = fusionapi.ParseFormat(q.Get("format"))
@@ -184,6 +188,9 @@ func (g *Guard) AppTopology(w http.ResponseWriter, r *http.Request, c *fusionapi
 		return
 	}
 	t := fusionapi.BuildAppTopology(app, v, who.Scope, noise)
+	if placement {
+		t.AddPlacement(v)
+	}
 	if !at.IsZero() {
 		snap := v.At
 		t.Source, t.AsOf, t.SnapshotAt = "history", at, &snap

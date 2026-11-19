@@ -233,3 +233,68 @@ func TestTheTopologyAsANodeLinkGraphHoldsWhatTheTopologyDoes(t *testing.T) {
 		t.Error("an unknown format is accepted")
 	}
 }
+
+func TestPlacementSaysWhereEachServiceRunsAndOnlyWhenAsked(t *testing.T) {
+	g, v := shopTopology()
+	v.Clusters = []TopoCluster{{ID: "cl-1", Name: "athens-edge", Tier: "edge"}, {ID: "cl-2", Name: "berlin", Tier: "cloud"}}
+	v.Nodes = []TopoNode{{ID: "n-b", Name: "worker-b", Cluster: "cl-1", Role: "worker", Zone: "z2"}, {ID: "n-a", Name: "worker-a", Cluster: "cl-1", Role: "control-plane"}}
+	for i := range v.Services {
+		switch v.Services[i].ID {
+		case "s-cart":
+			v.Services[i].NodeIDs = []string{"n-b", "n-a", "n-gone"} // a node the topology does not know is not named
+			v.Services[i].PodsOnNode = map[string]int{"n-b": 2, "n-a": 1}
+		case "s-web":
+			v.Services[i].NodeIDs = []string{"n-a"} // pods are not read: the nodes are known, the counts are not
+		}
+	}
+	plain := BuildAppTopology(g, v, AllSignals(), false)
+	raw, _ := json.Marshal(plain)
+	if strings.Contains(string(raw), "placement") {
+		t.Fatalf("placement is on without being asked: %s", raw)
+	}
+
+	got := BuildAppTopology(g, v, AllSignals(), false)
+	got.AddPlacement(v)
+	by := map[string]AppTopoSvc{}
+	for _, s := range got.Services {
+		by[s.Name] = s
+	}
+	cart := by["cart"].Placement
+	if cart == nil || cart.Cluster != (AppPlacementCluster{ID: "cl-1", Name: "athens-edge", Tier: "edge"}) {
+		t.Fatalf("%+v", cart)
+	}
+	if len(cart.Nodes) != 2 || cart.Nodes[0] != (AppPlacementNode{ID: "n-a", Name: "worker-a", Role: "control-plane", Pods: 1}) ||
+		cart.Nodes[1] != (AppPlacementNode{ID: "n-b", Name: "worker-b", Role: "worker", Zone: "z2", Pods: 2}) {
+		t.Fatalf("nodes by name: %+v", cart.Nodes)
+	}
+	if web := by["web"].Placement; web == nil || len(web.Nodes) != 1 || web.Nodes[0].Pods != 0 {
+		t.Fatalf("%+v", web)
+	}
+	if bill := by["billing"].Placement; bill == nil || bill.Nodes == nil || len(bill.Nodes) != 0 { // known, on no node it can name: an empty list, not a missing one
+		t.Fatalf("%+v", bill)
+	}
+	raw, _ = json.Marshal(by["billing"])
+	if !strings.Contains(string(raw), `"nodes":[]`) {
+		t.Errorf("an empty list must be written as one: %s", raw)
+	}
+
+	// the graph carries it on the service nodes
+	for _, n := range got.NodeLink().Nodes {
+		if n.Name == "cart" && (n.Placement == nil || n.Placement.Cluster.Name != "athens-edge") {
+			t.Errorf("the node-link node lacks the placement: %+v", n)
+		}
+		if n.Type == "external" && n.Placement != nil {
+			t.Errorf("%+v", n)
+		}
+	}
+}
+
+func TestPlacementLeavesOutAServiceTheTopologyDoesNotKnow(t *testing.T) {
+	g := &AppGroup{ID: "a", Name: "A", Members: []AppMember{{ID: "gone", Name: "ghost", Namespace: "x", Cluster: "cl-9"}}}
+	v := &TopologyView{Clusters: []TopoCluster{{ID: "cl-9", Name: "nine"}}}
+	got := BuildAppTopology(g, v, AllSignals(), false)
+	got.AddPlacement(v)
+	if len(got.Services) != 1 || got.Services[0].Placement != nil {
+		t.Fatalf("%+v", got.Services)
+	}
+}

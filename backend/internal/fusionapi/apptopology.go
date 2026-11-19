@@ -84,6 +84,30 @@ type AppTopoSvc struct {
 	Ready     int          `json:"readyReplicas"`
 	Restarts  int          `json:"restarts"`
 	Telemetry AppTelemetry `json:"telemetry"`
+	// Placement is where the service runs, with `placement=true`; absent for a service the topology does not know.
+	Placement *AppPlacement `json:"placement,omitempty"`
+}
+
+// AppPlacement is the cluster a service runs in and the nodes of it that hold its pods.
+type AppPlacement struct {
+	Cluster AppPlacementCluster `json:"cluster"`
+	Nodes   []AppPlacementNode  `json:"nodes"`
+}
+
+// AppPlacementCluster is the cluster a service runs in.
+type AppPlacementCluster struct {
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
+	Tier string `json:"tier,omitempty"`
+}
+
+// AppPlacementNode is a node that holds pods of a service. Pods is how many, when the topology reads pods (tier 2); otherwise it is 0 and left out.
+type AppPlacementNode struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Role string `json:"role,omitempty"`
+	Zone string `json:"zone,omitempty"`
+	Pods int    `json:"pods,omitempty"`
 }
 
 // AppTelemetry says how to find a service's telemetry: Member is the `member` label of the application info series, Filter
@@ -358,4 +382,39 @@ func (t *AppTopology) AddChanges(evs []ChangeEvent) {
 		evs = evs[:maxAppChanges]
 	}
 	t.Changes = evs
+}
+
+// AddPlacement says, for each service of the application that the topology knows, which cluster it runs in and on which nodes, as the view
+// has them. A node the topology does not know is not named (the same rule the service's own node list follows), so a service can
+// have fewer nodes than replicas.
+func (t *AppTopology) AddPlacement(v *TopologyView) {
+	byID := v.byID()
+	clusters := map[string]TopoCluster{}
+	for _, c := range v.Clusters {
+		clusters[c.ID] = c
+	}
+	nodes := map[string]TopoNode{}
+	for _, n := range v.Nodes {
+		nodes[n.ID] = n
+	}
+	for i := range t.Services {
+		sv := byID[t.Services[i].ID]
+		if sv == nil {
+			continue
+		}
+		c := clusters[sv.Cluster]
+		p := &AppPlacement{Cluster: AppPlacementCluster{ID: sv.Cluster, Name: c.Name, Tier: c.Tier}, Nodes: []AppPlacementNode{}}
+		for _, id := range sv.NodeIDs {
+			if n, ok := nodes[id]; ok {
+				p.Nodes = append(p.Nodes, AppPlacementNode{ID: n.ID, Name: n.Name, Role: n.Role, Zone: n.Zone, Pods: sv.PodsOnNode[n.ID]})
+			}
+		}
+		sort.Slice(p.Nodes, func(a, b int) bool {
+			if p.Nodes[a].Name != p.Nodes[b].Name {
+				return p.Nodes[a].Name < p.Nodes[b].Name
+			}
+			return p.Nodes[a].ID < p.Nodes[b].ID
+		})
+		t.Services[i].Placement = p
+	}
 }

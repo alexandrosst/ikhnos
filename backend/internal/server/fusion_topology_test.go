@@ -87,7 +87,17 @@ func TestTheTopologyEndpointAnswersLiveFromTheCachedTopology(t *testing.T) {
 	if r := d.get("/api/v1/fusion/applications/app-1/topology?window=6h&noise=1", withCookie(d.admin)); r.Code != 200 || ex.until.Sub(ex.since) != 6*time.Hour {
 		t.Errorf("%d %v", r.Code, ex.until.Sub(ex.since))
 	}
-	for _, bad := range []string{"window=8d", "window=soon", "noise=maybe", "at=yesterday", "since=1h"} {
+	// where each service runs, only when asked for
+	if r := d.get("/api/v1/fusion/applications/Shop/topology", withCookie(d.admin)); strings.Contains(r.Body.String(), "placement") {
+		t.Errorf("placement without asking: %s", r.Body.String())
+	}
+	if r := d.get("/api/v1/fusion/applications/Shop/topology?placement=true", withCookie(d.admin)); r.Code != 200 || !strings.Contains(r.Body.String(), `"placement"`) {
+		t.Errorf("%d %s", r.Code, r.Body.String())
+	}
+	if r := d.get("/api/v1/fusion/applications/Shop/topology?placement=true&format=nodelink", withCookie(d.admin)); r.Code != 200 || !strings.Contains(r.Body.String(), `"placement"`) {
+		t.Errorf("node-link: %d %s", r.Code, r.Body.String())
+	}
+	for _, bad := range []string{"window=8d", "window=soon", "noise=maybe", "placement=maybe", "at=yesterday", "since=1h"} {
 		if r := d.get("/api/v1/fusion/applications/Shop/topology?"+bad, withCookie(d.admin)); r.Code != 400 {
 			t.Errorf("%s: %d", bad, r.Code)
 		}
