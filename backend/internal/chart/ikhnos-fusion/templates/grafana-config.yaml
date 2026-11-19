@@ -68,7 +68,7 @@ data:
     providers:
       - name: fusion
         orgId: 1
-        folder: Ikhnos
+        folder: ikhnos
         type: file
         disableDeletion: true
         allowUiUpdates: false

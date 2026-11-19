@@ -14,7 +14,9 @@
 //   IKHNOS_AGENT_LOG        the file that agent writes its log to, for the approval code (approve)
 //   IKHNOS_APPLY_TELEMETRY_CMD   a shell command that restarts that agent as the chart would once the telemetry commands were run, with the
 //                           telemetry settings and a collector whose counters grow (telemetry)
-// The fusion, telemetry, new-operator and grafana videos also need FUSION's stores running with some history in them.
+// The fusion, telemetry, new-operator and grafana videos also need FUSION's stores running with some history in them. scripts/fake-collector.py stands in for
+// the collector's counters (telemetry: start it from IKHNOS_APPLY_TELEMETRY_CMD) and scripts/sample-telemetry.py writes the made-up history Grafana shows (grafana).
+// Set the server's IKHNOS_PUBLIC_URL to an https address first, or the operator commands show a plain-HTTP warning and this machine's address.
 // IKHNOS_VIDEO_OUT writes the files somewhere other than static/video. IKHNOS_SAMPLE_URL is the UI for the sample-landscape videos (default: IKHNOS_URL).
 import {createRequire} from 'node:module';
 import {execFileSync, spawn} from 'node:child_process';
