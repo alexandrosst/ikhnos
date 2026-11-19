@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="public/brand/primary/ikhnos-dark.svg">
-    <img alt="Ikhnos" src="public/brand/primary/ikhnos.svg" height="64">
+    <img alt="ikhnos" src="public/brand/primary/ikhnos.svg" height="64">
   </picture>
 </p>
 

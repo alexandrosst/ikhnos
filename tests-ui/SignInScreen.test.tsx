@@ -22,6 +22,8 @@ describe('the sign-in page', () => {
     show()
     expect(screen.getByTestId('auth-brand')).toHaveClass('flex-col', 'items-center')
     expect(screen.getByTestId('brand-mark')).toHaveClass('h-16')
+    // The name is the logo's lettering, so it is lower case, as the logo spells it.
+    expect(screen.getByTestId('auth-brand')).toHaveTextContent(/^ikhnos/)
     // The tagline is under the name, outside the card; the card has its own title and the form.
     const tagline = screen.getByTestId('auth-tagline')
     expect(tagline).toHaveTextContent('See your clusters, from cloud to far edge.')

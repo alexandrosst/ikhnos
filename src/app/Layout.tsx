@@ -231,9 +231,9 @@ function SidebarNav({
           menu ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <Link to="/" className="mb-6 flex items-center gap-2.5 rounded-md px-3 outline-none focus-visible:ring-2 focus-visible:ring-nb-400" aria-label="Ikhnos, home" data-testid="brand-home">
+        <Link to="/" className="mb-6 flex items-center gap-2.5 rounded-md px-3 outline-none focus-visible:ring-2 focus-visible:ring-nb-400" aria-label="ikhnos, home" data-testid="brand-home">
           <BrandMark />
-          <div className="text-base font-semibold tracking-tight text-nb-300">Ikhnos</div>
+          <div className="text-base font-semibold tracking-tight text-nb-300">ikhnos</div>
         </Link>
         <button
           onClick={onSearch}
@@ -341,7 +341,7 @@ function Shell() {
           <button onClick={() => setMenu(true)} aria-label="Open menu" aria-controls="main-menu" aria-expanded={menu} className="grid size-9 place-items-center rounded-md text-nb-400 hover:bg-nb-930 hover:text-nb-300">
             <Menu size={ICON_MD} />
           </button>
-          <span className="text-sm font-semibold text-nb-300">Ikhnos</span>
+          <span className="text-sm font-semibold text-nb-300">ikhnos</span>
           <button onClick={() => setSearching(true)} aria-label="Search" className="ml-auto grid size-9 place-items-center rounded-md text-nb-400 hover:bg-nb-930 hover:text-nb-300">
             <Search size={ICON_MD} />
           </button>

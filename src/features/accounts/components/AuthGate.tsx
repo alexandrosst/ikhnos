@@ -19,7 +19,7 @@ function Shell({ title, description, tagline = false, children }: { title: strin
         <div className="-mt-[4vh] w-full max-w-[22rem]">
           <div className={clsx('flex flex-col items-center gap-3', tagline ? 'mb-7' : 'mb-8')} data-testid="auth-brand">
             <BrandMark className="h-16" />
-            <div className="text-2xl font-semibold tracking-tight text-nb-300">Ikhnos</div>
+            <div className="text-2xl font-semibold tracking-tight text-nb-300">ikhnos</div>
             {tagline && <p className="-mt-1 text-center text-base text-nb-500" data-testid="auth-tagline">{description}</p>}
           </div>
           <div className="auth-card rounded-xl border border-nb-850 bg-nb-920 p-7 shadow-2xl">
