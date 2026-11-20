@@ -1049,3 +1049,29 @@ func TestExternalASNFallbackNamesAnAddressNoOtherTierCovers(t *testing.T) {
 		t.Errorf("evidence signal = %q, want it to cite the ASN (AS64512)", signal)
 	}
 }
+
+// A link that stopped carrying traffic stops moving after the short idle window, long before it is stale: the two are separate clocks, and the
+// quiet one (the setting) is not shortened by the other.
+func TestObservedIdleComesBeforeStale(t *testing.T) {
+	now := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
+	c := cluster("c", "", nil, wk("a", "Deployment", "x"), wk("a", "Deployment", "y"))
+	flow := flowOf(wep("a/Deployment/x"), wep("a/Deployment/y"), 80, 1)
+	for _, tc := range []struct {
+		ago         time.Duration
+		stale       time.Duration
+		idle, quiet bool
+	}{
+		{5 * time.Second, DefaultStaleWindow, false, false},
+		{IdleWindow + 5*time.Second, DefaultStaleWindow, true, false},
+		{DefaultStaleWindow + time.Second, DefaultStaleWindow, false, true}, // stale wins; a stale link is not also idle
+		{10 * time.Second, 5 * time.Second, false, true},                    // a quiet window shorter than the idle one is the only one
+	} {
+		cc := c
+		cc.Flows = NewFlowTable()
+		feed(&cc, now.Add(-tc.ago), 60, flow)
+		deps, _ := Topology("org", []Cluster{cc}, now, tc.stale)
+		if len(deps) != 1 || deps[0].Idle != tc.idle || deps[0].Stale != tc.quiet {
+			t.Errorf("seen %v ago, quiet after %v: idle=%v stale=%v, want idle=%v stale=%v", tc.ago, tc.stale, deps[0].Idle, deps[0].Stale, tc.idle, tc.quiet)
+		}
+	}
+}

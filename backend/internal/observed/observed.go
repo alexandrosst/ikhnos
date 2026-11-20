@@ -32,6 +32,9 @@ const (
 	// constant so this file's own tests can exercise Topology's staleness math without pulling
 	// in the settings package.
 	DefaultStaleWindow = 5 * time.Minute
+	// IdleWindow is how long after its last traffic a link stops being drawn as moving. An agent reports a link only while it carries traffic,
+	// every few seconds, so this is a few reports; it is not the quiet window (the setting), which decides when a link is shown as quiet.
+	IdleWindow = 30 * time.Second
 	// How long a newly-observed external address is withheld from the topology while its identity is
 	// still unknown, giving netid.ResolveCached/ResolveASNCached (both async, both kicked off as soon as
 	// this address is first seen) a chance to land before it's ever shown. Without this, a brand-new
@@ -902,8 +905,13 @@ func Topology(org string, cs []Cluster, now time.Time, stale time.Duration) ([]m
 
 	var outDeps []model.Dependency
 	for _, d := range deps {
-		if last, err := time.Parse(time.RFC3339, d.LastSeen); err == nil && now.Sub(last) > stale {
-			d.Stale = true
+		if last, err := time.Parse(time.RFC3339, d.LastSeen); err == nil {
+			age := now.Sub(last)
+			if age > stale {
+				d.Stale = true
+			} else if age > min(IdleWindow, stale) {
+				d.Idle = true
+			}
 		}
 		if segs := lossSegsOut[d.ID]; segs > 0 {
 			pct := float64(lossRetransmits[d.ID]) / float64(segs) * 100

@@ -127,6 +127,8 @@ export type EdgeData = {
   observed?: boolean
   /** Seen once, but not for a long time. */
   stale?: boolean
+  /** Seen lately, but not in the last half minute: not carrying traffic at the moment, so the line does not move. */
+  idle?: boolean
   /** 0..1, how much traffic (log scale); drives the line width and the speed of the moving dashes. */
   weight?: number
   /** Measured round trip and loss between the two clusters, when the ends are in different ones. */
@@ -708,6 +710,7 @@ export function buildGraph(topology: Topology, o: GraphOptions): { nodes: TopoNo
         confidence: d.confidence,
         observed: isObserved(d),
         stale: d.stale,
+        idle: d.idle,
         weight: weightOf(d),
         stats: d.stats,
         via: d.via,
@@ -727,7 +730,7 @@ export function buildGraph(topology: Topology, o: GraphOptions): { nodes: TopoNo
     }
   } else if (o.links) {
     // Aggregate service dependencies into group ↔ group links.
-    const agg = new Map<string, { a: string; b: string; count: number; active: number; bytesPerSec: number; protocols: Map<string, number> }>()
+    const agg = new Map<string, { a: string; b: string; count: number; active: number; moving: number; bytesPerSec: number; protocols: Map<string, number> }>()
     for (const d of t.dependencies) {
       const from = serviceById.get(d.from)
       const to = serviceById.get(d.to)
@@ -737,14 +740,17 @@ export function buildGraph(topology: Topology, o: GraphOptions): { nodes: TopoNo
       if (!a || !b || a === b) continue
       const [k1, k2] = a < b ? [a, b] : [b, a]
       const key = `${k1}|${k2}`
-      const cur = agg.get(key) ?? { a: k1, b: k2, count: 0, active: 0, bytesPerSec: 0, protocols: new Map<string, number>() }
+      const cur = agg.get(key) ?? { a: k1, b: k2, count: 0, active: 0, moving: 0, bytesPerSec: 0, protocols: new Map<string, number>() }
       cur.count++
-      if (isObserved(d) && !d.stale) cur.active++
+      if (isObserved(d) && !d.stale) {
+        cur.active++
+        if (!d.idle) cur.moving++
+      }
       cur.bytesPerSec += d.stats?.bytesPerSec ?? 0
       cur.protocols.set(d.protocol, (cur.protocols.get(d.protocol) ?? 0) + 1)
       agg.set(key, cur)
     }
-    for (const { a, b, count, active, bytesPerSec, protocols } of agg.values()) {
+    for (const { a, b, count, active, moving, bytesPerSec, protocols } of agg.values()) {
       if (!abs.has(groupId(a)) || !abs.has(groupId(b))) continue
       edges.push(makeEdge(`agg:${a}|${b}`, groupId(a), groupId(b), abs, {
         label: `${count} ${count === 1 ? 'dependency' : 'dependencies'}`,
@@ -760,6 +766,8 @@ export function buildGraph(topology: Topology, o: GraphOptions): { nodes: TopoNo
         // `d.observed && !d.stale` check silently never animates it even when every bundled dependency is
         // actively observed.
         observed: active > 0,
+        // Moving only while one of the bundled links is: all of them idle leaves the bundle drawn, not animated.
+        idle: active > 0 && moving === 0,
         // A bundled total, not a per-dependency measurement - see EdgeData.via's own comment for why a
         // conntrack-only dependency's contribution here may understate the real total.
         stats: bytesPerSec > 0 ? { bytesPerSec } : undefined,
@@ -1087,6 +1095,7 @@ function buildChainGraph(t: Topology, o: GraphOptions): { nodes: TopoNode[]; edg
       confidence: d.confidence,
       observed: isObserved(d),
       stale: d.stale,
+      idle: d.idle,
       weight: weightOf(d),
       route,
     }))
@@ -1366,6 +1375,7 @@ function makeEdge(
     confidence?: string
     observed?: boolean
     stale?: boolean
+    idle?: boolean
     weight?: number
     quality?: PathQuality
     stats?: DependencyStats
@@ -1418,12 +1428,12 @@ function makeEdge(
     // actually-observed same-cluster edge sat still. Cross-cluster edges keep their own distinct visual cue
     // (the grey crossGroup stroke color in TopologyPage's edge styling) - motion now means what the
     // busyness-scaled animationDuration right next to this already assumed it meant: real traffic.
-    className: d.observed && !d.stale ? 'edge-animated' : undefined,
+    className: d.observed && !d.stale && !d.idle ? 'edge-animated' : undefined,
     // React Flow adds the higher of the two end nodes' z to this. Card↔card edges must land just below
     // the cards (10) so they never steal clicks; group↔group links sit just above the group boxes (0).
     zIndex: d.aggregated || d.groupLevel ? 5 : -1,
     markerEnd: d.aggregated || d.clusterLink ? undefined : { type: MarkerType.ArrowClosed, width: 14, height: 14 },
-    data: { crossGroup: d.cross, aggregated: d.aggregated, from: d.from, to: d.to, sources: d.sources, confidence: d.confidence, observed: d.observed, stale: d.stale, weight: d.weight, quality: d.quality, mesh: d.mesh, stats: d.stats, via: d.via, iface: d.iface, ifaceSpeedMbps: d.ifaceSpeedMbps, retransmits: d.retransmits, rttMs: d.rttMs, jitterMs: d.jitterMs, handshakeMs: d.handshakeMs, failedAttempts: d.failedAttempts, sniHost: d.sniHost, dnsQueryNames: d.dnsQueryNames, dnsRttMs: d.dnsRttMs, activeCount: d.activeCount, route: d.route, clusterLink: d.clusterLink, tunnelLink: d.tunnelLink, protocols: d.protocols },
+    data: { crossGroup: d.cross, aggregated: d.aggregated, from: d.from, to: d.to, sources: d.sources, confidence: d.confidence, observed: d.observed, stale: d.stale, idle: d.idle, weight: d.weight, quality: d.quality, mesh: d.mesh, stats: d.stats, via: d.via, iface: d.iface, ifaceSpeedMbps: d.ifaceSpeedMbps, retransmits: d.retransmits, rttMs: d.rttMs, jitterMs: d.jitterMs, handshakeMs: d.handshakeMs, failedAttempts: d.failedAttempts, sniHost: d.sniHost, dnsQueryNames: d.dnsQueryNames, dnsRttMs: d.dnsRttMs, activeCount: d.activeCount, route: d.route, clusterLink: d.clusterLink, tunnelLink: d.tunnelLink, protocols: d.protocols },
   }
 }
 

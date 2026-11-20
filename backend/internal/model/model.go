@@ -821,6 +821,10 @@ type Dependency struct {
 	Service string `json:"service,omitempty"`
 	Label   string `json:"label,omitempty"`
 	Stale   bool   `json:"stale,omitempty"`
+	// Idle: seen, and not stale, but not in the last half minute or so - the link is not carrying traffic right now. Stale is the long, settable
+	// "quiet" window and says the link may be gone; Idle is the short one and only says it is not moving at the moment, which is what a moving
+	// line on the canvas has to follow. Computed from the clock, never stored; empty for a link that has traffic or that nobody observes.
+	Idle bool `json:"idle,omitempty"`
 	// Noise marks traffic that is machinery rather than the applications' own: dns | system.
 	Noise Noise `json:"noise,omitempty"`
 	// CrossCluster: the two ends are in different onboarded clusters.

@@ -647,7 +647,7 @@ function EdgeLine({ id, data, result, label, labelStyle, labelBgStyle, labelBgPa
   const width = Number(style?.strokeWidth ?? 1.2)
   const opacity = style?.opacity
   const start = /^M\s*(-?[\d.]+)[ ,](-?[\d.]+)/.exec(result.path)
-  const live = !!data?.observed && !data?.stale && !!result.length
+  const live = !!data?.observed && !data?.stale && !data?.idle && !!result.length
   return (
     <>
       {/* A thin line of the canvas colour under the line, so where two cross, or one runs past a box, each stays readable. */}

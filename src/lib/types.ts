@@ -813,6 +813,8 @@ export interface Dependency {
   /* Seen on the wire (added by the server; never stored in the workspace). */
   /** No traffic for longer than the server's stale window. */
   stale?: boolean
+  /** Seen lately, but not in the last half minute: not carrying traffic at the moment. The server's short window, not the stale setting. */
+  idle?: boolean
   /** Traffic that is machinery rather than the applications' own. */
   noise?: W.Noise
   /** The two ends are in different onboarded clusters. */

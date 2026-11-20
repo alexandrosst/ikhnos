@@ -291,3 +291,17 @@ func TestRates(t *testing.T) {
 		t.Fatal("fewer than two samples has no rate")
 	}
 }
+
+func TestCompactDoesNotKeepWhetherALinkIsMovingRightNow(t *testing.T) {
+	a := topo(nil, nil, nil)
+	a.Dependencies = []model.Dependency{{ID: "d1", Idle: true}}
+	if !a.Dependencies[0].Idle {
+		t.Fatal("setup")
+	}
+	if Compact(a).Dependencies[0].Idle {
+		t.Fatal("idle is the clock's, like state: recording it would make a new version every half minute")
+	}
+	if !a.Dependencies[0].Idle {
+		t.Fatal("compacting must not change what it was given")
+	}
+}

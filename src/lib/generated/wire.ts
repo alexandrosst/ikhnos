@@ -844,6 +844,7 @@ export interface Dependency {
   service?: string
   label?: string
   stale?: boolean
+  idle?: boolean
   noise?: Noise
   crossCluster?: boolean
   via?: ObservedVia

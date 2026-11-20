@@ -70,7 +70,7 @@ export function withObserved(
     same.firstSeen = [same.firstSeen, o.firstSeen].filter(Boolean).sort()[0]
     same.lastSeen = o.lastSeen
     same.stats = { ...same.stats, ...o.stats }
-    Object.assign(same, { stale: o.stale, noise: o.noise, crossCluster: o.crossCluster, via: o.via, note: o.note, connections: o.connections, bytes: o.bytes })
+    Object.assign(same, { stale: o.stale, idle: o.idle, noise: o.noise, crossCluster: o.crossCluster, via: o.via, note: o.note, connections: o.connections, bytes: o.bytes })
   }
   return { dependencies: out, externalEndpoints: externals }
 }

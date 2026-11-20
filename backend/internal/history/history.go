@@ -31,6 +31,9 @@ func Compact(t model.Topology) model.Topology {
 		ExternalEndpoints: make([]model.ExternalEndpoint, len(t.ExternalEndpoints)),
 		Paths:             append([]model.Path{}, t.Paths...),
 	}
+	for i := range out.Dependencies {
+		out.Dependencies[i].Idle = false // the clock's, like State: not a fact about the link to keep
+	}
 	for i, c := range t.Clusters {
 		c.Evidence = nil
 		c.ClearObservation()

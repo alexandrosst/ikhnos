@@ -38,6 +38,11 @@ describe('a squared line', () => {
     expect(draw({ observed: true, stale: true }).container.querySelector('.topo-flow')).toBeNull()
   })
 
+  test('has no lights once the link is idle, before it is quiet: not carrying traffic right now, but not gone either', () => {
+    expect(draw({ observed: true, idle: true }).container.querySelector('.topo-flow')).toBeNull()
+    expect(draw({ observed: true, idle: false }).container.querySelector('.topo-flow')).not.toBeNull()
+  })
+
   test('has lights running along its own path when traffic was seen on it, a head and two followers each', () => {
     const { container } = draw({ observed: true, weight: 0.8 }, { length: 400 })
     const flow = container.querySelector('.topo-flow')!
