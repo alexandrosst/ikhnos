@@ -16,8 +16,13 @@ let serverState: { status: string; canEdit: () => boolean; state?: { agents: Age
 vi.mock('@/store/topology', () => ({
   useTopology: () => topologyState,
 }))
+// The store's `conn` is one stable function; the history section inside an opened agent reads through it.
+const stableConn = () => ({ url: '', org: 'o' })
 vi.mock('@/store/server', () => ({
-  useServer: (selector?: (s: typeof serverState) => unknown) => (selector ? selector(serverState) : serverState),
+  useServer: (selector?: (s: typeof serverState) => unknown) => {
+    const s = { conn: stableConn, orgId: 'o', ...serverState }
+    return selector ? selector(s) : s
+  },
   useConn: () => ({ org: 'o' }),
 }))
 // The access panel has its own tests and store; this page test is about the page around it.
