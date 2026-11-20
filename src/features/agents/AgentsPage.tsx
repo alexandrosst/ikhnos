@@ -1,63 +1,30 @@
-import clsx from 'clsx'
-import { ChevronRight, List, Network, Plug, Server } from 'lucide-react'
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { List, Network, Plug } from 'lucide-react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useQueryParams } from '@/lib/useQueryParams'
-import { AccessPanel, DiscoveryChip, HealthChip, Problems } from '@/features/agents/components/AgentInsight'
-import { AgentTelemetry } from '@/features/agents/components/AgentTelemetry'
-import { StatusBadge } from '@/components/ui/Status'
+import { AgentDetail } from '@/features/agents/components/AgentDetail'
+import { AgentMap } from '@/features/agents/components/AgentMap'
+import { AgentRow } from '@/features/agents/components/AgentRow'
+import { HEALTH, inWords, msUntil } from '@/features/agents/lib/agentView'
 import { SortTh, useSort } from '@/components/ui/sort'
 import { TabPanel, Tabs } from '@/components/ui/Tabs'
-import { DiagnoseButton, DiagnoseDrawer } from '@/features/agents/components/DiagnoseDrawer'
-import { diagnoseAgent } from '@/lib/diagnose'
+import { DiagnoseDrawer } from '@/features/agents/components/DiagnoseDrawer'
 import DiscoveryPanel from '@/features/discovery/components/DiscoveryPanel'
 import { usePlacementSuggestions } from '@/lib/usePlacement'
-import { AgentTeardown } from './AgentTeardown'
-import { CheckLine, MODULE_STYLE, ObserverLine, ScopeLine, ApprovalStatus, when } from '@/features/discovery/components/AgentParts'
 import ApprovalCard from '@/features/discovery/components/ApprovalCard'
 import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
-import EntityHistory from '@/features/history/components/EntityHistory'
 import { ConfirmModal } from '@/components/forms'
-import { DistroIcon, Flag, WithIcon } from '@/components/ui/brand'
 import { FilterChips } from '@/components/ui/FilterChips'
-import { Button, Card, EmptyState, ErrorBanner, GuessDot, ICON_SM, LinkButton, LiveDot, PageHeader, SectionHeading, SectionLabel, SkeletonBlock, StatTile, Table, TableSkeleton, Td, Th, TierBadge, type LiveKind } from '@/components/ui/primitives'
+import { Button, Card, EmptyState, ErrorBanner, ICON_SM, LinkButton, PageHeader, SectionHeading, SkeletonBlock, StatTile, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
 import { api, ApiError } from '@/lib/api'
-import { skewLabel, skewWarning } from '@/lib/clock'
-import { extrasOf, uptimeWords, type AgentExtras } from '@/lib/consent'
+import { extrasOf } from '@/lib/consent'
 import { HEALTH_ORDER, healthOf, type AgentHealth } from '@/features/agents/lib/agentHealth'
-import { ageOf } from '@/lib/history'
 import { bytesTotal } from '@/lib/observed'
-import { GEO_UNLOCATABLE_HELP, GEO_UNLOCATABLE_LABEL, ipScope, ipScopeLabel, withV } from '@/lib/present'
-import { ACCESS_TIERS, type Agent, type Cluster, type Tier } from '@/lib/types'
+import { type Agent, type Cluster } from '@/lib/types'
 import { useApprovalLocks } from '@/store/approvalLocks'
 import { useServer } from '@/store/server'
 import { useTopology } from '@/store/topology'
 import { PAGE_ICON } from '@/lib/pageIcons'
-
-const HEALTH: Record<AgentHealth, { label: string; dot: LiveKind; text: string }> = {
-  ok: { label: 'Connected', dot: 'online', text: 'text-ok' },
-  late: { label: 'Heartbeat late', dot: 'late', text: 'text-warn' },
-  offline: { label: 'Disconnected', dot: 'offline', text: 'text-bad' },
-  waiting: { label: 'Waiting for approval', dot: 'starting', text: 'text-warn' },
-  expired: { label: 'Request expired', dot: 'idle', text: 'text-nb-400' },
-  gone: { label: 'Revoked', dot: 'idle', text: 'text-nb-500' },
-  unknown: { label: 'Not live', dot: 'idle', text: 'text-nb-400' },
-}
-/** Milliseconds until a certificate expires (negative once it has). */
-/** An agent renews its short-lived certificate well before this, so under it, and still connected, is worth a look (the same line the diagnosis draws). */
-const CERT_SOON = 2 * 3_600_000
-const msUntil = (iso?: string, now = Date.now()) => (iso ? new Date(iso).getTime() - now : undefined)
-/** Agent certificates are short-lived and renewed by the agent itself, so hours are the honest unit. */
-const inWords = (ms: number) => (ms < 3_600_000 ? `${Math.max(1, Math.round(ms / 60_000))} min` : ms < 48 * 3_600_000 ? `${Math.round(ms / 3_600_000)} h` : `${Math.round(ms / 86_400_000)} d`)
-const tierOf = (a: Agent) => ACCESS_TIERS.find((t) => t.value === a.accessTier)?.label ?? `Tier ${a.accessTier}`
-/** "now", "5m", "3h", "2d": for places with no room for a sentence. */
-const shortAge = (iso: string, now = Date.now()) => {
-  const s = Math.max(0, (now - new Date(iso).getTime()) / 1000)
-  return s < 90 ? 'now' : s < 5400 ? `${Math.round(s / 60)}m ago` : s < 129600 ? `${Math.round(s / 3600)}h ago` : `${Math.round(s / 86400)}d ago`
-}
-const num = (n: number) => n.toLocaleString()
-/** The tone beside the Diagnose button: nothing for an agent that is well, so a quiet table stays quiet. */
-const diagnosisTone = (a: Agent, extras: AgentExtras, now: number) => diagnoseAgent(a, extras, now).verdict
 
 export default function AgentsPage() {
   const { agents, clusters, sites, suggestions } = useTopology()
@@ -257,78 +224,19 @@ export default function AgentsPage() {
                   const c = cluster(a.clusterId)
                   const s = site(c)
                   const expanded = open === a.id
-                  const st = HEALTH[h]
                   return (
                     <Fragment key={a.id}>
-                      <tr
-                        id={`agent-${a.id}`}
-                        className="group cursor-pointer hover:bg-nb-930/60"
-                        onClick={() => setOpen(expanded ? null : a.id)}
-                        role="button"
-                        tabIndex={0}
-                        aria-expanded={expanded}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(expanded ? null : a.id) } }}
-                        data-testid="agent-row"
-                      >
-                        <Td valign="top">
-                          <div className="flex items-center gap-2 whitespace-nowrap font-medium text-nb-300">
-                            <ChevronRight size={ICON_SM} className="chevron-turn text-nb-500" data-open={expanded} aria-hidden />
-                            {a.name}
-                          </div>
-                          <div className="pl-[22px] text-xs text-nb-500">v{a.version}{a.kubernetesVersion ? ` · Kubernetes ${a.kubernetesVersion}` : ''}</div>
-                        </Td>
-                        <Td valign="top">
-                          {c ? (
-                            <>
-                              <Link to={`/topology?sel=${encodeURIComponent(`cluster:${c.id}`)}`} onClick={(e) => e.stopPropagation()} className="hover:text-nb-300 hover:underline">
-                                <WithIcon icon={<DistroIcon distribution={c.distribution} size={ICON_SM} />}>{c.name}</WithIcon>
-                              </Link>
-                              <div className="mt-0.5 flex items-center gap-2 text-xs text-nb-500"><TierBadge tier={c.tier as Tier} />{s?.name ?? c.region}</div>
-                              {a.scope && a.scope.inScope < a.scope.namespaces && (
-                                <div className="mt-0.5 text-xs text-warn" title={a.scope.description} data-testid="scope-badge">{a.scope.inScope} of {a.scope.namespaces} namespaces</div>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-nb-500">no cluster yet</span>
-                          )}
-                        </Td>
-                        <Td valign="top">
-                          <div className="flex items-center gap-2 whitespace-nowrap">
-                            <LiveDot kind={st.dot} />
-                            <span className={st.text}>{st.label}</span>
-                          </div>
-                          <div className="text-xs text-nb-500" title={a.lastHeartbeat ? when(a.lastHeartbeat) : undefined}>
-                            {a.lastHeartbeat ? `heartbeat ${ageOf(a.lastHeartbeat)}` : 'no heartbeat yet'}
-                            {a.link?.connectedSince && ` · up ${ageOf(a.link.connectedSince).replace(' ago', '')}`}
-                          </div>
-                          {a.status === 'approved' && extrasOf(rawAgents, a.id).diagnostics && (
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                              <HealthChip diagnostics={extrasOf(rawAgents, a.id).diagnostics} connected={a.connected} />
-                              <DiscoveryChip diagnostics={extrasOf(rawAgents, a.id).diagnostics} />
-                            </div>
-                          )}
-                          {skewWarning(a.clockSkewMs) && a.clockSkewMs !== undefined && (
-                            <StatusBadge tone="attention" label={skewLabel(a.clockSkewMs)} title={skewWarning(a.clockSkewMs)} data-testid="clock-chip" className="mt-1" />
-                          )}
-                        </Td>
-                        <Td valign="top" className="whitespace-nowrap tabular-nums">
-                          {a.link ? (
-                            <>
-                              <div className="text-nb-300">{bytesTotal(a.link.bytes)}</div>
-                              <div className="text-xs text-nb-500">{num(a.link.syncs + a.link.flows + a.link.measurements + a.link.heartbeats)} messages</div>
-                            </>
-                          ) : (
-                            <span className="text-nb-600">—</span>
-                          )}
-                        </Td>
-                        <Td valign="top" className="whitespace-nowrap" title={`Tier ${a.accessTier}`}>{tierOf(a)}</Td>
-                        <Td valign="top">
-                          <ApprovalStatus status={a.status} />
-                        </Td>
-                        <Td valign="top" className="whitespace-nowrap text-right">
-                          <DiagnoseButton onClick={() => setDiagnosing(a.id)} tone={diagnosisTone(a, extrasOf(rawAgents, a.id), now)} />
-                        </Td>
-                      </tr>
+                      <AgentRow
+                        agent={a}
+                        health={h}
+                        cluster={c}
+                        site={s}
+                        extras={extrasOf(rawAgents, a.id)}
+                        expanded={expanded}
+                        now={now}
+                        onToggle={() => setOpen(expanded ? null : a.id)}
+                        onDiagnose={() => setDiagnosing(a.id)}
+                      />
                       {expanded && (
                         <tr>
                           <Td colSpan={7} className="bg-nb-930/40 py-4">
@@ -382,274 +290,5 @@ export default function AgentsPage() {
         />
       )}
     </>
-  )
-}
-
-/** Everything the server knows about one agent that does not fit in a row. */
-function AgentDetail({ agent: a, extras, canConsent, onRevoke }: { agent: Agent; extras: AgentExtras; canConsent: boolean; onRevoke?: () => void }) {
-  const l = a.link
-  const certLeft = msUntil(a.certExpiresAt)
-  const ip = a.connectingIp
-  const publicIpFallbackOn = useServer((s) => s.info?.geoip?.publicIpFallback)
-  const approved = a.status === 'approved'
-  const d = approved ? extras.diagnostics : undefined
-  const reported = a.status === 'approved' || a.status === 'revoked' || a.status === 'rejected'
-  const modulesNotOk = a.modules.filter((m) => m.status !== 'ok')
-  // The approved level, and only what differs from it: the install and the enrollment say more only when they are not the same.
-  const tierName = (t?: number) => ACCESS_TIERS.find((x) => x.value === t)?.label
-  const accessWords = [
-    tierOf(a),
-    a.installedTier !== undefined && a.installedTier !== a.accessTier ? `installed up to ${tierName(a.installedTier)}` : undefined,
-    a.tierCap !== undefined && a.tierCap !== (a.installedTier ?? a.accessTier) ? `enrolled up to ${tierName(a.tierCap)}` : undefined,
-  ].filter(Boolean).join(' · ')
-  const connection = (
-    <div data-testid="agent-connection">
-      <Heading>Connection</Heading>
-      <Facts
-        rows={[
-          ['From', ip ? `${ip}${ipScopeLabel(ipScope(ip)) ? ` (${ipScopeLabel(ipScope(ip)).toLowerCase()})` : ''}` : undefined],
-          [
-            'Located',
-            a.connectingGeo ? (
-              <span key="located" className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="inline-flex items-center gap-2">
-                  <Flag code={a.connectingGeo.country} />
-                  <span>
-                    {[a.connectingGeo.city, a.connectingGeo.countryName || a.connectingGeo.country].filter(Boolean).join(', ')}
-                    {a.connectingGeo.estimated && <GuessDot why="Taken from this server's own internet connection, because the cluster's address is private." />}
-                  </span>
-                </span>
-                {a.connectingGeo.asOrg && (
-                  <span className="text-nb-500" title="Which network this address belongs to, from a separate ASN database.">
-                    · {a.connectingGeo.asOrg}
-                    {a.connectingGeo.asn ? ` (AS${a.connectingGeo.asn})` : ''}
-                  </span>
-                )}
-              </span>
-            ) : a.connectingGeoReason ? (
-              <span key="located" className="text-nb-500" title={GEO_UNLOCATABLE_HELP[a.connectingGeoReason]}>
-                No location — {GEO_UNLOCATABLE_LABEL[a.connectingGeoReason].toLowerCase()}
-                {(a.connectingGeoReason === 'cgnat' || a.connectingGeoReason === 'private') && !publicIpFallbackOn &&
-                  ' (an administrator can turn on estimating this from the server\'s own address in the deployment settings)'}
-              </span>
-            ) : undefined,
-          ],
-          ['Connected', l?.connectedSince ? ageOf(l.connectedSince) : a.connected === false ? 'not connected' : undefined],
-          ['Certificate', a.certExpiresAt ? <span key="cert" className={certLeft !== undefined && certLeft < 0 ? 'text-bad' : certLeft !== undefined && certLeft < CERT_SOON && a.connected ? 'text-warn' : undefined} title={`Expires ${when(a.certExpiresAt)}`}>{certLeft !== undefined && certLeft < 0 ? `expired ${when(a.certExpiresAt)}` : certLeft !== undefined ? `${inWords(certLeft)} left` : `expires ${when(a.certExpiresAt)}`}</span> : undefined],
-          // Only when it is off: a clock that is right says nothing, and the plain figure is in the technical details.
-          ['Clock', a.clockSkewMs !== undefined && skewWarning(a.clockSkewMs) ? skewLabel(a.clockSkewMs) : undefined],
-          ['Agent', d ? `${withV(d.agentVersion)}${d.arch ? ` · ${d.os ?? ''}/${d.arch}` : ''} · up ${uptimeWords(d.uptimeSeconds)}` : undefined],
-          [
-            'Watches',
-            d && d.informers.length > 0 ? (
-              <span key="watches">
-                {d.informers.filter((i) => i.synced).length} of {d.informers.length} read
-                {d.informers.filter((i) => !i.synced || i.lastError).map((i) => (
-                  <span key={i.name} className="block break-words text-xs text-warn">{i.name}: {i.lastError || 'not read yet'}</span>
-                ))}
-              </span>
-            ) : undefined,
-          ],
-        ]}
-      />
-    </div>
-  )
-  const access = approved && (d || canConsent) ? <AccessPanel agent={a} diagnostics={d} consent={extras.consent} editable={canConsent} /> : null
-  return (
-    <div className="space-y-6 text-sm">
-      <div className="grid gap-x-10 gap-y-6 md:grid-cols-2" data-testid={d ? 'agent-health' : undefined}>
-        {(d || access) && (
-          <div className="space-y-4">
-            {d && <div className="flex flex-wrap items-center gap-2"><HealthChip diagnostics={d} connected={a.connected} /><DiscoveryChip diagnostics={d} /><span className="text-xs text-nb-600">from the agent's own report, {ageOf(d.reportedAt)}</span></div>}
-            {access}
-            {d && d.problems.length > 0 && (
-              <div>
-                <Heading>Problems</Heading>
-                <Problems problems={d.problems} />
-              </div>
-            )}
-          </div>
-        )}
-        <div className="space-y-6">
-          {connection}
-          {approved && <AgentTelemetry agent={a} diagnostics={d} canConsent={canConsent} />}
-        </div>
-      </div>
-      {(a.status === 'revoked' || a.status === 'rejected') && a.teardown && <AgentTeardown status={a.status} teardown={a.teardown} />}
-      <Fold
-        title="Technical details"
-        testId="agent-technical"
-        hint={modulesNotOk.length > 0 ? `${modulesNotOk.length} module${modulesNotOk.length === 1 ? '' : 's'} ${modulesNotOk.every((m) => m.status === 'skipped') ? 'skipped' : 'to look at'}` : 'install, identity, what it sent'}
-        warn={modulesNotOk.some((m) => m.status === 'error')}
-      >
-        {/* Only what is not said above: the access level, the heartbeat, the clock and the modules that are fine are already in the chips,
-            the tier ladder and the connection, so they come back here only for an agent that has no report to say them. */}
-        <div className="space-y-3" data-testid="agent-technical-body">
-          <Facts
-            rows={[
-              ['Install', reported ? [a.namespace, a.releaseName].filter(Boolean).join(' · ') || 'not reported by this agent yet' : undefined],
-              ['Identity', a.fingerprint ? <span key="fp" className="font-mono text-xs" title={a.fingerprint}>{a.fingerprint.replace(/^[^:]*:/, '').slice(0, 8)}…</span> : undefined],
-              ['Requested', a.requestedAt ? when(a.requestedAt) : undefined],
-              [
-                'Sent',
-                l ? (
-                  <span key="sent" title="Since the server started. Sizes are of the messages as encoded, before gRPC framing and TLS.">
-                    {[bytesTotal(l.bytes), `${num(l.syncs)} cluster reports`, `${num(l.flows)} traffic reports`, l.measurements > 0 ? `${num(l.measurements)} path measurements` : undefined, `${l.connects} connection${l.connects === 1 ? '' : 's'}`].filter(Boolean).join(' · ')}
-                  </span>
-                ) : (
-                  'nothing counted yet'
-                ),
-              ],
-              [
-                'Access',
-                d ? undefined : <span key="access" title="Approved access is what actually runs. It can never be approved above the enrollment ceiling set when the agent joined, and stays capped at whatever the cluster's installed RBAC allows until that install is upgraded to match.">{accessWords}</span>,
-              ],
-              ['Last heartbeat', d ? undefined : a.lastHeartbeat ? `${when(a.lastHeartbeat)} (${ageOf(a.lastHeartbeat)})` : undefined],
-            ]}
-          />
-          {modulesNotOk.length > 0 && (
-            <ul className="space-y-1" data-testid="agent-modules-not-ok">
-              {modulesNotOk.map((m) => (
-                <li key={m.name} className="text-xs">
-                  <span className={clsx('font-medium', MODULE_STYLE[m.status])}>{m.name} ({m.status})</span>
-                  {m.reason && <span className="text-nb-500"> · {m.reason}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-          <div>
-            {!d && <ScopeLine agent={a} />}
-            <ObserverLine agent={a} />
-            <CheckLine agent={a} />
-          </div>
-        </div>
-      </Fold>
-      <Fold title="History" testId="agent-history">
-        <EntityHistory kind="agent" id={a.id} />
-      </Fold>
-      {onRevoke && (
-        <div>
-          <Button size="sm" variant="danger" onClick={onRevoke} aria-label={`Revoke ${a.name}`}>Revoke…</Button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/** A closed section: a title with what is inside it in a few words, opened on a click. */
-function Fold({ title, hint, warn, testId, children }: { title: string; hint?: string; warn?: boolean; testId?: string; children: ReactNode }) {
-  return (
-    <details className="group" data-testid={testId}>
-      <summary className="flex cursor-pointer list-none items-baseline gap-1.5 text-sm text-nb-400 hover:text-nb-300 [&::-webkit-details-marker]:hidden">
-        <ChevronRight size={14} className="shrink-0 self-center transition-transform group-open:rotate-90" aria-hidden />
-        {title}
-        {hint && <span className={clsx('text-xs', warn ? 'text-warn' : 'text-nb-600')}>{hint}</span>}
-      </summary>
-      <div className="mt-3 pl-5">{children}</div>
-    </details>
-  )
-}
-
-const Heading = ({ children }: { children: string }) => <SectionLabel className="mb-1.5">{children}</SectionLabel>
-
-function Facts({ rows }: { rows: [ReactNode, ReactNode][] }) {
-  return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-      {rows.filter((r) => !!r[1]).map(([k, v], i) => (
-        <Fragment key={i}>
-          <dt className="text-nb-500">{k}</dt>
-          <dd className="min-w-0 break-words text-nb-300">{v}</dd>
-        </Fragment>
-      ))}
-    </dl>
-  )
-}
-
-/* ---------- the map: this server in the middle of the picture, agents by tier ---------- */
-
-const ROWS: { tier: Tier; label: string }[] = [
-  { tier: 'cloud', label: 'Cloud' },
-  { tier: 'edge', label: 'Edge' },
-  { tier: 'far-edge', label: 'Far edge' },
-]
-const CARD_W = 236
-const CARD_H = 62
-const GAP = 22
-
-function AgentMap({ rows, clusterOf, selected, onSelect }: { rows: { a: Agent; h: AgentHealth }[]; clusterOf: (id?: string) => Cluster | undefined; selected: string | null; onSelect: (id: string | null) => void }) {
-  const W = 1000
-  const perLine = 4
-  // Group by the tier of the agent's cluster; an agent with no cluster yet goes in a row of its own.
-  const groups = [...ROWS.map((r) => ({ ...r, items: rows.filter((x) => clusterOf(x.a.clusterId)?.tier === r.tier) })), { tier: 'none' as const, label: 'Not in a cluster yet', items: rows.filter((x) => !clusterOf(x.a.clusterId)) }].filter((g) => g.items.length > 0)
-  let y = 96
-  const placed: { x: number; y: number; a: Agent; h: AgentHealth }[] = []
-  const labels: { y: number; text: string }[] = []
-  for (const g of groups) {
-    labels.push({ y, text: g.label })
-    y += 18
-    for (let i = 0; i < g.items.length; i += perLine) {
-      const line = g.items.slice(i, i + perLine)
-      const total = line.length * CARD_W + (line.length - 1) * GAP
-      line.forEach((it, k) => placed.push({ x: (W - total) / 2 + k * (CARD_W + GAP), y, ...it }))
-      y += CARD_H + GAP
-    }
-    y += 14
-  }
-  const H = Math.max(y, 180)
-  const hub = { x: W / 2, y: 34 }
-  return (
-    <Card className="overflow-x-auto p-2" data-testid="agents-map">
-      <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto w-full min-w-[640px] max-w-[1000px]" role="img" aria-label="Agents connected to this server, grouped by the tier of their cluster">
-        {placed.map((p) => {
-          const st = HEALTH[p.h]
-          const live = p.h === 'ok' || p.h === 'late'
-          const d = `M${hub.x},${hub.y + 20} C${hub.x},${(hub.y + p.y) / 2 + 20} ${p.x + CARD_W / 2},${(hub.y + p.y) / 2} ${p.x + CARD_W / 2},${p.y}`
-          return (
-            <path
-              key={p.a.id}
-              d={d}
-              fill="none"
-              strokeWidth={live ? 1.6 : 1.2}
-              strokeLinecap="round"
-              className={live ? 'map-link' : undefined}
-              data-reverse="1"
-              style={{ stroke: p.h === 'ok' ? '#5fd3a0' : p.h === 'late' ? '#fbbf24' : '#6f7b85', ['--flow' as string]: '2.6s', strokeDasharray: live ? undefined : '2 5', opacity: live ? 0.85 : 0.5 }}
-              data-status={st.label}
-            />
-          )
-        })}
-        <g transform={`translate(${hub.x - 70} ${hub.y - 20})`}>
-          <rect width={140} height={40} rx={10} style={{ fill: 'var(--color-nb-920)', stroke: 'var(--color-accent)' }} strokeWidth={1.4} />
-          <foreignObject x={0} y={0} width={140} height={40}>
-            <div className="flex h-full items-center justify-center gap-2 text-sm font-medium text-nb-300"><Server size={ICON_SM} className="text-accent" aria-hidden /> This server</div>
-          </foreignObject>
-        </g>
-        {labels.map((l) => (
-          <text key={l.text} x={22} y={l.y + 4} fontSize={11} style={{ fill: 'var(--color-nb-500)' }} className="uppercase tracking-wide">{l.text}</text>
-        ))}
-        {placed.map((p) => {
-          const c = clusterOf(p.a.clusterId)
-          const st = HEALTH[p.h]
-          const sel = selected === p.a.id
-          return (
-            <foreignObject key={p.a.id} x={p.x} y={p.y} width={CARD_W} height={CARD_H}>
-              <button
-                onClick={() => onSelect(sel ? null : p.a.id)}
-                aria-pressed={sel}
-                className={clsx('flex h-full w-full flex-col justify-center rounded-lg border bg-nb-920 px-3 text-left transition-colors hover:border-nb-700', sel ? 'border-accent' : 'border-nb-850')}
-                data-testid="agent-node"
-              >
-                <span className="flex items-center gap-2 text-sm font-medium text-nb-300">
-                  <LiveDot kind={st.dot} />
-                  <span className="truncate">{p.a.name}</span>
-                </span>
-                <span className="mt-0.5 truncate text-xs text-nb-500">{c ? c.name : 'no cluster yet'} · {p.a.lastHeartbeat ? shortAge(p.a.lastHeartbeat) : st.label.toLowerCase()}</span>
-                <span className="truncate text-[11px] text-nb-600">{p.a.link ? `${bytesTotal(p.a.link.bytes)} received` : tierOf(p.a)}</span>
-              </button>
-            </foreignObject>
-          )
-        })}
-      </svg>
-    </Card>
   )
 }
