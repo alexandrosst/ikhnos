@@ -99,7 +99,7 @@ interface Actions {
   clear: () => void
 }
 
-type RawState = Model & Actions
+export type RawState = Model & Actions
 
 const upsert = <T extends { id: string }>(list: T[], item: T): T[] =>
   list.some((x) => x.id === item.id) ? list.map((x) => (x.id === item.id ? item : x)) : [...list, item]

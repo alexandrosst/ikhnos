@@ -17,6 +17,7 @@ import clsx from 'clsx'
 import { Filter as FilterIcon, Info, Plug, Plus, RotateCcw, ScanEye, SlidersHorizontal, Target, X } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryParams } from '@/lib/useQueryParams'
+import { useTopologyScope, useViewOptions, VIEWS } from '@/features/topology/useTopologyOptions'
 import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import { useTelemetryFlow } from '@/features/pipeline/components/telemetry/TelemetryFlow'
 import { ClusterForm, DeviceForm, NodeForm, ServiceForm } from '@/components/forms'
@@ -46,24 +47,16 @@ import { Tabs } from '@/components/ui/Tabs'
 import FilterMenu, { FilterChip } from '@/features/topology/components/FilterMenu'
 import { computeFocus } from '@/features/topology/lib/focus'
 import { narrowFitZoom } from '@/features/topology/lib/fit'
-import { applyFilter, DEFAULT_KINDS, encodeList, filterActive, hopNeighborhood, isFreshApplicationView, knownOnly, parseFilter } from '@/features/topology/lib/filter'
+import { encodeList } from '@/features/topology/lib/filter'
 import { applyGraphUpdate, buildGraph, cardId, groupId, sameLayout, syncSelected, type TopoEdge, type TopoNode } from '@/features/topology/lib/graph'
 import { lossBand } from '@/lib/metrics'
 import { lossLabel } from '@/features/topology/lib/lossLabel'
 import { anyMesh, VERDICT_COLOR } from '@/features/topology/lib/mesh'
 import { useAutoPlaceClusters } from '@/lib/usePlacement'
 import { parseSel } from '@/lib/search'
-import { TIER_COLOR, type GroupBy, type ViewKind } from '@/lib/types'
+import { TIER_COLOR } from '@/lib/types'
 import { useServer } from '@/store/server'
 import { useClusterLinks, usePaths, useTopology } from '@/store/topology'
-
-type Mode = ViewKind | 'map' | 'telemetry'
-const VIEWS: { value: Mode; label: string; hint: string }[] = [
-  { value: 'application', label: 'Application', hint: 'Microservices and the clusters they run in' },
-  { value: 'infrastructure', label: 'Infrastructure', hint: 'Nodes (VMs / machines) grouped by cluster' },
-  { value: 'map', label: 'Map', hint: 'Where your sites are in the world' },
-  { value: 'telemetry', label: 'Telemetry', hint: 'The path telemetry takes from each cluster to FUSION' },
-]
 
 // `lens`, when true, marks a control that changes what the canvas is actually interpreting or
 // computing (recolouring edges by a different live signal, e.g.) rather than just drawing or hiding
@@ -156,48 +149,9 @@ function Canvas() {
   // a missing one silently (see Layout.tsx's comment for why this no longer runs on every route).
   useAutoPlaceClusters()
 
-  const mode: Mode = VIEWS.find((v) => v.value === sp.get('view'))?.value ?? 'application'
-  const isMap = mode === 'map'
-  const isTelemetry = mode === 'telemetry'
-  // Application, Infrastructure: the two tabs drawn on the canvas, with its options.
-  const isCanvas = !isMap && !isTelemetry
-  const view: ViewKind = isMap || isTelemetry ? 'application' : mode
-  const groupBy: GroupBy = sp.get('group') === 'tier' ? 'tier' : 'cluster'
-  const servicesOnNodes = sp.get('services') === '1'
-  const links = sp.get('links') !== '0'
-  const showDevices = sp.get('devices') !== '0'
-  const showLabels = sp.get('labels') === '1'
-  const showNoise = sp.get('noise') === '1'
   const hasMesh = anyMesh(topology.clusters)
-  // Asked for in the URL, but only means something when a cluster runs a mesh.
-  const showMesh = sp.get('mesh') === '1' && hasMesh
-  // Only means something in the application view, grouped by cluster (a tier box already mixes clusters together).
-  const showNamespaces = sp.get('namespaces') === '1' && groupBy === 'cluster'
-  // Chain lays every service out in one flat left-to-right order across every cluster, so it replaces the
-  // cluster/tier boxes and namespace sub-boxes rather than combining with them.
-  const showChain = sp.get('chain') === '1' && mode === 'application'
-  // Off by default: recolours the measured line between two clusters (ClusterLink.avgLossPct, see
-  // tunnels.go's correlateClusterLinks) by its live flow-rollup loss. A link with nothing measured is not
-  // drawn at all (see graph.ts), so this only ever has measured lines to colour.
-  const showHealthLens = sp.get('health') === '1'
-  // The Telemetry tab's own filter: only the lanes where something needs attention or is not working.
-  const problemsOnly = isTelemetry && sp.get('problems') === '1'
-  // How many options differ from the defaults, so a hidden option is never a mystery.
-  const setParam = (k: string, v: string | null) => setParams({ [k]: v })
-
-  // The Application view defaults to the services (Deployments and StatefulSets) rather than "everything": a fresh visit
-  // with no filter chosen yet is the common case, and starting there with just the services makes the canvas
-  // read as actual services (not DaemonSets/Jobs) and gives a topology selection fewer, more
-  // relevant cards to choose from. A one-time URL rewrite, not a render-time default - deriving it at render
-  // time instead would break the moment someone unchecks the only active kind, since the resulting empty
-  // selection writes the exact same "no kinds param" URL the default itself would read, so the default would
-  // silently reassert itself on the very next render. Running once, on mount, means it can never re-fire
-  // after that no matter what the person does afterward (including clearing it right back to "everything").
-  useEffect(() => {
-    if (isFreshApplicationView(sp)) setParam('kinds', encodeList(DEFAULT_KINDS))
-    // only meant to run once, at first mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // What the address says about how to draw (see useTopologyOptions): the options themselves, and the one-time default for a fresh Application view.
+  const { mode, isMap, isTelemetry, isCanvas, view, groupBy, servicesOnNodes, links, showDevices, showLabels, showNoise, showMesh, showNamespaces, showChain, showHealthLens, problemsOnly, setParam } = useViewOptions(sp, setParams, hasMesh)
 
   const [selection, setSelection] = useState<Selection>(null)
 
@@ -240,7 +194,7 @@ function Canvas() {
     return () => window.removeEventListener('keydown', onKey)
   }, [openMenu])
 
-  const { clusters, nodes: machines, namespaces, services, devices, dependencies, applications, sites, siteLinks, externalEndpoints, agents } = topology
+  const { clusters, nodes: machines, services, devices, dependencies, applications, sites, externalEndpoints, agents } = topology
   // Discovered records come from the server with the first refresh, after the workspace loads: a link to one waits for them.
   const observedReady = useServer((s) => s.status === 'disconnected' || s.state !== undefined)
 
@@ -263,24 +217,9 @@ function Canvas() {
   const paths = usePaths()
   const clusterLinks = useClusterLinks()
 
-  // Only some clusters or applications, when asked (?clusters=a,b&apps=x). Ids that no longer exist are ignored.
-  const rawFilter = useMemo(() => parseFilter(sp), [sp])
-  const filter = useMemo(() => knownOnly(rawFilter, { clusters, applications }), [rawFilter, clusters, applications])
-  const filtering = filterActive(filter)
-  const filteredByAttrs = useMemo(
-    () => applyFilter({ clusters, nodes: machines, namespaces, services, devices, dependencies, applications, sites, siteLinks, externalEndpoints }, filter),
-    [clusters, machines, namespaces, services, devices, dependencies, applications, sites, siteLinks, externalEndpoints, filter],
-  )
-  // Backstage-style "max depth": while a service is selected, ?hops=N further narrows the canvas to just
-  // its neighborhood (what it calls and what calls it, N steps out) - independent of the cluster/app/kind
-  // filter above, and only in effect while that service is actually the current selection.
-  const hopsParam = sp.get('hops')
-  const hops = hopsParam !== null && /^\d+$/.test(hopsParam) ? Number(hopsParam) : undefined
+  // What is shown: the filters, and a service's neighbourhood while one is selected (see useTopologyScope).
   const focusId = selection?.kind === 'service' ? selection.id : undefined
-  const shown = useMemo(
-    () => (hops !== undefined && focusId ? hopNeighborhood(filteredByAttrs, focusId, hops) : filteredByAttrs),
-    [filteredByAttrs, hops, focusId],
-  )
+  const { filter, shown, hops, nothingMatches } = useTopologyScope(sp, topology, focusId)
   const graph = useMemo(
     () =>
       buildGraph(shown, {
@@ -289,7 +228,6 @@ function Canvas() {
       }),
     [shown, view, groupBy, servicesOnNodes, links, showDevices, showNoise, showMesh, showNamespaces, showChain, paths, clusterLinks],
   )
-  const nothingMatches = filtering && shown.clusters.length === 0 && shown.devices.length === 0
 
   const [nodes, setNodes, onNodesChange] = useNodesState<TopoNode>(graph.nodes)
 
