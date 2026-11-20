@@ -13,6 +13,9 @@ export interface LoadOptions {
   /** Anything the read depends on that is not the organisation (an id the panel is about). A change starts over: the old answer
    *  is dropped rather than shown under the new subject until the new one arrives. */
   key?: string | number
+  /** Read again, keeping what is shown, whenever this changes (a counter a parent bumps when something happened elsewhere on the page).
+   *  Unlike `key`, the answer held stays on screen until the new one arrives. */
+  reloadOn?: unknown
 }
 
 export interface Load<T> {
@@ -33,7 +36,7 @@ export interface Load<T> {
  * The hand-written version of this is a `let live = true` effect with its own loading and error state; it is easy to get subtly wrong
  * (no guard against a slower earlier request, no reset on organisation change), which is why it lives here once.
  */
-export function useLoad<T>(read: (c: Conn) => Promise<T>, { enabled = true, failure, pollMs, key }: LoadOptions): Load<T> {
+export function useLoad<T>(read: (c: Conn) => Promise<T>, { enabled = true, failure, pollMs, key, reloadOn }: LoadOptions): Load<T> {
   const conn = useServer((s) => s.conn)
   // `conn` is one stable function that reads the organisation in use when it is called, so a switch of organisation is invisible to it:
   // the organisation itself is what makes the read start over, instead of showing the last one's data until the next poll.
@@ -77,9 +80,10 @@ export function useLoad<T>(read: (c: Conn) => Promise<T>, { enabled = true, fail
     } finally {
       if (alive.current && mine === newest.current) setLoaded(true)
     }
-  // org and key are not read in here (conn() reads the organisation at call time, the read closure reads the key); they are
+  // org, key and reloadOn are not read in here (conn() reads the organisation at call time, the read closure reads the key); they are
   // dependencies so that a change makes a new callback, and with it a fresh read.
-  }, [conn, enabled, failure, org, key])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conn, enabled, failure, org, key, reloadOn])
   useEffect(() => {
     void reload()
   }, [reload])

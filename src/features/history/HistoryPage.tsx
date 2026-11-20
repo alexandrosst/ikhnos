@@ -12,6 +12,7 @@ import type { FeedFilter } from '@/features/history/lib/feed'
 import { api, atLeast, type AuditRow, type Conn, type StorageInfo } from '@/lib/api'
 import type { ChangeEvent, HistoryIndex, TrafficRate } from '@/lib/history'
 import { ago, bytesPerSec } from '@/lib/observed'
+import { useLoad } from '@/lib/useLoad'
 import { useConn, useServer } from '@/store/server'
 import { useSettings } from '@/store/settings'
 import { useTopology } from '@/store/topology'
@@ -142,10 +143,10 @@ function Changes({ conn, admin, switcher, onSeeAll }: { conn: Conn; admin: boole
           <Feed events={events} audit={auditLog} filter={filter} clusterId={clusterId} since={since} hours={hours} />
         </div>
         <aside className="space-y-4" aria-label="About this history">
-          {admin && filter === 'changes' && <RecentPeople conn={conn} tick={tick} onSeeAll={onSeeAll} />}
+          {admin && filter === 'changes' && <RecentPeople tick={tick} onSeeAll={onSeeAll} />}
           <PictureCheck />
-          <BusiestLinks conn={conn} />
-          <Stored conn={conn} tick={tick} />
+          <BusiestLinks />
+          <Stored tick={tick} />
         </aside>
       </div>
       {recording && <RecordingPanel admin={admin} conn={conn} onClose={() => setRecording(false)} />}
@@ -181,13 +182,10 @@ const SideCard = ({ title, children, label }: { title: string; children: React.R
 )
 
 /** The last few things people did, for administrators, beside what ikhnos detected. The other two views of the feed already list them, so it appears only beside "Detected". The whole trail is the People view. */
-function RecentPeople({ conn, tick, onSeeAll }: { conn: Conn; tick: number; onSeeAll: () => void }) {
-  const [rows, setRows] = useState<AuditRow[] | null>(null)
-  useEffect(() => {
-    let live = true
-    api.audit(conn, { limit: 5 }).then((a) => live && setRows(a.rows), () => live && setRows([]))
-    return () => { live = false }
-  }, [conn, tick])
+function RecentPeople({ tick, onSeeAll }: { tick: number; onSeeAll: () => void }) {
+  // A failed read says the same as an empty one here: the card is a glance, not the place the audit trail's errors are shown.
+  const load = useLoad((c) => api.audit(c, { limit: 5 }).then((a) => a.rows as AuditRow[]), { failure: 'Could not read what people did.', reloadOn: tick })
+  const rows = load.loaded ? (load.data ?? []) : null
   return (
     <Card as="section" className="p-4" aria-label="Recent by people" data-testid="recent-people">
       <div className="mb-2.5 flex items-baseline justify-between">
@@ -251,22 +249,11 @@ function PictureCheck() {
 const rate = (n: number) => (n > 0 && n < 1 ? '<1 B/s' : bytesPerSec(n))
 
 /** The three busiest links over the last day, each with a bar against the busiest. */
-function BusiestLinks({ conn }: { conn: Conn }) {
-  const [rates, setRates] = useState<TrafficRate[] | null>(null)
-  const [snapshots, setSnapshots] = useState(0)
+function BusiestLinks() {
   const { dependencies, services, devices, externalEndpoints } = useTopology()
-  useEffect(() => {
-    let live = true
-    api.traffic(conn, 24).then((r) => {
-      if (live) {
-        setRates(r.rates)
-        setSnapshots(r.snapshots)
-      }
-    }).catch(() => live && setRates([]))
-    return () => {
-      live = false
-    }
-  }, [conn])
+  const load = useLoad((c) => api.traffic(c, 24), { failure: 'Could not read the traffic.' })
+  const rates: TrafficRate[] | null = load.loaded ? (load.data?.rates ?? []) : null
+  const snapshots = load.data?.snapshots ?? 0
   const names = useMemo(() => new Map<string, string>([...services.map((s) => [s.id, s.name] as const), ...devices.map((d) => [d.id, d.name] as const), ...externalEndpoints.map((e) => [e.id, e.name ?? e.host] as const)]), [services, devices, externalEndpoints])
   const byId = useMemo(() => new Map(dependencies.map((d) => [d.id, d])), [dependencies])
   const rows = (rates ?? []).filter((r) => r.avgBytesPerSec > 0).sort((a, b) => b.avgBytesPerSec - a.avgBytesPerSec).slice(0, 3)
@@ -298,15 +285,8 @@ function BusiestLinks({ conn }: { conn: Conn }) {
 }
 
 /** Where the recordings are kept, in a few words. */
-function Stored({ conn, tick }: { conn: Conn; tick: number }) {
-  const [info, setInfo] = useState<StorageInfo | null>(null)
-  useEffect(() => {
-    let live = true
-    api.storage(conn).then((i) => live && setInfo(i)).catch(() => live && setInfo(null))
-    return () => {
-      live = false
-    }
-  }, [conn, tick])
+function Stored({ tick }: { tick: number }) {
+  const info: StorageInfo | undefined = useLoad((c) => api.storage(c), { failure: 'Could not read where history is kept.', reloadOn: tick }).data
   if (!info) return null
   const graph = info.backend === 'neo4j'
   const st = info.stats

@@ -1,8 +1,9 @@
 import { History, UserRound } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ICON_SM, LinkButton, SectionLabel, SkeletonLines } from '@/components/ui/primitives'
 import { api, type Timeline } from '@/lib/api'
 import { kindLabel } from '@/lib/history'
+import { useLoad } from '@/lib/useLoad'
 import { useConn, useServer } from '@/store/server'
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
@@ -22,17 +23,12 @@ export const HISTORY_KINDS = new Set(['cluster', 'node', 'service', 'external', 
 export default function EntityHistory({ kind, id }: { kind: string; id: string }) {
   const conn = useConn()
   const status = useServer((s) => s.status)
-  const [enabled, setEnabled] = useState(false)
   const [tl, setTl] = useState<Timeline | null>(null)
   const [state, setState] = useState<'idle' | 'loading' | 'none' | 'error'>('idle')
 
-  useEffect(() => {
-    let live = true
-    if (status === 'connected') api.storage(conn).then((s) => live && setEnabled(s.backend === 'neo4j' && !!s.ready)).catch(() => live && setEnabled(false))
-    return () => {
-      live = false
-    }
-  }, [conn, status])
+  // Offered only when the server keeps a graph (and it is ready); a failed read means not offered.
+  const storage = useLoad((c) => api.storage(c), { enabled: status === 'connected', failure: 'Could not read where history is kept.' }).data
+  const enabled = storage?.backend === 'neo4j' && !!storage.ready
   if (!enabled || !HISTORY_KINDS.has(kind)) return null
 
   const load = async () => {

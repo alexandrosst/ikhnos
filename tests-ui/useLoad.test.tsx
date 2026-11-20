@@ -83,6 +83,20 @@ describe('useLoad', () => {
     await waitFor(() => expect(result.current.data).toBe('b:x'))
   })
 
+  test('reloadOn reads again but keeps the answer on screen until the new one arrives', async () => {
+    const second = deferred<string>()
+    const read = vi.fn().mockResolvedValueOnce('first').mockReturnValueOnce(second.promise)
+    let tick = 0
+    const { result, rerender } = renderHook(() => useLoad(read, { failure: 'x', reloadOn: tick }))
+    await waitFor(() => expect(result.current.data).toBe('first'))
+    tick = 1
+    rerender()
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2))
+    expect(result.current.data).toBe('first') // not blanked while the new read is out
+    await act(async () => { second.resolve('second') })
+    await waitFor(() => expect(result.current.data).toBe('second'))
+  })
+
   test('a change of organisation starts over', async () => {
     const d = deferred<string>()
     let n = 0

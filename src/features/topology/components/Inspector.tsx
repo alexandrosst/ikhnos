@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { ChevronDown, ChevronUp, Pencil, X } from 'lucide-react'
-import { Fragment, useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react'
+import { Fragment, useMemo, useState, type ComponentProps, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import EntityHistory from '@/features/history/components/EntityHistory'
 import { NeedsLook, SourcesFooter } from '@/features/topology/components/EvidenceSection'
@@ -17,7 +17,8 @@ import { exitIps } from '@/features/topology/lib/geo'
 import { ageLabel, autoscalerRange, callerIfaceSpeedMbps, disruptionLabel, formatMemory, GEO_UNLOCATABLE_HELP, GEO_UNLOCATABLE_LABEL, ipInCidr, linkUtilizationPct, podsLabel, podsPercent, recentlyScaledPods, volumeSize } from '@/lib/present'
 import { usePlacementSuggestions } from '@/lib/usePlacement'
 import { useHistoryView } from '@/store/history'
-import { useConn, useServer } from '@/store/server'
+import { useLoad } from '@/lib/useLoad'
+import { useServer } from '@/store/server'
 import { useRawTopology, useTopology } from '@/store/topology'
 import { bytesPerSec, bytesTotal, isObserved, trafficSummary } from '@/lib/observed'
 import { lossBand, pathQuality, rttLabel } from '@/lib/metrics'
@@ -26,7 +27,6 @@ import { connectionVerdict, meshName, MTLS_WORDS, proxyWords, VERDICT_COLOR } fr
 import type { PlatformModel } from '@/features/topology/lib/platformLayer'
 import { CONNECTIVITY, DEVICE_KINDS, TIERS, type Agent, type Dependency, type Evidence, type ExternalEndpoint, type ExternalKind, type Provenance, type Resources, type Tier } from '@/lib/types'
 import { api } from '@/lib/api'
-import type { DependencySeriesPoint } from '@/lib/history'
 
 export type Selection = { kind: 'cluster' | 'tier' | 'node' | 'service' | 'device' | 'site' | 'external' | 'dependency' | 'platform'; id: string } | null
 
@@ -54,26 +54,10 @@ function Maybe({ label, children, copy }: { label: string; children: ReactNode; 
  *  topology store: this is 24h of recorded history, a different lifetime from the live polled model
  *  everything else in this file reads. */
 function DependencyTrend({ dependencyId }: { dependencyId: string }) {
-  const conn = useConn()
-  // Keyed on the dependency id it was fetched for, not just "the latest points": a stale response for
-  // a dependency the selection has since moved away from must never render under the new one, and
-  // starting a fetch sets no state of its own (the state update lives only in the promise
-  // continuation below) - so switching dependencies shows nothing until its own fetch resolves,
-  // rather than another dependency's trend flashing briefly in between.
-  const [state, setState] = useState<{ id: string; points: DependencySeriesPoint[] } | null>(null)
-  useEffect(() => {
-    let live = true
-    api.dependencySeries(conn, dependencyId, 24).then((pts) => {
-      if (live) setState({ id: dependencyId, points: pts })
-    }).catch(() => {
-      if (live) setState({ id: dependencyId, points: [] })
-    })
-    return () => {
-      live = false
-    }
-  }, [conn, dependencyId])
-  if (!state || state.id !== dependencyId) return null
-  const points = state.points
+  // Keyed on the dependency id it was fetched for: a stale response for a dependency the selection has since moved away from never renders
+  // under the new one, and switching shows nothing until its own read arrives rather than another dependency's trend in between.
+  const { data: points } = useLoad((c) => api.dependencySeries(c, dependencyId, 24), { failure: 'Could not read the trend.', key: dependencyId })
+  if (!points) return null
   const rtt = points.map((p) => p.rttMs)
   const loss = points.map((p) => p.lossPct)
   const bps = points.map((p) => p.bytesPerSec)

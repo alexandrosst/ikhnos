@@ -31,8 +31,9 @@ const recordNow = vi.fn(async () => undefined)
 const audit = vi.fn(async () => ({ source: 'local', rows: [] }))
 // One stable object: a fresh one per render would change `load` on every render and refetch forever.
 const CONN = { url: 'https://example.test', org: 'o' }
+const connFn = () => CONN // one stable function, as the store's is
 vi.mock('@/store/server', () => ({
-  useServer: (selector: (s: unknown) => unknown) => selector({ status: 'connected', role, state: undefined }),
+  useServer: (selector: (s: unknown) => unknown) => selector({ status: 'connected', role, state: undefined, orgId: 'o', conn: connFn }),
   useConn: () => CONN,
 }))
 vi.mock('@/lib/api', async (importOriginal) => {

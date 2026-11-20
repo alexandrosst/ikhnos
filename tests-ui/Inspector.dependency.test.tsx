@@ -33,9 +33,10 @@ vi.mock('@/store/topology', () => ({
 vi.mock('@/store/history', () => ({
   useHistoryView: (selector: (s: { at: null; snapshot: null }) => unknown) => selector({ at: null, snapshot: null }),
 }))
+const stableConn = () => ({ url: '', org: 'o' }) // one function, as the store's is
 vi.mock('@/store/server', () => ({
-  useServer: (selector: (s: { info: undefined; status: string; url: string; orgId: string; state: undefined; conn: () => undefined }) => unknown) =>
-    selector({ info: undefined, status: 'idle', url: '', orgId: 'o', state: undefined, conn: () => undefined }),
+  useServer: (selector: (s: { info: undefined; status: string; url: string; orgId: string; state: undefined; conn: () => { url: string; org: string } }) => unknown) =>
+    selector({ info: undefined, status: 'idle', url: '', orgId: 'o', state: undefined, conn: stableConn }),
   useConn: () => ({ url: '', org: 'o' }),
 }))
 vi.mock('@/features/topology/components/EvidenceSection', () => ({
