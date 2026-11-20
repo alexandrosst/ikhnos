@@ -16,7 +16,7 @@ import '@xyflow/react/dist/style.css'
 import clsx from 'clsx'
 import { Filter as FilterIcon, Info, Plug, Plus, RotateCcw, ScanEye, SlidersHorizontal, Target, X } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useQueryParams } from '@/lib/useQueryParams'
 import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import { useTelemetryFlow } from '@/features/pipeline/components/telemetry/TelemetryFlow'
 import { ClusterForm, DeviceForm, NodeForm, ServiceForm } from '@/components/forms'
@@ -148,7 +148,7 @@ function Canvas() {
     const zoom = narrowFitZoom(width, v.zoom, widest)
     void setViewport({ x: Math.max(zoom === v.zoom ? v.x : -Infinity, width * 0.04 - bounds.x * zoom), y: Math.max(zoom === v.zoom ? v.y : -Infinity, height * 0.04 - bounds.y * zoom), zoom }, { duration })
   }, [store, fitView, getNodes, setViewport])
-  const [sp, setSp] = useSearchParams()
+  const [sp, setParams] = useQueryParams()
   const connect = useConnectFlow()
   const telemetry = useTelemetryFlow()
   const started = useGettingStarted('topology')
@@ -183,13 +183,7 @@ function Canvas() {
   // The Telemetry tab's own filter: only the lanes where something needs attention or is not working.
   const problemsOnly = isTelemetry && sp.get('problems') === '1'
   // How many options differ from the defaults, so a hidden option is never a mystery.
-  const setParam = (k: string, v: string | null) =>
-    setSp((p) => {
-      const n = new URLSearchParams(p)
-      if (v === null) n.delete(k)
-      else n.set(k, v)
-      return n
-    }, { replace: true })
+  const setParam = (k: string, v: string | null) => setParams({ [k]: v })
 
   // The Application view defaults to the services (Deployments and StatefulSets) rather than "everything": a fresh visit
   // with no filter chosen yet is the common case, and starting there with just the services makes the canvas
@@ -262,11 +256,7 @@ function Canvas() {
       setSelection(want)
       revealRef.current = true
     }
-    setSp((p) => {
-      const n = new URLSearchParams(p)
-      n.delete('sel')
-      return n
-    }, { replace: true })
+    setParams({ sel: null })
     // only the URL option triggers this; the lists are read when it arrives
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selParam, observedReady])
@@ -692,7 +682,7 @@ function Canvas() {
           )}
           {isTelemetry ? null : (
             <>
-          <FilterChip filter={filter} onClear={() => { setSp((p) => { const n = new URLSearchParams(p); for (const k of ['clusters', 'apps', 'kinds']) n.delete(k); return n }, { replace: true }); setSelection(null) }} />
+          <FilterChip filter={filter} onClear={() => { setParams({ clusters: null, apps: null, kinds: null }); setSelection(null) }} />
           <FilterMenu
             disabled={empty}
             open={openMenu === 'filter'}
@@ -701,14 +691,7 @@ function Canvas() {
             clusters={clusters.filter((c) => !c.deletedAt)}
             applications={applications.filter((a) => !a.deletedAt)}
             onChange={(f) => {
-              setSp((p) => {
-                const n = new URLSearchParams(p)
-                for (const [k, v] of [['clusters', encodeList(f.clusters)], ['apps', encodeList(f.apps)], ['kinds', encodeList(f.kinds)]] as const) {
-                  if (v === null) n.delete(k)
-                  else n.set(k, v)
-                }
-                return n
-              }, { replace: true })
+              setParams({ clusters: encodeList(f.clusters), apps: encodeList(f.apps), kinds: encodeList(f.kinds) })
               setSelection(null)
             }}
           />
@@ -864,7 +847,7 @@ function Canvas() {
               <EmptyState
                 title="Nothing matches this filter"
                 description="None of the chosen clusters run the chosen applications. Widen the filter, or clear it to see everything again."
-                action={<Button onClick={() => setSp((p) => { const n = new URLSearchParams(p); n.delete('clusters'); n.delete('apps'); return n }, { replace: true })} data-testid="clear-filter"><FilterIcon size={ICON_SM} /> Clear the filter</Button>}
+                action={<Button onClick={() => setParams({ clusters: null, apps: null })} data-testid="clear-filter"><FilterIcon size={ICON_SM} /> Clear the filter</Button>}
               />
             </div>
           ) : empty ? (

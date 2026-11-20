@@ -1,7 +1,6 @@
-import clsx from 'clsx'
 import { Plug, Plus, Radio } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { ConfirmModal } from '@/components/forms'
 import ComponentsTable from '@/features/pipeline/components/operators/ComponentsTable'
 import CreateOperatorModal from '@/features/pipeline/components/operators/CreateOperatorModal'
@@ -19,7 +18,9 @@ import type { RowMenuItem } from '@/features/pipeline/components/operators/RowMe
 import StateChip from '@/features/pipeline/components/operators/StateChip'
 import WhatToDoModal from '@/features/pipeline/components/operators/WhatToDoModal'
 import { useTelemetryFlow } from '@/features/pipeline/components/telemetry/TelemetryFlow'
-import { Button, Card, ClearableChip, Disclosure, EmptyState, ErrorBanner, ICON_SM, PageHeader, SectionHeading, TableSkeleton } from '@/components/ui/primitives'
+import { AttentionList } from '@/components/ui/AttentionList'
+import { FilterChips } from '@/components/ui/FilterChips'
+import { Button, ClearableChip, Disclosure, EmptyState, ErrorBanner, ICON_SM, PageHeader, SectionHeading, TableSkeleton } from '@/components/ui/primitives'
 import { api, ApiError, type CreatedOperator } from '@/lib/api'
 import { operatorFromDestination } from '@/features/pipeline/lib/destinationCatalog'
 import { CENTRAL_OPERATOR_ID, fusionSentence } from '@/features/fusion/lib/fusionStatus'
@@ -27,6 +28,7 @@ import { isReportingHealth, receiverAuthOf } from '@/features/pipeline/lib/opera
 import { buildComponents, buildHops, KIND_PLURAL, KINDS, needAttention, type ComponentRow, type Kind, type Todo } from '@/features/pipeline/lib/operatorsView'
 import { extrasOf } from '@/lib/consent'
 import type { RegionalOperator } from '@/lib/types'
+import { useQueryParams } from '@/lib/useQueryParams'
 import { useOperatorDestinations, useOperators, useTelemetryIntents } from '@/lib/useOperators'
 import { useServer } from '@/store/server'
 import { useTopology } from '@/store/topology'
@@ -56,7 +58,7 @@ const STRIP_MAX = 3
 const SHOWN_KINDS = KINDS.filter((k) => k !== 'agent')
 
 export default function PipelinePage() {
-  const [sp, setSp] = useSearchParams()
+  const [sp, setParams] = useQueryParams()
   const navigate = useNavigate()
   const conn = useServer((s) => s.conn)
   const isAdmin = useServer((s) => s.isAdmin)
@@ -115,8 +117,8 @@ export default function PipelinePage() {
     const row = rows.find((r) => r.kind === 'local' && r.agentId === wantOpen)
     if (!row) return
     setDetailFor(row.id)
-    setSp((p) => { const n = new URLSearchParams(p); n.delete('open'); return n }, { replace: true })
-  }, [wantOpen, rows, setSp])
+    setParams({ open: null })
+  }, [wantOpen, rows, setParams])
   // `/pipeline?setup=<agent id>` (the button on an agent with no telemetry yet) opens the guided setup with that agent chosen. Spent at once, like
   // `open` above; it waits until this person can start it, and is left alone for someone who never can.
   const wantSetup = sp.get('setup')
@@ -124,8 +126,8 @@ export default function PipelinePage() {
   useEffect(() => {
     if (!wantSetup || !canStart) return
     startSetup(wantSetup)
-    setSp((p) => { const n = new URLSearchParams(p); n.delete('setup'); return n }, { replace: true })
-  }, [wantSetup, canStart, startSetup, setSp])
+    setParams({ setup: null })
+  }, [wantSetup, canStart, startSetup, setParams])
   const fusionKind = fusionSentence(fusion.status).kind
   const hops = useMemo(
     () => buildHops(rows, { kind: fusionKind, lastDataAt: fusion.status?.lastDataAt }).filter((h) => h.key !== 'agent' && (admin || (h.key !== 'regional' && h.key !== 'central'))),
@@ -135,8 +137,8 @@ export default function PipelinePage() {
 
   const asked = sp.get('kind')
   const filter: Kind | 'all' = SHOWN_KINDS.find((k) => k === asked) ?? 'all'
-  const setFilter = (k: Kind | 'all') => setSp((p) => { const n = new URLSearchParams(p); if (k === 'all') n.delete('kind'); else n.set('kind', k); n.delete('via'); return n }, { replace: true })
-  const showDirect = () => setSp((p) => { const n = new URLSearchParams(p); if (n.get('kind') === 'local' && n.get('via') === 'central') { n.delete('kind'); n.delete('via') } else { n.set('kind', 'local'); n.set('via', 'central') } return n }, { replace: true })
+  const setFilter = (k: Kind | 'all') => setParams({ kind: k === 'all' ? null : k, via: null })
+  const showDirect = () => setParams((p) => (p.get('kind') === 'local' && p.get('via') === 'central' ? { kind: null, via: null } : { kind: 'local', via: 'central' }))
   const counts = { all: rows.length, ...Object.fromEntries(SHOWN_KINDS.map((k) => [k, rows.filter((r) => r.kind === k).length])) } as Record<Kind | 'all', number>
   // "Sending direct to central" narrows the local operators to those that skip the regional hop (the arc over the strip sets it).
   const directOnly = filter === 'local' && sp.get('via') === 'central'
@@ -269,37 +271,33 @@ export default function PipelinePage() {
           {attention.length > 0 && (
             <section aria-labelledby="attention-title" className="mb-6 space-y-3" data-testid="pipeline-attention">
               <SectionHeading id="attention-title">What needs attention</SectionHeading>
-              <Card as="ul" className="divide-y divide-nb-850">
-                {attention.slice(0, STRIP_MAX).map((r) => (
-                  <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
-                    <StateChip state={r.verdict.state} />
-                    <p className="min-w-0 flex-1 basis-60 text-sm text-nb-400"><span className="font-medium text-nb-300">{r.name}.</span> {r.verdict.reason}</p>
-                    <Button size="sm" onClick={() => setTodoFor(r)} aria-label={`What to do about ${r.name}`} data-testid={`attention-todo-${r.id}`}>What to do</Button>
-                  </li>
-                ))}
-              </Card>
-              {attention.length > STRIP_MAX && <p className="text-xs text-nb-500">and {attention.length - STRIP_MAX} more, marked in the table below.</p>}
+              <AttentionList
+                max={STRIP_MAX}
+                more={(n) => `and ${n} more, marked in the table below.`}
+                items={attention.map((r) => ({
+                  id: r.id,
+                  chip: <StateChip state={r.verdict.state} />,
+                  title: r.name,
+                  detail: r.verdict.reason,
+                  action: <Button size="sm" onClick={() => setTodoFor(r)} aria-label={`What to do about ${r.name}`} data-testid={`attention-todo-${r.id}`}>What to do</Button>,
+                }))}
+              />
             </section>
           )}
 
           <PipelinePath hops={hops} now={now} selected={filter} onSelect={(k) => setFilter(filter === k ? 'all' : k)} directActive={directOnly} onSelectDirect={showDirect} />
 
-          <div className="mb-4 flex flex-wrap items-center gap-1.5" role="group" aria-label="Show components">
-            {chips.map((k) => (
-              <button
-                key={k}
-                onClick={() => setFilter(k)}
-                aria-pressed={filter === k}
-                className={clsx('rounded-full border px-3 py-1 text-xs transition-colors', filter === k ? 'border-accent/40 bg-accent-soft text-accent' : 'border-nb-850 text-nb-400 hover:border-nb-800 hover:text-nb-300')}
-                data-testid={`pipeline-filter-${k}`}
-              >
-                {k === 'all' ? 'All' : KIND_PLURAL[k]} <span className="text-nb-500">{counts[k]}</span>
-              </button>
-            ))}
+          <FilterChips
+            label="Show components"
+            className="mb-4"
+            value={filter}
+            onChange={setFilter}
+            choices={chips.map((k) => ({ key: k, label: k === 'all' ? 'All' : KIND_PLURAL[k], count: counts[k], testId: `pipeline-filter-${k}` }))}
+          >
             {directOnly && (
               <ClearableChip onClear={() => setFilter('local')} testId="pipeline-filter-direct" label="Stop showing only those sending direct to central">Sending direct to central</ClearableChip>
             )}
-          </div>
+          </FilterChips>
 
           <ComponentsTable rows={shown} now={now} menuFor={menuFor} onWhatToDo={setTodoFor} onOpen={(r) => setDetailFor((cur) => (cur === r.id ? null : r.id))} expandedId={detailRow?.id} renderExpanded={renderDetail} />
           {!admin && <p className="mt-3 text-xs text-nb-500">Regional operators are only shown to organisation administrators.</p>}

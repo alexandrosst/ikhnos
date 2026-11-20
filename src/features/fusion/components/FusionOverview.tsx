@@ -1,4 +1,3 @@
-import clsx from 'clsx'
 import { CircleCheck, ExternalLink } from 'lucide-react'
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
@@ -7,6 +6,7 @@ import { FusionSection, ROWS } from '@/features/fusion/components/FusionSection'
 import { StatusChip } from '@/features/fusion/components/StatusChip'
 import { DiskBar, FillsIn } from '@/features/fusion/components/StoreBars'
 import { buttonClass } from '@/components/ui/buttonClass'
+import { AttentionList } from '@/components/ui/AttentionList'
 import { Button, Card, CopyButton, ICON_MD, ICON_SM, SectionLabel, Waiting } from '@/components/ui/primitives'
 import { type FusionComponent, type FusionRetention } from '@/lib/api'
 import { DASHBOARD_GROUPS, DASHBOARDS } from '@/features/fusion/lib/dashboards'
@@ -52,21 +52,19 @@ export function FusionOverview({ fusion, problems, retention, hops, now, onOpenD
             <CircleCheck size={ICON_MD} className="shrink-0 text-ok" aria-hidden /> Nothing needs your attention.
           </Card>
         ) : (
-          <ul className="space-y-3">
-            {problems.map((p) => (
-              <li key={p.id} className={clsx('rounded-xl border px-5 py-4', p.health === 'down' ? 'border-bad/30 bg-bad/5' : 'border-warn/30 bg-warn/5')} data-testid={`fusion-problem-${p.id}`} data-health={p.health}>
-                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-nb-300">
-                      <StatusChip status={p.health} /> {p.title}
-                    </div>
-                    <p className="mt-1.5 max-w-2xl text-sm text-nb-500">{p.detail}</p>
-                  </div>
-                  <Action problem={p} onRefresh={() => void fusion.refresh()} />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <AttentionList
+            variant="cards"
+            items={problems.map((p) => ({
+              id: p.id,
+              chip: <StatusChip status={p.health} />,
+              title: p.title,
+              detail: p.detail,
+              action: <Action problem={p} onRefresh={() => void fusion.refresh()} />,
+              tint: p.health === 'down' ? 'bad' : 'warn',
+              testId: `fusion-problem-${p.id}`,
+              attrs: { 'data-health': p.health },
+            }))}
+          />
         )}
       </FusionSection>
 

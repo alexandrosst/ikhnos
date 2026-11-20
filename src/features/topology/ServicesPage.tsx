@@ -1,6 +1,5 @@
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import GoToAgents from '@/components/GoToAgents'
 import { ConfirmModal, ServiceForm } from '@/components/forms'
 import { GoneRecords } from '@/components/Observations'
@@ -8,6 +7,7 @@ import { Button, ChipList, EmptyState, ClearableChip, GuessDot, ICON_SM, PageHea
 import { useColumnVisibility, type ColumnDef } from '@/features/topology/lib/columns'
 import { OriginLine } from '@/components/entity/parts'
 import { observation } from '@/lib/provenance'
+import { useQueryParams } from '@/lib/useQueryParams'
 import { useWeakValue } from '@/store/rowEvidence'
 import { useTopology } from '@/store/topology'
 import type { Service } from '@/lib/types'
@@ -28,11 +28,11 @@ export default function ServicesPage() {
   const [q, setQ] = useState('')
   const columns = useColumnVisibility('services')
   // The cluster and namespace filters live in the address (?cluster=…&namespace=…), so the Namespaces page can link here and a filtered view can be shared.
-  const [sp, setSp] = useSearchParams()
+  const [sp, setParams] = useQueryParams()
   const wantCluster = sp.get('cluster') ?? ''
   const clusterFilter = clusters.some((c) => c.id === wantCluster) ? wantCluster : ''
   const nsFilter = sp.get('namespace') ?? ''
-  const setParam = (k: string, v: string) => setSp((p) => { const n = new URLSearchParams(p); if (v) n.set(k, v); else n.delete(k); return n }, { replace: true })
+  const setParam = (k: string, v: string) => setParams({ [k]: v })
   // The panel: a service to read (or edit straight away from the pencil), or a blank one to add.
   const [panel, setPanel] = useState<{ service: Service | null; edit: boolean } | null>(null)
   const [deleting, setDeleting] = useState<Service | null>(null)

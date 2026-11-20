@@ -1,7 +1,8 @@
 import clsx from 'clsx'
 import { ChevronRight, List, Network, Plug, Server } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { useQueryParams } from '@/lib/useQueryParams'
 import { AccessPanel, DiscoveryChip, HealthChip, Problems } from '@/features/agents/components/AgentInsight'
 import { AgentTelemetry } from '@/features/agents/components/AgentTelemetry'
 import { StatusBadge } from '@/components/ui/Status'
@@ -18,6 +19,7 @@ import { useConnectFlow } from '@/features/discovery/components/ConnectFlow'
 import EntityHistory from '@/features/history/components/EntityHistory'
 import { ConfirmModal } from '@/components/forms'
 import { DistroIcon, Flag, WithIcon } from '@/components/ui/brand'
+import { FilterChips } from '@/components/ui/FilterChips'
 import { Button, Card, EmptyState, ErrorBanner, GuessDot, ICON_SM, LinkButton, LiveDot, PageHeader, SectionHeading, SectionLabel, SkeletonBlock, StatTile, Table, TableSkeleton, Td, Th, TierBadge, type LiveKind } from '@/components/ui/primitives'
 import { api, ApiError } from '@/lib/api'
 import { skewLabel, skewWarning } from '@/lib/clock'
@@ -60,7 +62,7 @@ const diagnosisTone = (a: Agent, extras: AgentExtras, now: number) => diagnoseAg
 export default function AgentsPage() {
   const { agents, clusters, sites, suggestions } = useTopology()
   const openSuggestions = suggestions.filter((x) => x.status === 'open').length + usePlacementSuggestions().suggestions.length
-  const [sp, setSp] = useSearchParams()
+  const [sp, setParams] = useQueryParams()
   const tab = ((t) => (t === 'suggestions' || t === 'seen' ? t : 'agents'))(sp.get('tab'))
   const map = sp.get('view') === 'map'
   const [open, setOpen] = useState<string | null>(null)
@@ -116,8 +118,8 @@ export default function AgentsPage() {
     setOpen(wantOpen)
   }
   useEffect(() => {
-    if (wantOpen && wantOpen === taken) setSp((p) => { p.delete('open'); return p }, { replace: true })
-  }, [wantOpen, taken, setSp])
+    if (wantOpen && wantOpen === taken) setParams({ open: null })
+  }, [wantOpen, taken, setParams])
 
   const cluster = (id?: string) => clusters.find((c) => c.id === id)
   const site = (c?: Cluster) => sites.find((s) => s.id === c?.siteId)
@@ -193,7 +195,7 @@ export default function AgentsPage() {
         idBase="agents"
         className="mb-6"
         value={tab}
-        onChange={(id) => setSp((p) => { const n = new URLSearchParams(p); if (id === 'agents') n.delete('tab'); else n.set('tab', id); n.delete('view'); return n }, { replace: true })}
+        onChange={(id) => setParams({ tab: id === 'agents' ? null : id, view: null })}
         items={[
           { id: 'agents', label: 'Agents', count: agents.length || undefined, testId: 'tab-agents' },
           { id: 'suggestions', label: 'Suggestions', count: openSuggestions || undefined, testId: 'tab-suggestions', title: 'What the agents found that needs your decision' },
@@ -221,25 +223,19 @@ export default function AgentsPage() {
           </div>
 
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Show agents">
-              {(['all', 'ok', 'late', 'offline', 'waiting', 'gone', 'unknown'] as const)
+            <FilterChips
+              label="Show agents"
+              value={filter}
+              onChange={setFilter}
+              choices={(['all', 'ok', 'late', 'offline', 'waiting', 'gone', 'unknown'] as const)
                 .filter((k) => k === 'all' || counts[k])
-                .map((k) => (
-                  <button
-                    key={k}
-                    onClick={() => setFilter(k)}
-                    aria-pressed={filter === k}
-                    className={clsx('rounded-full border px-3 py-1 text-xs transition-colors', filter === k ? 'border-accent/40 bg-accent-soft text-accent' : 'border-nb-850 text-nb-400 hover:border-nb-800 hover:text-nb-300')}
-                  >
-                    {k === 'all' ? 'All' : HEALTH[k].label} <span className="text-nb-500">{counts[k]}</span>
-                  </button>
-                ))}
-            </div>
+                .map((k) => ({ key: k, label: k === 'all' ? 'All' : HEALTH[k].label, count: counts[k] }))}
+            />
             <Tabs
               label="How to show agents"
               variant="segmented"
               value={map}
-              onChange={(id) => setSp((p) => { const n = new URLSearchParams(p); if (id) n.set('view', 'map'); else n.delete('view'); return n }, { replace: true })}
+              onChange={(id) => setParams({ view: id ? 'map' : null })}
               items={[{ id: false, label: 'List', icon: <List size={ICON_SM} aria-hidden />, testId: 'agents-list' }, { id: true, label: 'Map', icon: <Network size={ICON_SM} aria-hidden />, testId: 'agents-map' }]}
             />
           </div>

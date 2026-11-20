@@ -1,7 +1,7 @@
 import { Loader2 } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import ServerConnect from '@/features/discovery/components/ServerConnect'
+import { useQueryParams } from '@/lib/useQueryParams'
 import { useServer } from '@/store/server'
 
 /** Covers the screen the instant the wizard is asked for, before its chunk has even arrived - so a click aimed
@@ -30,7 +30,7 @@ export function useConnectFlow(): { start: () => void; dialogs: ReactNode; canSt
   const [connecting, setConnecting] = useState(false)
   const [wizard, setWizard] = useState(false)
   const [withProbe, setWithProbe] = useState(false)
-  const [sp, setSp] = useSearchParams()
+  const [sp, setParams] = useQueryParams()
   const connected = server.status === 'connected'
   // Viewers can read everything but the server refuses their changes, so the flow is not offered.
   const canStart = !connected || server.isAdmin()
@@ -48,7 +48,7 @@ export function useConnectFlow(): { start: () => void; dialogs: ReactNode; canSt
     // `&probe=1` opens the wizard with the node probe already on (the central operator's card asks for it: the probe is what reports a node's addresses).
     setWithProbe(sp.get('probe') === '1')
     start()
-    setSp((p) => { const n = new URLSearchParams(p); n.delete('connect'); n.delete('probe'); return n }, { replace: true })
+    setParams({ connect: null, probe: null })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asked, server.checked, server.status])
 
