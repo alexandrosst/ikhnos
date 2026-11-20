@@ -1660,6 +1660,34 @@ describe('PipelinePage - renewing certificates asks first', () => {
   })
 })
 
+describe('PipelinePage - one dialog at a time', () => {
+  test('a dialog opened while a renewal runs gives way to the new credentials when they arrive, so the secret shown once is never left behind it', async () => {
+    let finish: (c: CreatedOperator) => void = () => undefined
+    reinstallOperator.mockImplementationOnce(() => new Promise<CreatedOperator>((r) => { finish = r }))
+    listOperators.mockResolvedValue([op()])
+    const user = userEvent.setup()
+    renderPage()
+    await rowAction(user, 'athens-regional', 'renew')
+    await confirmRenew(user)
+    await rowAction(user, 'athens-regional', 'certs')
+    await screen.findByRole('dialog', { name: 'Certificates of athens-regional' })
+    finish({ operator: { id: 'op-1', name: 'athens-regional', status: 'active', sourceClusterIds: [], receiverAuth: 'mtls' } as CreatedOperator['operator'], install: 'X', reminders: [] })
+    await screen.findByRole('dialog', { name: 'Renew certificates for athens-regional' })
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+  })
+
+  test('the what-to-do dialog hands over to the next one instead of stacking on it', async () => {
+    listOperators.mockResolvedValue([op({ certState: 'renewal-failing', certs: { receiverNotAfter: daysFromNow(10) } })])
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByTestId('component-todo-regional:op-1'))
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    await user.click(await screen.findByTestId('what-to-do-action'))
+    await screen.findByRole('dialog', { name: 'Renew certificates for athens-regional?' })
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+  })
+})
+
 describe('PipelinePage - a secret shown once cannot be lost to a stray click', () => {
   test('the created screen ignores Escape and a click outside, holds the page from reloading, and Done is the way out', async () => {
     const user = userEvent.setup()

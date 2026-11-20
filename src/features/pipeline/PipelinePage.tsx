@@ -1,33 +1,26 @@
 import { Plug, Plus, Radio } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ConfirmModal } from '@/components/forms'
 import ComponentsTable from '@/features/pipeline/components/operators/ComponentsTable'
-import CreateOperatorModal from '@/features/pipeline/components/operators/CreateOperatorModal'
 import { useFusion } from '@/features/fusion/components/useFusion'
 import LocalOperatorDetail from '@/features/pipeline/components/operators/LocalOperatorDetail'
-import HealthModal from '@/features/pipeline/components/operators/HealthModal'
+import OperatorDialogs, { type PipelineDialog } from '@/features/pipeline/components/operators/OperatorDialogs'
 import OperatorAccess from '@/features/pipeline/components/operators/OperatorAccess'
-import { OperatorAddressModal } from '@/features/pipeline/components/operators/OperatorAddress'
-import OperatorCertificatesModal from '@/features/pipeline/components/operators/OperatorCertificatesModal'
-import OperatorSendersModal from '@/features/pipeline/components/operators/OperatorSendersModal'
-import OperatorCreated from '@/features/pipeline/components/operators/OperatorCreated'
 import PipelinePath from '@/features/pipeline/components/operators/PipelinePath'
-import RemoveOperatorModal from '@/features/pipeline/components/operators/RemoveOperatorModal'
 import type { RowMenuItem } from '@/features/pipeline/components/operators/RowMenu'
 import StateChip from '@/features/pipeline/components/operators/StateChip'
-import WhatToDoModal from '@/features/pipeline/components/operators/WhatToDoModal'
 import { useTelemetryFlow } from '@/features/pipeline/components/telemetry/TelemetryFlow'
 import { AttentionList } from '@/components/ui/AttentionList'
 import { FilterChips } from '@/components/ui/FilterChips'
 import { Button, ClearableChip, Disclosure, EmptyState, ErrorBanner, ICON_SM, PageHeader, SectionHeading, TableSkeleton } from '@/components/ui/primitives'
-import { api, ApiError, type CreatedOperator } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import { operatorFromDestination } from '@/features/pipeline/lib/destinationCatalog'
-import { CENTRAL_OPERATOR_ID, fusionSentence } from '@/features/fusion/lib/fusionStatus'
-import { isReportingHealth, receiverAuthOf } from '@/features/pipeline/lib/operatorHealth'
+import { fusionSentence } from '@/features/fusion/lib/fusionStatus'
+import { isReportingHealth } from '@/features/pipeline/lib/operatorHealth'
 import { buildComponents, buildHops, KIND_PLURAL, KINDS, needAttention, type ComponentRow, type Kind, type Todo } from '@/features/pipeline/lib/operatorsView'
 import { extrasOf } from '@/lib/consent'
 import type { RegionalOperator } from '@/lib/types'
+import { useDialog } from '@/lib/useDialog'
 import { useQueryParams } from '@/lib/useQueryParams'
 import { useOperatorDestinations, useOperators, useTelemetryIntents } from '@/lib/useOperators'
 import { useServer } from '@/store/server'
@@ -35,16 +28,6 @@ import { useTopology } from '@/store/topology'
 import { PAGE_ICON } from '@/lib/pageIcons'
 
 const problem = (e: unknown, fallback: string) => (e instanceof ApiError ? e.message : fallback)
-
-/** What "Renew certificates" replaces, said before it is done: the server issues new certificates and, for an operator that has them, a new
- *  receiver token and health credential, and none of it reaches the running operator by itself. */
-function renewWarning(op: RegionalOperator): string {
-  const replaced = ['its certificates']
-  if (receiverAuthOf(op) === 'bearer') replaced.push('its receiver token')
-  if (isReportingHealth(op)) replaced.push('its health credential (the heartbeat secret)')
-  const list = replaced.length > 1 ? `${replaced.slice(0, -1).join(', ')} and ${replaced[replaced.length - 1]}` : replaced[0]
-  return `This replaces ${list}. Nothing reaches the running operator by itself: the current ones stop being the current ones once its release restarts, so ${op.name} must be updated with the new commands that follow, run where it is installed${isReportingHealth(op) ? ' (until then it shows as offline)' : ''}. They are shown once.`
-}
 
 /** How many problems the strip lists before it says "and N more": the table below has all of them. */
 const STRIP_MAX = 3
@@ -90,17 +73,10 @@ export default function PipelinePage() {
   }, [])
 
   const [actionError, setActionError] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [renewed, setRenewed] = useState<{ result: CreatedOperator; operator: RegionalOperator } | null>(null)
+  // The one dialog open, if any. Renewing issues new credentials, so it is asked about first ('confirm-renew', with what it replaces) and
+  // never started from a stray click.
+  const { dialog, open, close } = useDialog<PipelineDialog>()
   const [renewing, setRenewing] = useState<string | null>(null)
-  // Renewing issues new credentials: it is asked about first, with what it replaces, and never started from a stray click.
-  const [confirmRenew, setConfirmRenew] = useState<RegionalOperator | null>(null)
-  const [removing, setRemoving] = useState<{ operator: RegionalOperator; mode: 'revoke' | 'delete' } | null>(null)
-  const [healthFor, setHealthFor] = useState<RegionalOperator | null>(null)
-  const [addressFor, setAddressFor] = useState<RegionalOperator | null>(null)
-  const [certsFor, setCertsFor] = useState<RegionalOperator | null>(null)
-  const [sendersFor, setSendersFor] = useState<RegionalOperator | null>(null)
-  const [todoFor, setTodoFor] = useState<ComponentRow | null>(null)
   // The detail of one local operator (its picture), opened from its row, from "What to do", or by `/pipeline?open=<agent id>` (the link on the agent).
   const [detailFor, setDetailFor] = useState<string | null>(null)
 
@@ -157,7 +133,7 @@ export default function PipelinePage() {
     setRenewing(op.id)
     setActionError('')
     try {
-      setRenewed({ result: await api.reinstallOperator(c, op.id), operator: op })
+      open({ kind: 'renewed', result: await api.reinstallOperator(c, op.id), operator: op })
       actionDone()
     } catch (e) {
       setActionError(problem(e, 'Could not renew the certificates.'))
@@ -176,37 +152,37 @@ export default function PipelinePage() {
     const op = r.operator
     // A local operator has no menu: its row opens to its picture, and what can be done about it is there.
     if (!op) return []
-    const remove: RowMenuItem = { key: 'delete', label: 'Stop and remove…', danger: true, onSelect: () => setRemoving({ operator: op, mode: 'delete' }), testId: `operator-delete-${op.name}` }
+    const remove: RowMenuItem = { key: 'delete', label: 'Stop and remove…', danger: true, onSelect: () => open({ kind: 'remove', operator: op, mode: 'delete' }), testId: `operator-delete-${op.name}` }
     if (r.ended) return [remove]
-    const address: RowMenuItem = { key: 'address', label: 'Reachable at…', onSelect: () => setAddressFor(op), testId: `operator-address-open-${op.name}` }
+    const address: RowMenuItem = { key: 'address', label: 'Reachable at…', onSelect: () => open({ kind: 'address', operator: op }), testId: `operator-address-open-${op.name}` }
     if (r.kind === 'central') {
       return [
         address,
-        ...(admin ? [{ key: 'senders', label: 'Clusters sending here', onSelect: () => setSendersFor(op), testId: `operator-senders-open-${op.name}` }] : []),
+        ...(admin ? [{ key: 'senders', label: 'Clusters sending here', onSelect: () => open({ kind: 'senders', operator: op }), testId: `operator-senders-open-${op.name}` }] : []),
         { key: 'fusion', label: 'Open FUSION', onSelect: () => navigate('/fusion'), testId: 'operator-open-fusion' },
       ]
     }
     return [
       ...sourcesOf(op).map((s) => ({ key: `connect-${s.id}`, label: `Connect ${s.name}…`, onSelect: () => connect(s.agent!.id, op.id), disabled: !canConsent, title: canConsent ? undefined : 'Connecting a cluster needs permission to edit', testId: `operator-connect-${op.name}-${s.id}` })),
       address,
-      ...(admin ? [{ key: 'senders', label: 'Clusters sending here', onSelect: () => setSendersFor(op), testId: `operator-senders-open-${op.name}` }] : []),
-      { key: 'certs', label: 'Issued certificates', onSelect: () => setCertsFor(op), testId: `operator-certs-${op.name}` },
+      ...(admin ? [{ key: 'senders', label: 'Clusters sending here', onSelect: () => open({ kind: 'senders', operator: op }), testId: `operator-senders-open-${op.name}` }] : []),
+      { key: 'certs', label: 'Issued certificates', onSelect: () => open({ kind: 'certs', operator: op }), testId: `operator-certs-${op.name}` },
       // Dimmed while any renewal runs (not only this row's): one at a time, and the reason is visible rather than a click that does nothing.
-      { key: 'renew', label: 'Renew certificates…', onSelect: () => setConfirmRenew(op), disabled: renewing !== null, title: renewing !== null ? 'Another renewal is in progress' : undefined, testId: `operator-renew-${op.name}` },
-      { key: 'health', label: isReportingHealth(op) ? 'Rotate health credential' : 'Enable health reporting', onSelect: () => setHealthFor(op), testId: `operator-health-open-${op.name}` },
-      { key: 'revoke', label: 'Disconnect…', danger: true, onSelect: () => setRemoving({ operator: op, mode: 'revoke' }), testId: `operator-revoke-${op.name}` },
+      { key: 'renew', label: 'Renew certificates…', onSelect: () => open({ kind: 'confirm-renew', operator: op }), disabled: renewing !== null, title: renewing !== null ? 'Another renewal is in progress' : undefined, testId: `operator-renew-${op.name}` },
+      { key: 'health', label: isReportingHealth(op) ? 'Rotate health credential' : 'Enable health reporting', onSelect: () => open({ kind: 'health', operator: op }), testId: `operator-health-open-${op.name}` },
+      { key: 'revoke', label: 'Disconnect…', danger: true, onSelect: () => open({ kind: 'remove', operator: op, mode: 'revoke' }), testId: `operator-revoke-${op.name}` },
       remove,
     ]
   }
 
   const doTodo = (kind: NonNullable<Todo['action']>['kind']) => {
-    const row = todoFor
-    setTodoFor(null)
+    const row = dialog?.kind === 'todo' ? dialog.row : undefined
+    close()
     if (!row) return
     if (kind === 'configure') telemetry.start(row.agentId)
     else if (kind === 'collects' && row.agentId) setDetailFor(row.id)
-    else if (kind === 'address' && row.operator) setAddressFor(row.operator)
-    else if (kind === 'renew' && row.operator) setConfirmRenew(row.operator)
+    else if (kind === 'address' && row.operator) open({ kind: 'address', operator: row.operator })
+    else if (kind === 'renew' && row.operator) open({ kind: 'confirm-renew', operator: row.operator })
     else navigate(kind === 'fusion' ? '/fusion' : '/agents')
   }
 
@@ -237,7 +213,7 @@ export default function PipelinePage() {
         description="From your clusters to FUSION, and whether each step works."
         actions={
           <>
-            {admin && <Button onClick={() => setCreating(true)} data-testid="operator-open"><Plus size={ICON_SM} /> New operator</Button>}
+            {admin && <Button onClick={() => open({ kind: 'create' })} data-testid="operator-open"><Plus size={ICON_SM} /> New operator</Button>}
             {canConsent && !empty && <Button variant="primary" onClick={() => telemetry.start()} data-testid="telemetry-setup"><Radio size={ICON_SM} /> Set up telemetry</Button>}
           </>
         }
@@ -279,7 +255,7 @@ export default function PipelinePage() {
                   chip: <StateChip state={r.verdict.state} />,
                   title: r.name,
                   detail: r.verdict.reason,
-                  action: <Button size="sm" onClick={() => setTodoFor(r)} aria-label={`What to do about ${r.name}`} data-testid={`attention-todo-${r.id}`}>What to do</Button>,
+                  action: <Button size="sm" onClick={() => open({ kind: 'todo', row: r })} aria-label={`What to do about ${r.name}`} data-testid={`attention-todo-${r.id}`}>What to do</Button>,
                 }))}
               />
             </section>
@@ -299,7 +275,7 @@ export default function PipelinePage() {
             )}
           </FilterChips>
 
-          <ComponentsTable rows={shown} now={now} menuFor={menuFor} onWhatToDo={setTodoFor} onOpen={(r) => setDetailFor((cur) => (cur === r.id ? null : r.id))} expandedId={detailRow?.id} renderExpanded={renderDetail} />
+          <ComponentsTable rows={shown} now={now} menuFor={menuFor} onWhatToDo={(r) => open({ kind: 'todo', row: r })} onOpen={(r) => setDetailFor((cur) => (cur === r.id ? null : r.id))} expandedId={detailRow?.id} renderExpanded={renderDetail} />
           {!admin && <p className="mt-3 text-xs text-nb-500">Regional operators are only shown to organisation administrators.</p>}
 
           {admin && (
@@ -312,46 +288,21 @@ export default function PipelinePage() {
         </>
       )}
 
-      {todoFor?.verdict.todo && <WhatToDoModal row={todoFor} todo={todoFor.verdict.todo} onClose={() => setTodoFor(null)} onAction={doTodo} busy={renewing !== null && todoFor.verdict.todo.action?.kind === 'renew' ? 'Another renewal is in progress' : undefined} />}
-
-      {creating && (
-        <CreateOperatorModal
-          operators={operators}
-          fusion={fusion}
-          onCreated={() => { void reload(); void fusion.refresh() }}
-          onConnect={connect}
-          onClose={() => setCreating(false)}
-        />
-      )}
-
-      {confirmRenew && (
-        <ConfirmModal
-          title={`Renew certificates for ${confirmRenew.name}?`}
-          message={renewWarning(confirmRenew)}
-          confirmLabel="Renew"
-          onConfirm={() => void renew(confirmRenew)}
-          onClose={() => setConfirmRenew(null)}
-        />
-      )}
-
-      {renewed && (
-        <OperatorCreated
-          created={renewed.result}
-          mode="reinstalled"
-          exposure={renewed.operator.exposure ?? 'cluster'}
-          fusionKind={fusionKind}
-          onConnect={canConsent ? (id) => connect(id, renewed.operator.id) : undefined}
-          onClose={() => setRenewed(null)}
-        />
-      )}
-
-      {sendersFor && <OperatorSendersModal operator={sendersFor} onClose={() => setSendersFor(null)} />}
-      {certsFor && <OperatorCertificatesModal operator={certsFor} clusterName={(id) => clusters.find((c) => c.id === id)?.name ?? ''} onClose={() => setCertsFor(null)} />}
-      {addressFor && (
-        <OperatorAddressModal operator={addressFor} central={addressFor.id === CENTRAL_OPERATOR_ID ? { service: fusion.status?.central?.service ?? '', namespace: fusion.status?.central?.namespace ?? '' } : undefined} onClose={() => setAddressFor(null)} onDone={() => { actionDone(); void fusion.refresh() }} />
-      )}
-      {healthFor && <HealthModal operator={healthFor} onClose={() => setHealthFor(null)} onDone={actionDone} />}
-      {removing && <RemoveOperatorModal operator={removing.operator} mode={removing.mode} onClose={() => setRemoving(null)} onDone={actionDone} />}
+      <OperatorDialogs
+        dialog={dialog}
+        onClose={close}
+        operators={operators}
+        clusters={clusters}
+        fusion={fusion}
+        fusionKind={fusionKind}
+        canConsent={canConsent}
+        renewing={renewing !== null}
+        onRenew={(op) => void renew(op)}
+        onTodo={doTodo}
+        onConnect={connect}
+        onDone={actionDone}
+        onCreated={() => { void reload(); void fusion.refresh() }}
+      />
 
       {telemetry.dialogs}
     </>
