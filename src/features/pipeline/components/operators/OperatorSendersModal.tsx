@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
-import { Button, Callout, ErrorBanner, Modal } from '@/components/ui/primitives'
-import { api, ApiError } from '@/lib/api'
-import type { OperatorSender, OperatorSenderAddress, OperatorSenders, RegionalOperator } from '@/lib/types'
-import { useServer } from '@/store/server'
+import { DataBoundary } from '@/components/ui/DataBoundary'
+import { Button, Callout, Modal } from '@/components/ui/primitives'
+import { api } from '@/lib/api'
+import type { OperatorSender, OperatorSenderAddress, RegionalOperator } from '@/lib/types'
+import { useLoad } from '@/lib/useLoad'
 
 const SOURCE: Record<OperatorSenderAddress['source'], string> = {
   chosen: 'chosen by this cluster',
@@ -44,67 +44,53 @@ const TONE = { ok: 'text-ok', bad: 'text-bad', muted: 'text-nb-400' } as const
  * "the operator is up, another cluster reaches it, this one does not" is something it can say, and it says when it cannot tell.
  */
 export default function OperatorSendersModal({ operator, onClose }: { operator: RegionalOperator; onClose: () => void }) {
-  const conn = useServer((s) => s.conn)
-  const [data, setData] = useState<OperatorSenders | null>(null)
-  const [error, setError] = useState('')
-  useEffect(() => {
-    const c = conn()
-    if (!c) return
-    let live = true
-    api
-      .operatorSenders(c, operator.id)
-      .then((r) => live && setData(r))
-      .catch((e) => {
-        if (live) setError(e instanceof ApiError ? e.message : 'Could not read the clusters sending here.')
-      })
-    return () => {
-      live = false
-    }
-  }, [conn, operator.id])
+  const load = useLoad((c) => api.operatorSenders(c, operator.id), { failure: 'Could not read the clusters sending here.', key: operator.id })
 
   return (
     <Modal open onClose={onClose} title={`Clusters sending to ${operator.name}`} width="max-w-3xl" footer={<Button variant="primary" onClick={onClose} data-testid="operator-senders-done">Done</Button>}>
-      {error && <ErrorBanner>{error}</ErrorBanner>}
-      {!error && data === null && <p className="text-sm text-nb-400">Reading…</p>}
-      {data !== null && data.senders.length === 0 && (
-        <p className="text-sm text-nb-400" data-testid="operator-senders-empty">No cluster is set up to send telemetry to this operator. Choose it as the destination in a cluster’s telemetry setup.</p>
-      )}
-      {data !== null && data.senders.length > 0 && (
-        <ul className="space-y-3" data-testid="operator-senders">
-          {data.senders.map((s) => {
-            const w = deliveryWord(s)
-            return (
-              <li key={s.intentId} className="rounded-lg border border-nb-800 px-4 py-3" data-testid="operator-sender">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="text-sm font-medium text-nb-100" data-testid="operator-sender-name">{s.agentName || s.intentName}</span>
-                  <span className={`text-xs ${TONE[w.tone]}`} data-testid="operator-sender-delivery">
-                    {w.text}
-                    {s.delivery?.state === 'exporting' && s.delivery.failed > 0 ? ` (${s.delivery.failed} failed so far)` : ''}
-                  </span>
-                </div>
-                <ul className="mt-1.5 space-y-0.5 text-xs text-nb-400">
-                  {s.addresses.map((a) => (
-                    <li key={a.address} data-testid="operator-sender-address">
-                      <span className="font-mono text-nb-200">{a.address}</span> · {SOURCE[a.source]} · {a.signals.join(', ')}
-                      {a.reach && (
-                        <span className={a.reach.state === 'reachable' ? 'text-nb-500' : 'text-bad'} data-testid="operator-sender-reach" data-state={a.reach.state} title={`Tested from ${s.agentName || 'this cluster'} at ${new Date(a.reach.at).toLocaleString()}`}>
-                          {' · '}{a.reach.state === 'reachable' ? `answers from there${a.reach.rttP50Ms ? ` (${Math.round(a.reach.rttP50Ms)} ms)` : ''}` : 'no answer from there'}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                {s.diagnosis && (
-                  <Callout tone="warn" role="note" className="mt-2 text-nb-200" data-testid="operator-sender-diagnosis" data-where={s.diagnosis.where}>
-                    <div className="font-medium text-warn">{WHERE[s.diagnosis.where]}: {s.diagnosis.title}</div>
-                    <p className="mt-1">{s.diagnosis.detail}</p>
-                  </Callout>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      <DataBoundary
+        load={load}
+        loading={<p className="text-sm text-nb-400">Reading…</p>}
+        isEmpty={(data) => data.senders.length === 0}
+        empty={<p className="text-sm text-nb-400" data-testid="operator-senders-empty">No cluster is set up to send telemetry to this operator. Choose it as the destination in a cluster’s telemetry setup.</p>}
+      >
+        {(data) => (
+          <ul className="space-y-3" data-testid="operator-senders">
+            {data.senders.map((s) => {
+              const w = deliveryWord(s)
+              return (
+                <li key={s.intentId} className="rounded-lg border border-nb-800 px-4 py-3" data-testid="operator-sender">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="text-sm font-medium text-nb-100" data-testid="operator-sender-name">{s.agentName || s.intentName}</span>
+                    <span className={`text-xs ${TONE[w.tone]}`} data-testid="operator-sender-delivery">
+                      {w.text}
+                      {s.delivery?.state === 'exporting' && s.delivery.failed > 0 ? ` (${s.delivery.failed} failed so far)` : ''}
+                    </span>
+                  </div>
+                  <ul className="mt-1.5 space-y-0.5 text-xs text-nb-400">
+                    {s.addresses.map((a) => (
+                      <li key={a.address} data-testid="operator-sender-address">
+                        <span className="font-mono text-nb-200">{a.address}</span> · {SOURCE[a.source]} · {a.signals.join(', ')}
+                        {a.reach && (
+                          <span className={a.reach.state === 'reachable' ? 'text-nb-500' : 'text-bad'} data-testid="operator-sender-reach" data-state={a.reach.state} title={`Tested from ${s.agentName || 'this cluster'} at ${new Date(a.reach.at).toLocaleString()}`}>
+                            {' · '}{a.reach.state === 'reachable' ? `answers from there${a.reach.rttP50Ms ? ` (${Math.round(a.reach.rttP50Ms)} ms)` : ''}` : 'no answer from there'}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  {s.diagnosis && (
+                    <Callout tone="warn" role="note" className="mt-2 text-nb-200" data-testid="operator-sender-diagnosis" data-where={s.diagnosis.where}>
+                      <div className="font-medium text-warn">{WHERE[s.diagnosis.where]}: {s.diagnosis.title}</div>
+                      <p className="mt-1">{s.diagnosis.detail}</p>
+                    </Callout>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </DataBoundary>
     </Modal>
   )
 }

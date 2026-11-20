@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { DataBoundary } from '@/components/ui/DataBoundary'
 import { FusionSection, ROWS } from '@/features/fusion/components/FusionSection'
 import { ErrorBanner, Pill, SkeletonBlock } from '@/components/ui/primitives'
-import { api, ApiError, type FusionApplications, type FusionServices, type FusionSignal } from '@/lib/api'
-import { useServer } from '@/store/server'
+import { api, type FusionApplications, type FusionServices, type FusionSignal } from '@/lib/api'
+import { useLoad } from '@/lib/useLoad'
 
 const SIGNAL_WORD: Record<FusionSignal, string> = { metrics: 'Metrics', logs: 'Logs', traces: 'Traces' }
 const SHOWN_SERVICES = 25
@@ -16,23 +16,17 @@ function Signals({ list }: { list: FusionSignal[] }) {
 /** What FUSION holds: for each ikhnos application the services in it and which signals arrived for them over the last day, and the services
  *  with data that belong to none (an exporter, a meter). Read from the same data API an API token reads. */
 export function FusionData() {
-  const conn = useServer((s) => s.conn)
-  const [apps, setApps] = useState<FusionApplications | null>(null)
-  const [services, setServices] = useState<FusionServices | null>(null)
-  const [error, setError] = useState('')
-  useEffect(() => {
-    const c = conn()
-    if (!c) return
-    let alive = true
-    Promise.all([api.getFusionApplications(c), api.getFusionServices(c)]).then(
-      ([a, s]) => { if (alive) { setApps(a); setServices(s) } },
-      (e) => { if (alive) setError(e instanceof ApiError ? e.message : 'Could not read what FUSION holds.') },
-    )
-    return () => { alive = false }
-  }, [conn])
+  const load = useLoad(
+    async (c) => {
+      const [apps, services] = await Promise.all([api.getFusionApplications(c), api.getFusionServices(c)])
+      return { apps, services }
+    },
+    { failure: 'Could not read what FUSION holds.' },
+  )
+  return <DataBoundary load={load} loading={<SkeletonBlock className="h-40 w-full" />}>{({ apps, services }) => <FusionDataBody apps={apps} services={services} />}</DataBoundary>
+}
 
-  if (error) return <ErrorBanner>{error}</ErrorBanner>
-  if (!apps || !services) return <SkeletonBlock className="h-40 w-full" />
+function FusionDataBody({ apps, services }: { apps: FusionApplications; services: FusionServices }) {
   const warnings = [...new Set([...apps.warnings, ...services.warnings])]
   const loose = services.services.filter((s) => s.applications.length === 0)
   return (

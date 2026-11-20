@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
-import { Button, ErrorBanner, Modal } from '@/components/ui/primitives'
-import { api, ApiError, type IssuedCertificate } from '@/lib/api'
+import { DataBoundary } from '@/components/ui/DataBoundary'
+import { Button, Modal } from '@/components/ui/primitives'
+import { api, type IssuedCertificate } from '@/lib/api'
 import type { RegionalOperator } from '@/lib/types'
-import { useServer } from '@/store/server'
+import { useLoad } from '@/lib/useLoad'
 
 const STATE_WORD = { ok: 'Valid', expired: 'Ended' } as const
 
@@ -18,46 +18,34 @@ export function holderOf(c: IssuedCertificate, clusterName: (id: string) => stri
  * cluster, or by revoking the operator.
  */
 export default function OperatorCertificatesModal({ operator, clusterName, onClose }: { operator: RegionalOperator; clusterName: (id: string) => string; onClose: () => void }) {
-  const conn = useServer((s) => s.conn)
-  const [certs, setCerts] = useState<IssuedCertificate[] | null>(null)
-  const [error, setError] = useState('')
-  useEffect(() => {
-    const c = conn()
-    if (!c) return
-    let live = true
-    api
-      .listOperatorCertificates(c, operator.id)
-      .then((r) => live && setCerts(r.certificates))
-      .catch((e) => live && setError(e instanceof ApiError ? e.message : 'Could not read the certificates.'))
-    return () => {
-      live = false
-    }
-  }, [conn, operator.id])
+  const load = useLoad((c) => api.listOperatorCertificates(c, operator.id).then((r) => r.certificates), { failure: 'Could not read the certificates.', key: operator.id })
 
   return (
     <Modal open onClose={onClose} title={`Certificates of ${operator.name}`} width="max-w-2xl" footer={<Button variant="primary" onClick={onClose} data-testid="operator-certs-done">Done</Button>}>
-      {error && <ErrorBanner>{error}</ErrorBanner>}
-      {!error && certs === null && <p className="text-sm text-nb-400">Reading…</p>}
-      {certs !== null && certs.length === 0 && (
-        <p className="text-sm text-nb-400" data-testid="operator-certs-empty">Nothing recorded yet. Certificates issued before this list existed are not in it; renewing the certificates starts it.</p>
-      )}
-      {certs !== null && certs.length > 0 && (
-        <table className="w-full text-left text-sm" data-testid="operator-certs-table">
-          <thead className="text-xs text-nb-400">
-            <tr><th className="py-1 pr-3 font-normal">Held by</th><th className="py-1 pr-3 font-normal">Issued</th><th className="py-1 pr-3 font-normal">Ends</th><th className="py-1 font-normal">State</th></tr>
-          </thead>
-          <tbody>
-            {certs.map((c) => (
-              <tr key={c.serial} className="border-t border-nb-800" data-testid={`operator-cert-${c.serial}`}>
-                <td className="py-1.5 pr-3">{holderOf(c, clusterName)}</td>
-                <td className="py-1.5 pr-3 text-nb-400">{c.issuedAt.slice(0, 10)}<span className="text-nb-500"> by {c.issuedBy}</span></td>
-                <td className="py-1.5 pr-3 text-nb-300">{c.notAfter.slice(0, 10)}</td>
-                <td className={c.state === 'ok' ? 'py-1.5 text-nb-300' : 'py-1.5 text-bad'}>{STATE_WORD[c.state]}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <DataBoundary
+        load={load}
+        loading={<p className="text-sm text-nb-400">Reading…</p>}
+        isEmpty={(certs) => certs.length === 0}
+        empty={<p className="text-sm text-nb-400" data-testid="operator-certs-empty">Nothing recorded yet. Certificates issued before this list existed are not in it; renewing the certificates starts it.</p>}
+      >
+        {(certs) => (
+          <table className="w-full text-left text-sm" data-testid="operator-certs-table">
+            <thead className="text-xs text-nb-400">
+              <tr><th className="py-1 pr-3 font-normal">Held by</th><th className="py-1 pr-3 font-normal">Issued</th><th className="py-1 pr-3 font-normal">Ends</th><th className="py-1 font-normal">State</th></tr>
+            </thead>
+            <tbody>
+              {certs.map((c) => (
+                <tr key={c.serial} className="border-t border-nb-800" data-testid={`operator-cert-${c.serial}`}>
+                  <td className="py-1.5 pr-3">{holderOf(c, clusterName)}</td>
+                  <td className="py-1.5 pr-3 text-nb-400">{c.issuedAt.slice(0, 10)}<span className="text-nb-500"> by {c.issuedBy}</span></td>
+                  <td className="py-1.5 pr-3 text-nb-300">{c.notAfter.slice(0, 10)}</td>
+                  <td className={c.state === 'ok' ? 'py-1.5 text-nb-300' : 'py-1.5 text-bad'}>{STATE_WORD[c.state]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </DataBoundary>
     </Modal>
   )
 }
