@@ -14,6 +14,7 @@ import { useServer } from './server'
 // remembers the ETag per connection so a poll can ask conditionally; `inflight` shares one in-progress
 // request across however many components want the model on the same tick, instead of each firing its own.
 let lastEtag: { key: string; etag: string | undefined } | undefined
+let skewedFor: string | undefined
 let inflight: { key: string; promise: Promise<void> } | undefined
 
 /**
@@ -22,16 +23,24 @@ let inflight: { key: string; promise: Promise<void> } | undefined
  * GET above, so a tick where nothing changed costs a 304 rather than the whole payload.
  */
 export function useEffectiveModel() {
+  // One tick per poll the server answered, whether it brought a new picture or said nothing changed: the model carries states that follow the
+  // clock, so it is asked each time (a 304 when it has not moved) rather than only when the state document did.
+  const polledAt = useServer((s) => s.polledAt)
   const generatedAt = useServer((s) => s.state?.generatedAt)
   const conn = useServer((s) => s.conn)
   const model = useObserved((s) => s.model)
   useEffect(() => {
     const c = conn()
     if (!c || !generatedAt) return
-    const server = Date.parse(generatedAt)
-    if (Number.isFinite(server)) useObserved.getState().setSkew(server - Date.now())
+    // The skew is measured against the moment the document was made, so only once per document: on a tick that brought no new one the
+    // same time against a later `Date.now()` would read as the server's clock drifting away.
+    if (skewedFor !== generatedAt) {
+      skewedFor = generatedAt
+      const server = Date.parse(generatedAt)
+      if (Number.isFinite(server)) useObserved.getState().setSkew(server - Date.now())
+    }
     const connKey = `${c.url}|${c.org ?? ''}`
-    const tickKey = `${connKey}|${generatedAt}`
+    const tickKey = `${connKey}|${polledAt ?? generatedAt}`
     if (!inflight || inflight.key !== tickKey) {
       const priorEtag = lastEtag?.key === connKey ? lastEtag.etag : undefined
       inflight = {
@@ -53,7 +62,7 @@ export function useEffectiveModel() {
           }),
       }
     }
-  }, [generatedAt, conn])
+  }, [polledAt, generatedAt, conn])
   return model
 }
 

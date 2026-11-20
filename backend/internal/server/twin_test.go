@@ -324,3 +324,49 @@ func twinAgent(t *testing.T, e *env, h *landscape.Hub, cluster string) store.Age
 	h.Mu.Unlock()
 	return a
 }
+
+// The state the UI polls says whether anything changed: the same answer while nothing has, a new one as soon as something has,
+// and the time it was made never counts as a change (it moves on every call).
+func TestStateAnswersNotModifiedWhileNothingHasChanged(t *testing.T) {
+	a := newAdminRig(t)
+	_, viewer := a.user(t, "vera", accounts.RoleViewer)
+	h := a.hub()
+	ag := twinAgent(t, a.env, h, testkit.FP)
+	h.ApplySync(ag, testkit.TwinFull(testkit.FP, []*ikhnosv1.NodeFacts{testkit.TwinNode("n1", "")}, testkit.TwinWorkload("shop", "cart")), false)
+
+	r := a.do("GET", "/api/v1/state", nil, withCookie(viewer))
+	if r.Code != 200 {
+		t.Fatalf("state: %d %s", r.Code, r.Body.String())
+	}
+	etag := r.Header().Get("ETag")
+	first, _ := r.json(t)["generatedAt"].(string)
+	if etag == "" || first == "" || r.Header().Get("Cache-Control") != "no-cache" {
+		t.Fatalf("etag %q generatedAt %q cache-control %q", etag, first, r.Header().Get("Cache-Control"))
+	}
+
+	// A few seconds later, with nothing changed (no heartbeat or sync arrived): 304 and no body, although the document would carry a new generatedAt.
+	*a.now = a.now.Add(3 * time.Second)
+	if r = a.do("GET", "/api/v1/state", nil, withCookie(viewer), withHeader("If-None-Match", etag)); r.Code != 304 || r.Body.Len() != 0 {
+		t.Fatalf("nothing changed: %d (%d bytes)", r.Code, r.Body.Len())
+	}
+	// Without the tag it is a full answer again, with the later time.
+	r = a.do("GET", "/api/v1/state", nil, withCookie(viewer))
+	if r.Code != 200 || r.json(t)["generatedAt"] == first || r.Header().Get("ETag") != etag {
+		t.Fatalf("untagged request: %d, same tag expected, newer generatedAt expected", r.Code)
+	}
+
+	// A real change in the picture: a full answer with a new tag.
+	h.ApplySync(ag, testkit.TwinFull(testkit.FP, []*ikhnosv1.NodeFacts{testkit.TwinNode("n1", "")}, testkit.TwinWorkload("shop", "cart"), testkit.TwinWorkload("shop", "pay")), true)
+	*a.now = a.now.Add(3 * time.Second)
+	r = a.do("GET", "/api/v1/state", nil, withCookie(viewer), withHeader("If-None-Match", etag))
+	if r.Code != 200 || r.Header().Get("ETag") == etag || !strings.Contains(r.Body.String(), `"pay"`) {
+		t.Fatalf("after a change: %d, tag %q -> %q", r.Code, etag, r.Header().Get("ETag"))
+	}
+
+	// An agent going quiet is a change too: the answer must not stay 304 while the picture says something else.
+	etag = r.Header().Get("ETag")
+	*a.now = a.now.Add(time.Hour)
+	if r = a.do("GET", "/api/v1/state", nil, withCookie(viewer), withHeader("If-None-Match", etag)); r.Code != 200 {
+		t.Fatalf("an agent that stopped reporting an hour ago: %d", r.Code)
+	}
+}

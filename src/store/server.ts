@@ -72,6 +72,8 @@ interface ServerStore {
 
   /** True for a couple of minutes after a change in a cluster that should show up soon (see `boostPolling`). */
   boosted: boolean
+  /** When the server last confirmed the picture on screen (an answer, or its "nothing changed"), as the clock of this browser. */
+  polledAt?: number
 
   connect: (url: string) => Promise<boolean>
   signIn: (username: string, password: string) => Promise<boolean>
@@ -143,6 +145,8 @@ const messageOf = (e: unknown) => (e instanceof Error ? e.message : 'Something w
 // single stall used to leave every later tick piling another request on top, forever, for the rest of the
 // session: idle network waits, no CPU cost, no error, which is exactly what makes it easy to miss.
 let refreshing: Promise<void> | undefined
+// The tag of the state held for one connection (url|org): what the next poll asks the server whether it still is.
+let stateTag: { key: string; etag: string | undefined } | undefined
 // Which connection (url|org) `refreshing` was started for: a fetch for the organisation just left must not be handed
 // back to a caller that wants the one just entered, or that caller gets nothing (its result is dropped as stale).
 let refreshingKey: string | undefined
@@ -621,13 +625,26 @@ export const useServer = create<ServerStore>((set, get) => {
       refreshingKey = key
       const mine: Promise<void> = (async () => {
         try {
-          const state = await api.state(c)
+          // Asked conditionally: while the server says nothing in the picture changed there is nothing to download, parse or compare.
+          // The tag is only sent for the state this connection holds, so a cleared state (sign-out, organisation switch) is never "unchanged".
+          const held = get().state
+          const known = held && stateTag?.key === key ? stateTag.etag : undefined
+          const answer = await api.stateIfChanged(c, known)
           // The connection this response was for may no longer be the current one (an org switch, or a
           // sign-out, while the request was in flight) - applying it now would clobber whatever that
           // switch already loaded with stale data from the organisation it just left.
           const now = get().conn()
           if (!now || now.url !== c.url || now.org !== c.org) return
-          set({ state, error: undefined })
+          if (!answer) {
+            // Unchanged, and still confirmed: the picture is as current as this answer, which is what "Live" and the model's own refresh follow.
+            set({ error: undefined, polledAt: Date.now() })
+            if (held) useRawTopology.setState(mergeDiscovered(useRawTopology.getState(), held))
+            void useWorkspace.getState().poll()
+            return
+          }
+          const { state } = answer
+          stateTag = { key, etag: answer.etag ?? undefined }
+          set({ state, error: undefined, polledAt: Date.now() })
           useObserved.getState().set(state.topology.dependencies, state.topology.externalEndpoints, state.topology.paths, state.tombstones, state.topology.clusterLinks, state.topology.clusterPairConnectivity, state.topology.agents)
           const raw = useRawTopology.getState()
           useRawTopology.setState(mergeDiscovered(raw, state))

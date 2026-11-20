@@ -4,7 +4,11 @@ import { useServer } from '@/store/server'
 /** Whether what is on screen is current: the server's answer is polled every few seconds, and this says how old it is. */
 export default function LiveStatus() {
   const status = useServer((s) => s.status)
-  const at = useServer((s) => s.state?.generatedAt)
+  // When the server last confirmed what is on screen: an answer, or its "nothing changed". The document's own time stands still while
+  // nothing changes, so it is only the fallback for a store that has not polled yet.
+  const polled = useServer((s) => s.polledAt)
+  const made = useServer((s) => s.state?.generatedAt)
+  const at = polled !== undefined ? new Date(polled).toISOString() : made
   const trouble = useServer((s) => !!s.error)
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {

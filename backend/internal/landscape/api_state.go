@@ -1,6 +1,9 @@
 package landscape
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -95,7 +98,32 @@ func (h *API) state(w http.ResponseWriter, r *http.Request) {
 	} else {
 		withoutDiagnostics(&doc)
 	}
+	// A tag for what the answer says, not for when it was made: GeneratedAt moves on every call, so it is left out of what is
+	// hashed. A poller that sends the tag back gets 304 while nothing in the picture has changed, and does not download, parse
+	// and compare the whole document again to find that out.
+	if tag, ok := stateTag(doc); ok {
+		w.Header().Set("ETag", tag)
+		w.Header().Set("Cache-Control", "no-cache")
+		if etagMatches(r.Header.Get("If-None-Match"), tag) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
 	httpkit.WriteJSON(w, 200, doc)
+}
+
+// stateTag is the entity tag of a state document's content: the same for two answers that differ only in the time they were made,
+// different as soon as anything a reader sees differs (an agent's state, a record, the audit rows). It is computed from what this
+// reader is given, so a different role or organisation can never be answered with another's 304. False when the document cannot
+// be encoded, in which case the answer goes out untagged.
+func stateTag(doc StateDoc) (string, bool) {
+	doc.GeneratedAt = ""
+	b, err := json.Marshal(doc)
+	if err != nil {
+		return "", false
+	}
+	sum := sha256.Sum256(b)
+	return `"s-` + hex.EncodeToString(sum[:16]) + `"`, true
 }
 
 // model serves the effective model: GET /api/v1/orgs/{org}/model. It carries an entity tag that changes exactly when

@@ -290,6 +290,28 @@ async function call<T>(c: Conn, method: string, path: string, body?: unknown, he
   return data as T
 }
 
+/** A GET that sends the tag of the answer the caller holds. `undefined` is the server's 304: nothing changed, keep what you have. */
+async function getIfChanged<T>(c: Conn, path: string, etag: string | undefined): Promise<{ data: T; etag: string | null } | undefined> {
+  let res: Response
+  try {
+    res = await fetch(`${c.url.replace(/\/$/, '')}${scoped(c, path)}`, {
+      credentials: 'include',
+      headers: { 'X-Requested-With': 'ikhnos-ui', ...(etag ? { 'If-None-Match': etag } : {}) },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+  } catch {
+    throw new ApiError(0, `Cannot reach the server at ${c.url || 'this address'}. Check the address and that it is running.`)
+  }
+  if (res.status === 304) return undefined
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const requestId = res.headers.get('X-Request-Id') ?? undefined
+    const said = (data as { error?: string }).error ?? `Request failed (${res.status})`
+    throw new ApiError(res.status, res.status >= 500 && requestId ? `${said} (reference ${requestId})` : said, data as Record<string, unknown>, requestId)
+  }
+  return { data: data as T, etag: res.headers.get('ETag') }
+}
+
 export const api = {
   // session and accounts
   serverInfo: (c: Conn) => call<W.ServerInfoDoc>(c, 'GET', '/api/v1/server'),
@@ -370,22 +392,13 @@ export const api = {
    * this cheap path). Returns `undefined` on a 304 - the caller keeps whatever model it already has -
    * otherwise the fresh model and its new ETag to remember for next time.
    */
-  modelIfChanged: async (c: Conn, etag: string | undefined): Promise<{ model: EffectiveModel; etag: string | null } | undefined> => {
-    let res: Response
-    try {
-      res = await fetch(`${c.url.replace(/\/$/, '')}${scoped(c, '/api/v1/model')}`, {
-        credentials: 'include',
-        headers: { 'X-Requested-With': 'ikhnos-ui', ...(etag ? { 'If-None-Match': etag } : {}) },
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      })
-    } catch {
-      throw new ApiError(0, `Cannot reach the server at ${c.url || 'this address'}. Check the address and that it is running.`)
-    }
-    if (res.status === 304) return undefined
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new ApiError(res.status, (data as { error?: string }).error ?? `Request failed (${res.status})`, data as Record<string, unknown>)
-    return { model: data as EffectiveModel, etag: res.headers.get('ETag') }
-  },
+  modelIfChanged: (c: Conn, etag: string | undefined) => getIfChanged<EffectiveModel>(c, '/api/v1/model', etag).then((r) => r && { model: r.data, etag: r.etag }),
+  /**
+   * The state, conditionally, the same way: pass the tag of the answer already held and the server says 304 while nothing in the picture
+   * has changed (the time it was made does not count), so the poll costs no download, parse or comparison. Returns `undefined` then; the
+   * caller keeps what it has. Otherwise the new state and the tag to send next time.
+   */
+  stateIfChanged: (c: Conn, etag: string | undefined) => getIfChanged<Partial<ServerState>>(c, '/api/v1/state', etag).then((r) => r && { state: normalizeServerState(r.data), etag: r.etag }),
   /** A token and the command that installs an agent with it. `options` are what the person chose to switch on or narrow; the server writes them into the command. */
   createToken: (c: Conn, name: string, tier: number, options?: TokenInstallOptions) => call<CreatedToken>(c, 'POST', '/api/v1/tokens', { name, tier, ...options }),
   // `code` is the approval code the agent printed in its log (for an older agent without one: the start of the cluster fingerprint).
