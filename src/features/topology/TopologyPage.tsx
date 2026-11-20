@@ -13,8 +13,7 @@ import {
   type Edge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import clsx from 'clsx'
-import { Filter as FilterIcon, Info, Plug, Plus, RotateCcw, ScanEye, SlidersHorizontal, Target, X } from 'lucide-react'
+import { Filter as FilterIcon, Info, Plug, Plus, RotateCcw } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryParams } from '@/lib/useQueryParams'
 import { useTopologyScope, useViewOptions, VIEWS } from '@/features/topology/useTopologyOptions'
@@ -36,13 +35,13 @@ const MapView = lazy(() => import('@/features/topology/components/MapView'))
 import EdgeHoverCard, { type EdgeHoverPos } from '@/features/topology/components/EdgeHoverCard'
 import LiveStatus from '@/features/topology/components/LiveStatus'
 import { nodeTypes } from '@/features/topology/components/nodes'
+import HopsControl from '@/features/topology/components/HopsControl'
+import ViewOptionsMenu from '@/features/topology/components/ViewOptionsMenu'
 import TelemetryTab from '@/features/topology/components/TelemetryTab'
 import { edgeTypes } from '@/features/topology/components/OffsetEdge'
 import { AutoMiniMap } from '@/features/topology/components/AutoMiniMap'
 import { SquareRoutes } from '@/features/topology/components/SquareRoutes'
-import { Button, EmptyState, ICON_MD, ICON_SM, MenuButton, MenuPanel, Select, SkeletonBlock } from '@/components/ui/primitives'
-import { Switch } from '@/components/ui/Switch'
-import { PRESS_CLASS } from '@/components/ui/buttonClass'
+import { Button, EmptyState, ICON_SM, SkeletonBlock } from '@/components/ui/primitives'
 import { Tabs } from '@/components/ui/Tabs'
 import FilterMenu, { FilterChip } from '@/features/topology/components/FilterMenu'
 import { computeFocus } from '@/features/topology/lib/focus'
@@ -58,14 +57,6 @@ import { TIER_COLOR } from '@/lib/types'
 import { useServer } from '@/store/server'
 import { useClusterLinks, usePaths, useTopology } from '@/store/topology'
 
-// `lens`, when true, marks a control that changes what the canvas is actually interpreting or
-// computing (recolouring edges by a different live signal, e.g.) rather than just drawing or hiding
-// something already decided - see the "Lenses" subsection below, where every lens-type Toggle in this
-// menu lives together under its own label, the same way this file already splits "Show" from "Layout".
-// It renders the small ScanEye glyph DetailRow-style controls elsewhere use for "not just a plain fact"
-// (never a second, differently-shaped control: a lens is still switched the same way any other toggle
-// here is, it's what it DOES that differs) and keeps the switch itself the same accent colour on, so the
-// distinction reads at a glance without the page growing a second control shape to learn.
 /** Marker id for the open-chevron arrowhead in a given line colour. */
 const arrowId = (color: string) => `topo-ah-${color.replace(/[^0-9a-z]/gi, '')}`
 /** One open-chevron marker per line colour (an SVG marker cannot take the colour of the line it sits on in every browser). */
@@ -96,19 +87,6 @@ function HoverStyle({ edge }: { edge: { id: string; source: string; target: stri
       .react-flow__edge[data-id="${cssStr(edge.id)}"] .react-flow__edge-path { stroke-width: 3px !important; opacity: 1 !important; }
       ${ends} { box-shadow: inset 0 0 0 1.5px var(--color-accent) !important; }
     `}</style>
-  )
-}
-
-function Toggle({ checked, onChange, label, disabled, title, lens }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean; title?: string; lens?: boolean }) {
-  return (
-    <label
-      title={title}
-      className={clsx('flex w-full items-center gap-2.5 whitespace-nowrap rounded-md px-2 py-1.5 text-left text-sm text-nb-300', disabled ? 'opacity-50' : 'cursor-pointer hover:bg-nb-930')}
-    >
-      <Switch size="sm" checked={checked} disabled={disabled} onChange={onChange} label={label} />
-      {lens && <ScanEye size={ICON_SM} className="shrink-0 text-accent" aria-hidden />}
-      {label}
-    </label>
   )
 }
 
@@ -151,7 +129,8 @@ function Canvas() {
 
   const hasMesh = anyMesh(topology.clusters)
   // What the address says about how to draw (see useTopologyOptions): the options themselves, and the one-time default for a fresh Application view.
-  const { mode, isMap, isTelemetry, isCanvas, view, groupBy, servicesOnNodes, links, showDevices, showLabels, showNoise, showMesh, showNamespaces, showChain, showHealthLens, problemsOnly, setParam } = useViewOptions(sp, setParams, hasMesh)
+  const { setParam, ...options } = useViewOptions(sp, setParams, hasMesh)
+  const { mode, isMap, isTelemetry, isCanvas, view, groupBy, servicesOnNodes, links, showDevices, showLabels, showNoise, showMesh, showNamespaces, showChain, showHealthLens, problemsOnly } = options
 
   const [selection, setSelection] = useState<Selection>(null)
 
@@ -582,42 +561,7 @@ function Canvas() {
 
         <div className="ml-auto flex flex-wrap items-center gap-2 sm:gap-3">
           <LiveStatus />
-          {mode === 'application' && selection?.kind === 'service' && (
-            <div
-              className="flex items-center gap-1 rounded-md border border-nb-800 bg-nb-925 px-1.5 py-1"
-              title="Show only this service's neighborhood: what it calls and what calls it, this many steps out"
-              data-testid="hops-control"
-            >
-              <Target size={ICON_SM} className="ml-0.5 shrink-0 text-nb-500" aria-hidden />
-              {[1, 2, 3].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setParam('hops', hops === n ? null : String(n))}
-                  className={clsx(
-                    'rounded px-2 py-0.5 text-xs',
-                    PRESS_CLASS,
-                    hops === n ? 'bg-accent-soft text-accent' : 'text-nb-400 hover:text-nb-300',
-                  )}
-                  aria-pressed={hops === n}
-                  data-testid={`hops-${n}`}
-                >
-                  {n}
-                </button>
-              ))}
-              {hops !== undefined && (
-                <button
-                  type="button"
-                  onClick={() => setParam('hops', null)}
-                  className="rounded px-1 py-0.5 text-nb-500 hover:bg-nb-850 hover:text-nb-300"
-                  aria-label="Clear neighborhood filter"
-                  data-testid="hops-clear"
-                >
-                  <X size={ICON_MD} />
-                </button>
-              )}
-            </div>
-          )}
+          {mode === 'application' && selection?.kind === 'service' && <HopsControl hops={hops} onChange={(n) => setParam('hops', n === undefined ? null : String(n))} />}
           {isTelemetry ? null : (
             <>
           <FilterChip filter={filter} onClear={() => { setParams({ clusters: null, apps: null, kinds: null }); setSelection(null) }} />
@@ -636,114 +580,19 @@ function Canvas() {
             </>
           )}
           {isCanvas && (
-            <div className="relative">
-              <MenuButton icon={SlidersHorizontal} label="Options" collapse open={openMenu === 'options'} onClick={() => toggleMenu('options')} disabled={empty} aria-haspopup="true" aria-label="View options" data-testid="view-options" />
-              <MenuPanel open={openMenu === 'options'} onClose={() => setOpenMenu(null)} className="w-72 p-2" role="group" aria-label="View options">
-                {/* Three subsections: what's drawn at all, what instead changes which signal the canvas
-                    is reading (a "lens" - recolouring/reinterpreting what's already drawn rather than
-                    adding or removing anything), then how it's all laid out. "Show"/"Layout" mirror
-                    FilterMenu's own subsection labels (same classes) so the toolbar's two popovers read as
-                    one family instead of two different menus; "Lenses" follows the identical pattern
-                    rather than inventing a new one, since a grouped, labelled subsection was already this
-                    page's own way of telling two kinds of option apart. */}
-                <div className="px-2 pb-1 pt-1 text-xs uppercase tracking-wide text-nb-500">Show</div>
-                {mode === 'application' && (
-                  <Toggle
-                    checked={showDevices}
-                    onChange={(v) => {
-                      setParam('devices', v ? null : '0')
-                      // Hiding devices removes the selected one from the canvas; Inspector would otherwise
-                      // keep showing (and let you edit) something no longer drawn anywhere.
-                      if (!v && (selection?.kind === 'device' || selection?.kind === 'external')) setSelection(null)
-                    }}
-                    label="Devices and external endpoints"
-                  />
-                )}
-                {mode === 'application' && dependencies.some((d) => d.noise) && (
-                  <Toggle checked={showNoise} onChange={(v) => setParam('noise', v ? '1' : null)} label="DNS & system traffic" />
-                )}
-                {mode === 'infrastructure' && (
-                  <>
-                    <Toggle checked={servicesOnNodes} onChange={(v) => setParam('services', v ? '1' : null)} label="Services on nodes" />
-                    <Toggle checked={links} onChange={(v) => setParam('links', v ? null : '0')} label="Cross-cluster links" />
-                  </>
-                )}
-                <Toggle checked={showLabels} onChange={(v) => setParam('labels', v ? '1' : null)} label="Edge labels" />
-
-                {/* Lenses: unlike every toggle above (which only ever decides whether something already
-                    computed gets drawn), each of these changes what the canvas itself is interpreting -
-                    Service mesh swaps an edge's colour from the plain loss/quality read to its mTLS
-                    verdict, and Network health colours a measured cluster link by its live loss% - so
-                    they get their own labelled group, and each
-                    Toggle below also carries the small ScanEye glyph (see Toggle's own `lens` prop) as a
-                    second, per-row cue for anyone who lands here without reading the section header.
-                    Network health applies in both modes (a measured cluster link is a network fact, not an
-                    application-view one), so only Service mesh's own row is further gated to the
-                    application view. */}
-                <div className="mt-1 border-t border-nb-850 px-2 pb-1 pt-2.5 text-xs uppercase tracking-wide text-nb-500">Lenses</div>
-                {mode === 'application' && (
-                  <>
-                    <Toggle
-                      lens
-                      checked={showMesh}
-                      disabled={!hasMesh}
-                      onChange={(v) => setParam('mesh', v ? '1' : null)}
-                      label="Service mesh"
-                      title={hasMesh ? 'Recolour each connection by its mTLS verdict instead of loss/quality, and show which services are in the mesh' : 'No service mesh was found in the connected clusters'}
-                    />
-                    {!hasMesh && <p className="-mt-0.5 px-2 pb-1 pl-[46px] text-[11px] text-nb-500">No mesh found in your clusters</p>}
-                  </>
-                )}
-                <Toggle
-                  lens
-                  checked={showHealthLens}
-                  onChange={(v) => setParam('health', v ? '1' : null)}
-                  label="Network health"
-                  title="Colour the measured line between clusters by its live loss%"
-                />
-
-                <div className="mt-1 border-t border-nb-850 px-2 pb-1 pt-2.5 text-xs uppercase tracking-wide text-nb-500">Layout</div>
-                {mode === 'application' && (
-                  <Toggle
-                    checked={showNamespaces}
-                    disabled={groupBy !== 'cluster' || showChain}
-                    onChange={(v) => setParam('namespaces', v ? '1' : null)}
-                    label="Namespace sub-boxes"
-                    title={showChain ? 'Not available in chain layout' : groupBy === 'cluster' ? 'Draw a box per namespace inside each cluster' : 'Only available grouped by cluster'}
-                  />
-                )}
-                {mode === 'application' && !showChain && groupBy !== 'cluster' && (
-                  <p className="-mt-0.5 px-2 pb-1 pl-[46px] text-[11px] text-nb-500">Only available grouped by cluster</p>
-                )}
-                {mode === 'application' && (
-                  <Toggle
-                    checked={showChain}
-                    onChange={(v) => setParam('chain', v ? '1' : null)}
-                    label="Chain layout"
-                    title="Lay every service out left to right by who calls whom, across every cluster, instead of grouping them into boxes"
-                  />
-                )}
-                {mode === 'application' && showChain && (
-                  <p className="-mt-0.5 px-2 pb-1 pl-[46px] text-[11px] text-nb-500">Namespace sub-boxes and Group by aren&apos;t available while this is on</p>
-                )}
-                <div className={clsx('mt-1 flex items-center justify-between gap-3 px-2 py-1.5 text-sm', showChain ? 'text-nb-600' : 'text-nb-400')}>
-                  Group by
-                  <Select
-                    className="h-8 w-32"
-                    value={groupBy}
-                    disabled={showChain}
-                    title={showChain ? 'Not available in chain layout' : undefined}
-                    onChange={(e) => {
-                      setParam('group', e.target.value === 'tier' ? 'tier' : null)
-                      setSelection(null)
-                    }}
-                  >
-                    <option value="cluster">Cluster</option>
-                    <option value="tier">Tier</option>
-                  </Select>
-                </div>
-              </MenuPanel>
-            </div>
+            <ViewOptionsMenu
+              options={options}
+              hasMesh={hasMesh}
+              hasNoise={dependencies.some((d) => d.noise)}
+              open={openMenu === 'options'}
+              onToggle={() => toggleMenu('options')}
+              onClose={() => setOpenMenu(null)}
+              disabled={empty}
+              setParam={setParam}
+              // Hiding devices removes the selected one from the canvas; Inspector would otherwise keep showing (and let you edit) something no longer drawn anywhere.
+              onDevicesHidden={() => { if (selection?.kind === 'device' || selection?.kind === 'external') setSelection(null) }}
+              onGroupChanged={() => setSelection(null)}
+            />
           )}
 
           {isCanvas && (
