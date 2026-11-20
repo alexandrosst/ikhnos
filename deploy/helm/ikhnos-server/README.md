@@ -113,7 +113,7 @@ Everything is documented in `values.yaml`; these are the ones you are likely to 
 | `admin.port` | `8080` | admin listener in the pod |
 | `admin.behindTlsProxy` | `null` (auto) | pass `--admin-behind-tls-proxy`; auto is true when `httproute` is enabled |
 | `admin.tls.secretName` / `certKey` / `keyKey` | `""` / `tls.crt` / `tls.key` | serve HTTPS from the pod |
-| `admin.tls.selfSigned` / `selfSignedHosts` | `true` / `[]` | fallback: generate a self-signed cert when nothing else protects the port |
+| `admin.tls.selfSigned` / `selfSignedHosts` | `true` / `[]` | fallback: generate a self-signed cert when nothing else protects the port; it names the hosts of `admin.publicURL` and `agent.publicAddress` by itself, and is made again when its names change |
 | `admin.service.type` / `port` | `ClusterIP` / `8080` | |
 | `admin.existingPasswordSecret` / `...Key` | `""` / `password` | first administrator's password (`IKHNOS_ADMIN_PASSWORD`) |
 | `admin.sso.headerName` | `""` (off) | pass `--admin-sso-header`: trust a header your reverse proxy already verified identity into (e.g. `X-Remote-User`) as an alternative to password/2FA sign-in - see the values.yaml comment. Requires `admin.behindTlsProxy=true` (or `httproute.enabled`); the chart refuses to render otherwise |

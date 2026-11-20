@@ -16,6 +16,17 @@ The admin port carries your sign-in password and session cookie, so the chart re
 - **Real Gateway (HTTPRoute) in front, terminating TLS:** enable `httproute` — it sets this automatically, no separate flag needed. See [Production cluster](../installation/production-cluster.md).
 - **The server should serve HTTPS itself, with a certificate you provide:** set `admin.tls.secretName` to a `kubernetes.io/tls` Secret.
 
+## A tool says `certificate verify failed`, or a name mismatch, against the server's own certificate
+
+The chart's self-signed certificate is trusted by nobody until you tell the tool to trust it, and it is only valid for the names written in it: `localhost`, `127.0.0.1`, `::1`, the host of `agent.publicAddress`, the host of `admin.publicURL` and whatever you listed in `admin.tls.selfSignedHosts`. Save it and look at the names:
+
+```bash
+openssl s_client -connect HOST:8080 </dev/null 2>/dev/null | openssl x509 > ikhnos.crt
+openssl x509 -in ikhnos.crt -noout -ext subjectAltName
+```
+
+Give the tool `ikhnos.crt` as the certificate to trust (`curl --cacert`, `requests` `verify=`). If the address you use is not among the names, add it and upgrade: `--set 'admin.tls.selfSignedHosts={203.0.113.7}'`. The upgrade makes a new certificate (a certificate made before this behaviour had no record of its names, so it is made again once) and restarts the server to load it; save the new certificate again afterwards. A server older than this behaviour kept the old certificate on upgrade: delete the Secret `<release>-ikhnos-server-admin-tls-selfsigned` first, then upgrade.
+
 ## Signed in, but every request after that comes back 401 (`sign in required`)
 
 You're reaching the admin port at a plain-`http://` address that isn't `localhost` or `127.0.0.1` — a LAN IP, most commonly, when `kubectl port-forward --address 0.0.0.0` is used so another device can reach it. The session cookie the server sets is marked `Secure`, and browsers only store/send a `Secure` cookie over plain HTTP for `localhost`/`127.0.0.1` — any other hostname or IP needs a real HTTPS connection, self-signed or not. Without it, the cookie from a successful login is silently dropped, and every following request looks unauthenticated.

@@ -107,6 +107,20 @@ IfNotPresent
 {{- printf "%s-admin-tls-selfsigned" (include "ikhnos.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{/* The names, beyond localhost, 127.0.0.1 and ::1, that the generated admin certificate carries: what admin.tls.selfSignedHosts lists,
+     plus the host of admin.publicURL and the host of agent.publicAddress, since those are the addresses this server is reached
+     by. A JSON list, sorted, without duplicates, so the same settings always give the same text (it is compared with what the
+     existing certificate was made for, and decides whether the server pod restarts). */}}
+{{- define "ikhnos.adminSelfSignedHosts" -}}
+{{- $hosts := list -}}
+{{- range (.Values.admin.tls.selfSignedHosts | default (list)) }}{{ $hosts = append $hosts (toString .) }}{{ end -}}
+{{- with .Values.admin.publicURL }}{{ with (urlParse .).hostname }}{{ $hosts = append $hosts . }}{{ end }}{{ end -}}
+{{- with .Values.agent.publicAddress }}{{ $hosts = append $hosts (regexReplaceAll ":[0-9]+$" . "" | trimPrefix "[" | trimSuffix "]") }}{{ end -}}
+{{- $out := list -}}
+{{- range ($hosts | uniq | sortAlpha) }}{{ if and . (not (has . (list "localhost" "127.0.0.1" "::1"))) }}{{ $out = append $out . }}{{ end }}{{ end -}}
+{{- $out | toJson -}}
+{{- end -}}
+
 {{/* Secret that actually holds the admin TLS certificate: the user-provided one, or this chart's generated one, or
      nothing at all (plain HTTP, behind a trusted proxy/tunnel). */}}
 {{- define "ikhnos.adminTLSSecretName" -}}

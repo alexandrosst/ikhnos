@@ -30,8 +30,11 @@ spec:
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- if or .Values.podAnnotations .Values.nodeProbe.enabled }}
+      {{- if or .Values.podAnnotations .Values.nodeProbe.enabled (include "ikhnos.adminSelfSigned" .) }}
       annotations:
+        {{- if include "ikhnos.adminSelfSigned" . }}
+        checksum/admin-tls-hosts: {{ include "ikhnos.adminSelfSignedHosts" . | sha256sum }}   # the server reads its certificate at start: new names, new pod
+        {{- end }}
         {{- if .Values.nodeProbe.enabled }}
         checksum/node-probe-secret: {{ include "ikhnos.probeSecretRevision" . }}   # the server reads the secret at start
         {{- end }}

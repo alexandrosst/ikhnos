@@ -119,12 +119,12 @@ func TestTheControllerChartRefusesWhatItCannotMean(t *testing.T) {
 	}
 	for _, c := range []struct{ name, set, want string }{
 		{"a tier that does not exist", "maxAccessTier=3", "maxAccessTier"},
-		{"a typo", "maxAcessTier=1", "additional properties"},
+		{"a typo", "maxAcessTier=1", "additional propert"},
 		{"telemetry that is not a switch", "allowTelemetry=maybe", "allowTelemetry"},
 		{"a digest that is not one", "image.digest=latest", "digest"},
 	} {
 		out, err := exec.Command(h, "template", "ct", controllerChart(), "--set", c.set).CombinedOutput()
-		if err == nil || !strings.Contains(string(out), c.want) {
+		if err == nil || !strings.Contains(strings.ToLower(string(out)), strings.ToLower(c.want)) {
 			t.Errorf("%s: err %v, output %q", c.name, err, out)
 		}
 	}

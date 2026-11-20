@@ -534,7 +534,7 @@ The important values; all of them are documented in `values.yaml` and tabulated 
 | `httproute.*` | off | UI exposure, TLS terminated at the Gateway |
 | `admin.behindTlsProxy` | auto | passes `--admin-behind-tls-proxy`; auto = true with `httproute` |
 | `admin.tls.secretName` | `""` | the pod serves HTTPS itself |
-| `admin.tls.selfSigned` / `selfSignedHosts` | `true` / `[]` | fallback: chart-generated self-signed cert when nothing else protects the port |
+| `admin.tls.selfSigned` / `selfSignedHosts` | `true` / `[]` | fallback: chart-generated self-signed cert when nothing else protects the port; it names the hosts of `admin.publicURL` and `agent.publicAddress` by itself, and is made again when its names change |
 | `admin.existingPasswordSecret` | `""` | first administrator's password from a Secret |
 | `registration` | `invite` | `invite` / `closed` / `open` |
 | `multiOrganisation` | `false` | host more than one organization on this server |

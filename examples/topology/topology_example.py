@@ -17,7 +17,7 @@ TOKEN = os.environ["FUSION_TOKEN"]    # cnf_..., made on FUSION > Access
 
 s = requests.Session()
 s.headers["Authorization"] = f"Bearer {TOKEN}"
-# s.verify = "ikhnos.crt"             # the server's certificate, if it is self-signed
+# s.verify = "ikhnos.crt"             # the server's certificate, if it is self-signed: openssl s_client -connect HOST:8080 </dev/null | openssl x509 > ikhnos.crt
 
 
 def get(path, **params):
