@@ -545,7 +545,7 @@ func (h *Hub) Connect(stream ikhnosv1.AgentService_ConnectServer) error {
 					return status.Error(codes.InvalidArgument, err.Error())
 				}
 				if applied {
-					h.rec.changed.Store(true)
+					h.rec.noteFlow(h.C.Now())
 					h.persistFlows(ctx, agent.ID, false)
 				}
 			case *ikhnosv1.AgentMessage_Measurements:

@@ -99,7 +99,7 @@ export default function EdgeHoverCard({
           ? ' · confirmed'
           : d?.aggregated
             ? d.activeCount ? ` · ${d.activeCount} seen in traffic` : undefined
-            : label !== undefined && (d?.stale ? ' · quiet' : seen ? ' · seen in traffic' : ' · declared')}
+            : label !== undefined && (d?.stale ? ' · quiet' : d?.idle ? ' · idle' : seen ? ' · seen in traffic' : ' · declared')}
       </div>
       {(showBps || s?.reqPerSec !== undefined || s?.errorRate !== undefined || s?.p95Ms !== undefined || d?.rttMs !== undefined || showJitter || showHandshake || showRetransmits || showFailed || showSni || showDns || showDnsRtt || d?.iface || d?.quality || d?.route || tunnel || protocolMix) && (
         <div className="mt-1.5">

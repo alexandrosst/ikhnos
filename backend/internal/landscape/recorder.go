@@ -32,6 +32,10 @@ type recorder struct {
 	h       *Hub
 	differ  *history.Differ
 	changed atomic.Bool
+	// lastFlow is when traffic was last reported (unix ns); settled is the last one a scan was made for after it had gone quiet. Only tick reads and
+	// writes settled, under mu.
+	lastFlow atomic.Int64
+	settled  int64
 
 	// mu serialises everything below. The ticker and the administrator's "record now" (ScanNow) both reach
 	// scan, which reads and writes prev, lastFP, lastSnap and lastScan; without it they raced.
@@ -46,6 +50,23 @@ type recorder struct {
 }
 
 func newRecorder(h *Hub) *recorder { return &recorder{h: h, differ: history.NewDiffer()} }
+
+// noteFlow records that traffic was reported: the topology is worth a look soon, and again once that traffic has been quiet for the quiet window.
+func (r *recorder) noteFlow(now time.Time) {
+	r.lastFlow.Store(now.UnixNano())
+	r.changed.Store(true)
+}
+
+// settleDue says whether the traffic last reported has now been quiet for the whole quiet window and no scan has looked since. A scan is
+// made when something changes or every SnapshotMinutes; with every link silent nothing changes, so without this a link that went quiet would
+// be recorded as such only at the next periodic scan, up to SnapshotMinutes after it did. Call with mu held.
+func (r *recorder) settleDue(now time.Time) bool {
+	last := r.lastFlow.Load()
+	if last == 0 || last == r.settled {
+		return false
+	}
+	return now.Sub(time.Unix(0, last)) > r.h.StaleFlows()+time.Second
+}
 
 // Run starts the background work of the hub: recording history and keeping agents' configuration
 // current. It returns when ctx ends.
@@ -97,7 +118,11 @@ func (r *recorder) tick(ctx context.Context) {
 	}
 	periodic := now.Sub(r.lastSnap) >= time.Duration(set.SnapshotMinutes)*time.Minute
 	dirty := r.changed.Load() && now.Sub(r.lastScan) >= scanEvery
-	if dirty || periodic {
+	settle := r.settleDue(now)
+	if dirty || periodic || settle {
+		if settle {
+			r.settled = r.lastFlow.Load()
+		}
 		r.changed.Store(false)
 		r.scan(ctx, now, periodic)
 	}

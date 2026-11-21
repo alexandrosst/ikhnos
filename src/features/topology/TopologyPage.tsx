@@ -449,7 +449,8 @@ function Canvas() {
       // Seen in traffic: solid, and a touch thicker the busier it is. Only declared (or gone quiet): dotted and
       // thin. Kept close to the declared baseline (1.2) rather than scaling up hard - a busy link should read as
       // "more traffic" without out-weighing the 2.4px used for the current selection/focus.
-      const seen = !!e.data?.observed && !e.data?.stale
+      // Idle (seen lately, not carrying traffic right now) is drawn like a link that was not seen: thin and dotted, and only gone quiet fades.
+      const seen = !!e.data?.observed && !e.data?.stale && !e.data?.idle
       const width = hot ? 2.4 : cl ? 1.8 : e.data?.aggregated ? 2 : seen ? 1.2 + 1.0 * (e.data?.weight ?? 0.15) : 1.2
       // A seen edge with no `via` at all can't happen (isObserved only ever sets true alongside via), so
       // this only ever fires for a real conntrack-only edge - one whose traffic numbers, if it shows any,

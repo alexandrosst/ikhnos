@@ -314,3 +314,20 @@ describe('EdgeHoverCard · cluster-link encryption posture', () => {
     expect(screen.queryByText('Encryption')).toBeNull()
   })
 })
+
+describe('EdgeHoverCard · what the link is doing', () => {
+  const says = (data: Partial<EdgeData>) => {
+    render(<EdgeHoverCard edge={{ ...makeEdge(data), label: 'tcp 443' }} pos={pos} host={document.createElement('div')} fromName="web" toName="checkout" />)
+    return document.body.textContent ?? ''
+  }
+
+  test('a link carrying traffic says seen in traffic', () => {
+    expect(says({ observed: true })).toContain('seen in traffic')
+  })
+  test('an idle link says idle: seen lately, but not carrying traffic now', () => {
+    expect(says({ observed: true, idle: true })).toContain('· idle')
+  })
+  test('a quiet link says quiet, whatever else it is flagged', () => {
+    expect(says({ observed: true, stale: true, idle: true })).toContain('· quiet')
+  })
+})
