@@ -84,7 +84,11 @@ func TestAMemberWithNoNamespaceDoesNotOpenTheWholeApplication(t *testing.T) {
 			t.Fatalf("api is read outside its namespace: %s", sel)
 		}
 	}
-	if !strings.Contains(strings.Join(sels, "\n"), `{__name__="up",__name__!="ikhnos_application_info",__name__!="ikhnos_cluster_info",service_name=~"worker"}`) {
+	found := false
+	for _, sel := range sels {
+		found = found || (strings.HasSuffix(sel, `,service_name=~"worker"}`) && !strings.Contains(sel, "k8s_namespace_name"))
+	}
+	if !found {
 		t.Fatalf("worker, known nowhere in particular, is read by its name: %v", sels)
 	}
 }

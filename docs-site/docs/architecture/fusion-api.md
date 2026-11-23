@@ -51,7 +51,7 @@ All are `GET` (but the batch read, and the backends' own POST forms), all take `
 
 | Call | What it returns |
 | --- | --- |
-| `/api/v1/fusion/status` | FUSION's own state, and what this caller may read (signals, namespaces, clusters, expiry, whether raw queries are allowed). |
+| `/api/v1/fusion/status` | FUSION's own state, the organisation it belongs to (`organisation`: the `id` its telemetry carries as `ikhnos_org_id`, and the `name` it was given in ikhnos), and what this caller may read (signals, namespaces, clusters, expiry, whether raw queries are allowed). |
 | `/api/v1/fusion/applications` | The **ikhnos applications** (groups of services, made by a person or found by discovery), each with its services (each with an `id`, its name, namespace, cluster, kind, aliases and signals), namespaces and clusters, and which signal types FUSION has for them in the range. Pass an application's `id` or `name` as `application` to the reads below ([filtering by application](#filtering-by-ikhnos-application)). |
 | `/api/v1/fusion/applications/{name}` | One ikhnos application at a glance (`name` is its id or name): its signals across all its services, recent traces, recent traces with an error span, recent error-level log lines, the metric names it reports. |
 | `/api/v1/fusion/applications/{name}/topology` | The service-to-service traffic of one ikhnos application, now or as of an earlier time ([application topology](#application-topology)). |
@@ -231,6 +231,14 @@ sum by (service_name) (rate(http_server_duration_seconds_count[5m]))
 `service_id` is the id of the service in ikhnos (`sv-…`), the id the API gives on an application's services and the graph uses for the service entity ([system memory](./system-memory.md#entities-and-versions)); `member` is its `name/namespace/cluster` key, which the graph stores as `key`. It ties a series to one service record, where `service_name` can be shared by services in different namespaces or clusters. It adds a label, not a series: the cap of 5000 series and the report of a truncation are as before. A join or selector on the other labels works as it did; one that matches the exact label set of this series needs `service_id` added or ignored (`ignoring(service_id)`).
 
 The series is not telemetry: the Grafana dashboards leave it out of their counts, and it appears only while FUSION runs. It carries a series for each name a member's telemetry may use (its name and its aliases) in each namespace and cluster it runs in, so a count of the series is not a count of services. A member ikhnos knows no namespace or cluster for is written without that label (the dashboards' namespace and cluster choices match those with `.*`, not `.+`). It describes the present: an application edited or deleted in ikhnos changes the series within a minute (a removed one is gone after Prometheus' five-minute lookback), and its history is not kept. It is written only while FUSION is running, and the Grafana dashboard **Applications** reads it for its variables. A service in two applications makes the join many-to-many; select one application, as the dashboard does. Loki and Tempo have no such series: use the API's `application=`, or the service list from `/applications` in a LogQL or TraceQL selector.
+
+**The organisation by its name.** Every agent stamps its organisation's id on what it sends (`ikhnos_org_id`), not its name, which people change. Beside the applications and the clusters the server writes, every minute,
+
+```
+ikhnos_org_info{ikhnos_org_id="default", org_name="Edge lab"} 1
+```
+
+so a query or a panel shows the organisation by the name it has in ikhnos now: `sum by (org_name) (rate(http_server_request_duration_seconds_count[5m]) * on (ikhnos_org_id) group_left (org_name) ikhnos_org_info)`. Renaming the organisation shows within a minute. Like the other info series it is not telemetry, and the API's metric reads leave it out unless asked for by name.
 
 ## Cluster links
 

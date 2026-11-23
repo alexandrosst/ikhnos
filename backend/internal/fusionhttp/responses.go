@@ -63,6 +63,8 @@ type callerAccessDoc struct {
 type statusDoc struct {
 	Access callerAccessDoc     `json:"access"`
 	Fusion fusion.FusionStatus `json:"fusion"`
+	// Organisation is the organisation FUSION belongs to: the id its telemetry carries (ikhnos_org_id) and its name in ikhnos.
+	Organisation *fusionapi.OrgName `json:"organisation,omitempty"`
 }
 
 // applicationsDoc answers the list of applications, with which stores could be read (Sources) and what went wrong in part (Warnings).

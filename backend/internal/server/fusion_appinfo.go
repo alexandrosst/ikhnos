@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -28,8 +29,8 @@ func (a *Admin) PushApplicationInfo(ctx context.Context) (int, bool, error) {
 	if ex == nil {
 		return 0, false, nil
 	}
-	// The cluster names go with the applications: a failure of one does not keep the other from being written.
-	cerr := a.pushClusterInfo(ctx, ex)
+	// The cluster and organisation names go with the applications: a failure of one does not keep the others from being written.
+	cerr := errors.Join(a.pushClusterInfo(ctx, ex), a.pushOrgInfo(ctx, ex))
 	groups, err := ex.Applications(ctx)
 	if err != nil {
 		return 0, false, err
@@ -58,6 +59,20 @@ func (a *Admin) pushClusterInfo(ctx context.Context, ex fusionapi.Extras) error 
 	}
 	_, err = a.Fusion.DataClient().PushClusterInfo(ctx, names)
 	return err
+}
+
+// pushOrgInfo writes the organisation info series (fusionapi.OrgInfoMetric), so Grafana and a query can show the organisation by
+// the name it was given in ikhnos.
+func (a *Admin) pushOrgInfo(ctx context.Context, ex fusionapi.Extras) error {
+	on, ok := ex.(fusionapi.OrgNamer)
+	if !ok {
+		return nil
+	}
+	o, err := on.OrgName(ctx)
+	if err != nil {
+		return err
+	}
+	return a.Fusion.DataClient().PushOrgInfo(ctx, o)
 }
 
 // RunApplicationInfo keeps the info series written until ctx ends. A failure, and a push that had to leave series out, are

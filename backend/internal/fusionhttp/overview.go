@@ -28,7 +28,13 @@ func (g *Guard) Status(w http.ResponseWriter, r *http.Request, c *fusionapi.Clie
 	} else {
 		st = fc.Status(r.Context())
 	}
-	httpkit.WriteJSON(w, 200, statusDoc{Fusion: st, Access: access})
+	doc := statusDoc{Fusion: st, Access: access}
+	if on, ok := g.Extras().(fusionapi.OrgNamer); ok {
+		if o, err := on.OrgName(r.Context()); err == nil {
+			doc.Organisation = &o
+		}
+	}
+	httpkit.WriteJSON(w, 200, doc)
 }
 
 // Applications lists the ikhnos applications, each with its services and which signals FUSION has for them in the range.

@@ -33,6 +33,7 @@ var (
 	vocDaemonSet   = Label{Attr: "k8s.daemonset.name", Promote: true, Index: true}
 	vocVolumeClaim = Label{Attr: "k8s.persistentvolumeclaim.name", Promote: true}
 	vocCluster     = Label{Attr: "ikhnos.cluster.id", Promote: true, Index: true, By: "agent"}
+	vocOrg         = Label{Attr: "ikhnos.org.id", Promote: true, Index: true, By: "agent"}
 )
 
 // Vocabulary is every attribute the pipeline carries.
@@ -47,7 +48,7 @@ var Vocabulary = []Label{
 	{Attr: "k8s.hpa.name", Promote: true},
 	{Attr: "k8s.resourcequota.name", Promote: true},
 	{Attr: "k8s.volume.name", Promote: true},
-	{Attr: "ikhnos.org.id", Promote: true, Index: true, By: "agent"},
+	vocOrg,
 	{Attr: "ikhnos.source", Promote: true, By: "extractor"},
 	{Attr: "ikhnos.intent.id", By: "agent"},
 	{Attr: "ikhnos.scope", By: "agent"},

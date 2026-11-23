@@ -75,6 +75,19 @@ func (e fusionExtras) ClusterNames(ctx context.Context) ([]fusionapi.ClusterName
 	return out, nil
 }
 
+// OrgName is FUSION's organisation: its id, which the telemetry carries, and the name it was given in ikhnos.
+func (e fusionExtras) OrgName(ctx context.Context) (fusionapi.OrgName, error) {
+	t, err := e.tenant(ctx)
+	if err != nil {
+		return fusionapi.OrgName{}, err
+	}
+	o, err := t.C.Store.GetOrg(ctx, t.C.OrgID)
+	if err != nil {
+		return fusionapi.OrgName{}, &fusionapi.Error{Status: 503, Msg: "the organisation is not available"}
+	}
+	return fusionapi.OrgName{ID: o.ID, Name: o.Name}, nil
+}
+
 // TopologyAt is the landscape as the graph remembered it at a moment, and the services that were in the application then: the topology
 // of the newest recording at or before the moment, and the application's members as of the moment itself (so a service that
 // joined after that recording is a member the topology does not have). Only a store with a graph

@@ -18,6 +18,10 @@ import (
 // lblName is Prometheus' label for a series' metric name; the others are the vocabulary's (vocab.go).
 const lblName = "__name__"
 
+// infoMetrics are the series the server itself writes into Prometheus to describe what telemetry carries only ids of. They are
+// not telemetry, and a read of telemetry leaves them out unless it names one.
+var infoMetrics = []string{AppInfoMetric, ClusterInfoMetric, OrgInfoMetric}
+
 // Point is one sample, [unix seconds, value] in JSON.
 type Point [2]float64
 
@@ -76,12 +80,13 @@ func (f MetricFilter) matchers(s Scope) ([]string, error) {
 	if cm := metricNameMatcher(f.Categories); cm != "" {
 		m = append(m, cm)
 	}
-	if f.Name != AppInfoMetric && f.Name != ClusterInfoMetric {
+	if !slices.Contains(infoMetrics, f.Name) {
 		// The series the server writes to say which services are in which application is not telemetry: it would make every
-		// service of an application look like it reports a metric of that name.
-		m = append(m, lblName+"!="+quote(AppInfoMetric))
-		// Nor is the series that gives each cluster its name for Grafana (see ClusterInfoMetric).
-		m = append(m, lblName+"!="+quote(ClusterInfoMetric))
+		// service of an application look like it reports a metric of that name. Nor are those that name the clusters and the
+		// organisation for Grafana (ClusterInfoMetric, OrgInfoMetric).
+		for _, n := range infoMetrics {
+			m = append(m, lblName+"!="+quote(n))
+		}
 	}
 	eq, err := eqMatchers([]eqFilter{
 		{"service", lblService, f.Service}, {"namespace", lblNamespace, f.Namespace}, {"pod", lblPod, f.Pod},

@@ -2024,6 +2024,11 @@ export interface OrgDoc {
   role: Role
 }
 
+export interface OrgName {
+  id: string
+  name: string
+}
+
 export interface OutcomeDoc {
   result: OutcomeResult
   predicted: Record<string, number>
@@ -2887,6 +2892,7 @@ export type Status = 'healthy' | 'degraded' | 'offline' | 'unknown'
 export interface StatusDoc {
   access: CallerAccessDoc
   fusion: FusionFusionStatus
+  organisation?: OrgName
 }
 
 export type StepCode = 'agent' | 'addresses' | 'capabilities' | 'links-on' | 'export' | 'prober' | 'capacity' | 'peer-export'
