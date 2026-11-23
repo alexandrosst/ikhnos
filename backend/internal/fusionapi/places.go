@@ -120,8 +120,8 @@ var labelSyntax = dialect{
 	and: " and ", or: " or ",
 }
 
-// traceSyntax is TraceQL's, on the resource attributes. It has no regular expression that is safe to build from any
-// value, so any of several values is written as an "or" of each (anyOf).
+// traceSyntax is TraceQL's, on the resource attributes. Any of several values is one anchored regular expression of
+// the values, each escaped (anyOf).
 var traceSyntax = dialect{
 	namespace: "resource." + attrNamespace, cluster: "resource." + attrCluster, name: "resource." + attrService,
 	eq:  func(k, v string) string { return k + " = " + quote(v) },

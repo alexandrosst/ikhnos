@@ -1,6 +1,7 @@
 package fusionapi
 
 import (
+	"slices"
 	"strings"
 	"time"
 )
@@ -68,7 +69,24 @@ func (f TraceFilter) traceQL(s Scope) (string, error) {
 	return "{ " + strings.Join(c, " && ") + " }", nil
 }
 
+// anyOf is the TraceQL condition that attr is one of vals: attr = "v" for one value, else one regular expression of the
+// values, each escaped (regexAny), attr =~ "^(?:a|b|c)$". One expression instead of an "or" of each keeps the query
+// short: the cut and the exact places of an application can list hundreds of names.
+//
+// It must match the listed values and nothing more, or a caller's rights would let through a namespace that merely
+// contains an allowed one. Tempo anchors a TraceQL regular expression at both ends since 2.7 (#4329: "All regular
+// expression matchers will now be fully anchored"; it is compiled by Prometheus' labels.NewFastRegexMatcher as
+// ^(?s:...)$), and the chart deploys 2.8; before that it matched anywhere in the value. The expression carries its own
+// anchors so that it is exact on either, and they cost nothing on the newer: the matcher drops them before turning the
+// alternation into a set lookup. A list with the empty value keeps the "or" of each: an empty attribute and a missing
+// one are told apart by =, and a regular expression that matches "" is not promised to keep them apart.
 func anyOf(attr string, vals []string) string {
+	if len(vals) == 1 {
+		return attr + " = " + quote(vals[0])
+	}
+	if !slices.Contains(vals, "") {
+		return attr + " =~ " + quote("^(?:"+regexAny(vals)+")$")
+	}
 	p := make([]string, len(vals))
 	for i, v := range vals {
 		p[i] = attr + " = " + quote(v)

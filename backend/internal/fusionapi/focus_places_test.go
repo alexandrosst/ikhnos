@@ -63,7 +63,8 @@ func TestAnApplicationsLogsAndTracesAreEachMemberWhereItRuns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(tq, `((resource.k8s.namespace.name = "shop" && resource.ikhnos.cluster.id = "c1" && (resource.service.name = "api" || resource.service.name = "api-v2")) || (resource.k8s.namespace.name = "data" && resource.ikhnos.cluster.id = "c2" && (resource.service.name = "redis")))`) {
+	if !strings.Contains(tq, `((resource.k8s.namespace.name = "shop" && resource.ikhnos.cluster.id = "c1" && resource.service.name =~ "^(?:api|api-v2)$") || `+
+		`(resource.k8s.namespace.name = "data" && resource.ikhnos.cluster.id = "c2" && resource.service.name = "redis"))`) {
 		t.Fatalf("traceql = %s", tq)
 	}
 }

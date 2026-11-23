@@ -126,7 +126,7 @@ func TestTraceCategoryCondition(t *testing.T) {
 		t.Errorf("system+application: %v", err)
 	}
 	k, _ := traceCategoryCond("a", []string{CategoryKubernetes})
-	if !strings.Contains(k, `a = "kube-system"`) || !strings.Contains(k, " || ") {
+	if k != `a =~ "^(?:kube-system|kube-public|kube-node-lease)$"` {
 		t.Errorf("kubernetes: %s", k)
 	}
 	a, _ := traceCategoryCond("a", []string{CategoryApplication})

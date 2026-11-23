@@ -56,7 +56,12 @@ func (f LogFilter) selector(s Scope) (string, error) {
 		}
 		sel = append(sel, lblService+"=~"+quote(regexAny(f.Services)))
 	case namesCut == "":
-		sel = append(sel, lblService+`=~".+"`) // (a selector needs a matcher that cannot be empty)
+		// A selector needs a matcher that cannot be empty, and service_name=~".+" leaves no stream out: Loki (3.x; the
+		// chart deploys 3.5) gives every stream a service_name as it stores it. A record with no service.name takes the
+		// first label of limits_config.discover_service_name that it has (service, app, ..., k8s_container_name, ...),
+		// else "unknown_service" (pkg/loghttp/push/otlp.go for OTLP, push.go for the rest). That list is on by default
+		// and the chart's loki-config.yaml leaves it so; set to an empty list it would hide such lines here.
+		sel = append(sel, lblService+`=~".+"`)
 	}
 	if namesCut != "" {
 		sel = append(sel, namesCut)

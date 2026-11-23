@@ -42,6 +42,9 @@ data:
       # A line with no severity of its own (a container's stdout, read from its file) gets the level Loki finds in it as
       # detected_level, which the FUSION API shows and filters by (Loki's default, stated so that it stays on).
       discover_log_levels: true
+      # discover_service_name is left at Loki's default list: a stream with no service.name is given one from it, else
+      # "unknown_service", so every stream has a service_name, which the FUSION API's log queries select on. Do not set it
+      # to an empty list.
       # Loki's defaults (4 MB/s per tenant, a 6 MB burst, 5000 active streams) are sized for one small app; this is every
       # pod of every connected cluster behind one tenant, so a busy minute would be answered with 429s the gateway
       # retries and finally drops. Streams here are service x namespace x pod-level labels, hence the high ceiling.

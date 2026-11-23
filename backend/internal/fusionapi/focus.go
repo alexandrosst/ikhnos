@@ -71,6 +71,14 @@ func (m AppMember) matchResource(r *Resource) match {
 	return byPlace
 }
 
+// byWorkloadOnly says whether the resource is part of the application by its workload's name alone: none of the
+// application's names (a member's, or an alias) is its service.name. Its series then carry a service_name that is not
+// the application's, or none, and a query narrowed to the application by service_name (narrowToApplication) does not
+// read them.
+func (g *AppGroup) byWorkloadOnly(r *Resource) bool {
+	return g.matchResource(r) != noMatch && !slices.Contains(g.ServiceNames(), r.Service)
+}
+
 // matchResource is the best match of any member of the application.
 func (g *AppGroup) matchResource(r *Resource) match {
 	best := noMatch

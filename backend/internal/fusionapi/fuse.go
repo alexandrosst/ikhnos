@@ -233,7 +233,11 @@ func (c *Client) newFuseRun(ctx context.Context, s Scope, tr *Trace, opts FuseOp
 		f.Sources[SourcePromQL] = SourceNotRequested
 		how := "associated, not proven: your own queries, each evaluated for a resource with its service, namespace and pod filled in (or once for the trace), over the trace's time; a metric sample carries no trace id"
 		if opts.Application != nil && !opts.PromQLAsWritten {
-			how += "; a query for the trace as a whole reads the application's series only: its service names, namespaces and clusters are on every selector (promql_as_written=true keeps it as written)"
+			how += "; a query for the trace as a whole (or one naming only ${namespace} or ${cluster}) reads the " +
+				"application's series only: its service names, as service_name, and its namespaces and clusters are on " +
+				"every selector, so a series is matched by service_name only, not also by its workload's name " +
+				"(k8s_deployment_name and the like) as a metrics read narrowed to the application is " +
+				"(promql_as_written=true keeps it as written)"
 		}
 		f.join(SourcePromQL, promQLJoin(opts.PromQL), how)
 	}

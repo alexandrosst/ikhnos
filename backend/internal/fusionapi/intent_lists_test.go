@@ -141,6 +141,55 @@ func TestAnApplicationsLogServicesRefuseALokiAnswerWithNoList(t *testing.T) {
 	}
 }
 
+// One place whose read fails fails the list at once: the other places' reads are cancelled rather than waited for, and
+// the error returned is the store's own, not the "context canceled" that cancelling them causes.
+func TestAnApplicationsLogServicesStopAtTheFirstPlaceThatFails(t *testing.T) {
+	f := newFake(t)
+	var mu sync.Mutex
+	cancelled := 0
+	f.loki = func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(formOf(r).Get("query"), `k8s_namespace_name="bad"`) {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		select {
+		case <-r.Context().Done():
+			mu.Lock()
+			cancelled++
+			mu.Unlock()
+		case <-time.After(10 * time.Second):
+		}
+	}
+	// As many places as are read at once, so that every slow read is running when the failing one fails.
+	places := []FocusPlace{{Namespace: "slow0", Names: []string{"a"}}, {Namespace: "bad", Names: []string{"b"}}}
+	for i := 1; len(places) < logPlaceReads; i++ {
+		places = append(places, FocusPlace{Namespace: fmt.Sprintf("slow%d", i), Names: []string{"a"}})
+	}
+	start := time.Now()
+	_, _, err := f.client().logServices(context.Background(), Scope{Signals: Signals, Focus: places}, rangeAll)
+	if statusOf(err) != http.StatusBadGateway || !strings.Contains(err.Error(), "status 500") {
+		t.Fatalf("the error is not the failing store's: %v", err)
+	}
+	if took := time.Since(start); took > 5*time.Second {
+		t.Fatalf("the list waited %s for reads whose answers it could not use", took)
+	}
+	// The server sees a request cancelled once the client has closed its connection, which can be just after the call
+	// returns.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		mu.Lock()
+		n := cancelled
+		mu.Unlock()
+		if n == logPlaceReads-1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%d of the %d slow reads were cancelled", n, logPlaceReads-1)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 // Only clusters the caller's rights limit it to make the log services a sample of the newest lines. An application's
 // clusters, when it runs in too many places to name each, are a choice: the list stays complete, read off the index.
 func TestFocusClustersDoNotMakeTheLogServicesASample(t *testing.T) {

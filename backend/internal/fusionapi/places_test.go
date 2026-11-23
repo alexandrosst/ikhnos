@@ -2,8 +2,13 @@ package fusionapi
 
 import (
 	"math/rand"
+	"regexp"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
+
+	"github.com/prometheus/prometheus/model/labels"
 )
 
 // memberAtByMembers is the rule RunsAt replaced, member by member, kept here to check that the places give the same answer.
@@ -80,8 +85,8 @@ func TestPlaceSetRenderers(t *testing.T) {
 		t.Errorf("label cut = %q, want %q", got, want)
 	}
 	if got, want := traceSyntax.either(p.placeConds(traceSyntax)),
-		`(resource.k8s.namespace.name = "shop" && resource.ikhnos.cluster.id = "c1" && (resource.service.name = "api")) || `+
-			`(resource.k8s.namespace.name = "data" && (resource.service.name = "redis"))`; got != want {
+		`(resource.k8s.namespace.name = "shop" && resource.ikhnos.cluster.id = "c1" && resource.service.name = "api") || `+
+			`(resource.k8s.namespace.name = "data" && resource.service.name = "redis")`; got != want {
 		t.Errorf("trace places = %s\nwant %s", got, want)
 	}
 	if got := labelSyntax.either([][]string{{"a"}, {"b", "c"}, {"a"}}); got != "(a) or (b and c)" {
@@ -94,6 +99,45 @@ func TestPlaceSetRenderers(t *testing.T) {
 	}
 	if got := (placeSet{}).promSelectors([]string{"x"}, []string{"service_name"}); !slices.Equal(got, []string{"{x}"}) {
 		t.Errorf("an open set's selectors = %q, want base alone", got)
+	}
+}
+
+// Several values are one regular expression in TraceQL, and it is a caller's rights, so it must match the listed values
+// and nothing else, whatever they contain: checked with the matcher Tempo compiles it with (Prometheus', anchored) and
+// with a plain unanchored search, which is how Tempo before 2.7 read it.
+func TestATraceQLListOfValuesMatchesThoseValuesOnly(t *testing.T) {
+	vals := []string{"a.b", "c+d", "x|y", `back\slash`, "(paren)", "dollar$", "^caret", "new\nline", "é"}
+	cond := anyOf("resource.service.name", vals)
+	lit, ok := strings.CutPrefix(cond, "resource.service.name =~ ")
+	if !ok {
+		t.Fatalf("several values are not one regular expression: %s", cond)
+	}
+	re, err := strconv.Unquote(lit) // (Tempo's lexer reads a string with strconv.Unquote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tempo, err := labels.NewFastRegexMatcher(re)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain := regexp.MustCompile(re)
+	others := []string{"", "axb", "a.bc", "za.b", "c+dd", "cd", "ccd", "x", "y", "x|", "paren", "(paren)x", "dollar",
+		"caret", "^caretx", "e", `backslash`, "new", "line"}
+	for _, v := range vals {
+		if !tempo.MatchString(v) || !plain.MatchString(v) {
+			t.Errorf("%q is listed but not matched by %s", v, re)
+		}
+	}
+	for _, v := range others {
+		if tempo.MatchString(v) || plain.MatchString(v) {
+			t.Errorf("%q is not listed but matched by %s", v, re)
+		}
+	}
+	if got := anyOf("a", []string{"one"}); got != `a = "one"` {
+		t.Errorf("one value = %s, want an equality", got)
+	}
+	if got := anyOf("a", []string{"", "x"}); got != `(a = "" || a = "x")` {
+		t.Errorf("a list with the empty value = %s, want an or of equalities", got)
 	}
 }
 

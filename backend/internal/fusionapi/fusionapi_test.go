@@ -389,7 +389,7 @@ func TestTraceSearchBuildsScopedTraceQLAndHidesTheRoot(t *testing.T) {
 	}
 	q := f.last("/api/search").Get("q")
 	for _, want := range []string{`resource.service.name = "cart"`, `name = "GET /cart"`, `status = error`, `duration >= 250ms`,
-		`(resource.k8s.namespace.name = "shop" || resource.k8s.namespace.name = "pay")`, `(resource.ikhnos.cluster.id = "cl-1")`} {
+		`resource.k8s.namespace.name =~ "^(?:shop|pay)$"`, `resource.ikhnos.cluster.id = "cl-1"`} {
 		if !strings.Contains(q, want) {
 			t.Fatalf("TraceQL %s lacks %s", q, want)
 		}
@@ -524,7 +524,7 @@ func TestApplicationsMergeTheThreeStores(t *testing.T) {
 		t.Fatalf("logs listing for a cluster-limited scope: %s", q)
 	}
 	// A limited scope does not use tag-values (which need not honour the query); it samples the traces it may see.
-	if q := f.last("/api/search").Get("q"); !strings.Contains(q, `resource.k8s.namespace.name = "shop"`) {
+	if q := f.last("/api/search").Get("q"); !strings.Contains(q, `resource.k8s.namespace.name =~ "^(?:shop|pay)$"`) {
 		t.Fatalf("traces listing was not scoped: %s", q)
 	}
 	if n := f.last("/api/search").Get("limit"); n != strconv.Itoa(scopedServiceSample+1) {

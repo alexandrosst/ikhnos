@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -170,5 +171,76 @@ func TestATraceWideQueryOfAnApplicationsReadReadsTheApplicationOnly(t *testing.T
 	}
 	if len(sent) != 1 || sent[0] != qs[0].Expr {
 		t.Fatalf("as written: %q", sent)
+	}
+}
+
+// A narrowed query matches the application by service_name only, which cannot be widened to the workload's name without
+// changing the query. When it comes back with no series and some resource of the application in the trace is part of it
+// by its workload's name alone, the answer says that this may be why; when the resources are the application's by their
+// service.name, or the query found series, it does not.
+func TestAnEmptyNarrowedQueryWarnsWhenAResourceIsTheApplicationsByItsWorkloadOnly(t *testing.T) {
+	f := newFake(t)
+	trace := tempoTrace()
+	cart := trace["trace"].(map[string]any)["resourceSpans"].([]any)[0].(map[string]any)["resource"].(map[string]any)
+	cart["attributes"] = append(cart["attributes"].([]any), kv("k8s.deployment.name", "cart-deploy"))
+	f.tempo = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, trace) }
+	var mu sync.Mutex
+	found := false // whether the store has series for the queries
+	f.prom = func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		res := []any{}
+		if found {
+			start, _ := strconv.ParseFloat(formOf(r).Get("start"), 64)
+			res = append(res, map[string]any{"metric": map[string]string{"service_name": "cart-deploy"},
+				"values": [][]any{{start, "1"}}})
+		}
+		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": res}})
+	}
+	qs, err := ParsePromQueries([]string{`cpu=sum(rate(container_cpu_time_seconds_total[1m]))`,
+		`ns=sum(up{k8s_namespace_name="${namespace}"})`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func(g AppGroup) *Fused {
+		t.Helper()
+		got, err := f.client().FuseTrace(context.Background(), AllSignals(), traceHex,
+			FuseOptions{PromQL: qs, Applications: []AppGroup{g}, Application: &g})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	warned := func(got *Fused, query string) bool {
+		for _, w := range got.Warnings {
+			if strings.HasPrefix(w, "promql "+query+": no series.") && strings.Contains(w, "by service_name only") &&
+				strings.Contains(w, "(r1)") { // (the key of the cart resource)
+				return true
+			}
+		}
+		return false
+	}
+	shop := func(member string) AppGroup {
+		m := AppMember{Name: member, Namespace: "shop", Cluster: "cl-1"}
+		return AppGroup{ID: "app-shop", Name: "Shop", Members: []AppMember{m}}
+	}
+	byWorkload := shop("cart-deploy")
+	got := read(byWorkload)
+	if !warned(got, "cpu") || !warned(got, "ns") {
+		t.Fatalf("an empty narrowed query of an application known by its workload's name does not say why: %q",
+			got.Warnings)
+	}
+	if !strings.Contains(got.Joins[SourcePromQL], "matched by service_name only") {
+		t.Fatalf("the join does not say how a narrowed query matches the application: %s", got.Joins[SourcePromQL])
+	}
+
+	if got := read(shop("cart")); warned(got, "cpu") || warned(got, "ns") {
+		t.Fatalf("a query that matches the resources' own service_name warns: %q", got.Warnings)
+	}
+	mu.Lock()
+	found = true
+	mu.Unlock()
+	if got := read(byWorkload); warned(got, "cpu") || warned(got, "ns") {
+		t.Fatalf("a narrowed query that found series warns: %q", got.Warnings)
 	}
 }

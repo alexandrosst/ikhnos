@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -126,12 +127,27 @@ func (c *Client) logServices(ctx context.Context, s Scope, tr TimeRange) (names 
 // logServicesIn is logServices for an application, place by place: the services of its names with lines in each of its
 // namespaces and clusters. The places are asked about a few at a time, and the answer is sorted, so it reads the same
 // whatever order they come back in.
+//
+// One place that fails fails the list, so the first failure cancels the reads still running or waiting: their answers
+// could not be used. The error returned is that first failure, recorded as it happens and before the others are
+// cancelled, so it is never the "context canceled" this cancellation then causes in them (those come later and are
+// dropped). When only one place fails, the answer is that place's error, whatever the timing.
 func (c *Client) logServicesIn(ctx context.Context, s Scope, tr TimeRange) ([]string, string, error) {
-	type result struct {
-		names []string
-		err   error
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var (
+		mu    sync.Mutex
+		first error // the first failure; set once, and only then are the other reads cancelled
+	)
+	fail := func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		if first == nil {
+			first = err
+			cancel()
+		}
 	}
-	results := make([]result, len(s.Focus))
+	results := make([][]string, len(s.Focus))
 	sem := make(chan struct{}, logPlaceReads)
 	var wg sync.WaitGroup
 	for i, p := range s.Focus {
@@ -140,7 +156,7 @@ func (c *Client) logServicesIn(ctx context.Context, s Scope, tr TimeRange) ([]st
 			defer wg.Done()
 			release, err := acquire(ctx, sem)
 			if err != nil {
-				results[i].err = err
+				fail(err)
 				return
 			}
 			defer release()
@@ -160,19 +176,19 @@ func (c *Client) logServicesIn(ctx context.Context, s Scope, tr TimeRange) ([]st
 			if p.Cluster != "" {
 				cl = []string{p.Cluster}
 			}
-			results[i].names, results[i].err = c.lokiServiceNames(ctx, "{"+strings.Join(sel, ",")+"}", cl, tr)
+			names, err := c.lokiServiceNames(ctx, "{"+strings.Join(sel, ",")+"}", cl, tr)
+			if err != nil {
+				fail(err)
+				return
+			}
+			results[i] = names
 		}()
 	}
 	wg.Wait()
-	var all []string
-	for _, r := range results {
-		if r.err != nil {
-			// The first place's error in their order, not the first to fail, so the answer is the same each time.
-			return nil, "", r.err
-		}
-		all = append(all, r.names...)
+	if first != nil { // (every goroutine is done: wg.Wait orders their writes before this read)
+		return nil, "", first
 	}
-	return distinctSorted(all), "", nil
+	return distinctSorted(slices.Concat(results...)), "", nil
 }
 
 // lokiServiceNames lists the services with lines in the range under a stream selector and, when clusters are given, in

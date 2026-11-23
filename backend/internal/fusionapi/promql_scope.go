@@ -37,6 +37,15 @@ const (
 // too). It is the union of the members, so for an application whose members run in several places a name may be matched in
 // another member's namespace; a series with no service_name (a pod's, from an agent that does not name it after its
 // workload) is not matched.
+//
+// The names are matched as service_name only. A metrics read built here also matches them as the workload's name
+// (k8s_deployment_name and the like, one selector per label: MetricFilter.selectors), but a selector holds matchers that
+// must all hold, with no "or" across labels, and a caller's query cannot be rewritten to read both without changing what
+// it computes: v{...} can become (v{service_name=~N} or v{k8s_deployment_name=~N}) only where it is an instant vector. A
+// range vector has no "or": rate(v[1m]) would need a subquery, (... or ...)[1m:step], which reads samples at the
+// subquery's steps instead of the ones stored. So the query keeps its meaning, the join text says what it matches, and
+// fusePromQL warns when a query came back empty for an application some of whose resources in the trace are part of it
+// by their workload's name alone (AppGroup.byWorkloadOnly).
 func narrowToApplication(expr string, g *AppGroup) (string, error) {
 	return withMatchers(expr, g.cut().promLimits(), narrowedByRead)
 }
