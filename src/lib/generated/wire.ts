@@ -488,6 +488,7 @@ export interface CallerAccessDoc {
   kind: string
   name: string
   namespaces: string[]
+  promql: boolean
   rawQueries: boolean
   signals: Signal[]
 }

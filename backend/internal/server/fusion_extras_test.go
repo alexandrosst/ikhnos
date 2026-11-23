@@ -70,7 +70,8 @@ func TestYourPromQLIsExpandedPerResourceAndReachesPrometheus(t *testing.T) {
 	}
 }
 
-func TestYourPromQLNeedsAnUnrestrictedToken(t *testing.T) {
+// A limited token's own PromQL is read with its namespaces on every selector; an unlimited one's as written.
+func TestYourPromQLIsReadWithinTheTokensLimits(t *testing.T) {
 	d := newDataRig(t)
 	limited, _ := d.mint(t, map[string]any{"name": "shop", "namespaces": []string{"shop"}})
 	unlimited, _ := d.mint(t, map[string]any{"name": "all"})
@@ -78,11 +79,11 @@ func TestYourPromQLNeedsAnUnrestrictedToken(t *testing.T) {
 
 	before := d.stores.count()
 	j := d.get(path, bearer(limited)).json(t)
-	if j["sources"].(map[string]any)["promql"] != "not allowed" {
+	if j["sources"].(map[string]any)["promql"] != "ok" {
 		t.Fatalf("%v", j["sources"])
 	}
-	if d.stores.askedAbout(urlEscape(`up{service_name=`)) {
-		t.Fatalf("a limited token's query reached Prometheus: %v", d.stores.asked[before:])
+	if !d.stores.askedAbout(urlEscape(`k8s_namespace_name=~"shop"`)) {
+		t.Fatalf("a limited token's query must carry its namespaces: %v", d.stores.asked[before:])
 	}
 	if j := d.get(path, bearer(unlimited)).json(t); j["sources"].(map[string]any)["promql"] != "ok" {
 		t.Fatalf("%v", j["sources"])

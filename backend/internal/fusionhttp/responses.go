@@ -50,11 +50,14 @@ type metricRangeDoc struct {
 
 // callerAccessDoc says what the caller is and may read, as the status answer tells it back.
 type callerAccessDoc struct {
-	Clusters   []string           `json:"clusters"`
-	ExpiresAt  string             `json:"expiresAt,omitempty"`
-	Kind       string             `json:"kind"`
-	Name       string             `json:"name"`
-	Namespaces []string           `json:"namespaces"`
+	Clusters   []string `json:"clusters"`
+	ExpiresAt  string   `json:"expiresAt,omitempty"`
+	Kind       string   `json:"kind"`
+	Name       string   `json:"name"`
+	Namespaces []string `json:"namespaces"`
+	// PromQL says the caller may send PromQL of its own (it reads metrics): read as written when it is not limited, with its
+	// limits on every selector when it is.
+	PromQL     bool               `json:"promql"`
 	RawQueries bool               `json:"rawQueries"`
 	Signals    []fusionapi.Signal `json:"signals"`
 }

@@ -209,7 +209,7 @@ func (c *Client) newFuseRun(ctx context.Context, s Scope, tr *Trace, opts FuseOp
 			return nil, err
 		}
 	}
-	if len(opts.PromQL) > 0 && s.Allows(SignalMetrics) && s.Unrestricted() {
+	if len(opts.PromQL) > 0 && s.Allows(SignalMetrics) {
 		run.qwin = run.window
 		if opts.PromQLPad > 0 {
 			if run.qwin, cut = windowAround(tr, opts.PromQLPad, MaxWindow); cut {

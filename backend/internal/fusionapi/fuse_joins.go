@@ -89,11 +89,6 @@ func (r *fuseRun) promQL() {
 	if !r.allowed(len(r.opts.PromQL) > 0, SourcePromQL, SignalMetrics) {
 		return
 	}
-	if !r.s.Unrestricted() {
-		r.setSource(SourcePromQL, SourceNotAllowed)
-		r.note("promql: your own queries can only be run by a caller whose access is not limited to certain namespaces or clusters")
-		return
-	}
 	r.setSource(SourcePromQL, SourceOK)
 	r.start(func() {
 		global, warns, err := r.c.fusePromQL(r.ctx, r.s, r.f.Trace, r.looked, r.opts, r.qwin, r.qstep, r.sem, r.apply)

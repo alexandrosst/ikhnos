@@ -34,7 +34,6 @@ func TestTheGuideOfTheDocsPageIsWhatTheServerDoes(t *testing.T) {
 	metricsOnly, _ := d.mint(t, map[string]any{"name": "m", "signals": []string{"metrics"}})
 	errText(d.get("/api/v1/fusion/logs", bearer(metricsOnly)), 403, "cannot read logs")
 	shopOnly, _ := d.mint(t, map[string]any{"name": "s", "namespaces": []string{"shop"}})
-	errText(d.get("/api/v1/fusion/metrics/query?query=up", bearer(shopOnly)), 403, "structured filters")
 	errText(d.get("/api/v1/fusion/logs?query=%7Bapp%3D%22x%22%7D", bearer(shopOnly)), 403, "structured filters")
 	// ... and a token without a limit may.
 	open, _ := d.mint(t, map[string]any{"name": "o"})

@@ -232,21 +232,24 @@ func (q *PromQuery) uses(vars ...string) bool {
 	return false
 }
 
-// promRange evaluates one expression as a range query. Only a Scope with no namespace or cluster limit may do this.
+// promRange evaluates one expression as a range query. A Scope with a namespace or cluster limit has it added to every selector
+// of the expression (restrictPromQL); its results are then made of what it may see only, and are not checked again by their
+// labels (a sum carries no namespace, and is the caller's to have).
 func (c *Client) promRange(ctx context.Context, s Scope, expr string, w TimeRange, step time.Duration, maxSeries int) ([]MetricSeries, bool, error) {
 	if err := s.needSignal(SignalMetrics); err != nil {
 		return nil, false, err
 	}
-	if err := s.needUnrestricted("a PromQL query"); err != nil {
+	restricted, err := restrictPromQL(expr, s)
+	if err != nil {
 		return nil, false, err
 	}
 	data, err := c.prom(ctx, "/api/v1/query_range", url.Values{
-		"query": {expr}, "start": {unixFloat(w.From)}, "end": {unixFloat(w.To)}, "step": {strconv.FormatFloat(step.Seconds(), 'f', -1, 64)}, "limit": {strconv.Itoa(maxSeries + 1)},
+		"query": {restricted}, "start": {unixFloat(w.From)}, "end": {unixFloat(w.To)}, "step": {strconv.FormatFloat(step.Seconds(), 'f', -1, 64)}, "limit": {strconv.Itoa(maxSeries + 1)},
 	})
 	if err != nil {
 		return nil, false, err
 	}
-	return decodeMatrix(data, s, maxSeries)
+	return decodeMatrix(data, Scope{Signals: s.Signals}, maxSeries)
 }
 
 // errNotEvaluated is the result of an expansion past maxPromRuns: not the store's failure, the read's own limit.

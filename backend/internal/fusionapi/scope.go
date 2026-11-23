@@ -5,9 +5,10 @@
 // the caller is and hands this package a Scope; everything here is about turning that Scope into restrictions the
 // stores themselves enforce (a matcher added to every query it builds), and then checking the answers once more.
 //
-// A Scope that limits namespaces or clusters is only ever applied to queries this package builds itself from
-// structured filters. Arbitrary PromQL, LogQL or TraceQL cannot be restricted safely without parsing it, so a limited
-// Scope may not send one (see Scope.Unrestricted and the Raw* methods).
+// A Scope that limits namespaces or clusters is applied to queries this package builds itself from structured filters, and
+// to PromQL the caller wrote, which is parsed and has the limits added to every selector (promql_scope.go). LogQL and
+// TraceQL written by hand are not parsed here, so a limited Scope may not send them (see Scope.Unrestricted and the Raw*
+// methods).
 package fusionapi
 
 import (

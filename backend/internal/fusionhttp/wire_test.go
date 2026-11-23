@@ -46,9 +46,9 @@ func TestAnswersThatWereMapsAreWrittenAsTheyWere(t *testing.T) {
 
 	st := fusion.FusionStatus{Available: true, State: "running"}
 	sameBytes(t, "status, a user", statusDoc{Fusion: st, Access: callerAccessDoc{Kind: "user", Name: "alex", Signals: []fusionapi.Signal{"logs"}, Namespaces: []string{}, Clusters: []string{}, RawQueries: true}},
-		map[string]any{"fusion": st, "access": map[string]any{"kind": "user", "name": "alex", "signals": []string{"logs"}, "namespaces": []string{}, "clusters": []string{}, "rawQueries": true}})
+		map[string]any{"fusion": st, "access": map[string]any{"kind": "user", "name": "alex", "signals": []string{"logs"}, "namespaces": []string{}, "clusters": []string{}, "rawQueries": true, "promql": false}})
 	sameBytes(t, "status, a token that expires", statusDoc{Fusion: st, Access: callerAccessDoc{Kind: "token", Name: "ci", Signals: []fusionapi.Signal{"logs"}, Namespaces: []string{"a"}, Clusters: []string{}, ExpiresAt: "2026-02-01T00:00:00Z"}},
-		map[string]any{"fusion": st, "access": map[string]any{"kind": "token", "name": "ci", "signals": []string{"logs"}, "namespaces": []string{"a"}, "clusters": []string{}, "rawQueries": false, "expiresAt": "2026-02-01T00:00:00Z"}})
+		map[string]any{"fusion": st, "access": map[string]any{"kind": "token", "name": "ci", "signals": []string{"logs"}, "namespaces": []string{"a"}, "clusters": []string{}, "rawQueries": false, "promql": false, "expiresAt": "2026-02-01T00:00:00Z"}})
 
 	src := map[string]string{"metrics": "ok"}
 	sameBytes(t, "applications", applicationsDoc{Applications: []fusionapi.AppView{}, Sources: src, Warnings: []string{}, From: from, To: to},

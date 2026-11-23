@@ -1,7 +1,7 @@
 {
   "NativeResponse": {"type": "object", "description": "The backend's own answer, in its own format (for Prometheus and Loki a `status`/`data` envelope; for Tempo the trace or the search result), including its own error shape for a bad query."},
   "Error": {"type": "object", "properties": {"error": {"type": "string", "description": "What went wrong, in words."}}, "required": ["error"]},
-  "Status": {"type": "object", "example": {"fusion": {"available": true, "state": "running", "message": "FUSION is running.", "since": "2026-10-20T08:14:03Z", "components": [{"component": "metrics", "label": "Prometheus", "desired": 1, "ready": 1}, {"component": "logs", "label": "Loki", "desired": 1, "ready": 1}, {"component": "traces", "label": "Tempo", "desired": 1, "ready": 1}], "lastDataAt": "2026-10-24T11:59:41Z"}, "organisation": {"id": "default", "name": "Edge lab"}, "access": {"kind": "token", "name": "decision engine", "signals": ["metrics", "logs", "traces"], "namespaces": ["shop"], "clusters": [], "rawQueries": false, "expiresAt": "2027-01-18T09:00:00Z"}}, "properties": {
+  "Status": {"type": "object", "example": {"fusion": {"available": true, "state": "running", "message": "FUSION is running.", "since": "2026-10-20T08:14:03Z", "components": [{"component": "metrics", "label": "Prometheus", "desired": 1, "ready": 1}, {"component": "logs", "label": "Loki", "desired": 1, "ready": 1}, {"component": "traces", "label": "Tempo", "desired": 1, "ready": 1}], "lastDataAt": "2026-10-24T11:59:41Z"}, "organisation": {"id": "default", "name": "Edge lab"}, "access": {"kind": "token", "name": "decision engine", "signals": ["metrics", "logs", "traces"], "namespaces": ["shop"], "clusters": [], "promql": true, "rawQueries": false, "expiresAt": "2027-01-18T09:00:00Z"}}, "properties": {
     "fusion": {"type": "object", "description": "Whether the stores are up.", "properties": {
       "available": {"type": "boolean", "description": "Whether the server can manage FUSION at all from where it runs; `reason` says why not."},
       "state": {"type": "string", "enum": ["off", "starting", "running", "attention"]},
@@ -22,7 +22,8 @@
       "signals": {"type": "array", "items": {"type": "string", "enum": ["metrics", "logs", "traces"]}},
       "namespaces": {"type": "array", "items": {"type": "string"}, "description": "Empty means every namespace."},
       "clusters": {"type": "array", "items": {"type": "string"}, "description": "Empty means every cluster."},
-      "rawQueries": {"type": "boolean", "description": "Whether PromQL, LogQL and TraceQL as written are allowed (only when nothing is limited)."},
+      "rawQueries": {"type": "boolean", "description": "Whether LogQL and TraceQL as written, and the stores' own APIs, are allowed (only when nothing is limited)."},
+      "promql": {"type": "boolean", "description": "Whether your own PromQL is: read as written when nothing is limited, with your namespaces and clusters added to every selector when they are."},
       "expiresAt": {"type": "string", "format": "date-time"}}}}},
   "ApplicationService": {"type": "object", "properties": {"id": {"type": "string", "description": "The service's id in ikhnos (the topology's, or the record's of a service written in by hand)."}, "name": {"type": "string"}, "namespace": {"type": "string"}, "cluster": {"type": "string"}, "kind": {"type": "string"},
     "aliases": {"type": "array", "items": {"type": "string"}, "description": "Other names its telemetry may carry as service.name (its app label)."},

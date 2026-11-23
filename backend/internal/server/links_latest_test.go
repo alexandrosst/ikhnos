@@ -247,8 +247,9 @@ func TestFusionLinksFollowsTheTokensScope(t *testing.T) {
 	if got := pairNames(t, r); len(got) != 0 {
 		t.Errorf("d-e: %v", got)
 	}
-	// the figures are read with the server's own scope, but a limited token still cannot run PromQL itself
-	if r := d.get("/api/v1/fusion/metrics/query?query=up", bearer(ab)); r.Code != 403 {
+	// the figures are read with the server's own scope; a limited token's own PromQL is read within its clusters
+	// (TestYourPromQLIsReadWithinTheTokensLimits sees what reaches Prometheus)
+	if r := d.get("/api/v1/fusion/metrics/query?query=up", bearer(ab)); r.Code != 200 {
 		t.Errorf("raw query by a limited token: %d", r.Code)
 	}
 	// a token that may not read metrics, or one limited by namespace (figures belong to no namespace), is refused with a reason

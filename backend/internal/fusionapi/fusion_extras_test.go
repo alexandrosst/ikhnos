@@ -162,10 +162,13 @@ func TestSameExpressionIsEvaluatedOnce(t *testing.T) {
 	}
 }
 
-func TestPromQLNeedsAnUnrestrictedCallerAndOneBadQueryDoesNotSpoilTheRest(t *testing.T) {
+// A limited caller's own queries read only what it may see: its limits are on every selector. One bad query does not spoil the rest.
+func TestPromQLOfALimitedCallerIsRestrictedAndOneBadQueryDoesNotSpoilTheRest(t *testing.T) {
 	f := newFake(t)
 	f.tempo = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, tempoTrace()) }
+	var sent []string
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
+		sent = append(sent, r.URL.Query().Get("query"))
 		if strings.Contains(r.URL.Query().Get("query"), "broken") {
 			w.WriteHeader(400)
 			writeJSON(w, map[string]any{"status": "error", "error": "parse error: unexpected end of input"})
@@ -176,12 +179,15 @@ func TestPromQLNeedsAnUnrestrictedCallerAndOneBadQueryDoesNotSpoilTheRest(t *tes
 	qs, _ := ParsePromQueries([]string{`good=up`, `bad=broken(`})
 	c := f.client()
 	got, err := c.FuseTrace(context.Background(), limited, traceHex, FuseOptions{PromQL: qs})
-	if err != nil || got.Sources[SourcePromQL] != SourceNotAllowed || len(got.Queries) != 0 || !strings.Contains(strings.Join(got.Warnings, " "), "not limited") {
+	if err != nil || len(got.Queries) != 2 {
 		t.Fatalf("%v %v %v", got.Sources, got.Warnings, err)
 	}
-	for _, p := range f.paths() {
-		if p == "/api/v1/query_range" {
-			t.Fatal("a limited caller's query reached Prometheus")
+	if len(sent) != 1 || sent[0] != `up{ikhnos_cluster_id=~"cl-1",k8s_namespace_name=~"shop|pay"}` {
+		t.Fatalf("a limited caller's query must carry its limits on every selector, and a bad one is not sent: %q", sent)
+	}
+	for _, q := range got.Queries {
+		if q.Name == "bad" && !strings.Contains(q.Error, "not a PromQL query") {
+			t.Fatalf("%+v", q)
 		}
 	}
 	got, err = c.FuseTrace(context.Background(), Scope{Signals: []string{SignalTraces}}, traceHex, FuseOptions{PromQL: qs})
