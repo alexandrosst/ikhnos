@@ -160,7 +160,7 @@ func TestTheTraceWideQueriesAreNotCrowdedOutByPerPodOnes(t *testing.T) {
 		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{}}})
 	}
 	tr := &Trace{TraceID: traceHex, Start: rangeAll.From, End: rangeAll.To}
-	global, warns, err := f.client().fusePromQL(context.Background(), AllSignals(), tr, looked, FuseOptions{PromQL: qs, MaxSeries: 5}, rangeAll, time.Minute)
+	global, warns, err := f.client().fusePromQL(context.Background(), AllSignals(), tr, looked, FuseOptions{PromQL: qs, MaxSeries: 5}, rangeAll, time.Minute, func(fn func()) { fn() })
 	if err != nil {
 		t.Fatalf("the read's own limit is not a store failure: %v", err)
 	}

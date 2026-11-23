@@ -2,11 +2,8 @@ package fusionapi
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -26,189 +23,6 @@ const (
 	SourceContextLogs = "contextLogs"
 	SourceSystemLogs  = "systemLogs"
 )
-
-// FuseOptions say what to join to a trace.
-type FuseOptions struct {
-	Logs    bool
-	Metrics bool
-	// Pad widens the window around the trace in which logs and metrics are looked for. Default 2 minutes.
-	Pad time.Duration
-	// MetricRegex limits which metric names are returned. Default: all.
-	MetricRegex string
-	// MaxLogs is the most log lines returned (default 500). MaxSeries the most series per resource (default 15).
-	MaxLogs   int
-	MaxSeries int
-	// Points is the target number of samples per series (default 60).
-	Points int
-	// SpanPad widens each span's own time when its metrics are cut out of its resource's series (default 30 seconds).
-	// Samples arrive every 30 to 60 seconds, so a span that lasts milliseconds would otherwise often have none.
-	SpanPad time.Duration
-
-	// ContextLogs also reads, for each resource, the lines it wrote around the trace that carry no trace id (the
-	// context a failing request sat in). They sit on the resource. MaxContextLogs is the most per resource (default 50).
-	ContextLogs    bool
-	MaxContextLogs int
-	// SystemLogs also reads the lines of the system namespaces (SystemNamespaces, default kube-system) on the nodes the
-	// trace ran on, over the same window. They sit on the fused object. MaxSystemLogs is the most in all (default 100).
-	SystemLogs       bool
-	SystemNamespaces []string
-	MaxSystemLogs    int
-	// LogSeverity ("error" or "error,warn") and LogContains narrow every log read of this fused read.
-	LogSeverity string
-	LogContains string
-	// MetricViews says which series are read for a resource: the service's own, its pod's, its node's.
-	MetricViews MetricViews
-	// OmitAttributes and OmitEvents leave the span and resource attributes, or the span events, out of the answer.
-	OmitAttributes bool
-	OmitEvents     bool
-	// Spans keeps only the spans that match (the trace's own totals stay those of the whole trace).
-	Spans SpanFilter
-
-	// PromQL are the caller's own queries (see promql.go). PromQLSpans also cuts the per-resource ones to each span's time.
-	// PromQLStep and PromQLPad override the step and the window (default: those of the metrics); PromQLServices limits
-	// the per-resource queries to resources of these services.
-	PromQL         []PromQuery
-	PromQLSpans    bool
-	PromQLStep     time.Duration
-	PromQLPad      time.Duration
-	PromQLServices []string
-
-	// Topology adds what each service calls and is called by; Changes the events around the trace (ChangesBefore before
-	// it, Pad after it, at most MaxChanges). Both come from Extras, which the server sets; without it they are unavailable.
-	Topology      bool
-	Changes       bool
-	ChangesBefore time.Duration
-	MaxChanges    int
-	Extras        Extras
-
-	// Applications are the ikhnos applications the caller may know of: each resource is tagged with those it is part of.
-	// Application, when set, narrows what is joined to the trace to that application's resources (see focus.go); it
-	// also gives ${application} and ${application_id} to the caller's PromQL.
-	Applications []AppGroup
-	Application  *AppGroup
-}
-
-// MetricViews picks which metric series a resource carries. None set means the default, App and Pod.
-type MetricViews struct{ App, Pod, Node bool }
-
-func (v MetricViews) orDefault() MetricViews {
-	if !v.App && !v.Pod && !v.Node {
-		return MetricViews{App: true, Pod: true}
-	}
-	return v
-}
-
-// SpanFilter narrows the spans a fused read returns. Every field is optional and combines with AND.
-type SpanFilter struct {
-	Service     string
-	Status      string // error | ok | unset
-	MinDuration time.Duration
-}
-
-func (f SpanFilter) active() bool { return f.Service != "" || f.Status != "" || f.MinDuration > 0 }
-
-func (f SpanFilter) keeps(sp *Span) bool {
-	return (f.Service == "" || sp.Service == f.Service) && (f.Status == "" || sp.Status == f.Status) &&
-		sp.DurationMs >= float64(f.MinDuration)/float64(time.Millisecond)
-}
-
-const (
-	defaultPad     = 2 * time.Minute
-	maxPad         = time.Hour
-	defaultMaxLogs = 500
-	hardMaxLogs    = 2000
-	defaultSpanPad = 30 * time.Second
-	// maxSpanPoints is the most metric points all the spans of one fused read carry between them. Spans of one resource
-	// that overlap in time repeat the same samples, so a trace with thousands of spans would otherwise multiply the answer;
-	// past it a span keeps each series' min, max, average and last value but not its points.
-	maxSpanPoints         = 20000
-	defaultMaxContextLogs = 50
-	hardMaxContextLogs    = 500
-	defaultMaxSystemLogs  = 100
-	hardMaxSystemLogs     = 1000
-	maxSystemNodes        = 5
-	defaultMaxSeries      = 15
-	hardMaxSeries         = 100
-	fuseConcurrency       = 4
-	// maxFusedResources is the most resources one fused read looks up metrics for; a trace with more says so.
-	maxFusedResources = 20
-)
-
-func (o *FuseOptions) defaults() error {
-	if o.Application == nil {
-		for i := range o.PromQL {
-			if o.PromQL[i].uses(promAppVars...) {
-				return badRequest("promql %s uses ${application} or ${application_id}: name the application with application=", o.PromQL[i].Name)
-			}
-		}
-	}
-	if o.Pad == 0 {
-		o.Pad = defaultPad
-	}
-	if o.Pad < 0 || o.Pad > maxPad {
-		return badRequest("pad must be between 0 and %s", maxPad)
-	}
-	if o.SpanPad == 0 {
-		o.SpanPad = defaultSpanPad
-	}
-	if o.SpanPad < 0 || o.SpanPad > maxPad {
-		return badRequest("span_pad must be between 0 and %s", maxPad)
-	}
-	if o.MaxLogs <= 0 {
-		o.MaxLogs = defaultMaxLogs
-	}
-	if o.MaxLogs > hardMaxLogs {
-		o.MaxLogs = hardMaxLogs
-	}
-	if o.MaxSeries <= 0 {
-		o.MaxSeries = defaultMaxSeries
-	}
-	if o.MaxSeries > hardMaxSeries {
-		o.MaxSeries = hardMaxSeries
-	}
-	if o.Points <= 0 {
-		o.Points = 60
-	}
-	if o.MaxContextLogs <= 0 {
-		o.MaxContextLogs = defaultMaxContextLogs
-	}
-	if o.MaxContextLogs > hardMaxContextLogs {
-		o.MaxContextLogs = hardMaxContextLogs
-	}
-	if o.MaxSystemLogs <= 0 {
-		o.MaxSystemLogs = defaultMaxSystemLogs
-	}
-	if o.MaxSystemLogs > hardMaxSystemLogs {
-		o.MaxSystemLogs = hardMaxSystemLogs
-	}
-	if len(o.SystemNamespaces) == 0 {
-		o.SystemNamespaces = []string{"kube-system"}
-	}
-	if o.PromQLPad < 0 || o.PromQLPad > maxPad {
-		return badRequest("promql_pad must be between 0 and %s", maxPad)
-	}
-	if o.PromQLStep < 0 || (o.PromQLStep > 0 && o.PromQLStep < time.Second) {
-		return badRequest("promql_step must be at least one second")
-	}
-	if o.ChangesBefore == 0 {
-		o.ChangesBefore = defaultChangesBefore
-	}
-	if o.ChangesBefore < 0 || o.ChangesBefore > maxChangesBefore {
-		return badRequest("changes_before must be between 0 and %s", maxChangesBefore)
-	}
-	if o.MaxChanges <= 0 {
-		o.MaxChanges = defaultMaxChanges
-	}
-	if o.MaxChanges > hardMaxChanges {
-		o.MaxChanges = hardMaxChanges
-	}
-	switch o.Spans.Status {
-	case "", "error", "ok", "unset":
-	default:
-		return badRequest("span_status must be error, ok or unset")
-	}
-	return nil
-}
 
 // sourceState is what a part of a read reports about itself when err ended it.
 func sourceState(err error) string {
@@ -271,34 +85,77 @@ type Fused struct {
 }
 
 // FuseTrace reads one trace and joins logs and metrics to it as asked.
+//
+// It runs in three steps. Everything that can be the caller's mistake (a bad filter, a window or step out of bounds) is checked
+// before any store is asked. Then each requested join is started (fuseRun's join methods, one per part of the answer), all
+// at once, the per-resource reads sharing one bound on how many are in flight. Last, when all are done, what was read about
+// the resources is cut to each span and the options that only narrow the answer are applied.
 func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOptions) (*Fused, error) {
 	if err := opts.defaults(); err != nil {
 		return nil, err
 	}
-	if opts.MetricRegex != "" {
-		if _, err := (MetricFilter{NameRegex: opts.MetricRegex}).matchers(s); err != nil {
-			return nil, err
-		}
-	}
-	// A bad log filter is the caller's mistake, whatever the stores are doing: say so before reading anything.
-	if opts.Logs || opts.ContextLogs || opts.SystemLogs {
-		if _, err := (LogFilter{Severity: opts.LogSeverity, Contains: opts.LogContains}).logQL(s); err != nil {
-			return nil, err
-		}
-	}
-	if opts.SystemLogs {
-		for _, ns := range opts.SystemNamespaces {
-			if err := checkValue("system_namespaces", ns); err != nil {
-				return nil, err
-			}
-		}
+	if err := opts.checkFilters(s); err != nil {
+		return nil, err
 	}
 	tr, err := c.Trace(ctx, s, id)
 	if err != nil {
 		return nil, err
 	}
-	f := &Fused{Trace: tr, Sources: map[string]string{SignalTraces: SourceOK, SignalLogs: SourceNotRequested, SignalMetrics: SourceNotRequested}}
-	f.Joins = map[string]string{}
+	run, err := c.newFuseRun(ctx, s, tr, opts)
+	if err != nil {
+		return nil, err
+	}
+	run.traceLogs()
+	run.contextLogs()
+	run.systemLogs()
+	run.metrics()
+	run.promQL()
+	run.ikhnos()
+	run.wg.Wait()
+	if err := callerGone(ctx); err != nil {
+		return nil, err
+	}
+	f := run.f
+	metricsHit, queriesHit := attachToSpans(f, opts, opts.Metrics, len(opts.PromQL) > 0 && opts.PromQLSpans)
+	for _, k := range []struct {
+		kind string
+		hit  bool
+	}{{SignalMetrics, metricsHit}, {SourcePromQL, queriesHit}} {
+		if k.hit {
+			f.Warnings = append(f.Warnings, fmt.Sprintf("%s: the spans carry more than %d metric and query points between them; later spans keep each series' summary but not its points", k.kind, maxSpanPoints))
+		}
+	}
+	shape(f, opts)
+	return f, nil
+}
+
+// fuseRun is one fused read in progress: the answer being built, and what every join of it shares.
+type fuseRun struct {
+	c    *Client
+	ctx  context.Context
+	s    Scope
+	opts FuseOptions
+	f    *Fused
+
+	// looked is the resources worth a lookup of their own: those with a service or a pod (of the application, when the read is
+	// narrowed to one), at most maxFusedResources. logServices is whose trace-linked lines are read.
+	looked      []*Resource
+	logServices []string
+	// window is the trace's time padded by pad, which logs and metrics are read over; step the metrics' step. qwin and qstep
+	// are the caller's queries' (promql_pad, promql_step), the same unless asked otherwise.
+	window, qwin TimeRange
+	step, qstep  time.Duration
+
+	sem chan struct{} // bounds the per-resource reads of all joins together
+	wg  sync.WaitGroup
+	mu  sync.Mutex // guards f (and the resources' fields) while the joins run
+}
+
+// newFuseRun sets up the answer (its sources, joins and the warnings known before anything is read), chooses the resources to
+// look up and works out the windows and steps, refusing a window or step that cannot be read.
+func (c *Client) newFuseRun(ctx context.Context, s Scope, tr *Trace, opts FuseOptions) (*fuseRun, error) {
+	f := &Fused{Trace: tr, Sources: map[string]string{SignalTraces: SourceOK, SignalLogs: SourceNotRequested, SignalMetrics: SourceNotRequested},
+		Joins: map[string]string{}}
 	if opts.Logs {
 		f.Joins[SignalLogs] = "exact: log records of the trace's services that carry this trace's id, each placed on the span whose id it carries"
 	}
@@ -318,776 +175,155 @@ func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOpt
 		f.Joins[SourcePromQL] = "associated, not proven: your own queries, each evaluated for a resource with its service, namespace and pod filled in (or once for the trace), over the trace's time; a metric sample carries no trace id"
 	}
 	opts.ikhnosJoins(f)
+	run := &fuseRun{c: c, ctx: ctx, s: s, opts: opts, f: f, sem: make(chan struct{}, fuseConcurrency)}
+
 	// A trace that spans weeks must not turn into an unbounded store read (nor one Loki refuses).
-	window, cut := windowAround(tr, opts.Pad, MaxLogWindow)
-	if cut {
-		f.Warnings = append(f.Warnings, fmt.Sprintf("the trace is longer than %d days; logs and metrics cover its last %d days", int(MaxLogWindow.Hours()/24), int(MaxLogWindow.Hours()/24)))
+	var cut bool
+	if run.window, cut = windowAround(tr, opts.Pad, MaxLogWindow); cut {
+		run.note("the trace is longer than %d days; logs and metrics cover its last %d days", int(MaxLogWindow.Hours()/24), int(MaxLogWindow.Hours()/24))
 	}
-
-	var mu sync.Mutex
-	setSource := func(signal, state string) {
-		mu.Lock()
-		defer mu.Unlock()
-		// A source that already failed stays failed: later goroutines of the same signal only ever add to it.
-		if cur := f.Sources[signal]; cur == SourceError || cur == SourceUnavailable {
-			return
+	if opts.Metrics && s.Allows(SignalMetrics) {
+		var err error
+		if run.step, err = ChooseStep(run.window, 0, opts.Points); err != nil {
+			return nil, err
 		}
-		f.Sources[signal] = state
 	}
-	warn := func(signal string, err error) {
-		mu.Lock()
-		defer mu.Unlock()
-		f.Sources[signal] = sourceState(err)
-		f.Warnings = append(f.Warnings, fmt.Sprintf("%s: %v", signal, err))
+	if len(opts.PromQL) > 0 && s.Allows(SignalMetrics) && s.Unrestricted() {
+		run.qwin = run.window
+		if opts.PromQLPad > 0 {
+			if run.qwin, cut = windowAround(tr, opts.PromQLPad, MaxWindow); cut {
+				run.note("promql: the trace and promql_pad are longer than %d days; the queries cover the last %d days", int(MaxWindow.Hours()/24), int(MaxWindow.Hours()/24))
+			}
+		}
+		chosen, err := ChooseStep(run.qwin, opts.PromQLStep, opts.Points)
+		if err != nil {
+			return nil, err
+		}
+		if run.qstep = opts.PromQLStep; run.qstep == 0 {
+			run.qstep = chosen
+		}
 	}
-	note := func(format string, a ...any) {
-		mu.Lock()
-		defer mu.Unlock()
-		f.Warnings = append(f.Warnings, fmt.Sprintf(format, a...))
-	}
-	var wg sync.WaitGroup
+	run.chooseResources()
+	return run, nil
+}
 
-	// The resources worth a lookup of their own: those with a service or a pod, of the application when the read is
-	// narrowed to one, at most maxFusedResources.
+// chooseResources tags every resource with its applications and picks those to look up (looked, logServices), saying what was
+// left out and which resources cannot be pinned to one cluster or namespace.
+func (r *fuseRun) chooseResources() {
+	tr, opts := r.f.Trace, r.opts
 	tagApplications(tr.Resources, opts.Applications)
 	looked := tr.Resources
-	logServices := tr.Services // whose trace-linked lines are read
+	r.logServices = tr.Services
 	if opts.Application != nil {
 		ref := opts.Application.Ref()
-		f.Application = &ref
+		r.f.Application = &ref
 		var warns []string
 		looked, warns = focusResources(opts.Application, tr.Resources)
-		f.Warnings = append(f.Warnings, warns...)
-		logServices = servicesOf(looked)
+		r.f.Warnings = append(r.f.Warnings, warns...)
+		r.logServices = servicesOf(looked)
 	}
-	looked = slices.DeleteFunc(slices.Clone(looked), func(r *Resource) bool { return r.Service == "" && r.Pod == "" })
+	looked = slices.DeleteFunc(slices.Clone(looked), func(res *Resource) bool { return res.Service == "" && res.Pod == "" })
 	if len(looked) > maxFusedResources {
-		note("the trace has more than %d resources; the rest have no metrics, context logs, queries or topology here", maxFusedResources)
+		r.note("the trace has more than %d resources; the rest have no metrics, context logs, queries or topology here", maxFusedResources)
 		looked = looked[:maxFusedResources]
 	}
+	r.looked = looked
 	if opts.Metrics || opts.ContextLogs {
 		// A resource that does not say which cluster (or namespace) it is from cannot be pinned to one: the series and lines of the
 		// same service or pod in every cluster (or namespace) are read for it - a pod called web-0 exists in each - and the answer
 		// must say so.
-		for _, d := range []struct{ what, attr, where string }{{"cluster id", attrCluster, "cluster"}, {"namespace", attrNamespace, "namespace"}} {
+		for _, d := range []struct {
+			what, attr, where string
+			of                func(*Resource) string
+		}{
+			{"cluster id", attrCluster, "cluster", func(res *Resource) string { return res.Cluster }},
+			{"namespace", attrNamespace, "namespace", func(res *Resource) string { return res.Namespace }},
+		} {
 			var unpinned []string
-			for _, r := range looked {
-				if (d.where == "cluster" && r.Cluster == "") || (d.where == "namespace" && r.Namespace == "") {
-					unpinned = append(unpinned, r.Key)
+			for _, res := range looked {
+				if d.of(res) == "" {
+					unpinned = append(unpinned, res.Key)
 				}
 			}
 			if len(unpinned) > 0 {
 				sort.Strings(unpinned)
-				note("%d resource(s) carry no %s (%s), so their metrics and context logs may include those of a service or pod of the same name in another %s: %s", len(unpinned), d.what, d.attr, d.where, names(unpinned))
+				r.note("%d resource(s) carry no %s (%s), so their metrics and context logs may include those of a service or pod of the same name in another %s: %s", len(unpinned), d.what, d.attr, d.where, names(unpinned))
 			}
 		}
 	}
+}
 
-	switch {
-	case !opts.Logs:
-	case !s.Allows(SignalLogs):
-		setSource(SignalLogs, SourceNotAllowed)
-	case len(logServices) == 0 && opts.Application != nil: // nothing of the application to read lines of (an empty list would mean every service)
-		setSource(SignalLogs, SourceOK)
-	default:
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			lines, truncated, err := c.Logs(ctx, s, LogFilter{TraceID: tr.TraceID, Services: logServices, Severity: opts.LogSeverity, Contains: opts.LogContains}, window, opts.MaxLogs)
+// setSource records how a part of the answer went. A part that already failed stays failed: later reads of it only add to it.
+func (r *fuseRun) setSource(signal, state string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if cur := r.f.Sources[signal]; cur == SourceError || cur == SourceUnavailable {
+		return
+	}
+	r.f.Sources[signal] = state
+}
+
+// warn records that a part failed, and why.
+func (r *fuseRun) warn(signal string, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.f.Sources[signal] = sourceState(err)
+	r.f.Warnings = append(r.f.Warnings, fmt.Sprintf("%s: %v", signal, err))
+}
+
+// note adds a warning.
+func (r *fuseRun) note(format string, a ...any) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.f.Warnings = append(r.f.Warnings, fmt.Sprintf(format, a...))
+}
+
+// apply runs fn holding the answer's lock.
+func (r *fuseRun) apply(fn func()) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	fn()
+}
+
+// start runs fn in its own goroutine, waited for before the answer is shaped.
+func (r *fuseRun) start(fn func()) {
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+		fn()
+	}()
+}
+
+// forEachLooked runs fn for every looked-up resource, each in its own goroutine but at most fuseConcurrency at a time across all
+// the joins of the read: a trace of many resources must not take every slot the stores share. A resource that cannot get a slot
+// before the deadline is recorded as a failure of signal.
+func (r *fuseRun) forEachLooked(signal string, fn func(*Resource) error) {
+	for _, res := range r.looked {
+		res := res
+		r.start(func() {
+			release, err := acquire(r.ctx, r.sem)
 			if err != nil {
-				warn(SignalLogs, err)
+				r.warn(signal, err)
 				return
 			}
-			mu.Lock()
-			defer mu.Unlock()
-			f.Sources[SignalLogs] = SourceOK
-			attachLogs(f, lines, truncated)
-		}()
-	}
-
-	switch {
-	case !opts.ContextLogs:
-	case !s.Allows(SignalLogs):
-		setSource(SourceContextLogs, SourceNotAllowed)
-	default:
-		setSource(SourceContextLogs, SourceOK)
-		sem := make(chan struct{}, fuseConcurrency) // a trace of many resources must not take every slot the stores share
-		for _, r := range looked {
-			r := r
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				release, err := acquire(ctx, sem)
-				if err != nil {
-					warn(SourceContextLogs, err)
-					return
-				}
-				defer release()
-				lines, truncated, err := c.Logs(ctx, s, LogFilter{Service: r.Service, Namespace: r.Namespace, Pod: r.Pod, Cluster: r.Cluster, NoTrace: true,
-					Severity: opts.LogSeverity, Contains: opts.LogContains, Backward: true}, window, opts.MaxContextLogs)
-				if err != nil {
-					warn(SourceContextLogs, err)
-					return
-				}
-				reverseLogs(lines) // newest first out of the store; a resource's lines read oldest first
-				mu.Lock()
-				r.Logs, r.LogsTruncated = lines, truncated
-				mu.Unlock()
-			}()
-		}
-	}
-
-	switch {
-	case !opts.SystemLogs:
-	case !s.Allows(SignalLogs):
-		setSource(SourceSystemLogs, SourceNotAllowed)
-	default:
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			nodesOf := tr.Resources
-			if opts.Application != nil {
-				nodesOf = looked // the nodes the application's own pods ran on
+			defer release()
+			if err := fn(res); err != nil {
+				r.warn(signal, err)
 			}
-			sl, warns, err := c.systemLogs(ctx, s, nodesOf, opts, window)
-			if err != nil {
-				warn(SourceSystemLogs, err) // (every node failed; one that did not keeps its lines below)
-			}
-			mu.Lock()
-			defer mu.Unlock()
-			if err == nil {
-				f.Sources[SourceSystemLogs] = SourceOK
-				f.SystemLogs = sl
-			}
-			f.Warnings = append(f.Warnings, warns...)
-		}()
-	}
-
-	switch {
-	case !opts.Metrics:
-	case !s.Allows(SignalMetrics):
-		setSource(SignalMetrics, SourceNotAllowed)
-	default:
-		setSource(SignalMetrics, SourceOK)
-		step, err := ChooseStep(window, 0, opts.Points)
-		if err != nil {
-			wg.Wait() // the log reads, if started, must not outlive this call
-			return nil, err
-		}
-		sem := make(chan struct{}, fuseConcurrency)
-		reads := newMetricReads(c, s, window, step, opts.MaxSeries)
-		for _, r := range looked {
-			r := r
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				release, err := acquire(ctx, sem)
-				if err != nil {
-					warn(SignalMetrics, err)
-					return
-				}
-				defer release()
-				series, truncated, err := resourceMetrics(ctx, r, opts, reads)
-				if err != nil {
-					warn(SignalMetrics, err)
-					return
-				}
-				mu.Lock()
-				r.Metrics, r.MetricsTruncated = series, truncated
-				mu.Unlock()
-			}()
-		}
-	}
-
-	switch {
-	case len(opts.PromQL) == 0:
-	case !s.Allows(SignalMetrics):
-		setSource(SourcePromQL, SourceNotAllowed)
-	case !s.Unrestricted():
-		setSource(SourcePromQL, SourceNotAllowed)
-		note("promql: your own queries can only be run by a caller whose access is not limited to certain namespaces or clusters")
-	default:
-		qwin := window
-		if opts.PromQLPad > 0 {
-			var cut bool
-			if qwin, cut = windowAround(tr, opts.PromQLPad, MaxWindow); cut {
-				note("promql: the trace and promql_pad are longer than %d days; the queries cover the last %d days", int(MaxWindow.Hours()/24), int(MaxWindow.Hours()/24))
-			}
-		}
-		qstep := opts.PromQLStep
-		if qstep == 0 {
-			var serr error
-			if qstep, serr = ChooseStep(qwin, 0, opts.Points); serr != nil {
-				wg.Wait()
-				return nil, serr
-			}
-		} else if _, serr := ChooseStep(qwin, qstep, opts.Points); serr != nil {
-			wg.Wait()
-			return nil, serr
-		}
-		setSource(SourcePromQL, SourceOK)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			global, warns, err := c.fusePromQL(ctx, s, tr, looked, opts, qwin, qstep)
-			mu.Lock()
-			f.Queries = global
-			f.Warnings = append(f.Warnings, warns...)
-			mu.Unlock()
-			if err != nil {
-				warn(SourcePromQL, err)
-			}
-		}()
-	}
-
-	if opts.Topology || opts.Changes {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			c.fuseIkhnos(ctx, s, f, looked, opts, warn, setSource, note)
-		}()
-	}
-	wg.Wait()
-	if err := callerGone(ctx); err != nil {
-		return nil, err
-	}
-	metricsHit, queriesHit := attachToSpans(f, opts, opts.Metrics, len(opts.PromQL) > 0 && opts.PromQLSpans)
-	for _, k := range []struct {
-		kind string
-		hit  bool
-	}{{SignalMetrics, metricsHit}, {SourcePromQL, queriesHit}} {
-		if k.hit {
-			f.Warnings = append(f.Warnings, fmt.Sprintf("%s: the spans carry more than %d metric and query points between them; later spans keep each series' summary but not its points", k.kind, maxSpanPoints))
-		}
-	}
-	shape(f, opts)
-	return f, nil
-}
-
-// windowAround is the trace's time widened by pad either side: at least a second long, and at most max (its newest part, with
-// cut set).
-func windowAround(tr *Trace, pad, max time.Duration) (w TimeRange, cut bool) {
-	w = TimeRange{From: tr.Start.Add(-pad), To: tr.End.Add(pad)}
-	if !w.From.Before(w.To) {
-		w.To = w.From.Add(time.Second)
-	}
-	if w.To.Sub(w.From) > max {
-		return w.newest(max), true
-	}
-	return w, false
-}
-
-// shape applies the options that only narrow the answer: the span filter and the attributes and events left out.
-func shape(f *Fused, opts FuseOptions) {
-	f.Warnings = uniqueInOrder(f.Warnings) // a store that is down is found down once for each of the trace's resources
-	if opts.Spans.active() {
-		kept := f.Spans[:0:0]
-		for _, sp := range f.Spans {
-			if opts.Spans.keeps(sp) {
-				kept = append(kept, sp)
-				continue
-			}
-			f.SpansOmitted++
-			f.Logs.OnFilteredSpans += len(sp.Logs)
-		}
-		f.Spans = kept
-	}
-	for _, sp := range f.Spans {
-		if opts.OmitAttributes {
-			sp.Attributes = nil
-		}
-		if opts.OmitEvents {
-			sp.Events = nil
-		}
-	}
-	if opts.OmitAttributes {
-		for _, r := range f.Resources {
-			r.Attributes = nil
-		}
+		})
 	}
 }
 
-func reverseLogs(l []LogEntry) {
-	for i, j := 0, len(l)-1; i < j; i, j = i+1, j-1 {
-		l[i], l[j] = l[j], l[i]
+// allowed says whether a requested part may be read at all, recording why not when it may not.
+func (r *fuseRun) allowed(requested bool, source, signal string) bool {
+	if !requested {
+		return false
 	}
-}
-
-// systemLogs reads the system namespaces' lines on the nodes the trace ran on (one read per cluster and node, at most
-// maxSystemNodes), newest MaxSystemLogs of them in all, oldest first.
-func (c *Client) systemLogs(ctx context.Context, s Scope, resources []*Resource, opts FuseOptions, window TimeRange) (*SystemLogs, []string, error) {
-	type loc struct{ cluster, node string }
-	var locs []loc
-	seen := map[loc]bool{}
-	for _, r := range resources {
-		l := loc{r.Cluster, r.Node}
-		if r.Node != "" && !seen[l] {
-			seen[l] = true
-			locs = append(locs, l)
-		}
+	if !r.s.Allows(signal) {
+		r.setSource(source, SourceNotAllowed)
+		return false
 	}
-	sl := &SystemLogs{Namespaces: opts.SystemNamespaces, Nodes: []string{}, Entries: []LogEntry{}}
-	var warns []string
-	visible := false
-	for _, ns := range opts.SystemNamespaces {
-		visible = visible || s.NamespaceVisible(ns)
-	}
-	if !visible {
-		return sl, []string{"system_logs: this token cannot read the system namespaces (" + strings.Join(opts.SystemNamespaces, ", ") + ")"}, nil
-	}
-	if len(locs) == 0 {
-		return sl, []string{"system_logs: the trace does not say which node its pods ran on"}, nil
-	}
-	if len(locs) > maxSystemNodes {
-		warns = append(warns, fmt.Sprintf("system_logs: the trace ran on %d nodes; the first %d are read", len(locs), maxSystemNodes))
-		locs = locs[:maxSystemNodes]
-	}
-	// One read per node; a node whose read fails is named in a warning and costs only its own lines. err is set only when
-	// every node failed (sl is then empty, and still returned).
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	var failed []string
-	var firstErr error
-	for _, l := range locs {
-		l := l
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			lines, trunc, err := c.Logs(ctx, s, LogFilter{Namespaces: opts.SystemNamespaces, Node: l.node, Cluster: l.cluster,
-				Severity: opts.LogSeverity, Contains: opts.LogContains, Backward: true}, window, opts.MaxSystemLogs)
-			mu.Lock()
-			defer mu.Unlock()
-			if err != nil {
-				failed = append(failed, l.node)
-				if firstErr == nil {
-					firstErr = err
-				}
-				return
-			}
-			sl.Nodes = append(sl.Nodes, l.node)
-			sl.Entries = append(sl.Entries, lines...)
-			sl.Truncated = sl.Truncated || trunc
-		}()
-	}
-	wg.Wait()
-	if len(failed) == len(locs) {
-		return sl, warns, firstErr
-	}
-	if len(failed) > 0 {
-		sort.Strings(failed)
-		warns = append(warns, fmt.Sprintf("system_logs: the lines of %d node(s) could not be read (%s): %v", len(failed), strings.Join(failed, ", "), firstErr))
-	}
-	sort.Strings(sl.Nodes)
-	sort.SliceStable(sl.Entries, func(i, j int) bool { return sl.Entries[i].Time.After(sl.Entries[j].Time) })
-	if len(sl.Entries) > opts.MaxSystemLogs {
-		sl.Entries, sl.Truncated = sl.Entries[:opts.MaxSystemLogs], true
-	}
-	reverseLogs(sl.Entries)
-	return sl, warns, nil
-}
-
-// spanBudget is what is left of the points all the spans of one fused read may carry between them (maxSpanPoints), metrics
-// and the caller's queries alike.
-type spanBudget struct{ left int }
-
-// cut is the part of a series inside [from, to] (unix seconds), summarised; ok is false when no point falls inside. Its
-// points come out of the budget; when there are not enough left it keeps the summary, loses the points and sets hit.
-func (b *spanBudget) cut(m MetricSeries, from, to float64, hit *bool) (out MetricSeries, ok bool) {
-	var in []Point
-	for _, p := range m.Points {
-		if p[0] >= from && p[0] <= to {
-			in = append(in, p)
-		}
-	}
-	if len(in) == 0 {
-		return MetricSeries{}, false
-	}
-	out = MetricSeries{Name: m.Name, Category: m.Category, Labels: m.Labels, Points: in}
-	out.summarise()
-	if len(in) > b.left {
-		out.Points, *hit = nil, true
-	} else {
-		b.left -= len(in)
-	}
-	return out, true
-}
-
-// attachToSpans gives each span the part of its resource's series that falls inside the span's own time widened by pad either
-// side: the metrics (metrics) and the caller's per-resource queries (queries). It reads nothing more from the stores - the
-// resource's series, already read over the whole trace, are cut - and only the spans the span filter keeps are given any, so
-// the budget is not spent on spans the answer then leaves out. A resource whose read failed has nothing to cut; the others still
-// are. It says, per kind, whether the budget ran out.
-func attachToSpans(f *Fused, opts FuseOptions, metrics, queries bool) (metricsHit, queriesHit bool) {
-	byKey := make(map[string]*Resource, len(f.Resources))
-	for _, r := range f.Resources {
-		byKey[r.Key] = r
-	}
-	b := &spanBudget{maxSpanPoints}
-	for _, sp := range f.Spans {
-		r := byKey[sp.Resource]
-		if r == nil || (opts.Spans.active() && !opts.Spans.keeps(sp)) {
-			continue
-		}
-		from, to := float64(sp.Start.Add(-opts.SpanPad).UnixNano())/1e9, float64(sp.End.Add(opts.SpanPad).UnixNano())/1e9
-		if metrics {
-			for _, m := range r.Metrics {
-				if cut, ok := b.cut(m, from, to, &metricsHit); ok {
-					sp.Metrics = append(sp.Metrics, cut)
-				}
-			}
-		}
-		if queries {
-			for _, qr := range r.Queries {
-				out := QueryResult{Name: qr.Name, Error: qr.Error, Series: []MetricSeries{}}
-				for _, m := range qr.Series {
-					if cut, ok := b.cut(m, from, to, &queriesHit); ok {
-						out.Series = append(out.Series, cut)
-					}
-				}
-				if len(out.Series) > 0 || out.Error != "" {
-					sp.Queries = append(sp.Queries, out)
-				}
-			}
-		}
-	}
-	return metricsHit, queriesHit
-}
-
-// attachLogs puts each line on the span it names and the rest in f.Logs.Unmatched.
-func attachLogs(f *Fused, lines []LogEntry, truncated bool) {
-	byID := make(map[string]*Span, len(f.Spans))
-	for _, sp := range f.Spans {
-		byID[sp.SpanID] = sp
-	}
-	f.Logs.Total, f.Logs.Truncated = len(lines), truncated
-	for _, l := range lines {
-		if sp := byID[normID(l.SpanID, 16)]; sp != nil && l.SpanID != "" {
-			sp.Logs = append(sp.Logs, l)
-			f.Logs.Matched++
-			continue
-		}
-		f.Logs.Unmatched = append(f.Logs.Unmatched, l)
-	}
-}
-
-// metricReads shares the range reads of one fused read. Resources that differ only in their pod (the replicas of a service)
-// ask for the same app view, and those on one node for the same node view; each question is asked once and every resource
-// that asked carries the answer. (The answer is read-only from then on, so they share its slices.)
-type metricReads struct {
-	c         *Client
-	s         Scope
-	window    TimeRange
-	step      time.Duration
-	maxSeries int
-	mu        sync.Mutex
-	reads     map[string]*metricRead
-}
-
-type metricRead struct {
-	once      sync.Once
-	series    []MetricSeries
-	truncated bool
-	err       error
-}
-
-func newMetricReads(c *Client, s Scope, window TimeRange, step time.Duration, maxSeries int) *metricReads {
-	return &metricReads{c: c, s: s, window: window, step: step, maxSeries: maxSeries, reads: map[string]*metricRead{}}
-}
-
-func (m *metricReads) get(ctx context.Context, f MetricFilter) ([]MetricSeries, bool, error) {
-	key := fmt.Sprintf("%+v", f)
-	m.mu.Lock()
-	r := m.reads[key]
-	if r == nil {
-		r = &metricRead{}
-		m.reads[key] = r
-	}
-	m.mu.Unlock()
-	r.once.Do(func() { r.series, r.truncated, r.err = m.c.MetricRange(ctx, m.s, f, m.window, m.step, m.maxSeries) })
-	return r.series, r.truncated, r.err
-}
-
-// resourceMetrics reads the metric series saved for one resource: what the service itself reported under its name
-// and namespace, and what was reported about its pod (the infrastructure view, which usually carries no service name).
-func resourceMetrics(ctx context.Context, r *Resource, opts FuseOptions, reads *metricReads) ([]MetricSeries, bool, error) {
-	var filters []MetricFilter
-	views := opts.MetricViews.orDefault()
-	if views.App && r.Service != "" {
-		filters = append(filters, MetricFilter{NameRegex: opts.MetricRegex, Service: r.Service, Namespace: r.Namespace, Cluster: r.Cluster})
-	}
-	if views.Pod && r.Pod != "" {
-		filters = append(filters, MetricFilter{NameRegex: opts.MetricRegex, Pod: r.Pod, Namespace: r.Namespace, Cluster: r.Cluster})
-	}
-	if views.Node && r.Node != "" {
-		filters = append(filters, MetricFilter{NameRegex: opts.MetricRegex, Node: r.Node, Cluster: r.Cluster, NoPod: true})
-	}
-	var out []MetricSeries
-	var perView [][]MetricSeries
-	seen := map[string]bool{}
-	truncated := false
-	for _, f := range filters {
-		series, trunc, err := reads.get(ctx, f)
-		if err != nil {
-			return nil, false, err
-		}
-		truncated = truncated || trunc
-		var own []MetricSeries
-		for _, m := range series {
-			k := m.Name + "{" + labelKey(m.Labels) + "}"
-			if !seen[k] {
-				seen[k] = true
-				own = append(own, m)
-				out = append(out, m)
-			}
-		}
-		perView = append(perView, own)
-	}
-	if len(out) > opts.MaxSeries {
-		// Cut by taking one series of each view in turn, so that a service with many series of its own does not leave the pod's
-		// (its CPU, its memory, its restarts) out of the answer for good.
-		out = out[:0]
-		for i := 0; len(out) < opts.MaxSeries; i++ {
-			more := false
-			for _, v := range perView {
-				if i < len(v) && len(out) < opts.MaxSeries {
-					out, more = append(out, v[i]), true
-				}
-			}
-			if !more {
-				break
-			}
-		}
-		truncated = true
-	}
-	return out, truncated, nil
-}
-
-// Application is a service FUSION has data for, and which signal types.
-type Application struct {
-	Name    string   `json:"name"`
-	Signals []Signal `json:"signals"`
-}
-
-// Applications lists the services that have telemetry in the range, each with the signal types it has. Signals the
-// Scope does not include are not looked at; a store that cannot be reached is reported in the returned sources, and the
-// warnings say why a part failed and which lists were built from a sample (and so may miss services).
-func (c *Client) Applications(ctx context.Context, s Scope, tr TimeRange) ([]Application, map[string]string, []string, error) {
-	sources := map[string]string{SignalMetrics: SourceNotAllowed, SignalLogs: SourceNotAllowed, SignalTraces: SourceNotAllowed}
-	found := map[string]map[string]bool{}
-	var warnings []string
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	var firstErr error
-	run := func(signal string, list func() ([]string, string, error)) {
-		if !s.Allows(signal) {
-			return
-		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			names, sample, err := list()
-			mu.Lock()
-			defer mu.Unlock()
-			if err != nil {
-				sources[signal] = sourceState(err)
-				warnings = append(warnings, fmt.Sprintf("%s: %v", signal, err))
-				if firstErr == nil {
-					firstErr = err
-				}
-				return
-			}
-			sources[signal] = SourceOK
-			if sample != "" {
-				warnings = append(warnings, fmt.Sprintf("%s: the services are those of %s; one that is not in them may be missing", signal, sample))
-			}
-			for _, n := range names {
-				if found[n] == nil {
-					found[n] = map[string]bool{}
-				}
-				found[n][signal] = true
-			}
-		}()
-	}
-	run(SignalMetrics, func() ([]string, string, error) { names, err := c.metricServices(ctx, s, tr); return names, "", err })
-	run(SignalLogs, func() ([]string, string, error) { return c.logServices(ctx, s, tr) })
-	run(SignalTraces, func() ([]string, string, error) { return c.traceServices(ctx, s, tr) })
-	wg.Wait()
-	if err := callerGone(ctx); err != nil {
-		return nil, nil, nil, err
-	}
-	ok := false
-	for _, v := range sources {
-		ok = ok || v == SourceOK
-	}
-	if !ok && firstErr != nil {
-		return nil, nil, nil, firstErr // nothing could be read at all
-	}
-	var apps []Application
-	for name, sigs := range found {
-		a := Application{Name: name}
-		for _, sig := range Signals {
-			if sigs[sig] {
-				a.Signals = append(a.Signals, Signal(sig))
-			}
-		}
-		apps = append(apps, a)
-	}
-	sort.Slice(apps, func(i, j int) bool { return apps[i].Name < apps[j].Name })
-	sort.Strings(warnings) // (the reads finish in any order)
-	return apps, sources, warnings, nil
-}
-
-// metricServices lists the service names that have series in the range (inside the Scope).
-func (c *Client) metricServices(ctx context.Context, s Scope, tr TimeRange) ([]string, error) {
-	m, err := MetricFilter{}.matchers(s)
-	if err != nil {
-		return nil, err
-	}
-	m = append(m, lblService+`=~".+"`)
-	sel := "{" + strings.Join(m, ",") + "}"
-	data, err := c.prom(ctx, "/api/v1/label/"+lblService+"/values", url.Values{"match[]": {sel}, "start": {unixFloat(tr.From)}, "end": {unixFloat(tr.To)}})
-	if err != nil {
-		return nil, err
-	}
-	var names []string
-	if err := json.Unmarshal(data, &names); err != nil {
-		return nil, errf(http.StatusBadGateway, "%s answered with something unexpected", storeProm)
-	}
-	return names, nil
-}
-
-// Overview is one application at a glance: which signals it has and a few of the most recent and most interesting
-// things in each, ready to follow into a fused trace.
-type Overview struct {
-	// ID and Services are set for an ikhnos application: its id and the service names its telemetry may carry.
-	ID          string         `json:"id,omitempty"`
-	Services    []string       `json:"services,omitempty"`
-	Name        string         `json:"name"`
-	Signals     []Signal       `json:"signals"`
-	Traces      []TraceSummary `json:"traces"`      // the most recent
-	ErrorTraces []TraceSummary `json:"errorTraces"` // the most recent with an error span
-	ErrorLogs   []LogEntry     `json:"errorLogs"`   // the most recent error-level lines
-	Metrics     []string       `json:"metrics"`     // metric names it reports
-	// MetricsTruncated says it reports more than are listed.
-	MetricsTruncated bool              `json:"metricsTruncated,omitempty"`
-	Sources          map[string]string `json:"sources"`
-	Warnings         []string          `json:"warnings,omitempty"`
-}
-
-// ServiceOverview reads the overview of one service.
-func (c *Client) ServiceOverview(ctx context.Context, s Scope, name string, tr TimeRange) (*Overview, error) {
-	if err := checkValue("service", name); err != nil {
-		return nil, err
-	}
-	return c.overview(ctx, s, name, name, tr)
-}
-
-// ApplicationOverview reads the overview of one ikhnos application: the same things as for a service, over all of its
-// services (the focus the Scope gets from the application).
-func (c *Client) ApplicationOverview(ctx context.Context, s Scope, g *AppGroup, tr TimeRange) (*Overview, error) {
-	fs, err := s.FocusOn(g)
-	if err != nil {
-		return nil, err
-	}
-	o, err := c.overview(ctx, fs, "", g.Name, tr)
-	if err != nil {
-		return nil, err
-	}
-	o.ID, o.Services = g.ID, fs.FocusServices
-	return o, nil
-}
-
-// overview reads what a service (or, with no service named, whatever the Scope's focus selects) has. label is what the
-// answer is called.
-func (c *Client) overview(ctx context.Context, s Scope, name, label string, tr TimeRange) (*Overview, error) {
-	o := &Overview{Name: label, Sources: map[string]string{SignalMetrics: SourceNotAllowed, SignalLogs: SourceNotAllowed, SignalTraces: SourceNotAllowed},
-		Traces: []TraceSummary{}, ErrorTraces: []TraceSummary{}, ErrorLogs: []LogEntry{}, Metrics: []string{}}
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	var firstErr error
-	has := map[string]bool{}
-	run := func(signal string, do func() (bool, error)) {
-		if !s.Allows(signal) {
-			return
-		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			present, err := do()
-			mu.Lock()
-			defer mu.Unlock()
-			if err != nil {
-				o.Sources[signal] = sourceState(err)
-				o.Warnings = append(o.Warnings, fmt.Sprintf("%s: %v", signal, err))
-				if firstErr == nil {
-					firstErr = err
-				}
-				return
-			}
-			o.Sources[signal] = SourceOK
-			has[signal] = present
-		}()
-	}
-	run(SignalTraces, func() (bool, error) {
-		recent, _, err := c.SearchTraces(ctx, s, TraceFilter{Service: name}, tr, 10)
-		if err != nil {
-			return false, err
-		}
-		failed, _, err := c.SearchTraces(ctx, s, TraceFilter{Service: name, Status: "error"}, tr, 5)
-		if err != nil {
-			return false, err
-		}
-		mu.Lock()
-		o.Traces, o.ErrorTraces = recent, failed
-		mu.Unlock()
-		return len(recent) > 0, nil
-	})
-	run(SignalLogs, func() (bool, error) {
-		lines, _, err := c.Logs(ctx, s, LogFilter{Service: name, Severity: "error", Backward: true}, tr, 10)
-		if err != nil {
-			return false, err
-		}
-		one, _, err := c.Logs(ctx, s, LogFilter{Service: name, Backward: true}, tr, 1)
-		if err != nil {
-			return false, err
-		}
-		mu.Lock()
-		o.ErrorLogs = lines
-		mu.Unlock()
-		return len(one) > 0, nil
-	})
-	run(SignalMetrics, func() (bool, error) {
-		names, truncated, err := c.MetricNames(ctx, s, MetricFilter{Service: name}, tr, 100)
-		if err != nil {
-			return false, err
-		}
-		mu.Lock()
-		o.Metrics, o.MetricsTruncated = names, truncated
-		mu.Unlock()
-		return len(names) > 0, nil
-	})
-	wg.Wait()
-	if err := callerGone(ctx); err != nil {
-		return nil, err
-	}
-	allFailed := firstErr != nil
-	for _, v := range o.Sources {
-		if v == SourceOK {
-			allFailed = false
-		}
-	}
-	if allFailed {
-		return nil, firstErr
-	}
-	for _, sig := range Signals {
-		if has[sig] {
-			o.Signals = append(o.Signals, Signal(sig))
-		}
-	}
-	if len(o.Signals) == 0 && firstErr == nil {
-		return nil, errf(http.StatusNotFound, "no telemetry for %q in this range", label)
-	}
-	return o, nil
+	return true
 }
 
 // uniqueInOrder is the strings with the repeats left out, the first of each where it was.
