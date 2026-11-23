@@ -903,6 +903,27 @@ func (f *FusionControl) OrgCore(c *Service) *Service {
 	return c.ForOrg(f.Org)
 }
 
+// writeOrgSetting puts the organisation FUSION belongs to in its settings (central.orgId), which the gateway reads when it starts
+// and stamps on everything it takes in as ikhnos.org.id. Best effort: without it the senders' own stamp stands, which is the same
+// organisation's (only its senders can reach the gateway), so nothing is refused for want of it.
+func (f *FusionControl) writeOrgSetting(ctx context.Context) {
+	if f.Org == "" {
+		return
+	}
+	rk, why := f.retentionKube()
+	if why != "" {
+		return
+	}
+	// Only into settings that exist (a FUSION the server manages); one that is not there is not created here.
+	if cur, err := rk.Settings(ctx, f.settingsName()); err != nil || cur[OrgSettingKey] == f.Org {
+		return
+	}
+	_ = rk.PatchSettings(ctx, f.settingsName(), map[string]string{OrgSettingKey: f.Org})
+}
+
+// OrgSettingKey is the key of FUSION's settings that holds the organisation the gateway stamps.
+const OrgSettingKey = "central.orgId"
+
 // Enable gets the central operator and its certificates ready, then starts the four workloads. Safe to repeat.
 func (f *FusionControl) Enable(ctx context.Context, c *Service, actor string) (FusionStatus, error) {
 	if f != nil { // a nil switch answers "not available" below, without touching anything
@@ -929,6 +950,7 @@ func (f *FusionControl) Enable(ctx context.Context, c *Service, actor string) (F
 	f.since, f.notReady = f.Clock(), f.Clock()
 	f.issuedFor = strings.Join(f.certHosts(), ",")
 	f.mu.Unlock()
+	f.writeOrgSetting(ctx) // before the gateway starts, which is when it reads it
 	st, err := f.scaleAndReport(ctx, prev, 1)
 	if err != nil {
 		return FusionStatus{}, err
@@ -956,6 +978,7 @@ func (f *FusionControl) Renew(ctx context.Context, c *Service) error {
 	if _, err := c.Store.GetOperator(ctx, c.OrgID, operators.CentralOperatorID); err != nil {
 		return nil // never enabled from here: nothing to renew
 	}
+	f.writeOrgSetting(ctx) // (for a FUSION turned on before the gateway stamped the organisation: it is read at its next start)
 	// Only when there is something to do: the certificate is within pki.OperatorRenewBefore of its end, or the names it
 	// must carry changed since this process last issued it (a process that has issued nothing yet issues once).
 	hosts := f.certHosts()

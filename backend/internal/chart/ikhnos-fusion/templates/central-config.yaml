@@ -5,7 +5,7 @@
 {{- $d2c := .Values.central.deltaToCumulative }}
 {{- /* Metrics only reach Prometheus, so without it there is no metrics pipeline for the processor to sit in. */ -}}
 {{- $d2cOn := and $d2c.enabled .Values.prometheus.enabled }}
-{{- $metricsProcessors := list "memory_limiter" "transform/provenance" "transform/category" }}
+{{- $metricsProcessors := list "memory_limiter" "transform/provenance" "transform/org" "transform/category" }}
 {{- if $d2cOn }}{{ $metricsProcessors = append $metricsProcessors "delta_to_cumulative" }}{{ end }}
 {{- $metricsProcessors = append $metricsProcessors "batch" }}
 # The central gateway: mTLS in, three stores out. It is a plain OpenTelemetry Collector - no Kubernetes API
@@ -59,18 +59,23 @@ data:
       # level: any sender holding a certificate this gateway trusts can still claim any cluster there.
       transform/provenance:
         error_mode: ignore
-        metric_statements:
-          - context: datapoint
+        {{- range $kind := list "metric" "log" "trace" }}
+        {{ $kind }}_statements:
+          - context: {{ get (dict "metric" "datapoint" "log" "log" "trace" "span") $kind }}
             statements:
               - delete_matching_keys(attributes, "^ikhnos\\..*")
-        log_statements:
-          - context: log
+        {{- end }}
+      # The organisation is the one provenance the gateway does vouch for: FUSION belongs to one, and only its senders hold
+      # a certificate this gateway trusts, so it is written here on the resource (IKHNOS_ORG_ID, from the server's
+      # settings), whatever a sender said. With none set, the sender's stands.
+      transform/org:
+        error_mode: ignore
+        {{- range $kind := list "metric" "log" "trace" }}
+        {{ $kind }}_statements:
+          - context: resource
             statements:
-              - delete_matching_keys(attributes, "^ikhnos\\..*")
-        trace_statements:
-          - context: span
-            statements:
-              - delete_matching_keys(attributes, "^ikhnos\\..*")
+              - set(attributes["ikhnos.org.id"], "${env:IKHNOS_ORG_ID}") where "${env:IKHNOS_ORG_ID}" != ""
+        {{- end }}
       # What a signal is about: system (the host and the collectors), kubernetes (the cluster's own objects) or application
       # (everything else), as one ikhnos.category attribute so Grafana, PromQL, LogQL and TraceQL can filter on it with no
       # name patterns (ikhnos_category in Prometheus and Loki, ikhnos.category in Tempo). It is the rule of the FUSION API's
@@ -163,13 +168,13 @@ data:
         {{- if .Values.loki.enabled }}
         logs:
           receivers: [otlp]
-          processors: [memory_limiter, transform/provenance, transform/category, batch]
+          processors: [memory_limiter, transform/provenance, transform/org, transform/category, batch]
           exporters: [otlphttp/logs]
         {{- end }}
         {{- if .Values.tempo.enabled }}
         traces:
           receivers: [otlp]
-          processors: [memory_limiter, transform/provenance, transform/category, batch]
+          processors: [memory_limiter, transform/provenance, transform/org, transform/category, batch]
           exporters: [otlp/traces]
         {{- end }}
 {{- end }}

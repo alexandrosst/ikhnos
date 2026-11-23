@@ -21,4 +21,9 @@ data:
   {{- if .Values.tempo.enabled }}
   tempo.retention: {{ include "fusion.setting" (dict "root" . "key" "tempo.retention" "default" (toString .Values.tempo.retention)) | quote }}
   {{- end }}
+  {{- if .Values.central.enabled }}
+  {{- /* The organisation FUSION belongs to, which the gateway stamps on everything it takes in (see central-config.yaml). The
+         server writes it when FUSION is turned on; until then, central.orgId. */}}
+  central.orgId: {{ include "fusion.setting" (dict "root" . "key" "central.orgId" "default" (toString .Values.central.orgId)) | quote }}
+  {{- end }}
 {{- end }}

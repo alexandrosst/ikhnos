@@ -49,6 +49,10 @@ switch:
 # gateway is the thing that may be exposed (an Ingress or LoadBalancer is outside this chart).
 central:
   enabled: true
+  # The organisation the gateway stamps on everything it takes in (ikhnos.org.id), whatever a sender said: FUSION belongs to
+  # one organisation and only its senders can reach it. With the server managing FUSION (switch.managed), the server writes
+  # its own organisation's id when FUSION is turned on, and this is only the value before that. Empty: the senders' own stands.
+  orgId: ""
   image:
     repository: otel/opentelemetry-collector-contrib
     tag: "0.160.0"
