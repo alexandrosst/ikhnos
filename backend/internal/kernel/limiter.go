@@ -40,7 +40,11 @@ func NewLimiter(perMinute int, burst int) *Limiter {
 }
 
 // Allow consumes one token for key, reporting whether the call may proceed.
-func (l *Limiter) Allow(key string) bool {
+func (l *Limiter) Allow(key string) bool { return l.AllowN(key, 1) }
+
+// AllowN consumes n tokens for key if it has them all, reporting whether it did. When it has fewer it consumes none, so a
+// large request refused does not use up the room a smaller one would have had.
+func (l *Limiter) AllowN(key string, n int) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := l.now()
@@ -61,11 +65,11 @@ func (l *Limiter) Allow(key string) bool {
 		b.tokens = l.burst
 	}
 	b.last = now
-	if b.tokens < 1 {
+	if b.tokens < float64(n) {
 		Metrics.RateLimited.Add(1)
 		return false
 	}
-	b.tokens--
+	b.tokens -= float64(n)
 	return true
 }
 

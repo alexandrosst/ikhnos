@@ -49,8 +49,9 @@ func (h *API) createToken(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	if req.ExpiresInDays < 0 || req.ExpiresInDays > 3650 {
-		h.fail(w, r, kernel.Errf(kernel.KindInvalid, "expiresInDays must be between 1 and %d", int(maxFusionTokenTTL.Hours()/24)))
+	// One rule, the store's own: 1 to 365 days, or 0 for the default (90). (Checked here too, so the message names the field.)
+	if maxDays := int(maxFusionTokenTTL.Hours() / 24); req.ExpiresInDays < 0 || req.ExpiresInDays > maxDays {
+		h.fail(w, r, kernel.Errf(kernel.KindInvalid, "expiresInDays must be between 1 and %d (0 for the default, %d)", maxDays, int(defaultFusionTokenTTL.Hours()/24)))
 		return
 	}
 	secret, tok, err := h.For(r).CreateFusionToken(r.Context(), httpkit.Actor(r), TokenSpec{

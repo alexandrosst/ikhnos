@@ -2,6 +2,7 @@ package fusion
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -153,6 +154,10 @@ func (c *Service) AuthenticateFusionToken(ctx context.Context, secret string) (s
 	h := kernel.HashSecret(secret)
 	tok, err := c.Store.LookupFusionToken(ctx, h)
 	if err != nil {
+		if !errors.Is(err, store.ErrNotFound) && tok.ID == "" { // (a token found with a scope that cannot be read has its id, and is refused)
+			// The token may be good: the store could not say. A failed attempt would count against the caller's address.
+			return store.FusionToken{}, kernel.Errf(kernel.KindUnavailable, "the server cannot check the token right now; try again")
+		}
 		return store.FusionToken{}, deny
 	}
 	now := c.Now()

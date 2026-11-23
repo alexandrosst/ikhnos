@@ -33,6 +33,10 @@ func (g *Guard) Traces(w http.ResponseWriter, r *http.Request, c *fusionapi.Clie
 		g.Err(w, err)
 		return
 	}
+	if stream && !fused && q.Has("stream") { // (an Accept header that names NDJSON is a preference, not an order: a plain search answers JSON)
+		g.Err(w, &fusionapi.Error{Status: http.StatusBadRequest, Msg: "stream only applies to a fused search; add fused=true or an include list"})
+		return
+	}
 	def, max := 20, 100
 	if fused { // each hit is read in full, so a fused search is a smaller page
 		def, max = 10, fusionapi.MaxBatch
@@ -280,13 +284,12 @@ func nonNilItems(items []fusionapi.BulkItem) []fusionapi.BulkItem {
 
 // bulkAllowed charges the caller's rate limit for the traces beyond the first: reading 25 is 25 reads, whatever
 // the number of requests.
+// The charge is taken whole or not at all: a batch refused for want of room leaves the room it found for a smaller one.
 func (g *Guard) bulkAllowed(w http.ResponseWriter, who Caller, n int) bool {
-	for i := 1; i < n; i++ {
-		if !g.Allow(who) {
-			w.Header().Set("Retry-After", "5")
-			httpkit.WriteErr(w, http.StatusTooManyRequests, "too many requests, slow down; read fewer traces at a time")
-			return false
-		}
+	if n > 1 && !g.Reads.AllowN(who.Kind+"|"+who.ID, n-1) {
+		w.Header().Set("Retry-After", "5")
+		httpkit.WriteErr(w, http.StatusTooManyRequests, "too many requests, slow down; read fewer traces at a time")
+		return false
 	}
 	return true
 }

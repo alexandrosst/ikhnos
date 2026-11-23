@@ -69,8 +69,8 @@ func (op Op) Conflicts(name string) []string {
 	return out
 }
 
-// CheckQuery refuses a query string the route does not take: a parameter it does not list, an empty value where one is
-// given on purpose, or two parameters of which one would make the other do nothing.
+// CheckQuery refuses a query string the route does not take: a parameter it does not list, one given twice that is read
+// once, an empty value, or two parameters of which one would make the other do nothing.
 func (op Op) CheckQuery(q url.Values) error {
 	if op.Open {
 		return nil
@@ -84,9 +84,22 @@ func (op Op) CheckQuery(q url.Values) error {
 			allowed[p] = true
 		}
 	}
-	for k := range q {
+	for k, vs := range q {
 		if !allowed[k] {
 			return &fusionapi.Error{Status: http.StatusBadRequest, Msg: fmt.Sprintf("this route does not take %q; it takes %s", kernel.Printable(k, 40), takes(op))}
+		}
+		// Every handler reads one value of a parameter that is not Multi, so a second one would be silently dropped (a caller
+		// asking for service=a&service=b would get a's alone); and an empty one would silently widen the read it was meant to
+		// narrow. Both are told instead.
+		if len(vs) > 1 && !ParamDefs[k].Multi {
+			hint := ""
+			if ParamDefs[k].List {
+				hint = "; separate several values with commas"
+			}
+			return &fusionapi.Error{Status: http.StatusBadRequest, Msg: fmt.Sprintf("%s is given %d times; give it once%s", k, len(vs), hint)}
+		}
+		if !ParamDefs[k].Multi && strings.TrimSpace(vs[0]) == "" {
+			return &fusionapi.Error{Status: http.StatusBadRequest, Msg: fmt.Sprintf("%s is empty; leave it out rather than send it with no value", k)}
 		}
 	}
 	if v := q.Get("category"); v != "" {
@@ -160,7 +173,7 @@ var ParamDefs = map[string]Param{
 	"to":   {Type: "string", Default: "now", Example: "now", Desc: "End of the range, in the same forms as `from`. The range can be at most 31 days, but a trace search reads at most 7 days and a log read at most 30 days at a time."},
 
 	// the topology of an application
-	"at":        {Type: "string", Example: "2026-10-05T11:30:00Z", Desc: "An RFC 3339 time: answer as the landscape was then instead of now: the services, links and traffic of the newest recording at or before it (`snapshotAt`), and the services the application had at that moment. Needs the graph database."},
+	"at":        {Type: "string", Example: "2026-10-05T11:30:00Z", Desc: "A past time (RFC 3339, unix seconds, or `now-3d`): answer as the landscape was then instead of now: the services, links and traffic of the newest recording at or before it (`snapshotAt`), and the services the application had at that moment. Needs the graph database."},
 	"window":    {Type: "string", Default: "24h", Example: "6h", Desc: "How far before now (or before `at`) to look for what changed, at most 7d."},
 	"noise":     {Type: "boolean", Default: "false", Desc: "Include the machinery links (DNS, system) that are left out by default."},
 	"placement": {Type: "boolean", Default: "false", Desc: "Say where each service of the application runs: its cluster (id, name, tier) and the nodes that hold its pods (id, name, role, zone and, where pods are read, how many)."},

@@ -102,6 +102,11 @@ func (g *Guard) Serve(h Handler) http.Handler {
 				httpkit.WriteErr(w, http.StatusForbidden, e.Msg)
 				return
 			}
+			if errors.As(err, &e) && e.Kind == kernel.KindUnavailable {
+				w.Header().Set("Retry-After", "5")
+				httpkit.WriteErr(w, http.StatusServiceUnavailable, e.Msg)
+				return
+			}
 			kernel.Metrics.AuthFailures.Add(1)
 			// Failed authentications are throttled per address, the same as the rest of the API.
 			if !g.AuthFailures.Allow(kernel.LimitKey(g.ClientIP(r))) {
@@ -138,6 +143,10 @@ func (g *Guard) Caller(r *http.Request) (Caller, error) {
 	if secret, ok := g.Bearer(r); ok {
 		if kernel.LooksLikeFusionToken(secret) {
 			tok, err := g.Tokens.AuthenticateFusionToken(ctx, secret)
+			var ke *kernel.Error
+			if err != nil && errors.As(err, &ke) && ke.Kind == kernel.KindUnavailable {
+				return Caller{}, err // the store is down: not the caller's mistake, and not a failed attempt
+			}
 			if err != nil || tok.OrgID != g.Org() {
 				return Caller{}, deny
 			}
@@ -158,7 +167,12 @@ func (g *Guard) Caller(r *http.Request) (Caller, error) {
 		return Caller{}, kernel.Errf(kernel.KindForbidden, "you must choose a new password before doing anything else")
 	}
 	if p, err = g.Accounts.Member(ctx, p, g.Org()); err != nil {
-		return Caller{}, deny
+		var ke *kernel.Error
+		if errors.As(err, &ke) && ke.Kind == kernel.KindNotFound {
+			// Signed in, but not in the FUSION organisation: who they are is known, so the answer is "not allowed", not "sign in".
+			return Caller{}, kernel.Errf(kernel.KindForbidden, "FUSION's data is read by administrators of the organisation that runs it, or with a FUSION access token")
+		}
+		return Caller{}, kernel.Errf(kernel.KindUnavailable, "the server cannot check who you are right now; try again")
 	}
 	if !accounts.Allows(p, accounts.ActAdminister) {
 		return Caller{}, kernel.Errf(kernel.KindForbidden, "reading FUSION's data takes an administrator of the organisation, or a FUSION access token")

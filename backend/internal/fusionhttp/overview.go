@@ -125,10 +125,13 @@ type topologyAter interface {
 func (g *Guard) AppTopology(w http.ResponseWriter, r *http.Request, c *fusionapi.Client, who Caller) {
 	q := r.URL.Query()
 	window, err := fusionapi.DurationParam(q.Get("window"))
-	if err == nil && (window < 0 || window > fusionapi.MaxTopologyWindow) {
-		err = &fusionapi.Error{Status: 400, Msg: "window can be at most 7d"}
-	}
-	if window == 0 {
+	switch {
+	case err != nil:
+	case q.Has("window") && window <= 0: // (0 would read as the default, which is not what was asked)
+		err = &fusionapi.Error{Status: http.StatusBadRequest, Msg: "window must be longer than 0; leave it out for the default"}
+	case window > fusionapi.MaxTopologyWindow:
+		err = &fusionapi.Error{Status: http.StatusBadRequest, Msg: "window can be at most 7d"}
+	case window == 0:
 		window = fusionapi.DefaultTopologyWindow
 	}
 	var noise bool
@@ -144,9 +147,12 @@ func (g *Guard) AppTopology(w http.ResponseWriter, r *http.Request, c *fusionapi
 		format, err = fusionapi.ParseFormat(q.Get("format"))
 	}
 	var at time.Time
-	if err == nil && q.Has("at") {
-		if at, err = time.Parse(time.RFC3339, q.Get("at")); err != nil {
-			err = &fusionapi.Error{Status: 400, Msg: "at must be an RFC 3339 time"}
+	if err == nil && q.Has("at") { // in the forms from and to take: RFC 3339, unix seconds, now-<duration>
+		now := g.Now()
+		if at, err = fusionapi.ParseTime(q.Get("at"), now); err != nil {
+			err = &fusionapi.Error{Status: http.StatusBadRequest, Msg: "at: " + err.Error()}
+		} else if at.After(now) {
+			err = &fusionapi.Error{Status: http.StatusBadRequest, Msg: "at is in the future; the topology of now is read without it"}
 		}
 	}
 	if err != nil {

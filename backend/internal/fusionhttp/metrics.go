@@ -8,8 +8,6 @@ import (
 	"ikhnos/internal/httpkit"
 )
 
-import ()
-
 func metricFilter(q url.Values) fusionapi.MetricFilter {
 	cats, _ := fusionapi.ParseCategories(q.Get("category")) // already checked by the route (Op.CheckQuery)
 	return fusionapi.MetricFilter{Name: q.Get("name"), NameRegex: q.Get("metric"), Service: q.Get("service"), Namespace: q.Get("namespace"),

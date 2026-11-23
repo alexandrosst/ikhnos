@@ -316,6 +316,9 @@ func parseDuration(s string) (time.Duration, error) {
 	return days + d, err
 }
 
+// ParseTime reads a time in the forms from and to take: RFC 3339, unix seconds, now, or now-<duration>.
+func ParseTime(s string, now time.Time) (time.Time, error) { return parseTime(s, now) }
+
 func parseTime(s string, now time.Time) (time.Time, error) {
 	s = strings.TrimSpace(s)
 	switch {
