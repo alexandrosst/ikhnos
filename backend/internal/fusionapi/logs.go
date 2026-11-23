@@ -187,6 +187,16 @@ func (f LogFilter) pipeline(s Scope, q string) (string, error) {
 	if cl := s.clLimit(); len(cl) > 0 {
 		q += " | " + lblCluster + "=~" + quote(regexAny(cl))
 	}
+	if len(s.Focus) > 0 {
+		// The selector takes the union of the application's names, namespaces and clusters (what Loki's index can serve); this
+		// keeps a line only where its service is a member in that member's own namespace and cluster.
+		var alts []string
+		for _, c := range placeConds(s.Focus, lblNamespace, lblCluster, lblService, func(k, v string) string { return k + "=" + quote(v) },
+			func(k string, vs []string) string { return k + "=~" + quote(regexAny(vs)) }) {
+			alts = append(alts, "("+strings.Join(c, " and ")+")")
+		}
+		q += " | " + strings.Join(alts, " or ")
+	}
 	return q, nil
 }
 

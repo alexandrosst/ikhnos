@@ -65,6 +65,20 @@ type Scope struct {
 	FocusServices   []string
 	FocusNamespaces []string
 	FocusClusters   []string
+	// Focus is the same choice, exact: the application's names in each namespace and cluster it runs in. The fields above
+	// are the union of these, a cheap first cut the stores can use their indexes for; a query built from a filter adds Focus
+	// too, so that a member's name in another member's namespace (redis of namespace data, when shop has a member called
+	// api and data one called redis) is not taken for part of the application. Empty when the application runs in more
+	// places than one query can name (maxFocusPlaces); then the union alone applies.
+	Focus []FocusPlace
+}
+
+// FocusPlace is the part of an application in one namespace of one cluster: the names its telemetry may carry there. An empty
+// Namespace or Cluster is a member ikhnos knows no namespace or cluster for, and leaves that dimension open for its names only.
+type FocusPlace struct {
+	Namespace string
+	Cluster   string
+	Names     []string
 }
 
 // nsLimit and clLimit are the namespaces and clusters a query this package builds is restricted to: the focus when there is

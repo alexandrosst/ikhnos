@@ -43,10 +43,10 @@ func FindGroup(groups []AppGroup, ref string) (*AppGroup, error) {
 // limited to one namespace sees only the part of the application in it, and one that sees none of it gets "not found",
 // the same as for an application that does not exist.
 //
-// The result is for structured queries only. A service is matched by name within the namespaces and clusters of the
-// whole application, so when two members share a service name in different namespaces the focus can include a same-named
-// service of a namespace that is not a member; telemetry carries no application identity, and this is the price of
-// resolving the application at read time. When members lack a namespace or cluster that dimension is left alone.
+// The result is for structured queries only. It holds the union of the members' names, namespaces and clusters (a first
+// cut the stores' indexes serve) and, for an application in at most maxFocusPlaces places, each member's names where that
+// member runs (Focus), which the queries add so that a name is not matched in another member's namespace. A member with no
+// namespace or cluster leaves that dimension open for its own names only.
 func (s Scope) FocusOn(g *AppGroup) (Scope, error) {
 	names := g.ServiceNames()
 	if len(names) == 0 {
@@ -67,7 +67,61 @@ func (s Scope) FocusOn(g *AppGroup) (Scope, error) {
 	if out.FocusClusters, err = narrow(s.Clusters, g, g.Clusters(), func(m AppMember) string { return m.Cluster }); err != nil {
 		return Scope{}, errf(http.StatusNotFound, "no application %q", g.Name)
 	}
+	if places := g.places(); len(places) <= maxFocusPlaces {
+		out.Focus = places
+	}
 	return out, nil
+}
+
+// maxFocusPlaces bounds how many namespace-and-cluster places an exact focus names. A metric read adds a selector per place
+// and per workload label, so past it the URL would be longer than a store or a proxy in front of it takes well.
+const maxFocusPlaces = 20
+
+// places groups the members' names by the namespace and cluster they run in, in a stable order.
+func (g *AppGroup) places() []FocusPlace {
+	idx := map[[2]string]int{}
+	var out []FocusPlace
+	for _, m := range g.Members {
+		k := [2]string{m.Namespace, m.Cluster}
+		i, ok := idx[k]
+		if !ok {
+			i = len(out)
+			idx[k] = i
+			out = append(out, FocusPlace{Namespace: m.Namespace, Cluster: m.Cluster})
+		}
+		for _, n := range append([]string{m.Name}, m.Aliases...) {
+			if n != "" && !slices.Contains(out[i].Names, n) {
+				out[i].Names = append(out[i].Names, n)
+			}
+		}
+	}
+	for i := range out {
+		sort.Strings(out[i].Names)
+	}
+	sort.Slice(out, func(a, b int) bool {
+		if out[a].Cluster != out[b].Cluster {
+			return out[a].Cluster < out[b].Cluster
+		}
+		return out[a].Namespace < out[b].Namespace
+	})
+	return out
+}
+
+// placeConds are the conditions of each place, for a query language to join with its own "or": the place's namespace and
+// cluster (where it has them) and its names, under the keys the language knows them by, written by eq and in.
+func placeConds(places []FocusPlace, nsKey, clKey, nameKey string, eq func(key, value string) string, in func(key string, values []string) string) [][]string {
+	out := make([][]string, 0, len(places))
+	for _, p := range places {
+		var c []string
+		if p.Namespace != "" {
+			c = append(c, eq(nsKey, p.Namespace))
+		}
+		if p.Cluster != "" {
+			c = append(c, eq(clKey, p.Cluster))
+		}
+		out = append(out, append(c, in(nameKey, p.Names)))
+	}
+	return out
 }
 
 // narrow intersects a limit the caller has with the values the application's members have in one dimension. A member

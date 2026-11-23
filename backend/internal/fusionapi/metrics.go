@@ -111,6 +111,9 @@ func (f MetricFilter) matchers(s Scope) ([]string, error) {
 // their Deployment, StatefulSet or DaemonSet and no service name, so without the extra selectors choosing an application
 // would leave them out. The selectors are disjoint in what they add, so the results are simply united.
 func (f MetricFilter) selectors(s Scope) ([]string, error) {
+	if len(s.Focus) > 0 {
+		return f.placeSelectors(s)
+	}
 	base, err := f.selector(s)
 	if err != nil {
 		return nil, err
@@ -127,6 +130,30 @@ func (f MetricFilter) selectors(s Scope) ([]string, error) {
 	out := []string{base}
 	for _, l := range lblWorkloads {
 		out = append(out, "{"+strings.Join(append(slices.Clone(m), l+"=~"+quote(regexAny(s.FocusServices))), ",")+"}")
+	}
+	return out, nil
+}
+
+// placeSelectors are the selectors of an exact focus: for each place of the application, its names in its own namespace and
+// cluster, as the service name and (unless the caller named a service) as each workload label. A series matches one of them
+// only if its service or workload is a member where that member runs.
+func (f MetricFilter) placeSelectors(s Scope) ([]string, error) {
+	wide := s
+	wide.FocusServices = nil // the places name the services, each where it runs
+	m, err := f.matchers(wide)
+	if err != nil {
+		return nil, err
+	}
+	nameLabels := []string{lblService}
+	if f.Service == "" {
+		nameLabels = append(nameLabels, lblWorkloads...)
+	}
+	var out []string
+	for _, l := range nameLabels {
+		for _, c := range placeConds(s.Focus, lblNamespace, lblCluster, l, func(k, v string) string { return k + "=" + quote(v) },
+			func(k string, vs []string) string { return k + "=~" + quote(regexAny(vs)) }) {
+			out = append(out, "{"+strings.Join(append(slices.Clone(m), c...), ",")+"}")
+		}
 	}
 	return out, nil
 }
