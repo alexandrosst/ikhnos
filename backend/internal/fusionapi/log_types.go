@@ -55,4 +55,7 @@ type LogFilter struct {
 	NoTrace bool `json:"noTrace,omitempty"`
 	// Backward lists newest first (Loki's default); otherwise oldest first.
 	Backward bool `json:"backward,omitempty"`
+	// pods keeps lines of any of these pods (Pod, when set, narrows it further). It is for the read of several resources'
+	// context lines at once, so that Loki opens only their pods' streams; a caller cannot set it.
+	pods []string
 }

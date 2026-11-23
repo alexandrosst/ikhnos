@@ -255,8 +255,12 @@ func TestTheApplicationsListSaysWhichApplicationIsMatchedByTheUnion(t *testing.T
 	}
 	small := AppGroup{ID: "small", Name: "Small", Members: []AppMember{{Name: "api", Namespace: "web", Cluster: "cl-1"}}}
 	f := newFake(t)
-	f.prom = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, map[string]any{"status": "success", "data": []string{}}) }
-	f.loki = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, map[string]any{"status": "success", "data": []string{}}) }
+	f.prom = func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"status": "success", "data": []string{}})
+	}
+	f.loki = func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"status": "success", "data": []string{}})
+	}
 	f.tempo = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, map[string]any{"traces": []any{}}) }
 	_, _, warnings, err := f.client().GroupSignals(context.Background(), AllSignals(), []AppGroup{big, small}, rangeAll)
 	if err != nil {

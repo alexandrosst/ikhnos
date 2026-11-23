@@ -27,13 +27,9 @@ func (e fusionExtras) Applications(ctx context.Context) ([]fusionapi.AppGroup, e
 }
 
 func (e fusionExtras) applications(ctx context.Context) ([]fusionapi.AppGroup, error) {
-	t, err := e.tenant(ctx)
+	t, doc, err := e.state(ctx)
 	if err != nil {
 		return nil, err
-	}
-	doc, err := t.Hub.State(ctx)
-	if err != nil {
-		return nil, &fusionapi.Error{Status: 503, Msg: "the organisation's topology is not available"}
 	}
 	ws, err := t.C.Store.GetWorkspace(ctx, t.C.OrgID)
 	if err != nil {

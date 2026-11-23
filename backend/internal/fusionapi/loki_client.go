@@ -3,6 +3,7 @@ package fusionapi
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
@@ -52,35 +53,69 @@ func (c *Client) RawLogQuery(ctx context.Context, s Scope, query string, backwar
 }
 
 func (c *Client) lokiQuery(ctx context.Context, s Scope, query string, backward bool, tr TimeRange, limit int) ([]LogEntry, bool, error) {
-	if err := tr.within(storeLoki, MaxLogWindow); err != nil {
+	// (One more line than limit is asked for: see MetricNames.)
+	lines, err := c.lokiRaw(ctx, s, query, backward, tr, limit+1)
+	if err != nil {
 		return nil, false, err
+	}
+	out, truncated := cutLines(lines, backward, limit)
+	return out, truncated, nil
+}
+
+// lokiLine is one value of Loki's answer before anything is left out of it. decoded says it could be read at all; kept
+// that the caller may also be given it (see lokiEntry and the Scope's checks). A read of several resources at once keeps
+// the lines it may not hand out, because they still took a place in Loki's limit, as they would have in a read of each.
+type lokiLine struct {
+	e       LogEntry
+	decoded bool
+	kept    bool
+}
+
+// lokiRaw asks Loki for at most limit lines (sent as it is) and returns every value of its answer, in the answer's order.
+func (c *Client) lokiRaw(ctx context.Context, s Scope, query string, backward bool, tr TimeRange,
+	limit int) ([]lokiLine, error) {
+	if err := tr.within(storeLoki, MaxLogWindow); err != nil {
+		return nil, err
 	}
 	dir := "forward"
 	if backward {
 		dir = "backward"
 	}
 	var res lokiStreams
-	err := c.get(ctx, storeLoki, c.Loki, "/loki/api/v1/query_range", url.Values{
-		"query": {query}, "start": {unixNano(tr.From)}, "end": {unixNano(tr.To)}, "limit": {strconv.Itoa(limit + 1)}, "direction": {dir}, // (one more: see MetricNames)
-	}, lokiHeaders, &res)
+	q := url.Values{"query": {query}, "start": {unixNano(tr.From)}, "end": {unixNano(tr.To)}, "limit": {strconv.Itoa(limit)},
+		"direction": {dir}}
+	// A long question (the lines of many resources at once) goes as a form, which Loki takes alike: a URL that long may be
+	// refused by a proxy on the way (see maxGetQuery).
+	method := http.MethodGet
+	if len(q.Encode()) > maxGetQuery {
+		method = http.MethodPost
+	}
+	err := c.call(ctx, method, storeLoki, c.Loki, "/loki/api/v1/query_range", q, lokiHeaders, &res)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	if res.Status != "success" || (res.Data.ResultType != "streams" && res.Data.ResultType != "") {
-		return nil, false, badRequest("that LogQL query does not return log lines (it returned %q)", res.Data.ResultType)
+		return nil, badRequest("that LogQL query does not return log lines (it returned %q)", res.Data.ResultType)
 	}
 	restricted := !s.Unrestricted()
-	var out []LogEntry
+	var out []lokiLine
 	for _, st := range res.Data.Result {
 		for _, v := range st.Values {
 			e, mixed, ok := lokiEntry(st.Stream, v)
-			if !ok || mixed && restricted {
-				continue
-			}
-			if !s.NamespaceVisible(e.Namespace) || !s.ClusterVisible(e.Cluster) {
-				continue
-			}
-			out = append(out, e)
+			kept := ok && !(mixed && restricted) && s.NamespaceVisible(e.Namespace) && s.ClusterVisible(e.Cluster)
+			out = append(out, lokiLine{e: e, decoded: ok, kept: kept})
+		}
+	}
+	return out, nil
+}
+
+// cutLines is what a read of limit lines, which asked Loki for limit+1, makes of the answer: the lines the caller may be
+// given, newest first when backward (oldest first otherwise), at most limit of them, and whether there were more.
+func cutLines(lines []lokiLine, backward bool, limit int) ([]LogEntry, bool) {
+	var out []LogEntry
+	for _, l := range lines {
+		if l.kept {
+			out = append(out, l.e)
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
@@ -90,9 +125,9 @@ func (c *Client) lokiQuery(ctx context.Context, s Scope, query string, backward 
 		return out[i].Time.Before(out[j].Time)
 	})
 	if len(out) > limit {
-		return out[:limit], true, nil
+		return out[:limit], true
 	}
-	return out, false, nil
+	return out, false
 }
 
 // lokiEntry decodes one line of a stream. mixed says the line's structured metadata names a namespace or a cluster

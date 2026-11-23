@@ -76,7 +76,7 @@ func TestFuseTraceRunsYourPromQLPerResourceAndOnce(t *testing.T) {
 	var mu sync.Mutex
 	var queries []string
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query().Get("query")
+		q := formOf(r).Get("query")
 		mu.Lock()
 		queries = append(queries, q)
 		mu.Unlock()
@@ -170,9 +170,9 @@ func TestPromQLOfALimitedCallerIsRestrictedAndOneBadQueryDoesNotSpoilTheRest(t *
 	var sent []string
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		sent = append(sent, r.URL.Query().Get("query"))
+		sent = append(sent, formOf(r).Get("query"))
 		mu.Unlock()
-		if strings.Contains(r.URL.Query().Get("query"), "broken") {
+		if strings.Contains(formOf(r).Get("query"), "broken") {
 			w.WriteHeader(400)
 			writeJSON(w, map[string]any{"status": "error", "error": "parse error: unexpected end of input"})
 			return

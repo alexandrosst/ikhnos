@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/url"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -230,6 +231,9 @@ func TestTheTopologyUsesTheReusedApplications(t *testing.T) {
 	kept := c.at.Add(-time.Second) // (the rig's clock stands still; this tells a reuse from a new reading)
 	c.at = kept
 	c.mu.Unlock()
+	// Past the moment the topology itself is reused for, but within the applications' TTL: the topology is built again,
+	// and the applications are not.
+	*d.now = d.now.Add(topologyTTL + time.Second)
 	if _, err := ex.Topology(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -237,6 +241,30 @@ func TestTheTopologyUsesTheReusedApplications(t *testing.T) {
 	defer c.mu.Unlock()
 	if !c.at.Equal(kept) {
 		t.Fatal("a second topology within the TTL worked the applications out again")
+	}
+}
+
+// The topology is built from the state document on every fused read that asks for the topology or the changes, and every
+// list of services: the reads of one moment share one view (topologyTTL), and after it the view is built again.
+func TestTheTopologyIsReusedForAMoment(t *testing.T) {
+	d := newDataRig(t)
+	ex := fusionExtras{d.a}
+	first, err := ex.Topology(context.Background())
+	if err != nil || first == nil {
+		t.Fatalf("%v %v", first, err)
+	}
+	if again, err := ex.Topology(context.Background()); err != nil || again != first {
+		t.Fatal("a second read within topologyTTL built the topology again")
+	}
+	*d.now = d.now.Add(topologyTTL + time.Second)
+	later, err := ex.Topology(context.Background())
+	if err != nil || later == first {
+		t.Fatalf("after topologyTTL the kept topology was given: %v", err)
+	}
+	same := *later
+	same.At = first.At // (when it was built moved with the clock)
+	if !reflect.DeepEqual(&same, first) {
+		t.Fatalf("the topology built again differs from the kept one, with nothing changed:\n%+v\n%+v", later, first)
 	}
 }
 

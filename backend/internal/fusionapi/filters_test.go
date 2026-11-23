@@ -27,19 +27,19 @@ func TestAServicesOverviewCanBeOfTheOneInANamespace(t *testing.T) {
 	var promQs, lokiQs, tempoQs []string
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		promQs = append(promQs, r.URL.Query()["match[]"]...)
+		promQs = append(promQs, formOf(r)["match[]"]...)
 		mu.Unlock()
 		writeJSON(w, map[string]any{"status": "success", "data": []string{"up"}})
 	}
 	f.loki = func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		lokiQs = append(lokiQs, r.URL.Query().Get("query"))
+		lokiQs = append(lokiQs, formOf(r).Get("query"))
 		mu.Unlock()
 		writeJSON(w, lokiResult())
 	}
 	f.tempo = func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		tempoQs = append(tempoQs, r.URL.Query().Get("q"))
+		tempoQs = append(tempoQs, formOf(r).Get("q"))
 		mu.Unlock()
 		writeJSON(w, map[string]any{"traces": []any{}})
 	}

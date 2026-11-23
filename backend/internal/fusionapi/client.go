@@ -122,6 +122,13 @@ func (c *Client) lanes() {
 
 // get calls one store and decodes a JSON answer into out (a *json.RawMessage keeps it verbatim).
 func (c *Client) get(ctx context.Context, store, base, path string, q url.Values, hdr map[string]string, out any) error {
+	return c.call(ctx, http.MethodGet, store, base, path, q, hdr, out)
+}
+
+// call is get with the method chosen: a POST sends the parameters as a form, for a question longer than a URL carries
+// safely through the proxies between the server and a store.
+func (c *Client) call(ctx context.Context, method, store, base, path string, q url.Values, hdr map[string]string,
+	out any) error {
 	if base == "" {
 		return errf(http.StatusServiceUnavailable, "%s is not configured on this server", store)
 	}
@@ -139,14 +146,21 @@ func (c *Client) get(ctx context.Context, store, base, path string, q url.Values
 	}
 	defer release()
 	u := base + path
-	if len(q) > 0 {
+	var form io.Reader
+	switch {
+	case method == http.MethodPost:
+		form = strings.NewReader(q.Encode())
+	case len(q) > 0:
 		u += "?" + q.Encode()
 	}
 	callCtx, cancel := context.WithTimeout(ctx, c.storeTimeout()) // (after the wait for a slot, which is not the store's doing)
 	defer cancel()
-	req, err := http.NewRequestWithContext(callCtx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(callCtx, method, u, form)
 	if err != nil {
 		return errf(http.StatusInternalServerError, "could not build the %s request", store)
+	}
+	if form != nil {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
 	req.Header.Set("Accept", "application/json")
 	for k, v := range hdr {
@@ -227,6 +241,23 @@ func upstreamMessage(body []byte) string {
 		msg = msg[:300] + "..."
 	}
 	return msg
+}
+
+// batchRefused says whether a store refused a read of several items at once for being that: a query it would not take
+// (a 4xx, which includes one too long for it), or an answer larger than this client keeps (MaxBytes). Read one item at
+// a time, each would be smaller, so the items are worth reading so. Any other failure (a timeout, a store that cannot
+// be reached or answers with an error of its own, the caller going away) would befall each item's own read as well,
+// and re-reading them would only spend the time again: it is reported for every item instead.
+func batchRefused(err error) bool {
+	var e *Error
+	if !errors.As(err, &e) {
+		return false
+	}
+	switch e.Status {
+	case http.StatusBadRequest, http.StatusRequestEntityTooLarge, http.StatusRequestURITooLong, http.StatusUnprocessableEntity:
+		return true
+	}
+	return false
 }
 
 // IsUnavailable reports whether err is a store that could not be reached (FUSION off or starting), as opposed to a

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"ikhnos/internal/fusionapi"
+	"ikhnos/internal/landscape"
 	"ikhnos/internal/store"
 )
 
@@ -32,14 +33,34 @@ func (e fusionExtras) tenant(ctx context.Context) (*Tenant, error) {
 	return t, nil
 }
 
-func (e fusionExtras) Topology(ctx context.Context) (*fusionapi.TopologyView, error) {
+// state is the organisation's state document, which the topology, the applications and the clusters' names are made from.
+func (e fusionExtras) state(ctx context.Context) (*Tenant, landscape.StateDoc, error) {
 	t, err := e.tenant(ctx)
 	if err != nil {
-		return nil, err
+		return nil, landscape.StateDoc{}, err
 	}
 	doc, err := t.Hub.State(ctx)
 	if err != nil {
-		return nil, &fusionapi.Error{Status: 503, Msg: "the organisation's topology is not available"}
+		return nil, landscape.StateDoc{}, &fusionapi.Error{Status: 503, Msg: "the organisation's topology is not available"}
+	}
+	return t, doc, nil
+}
+
+// topologyTTL is how long the topology is reused. It is short: the topology is joined "as of now", and a few seconds is
+// enough for the reads a dashboard or a script makes at once (each fused read, each list of services) to share one.
+const topologyTTL = 3 * time.Second
+
+// Topology is the organisation's topology, reused for topologyTTL (sharedValue) and never given stale. Every caller gets
+// the same view: a view is only read once it is built (as one batch of traces already shares one, see FuseMany), and
+// nothing that is given one changes it.
+func (e fusionExtras) Topology(ctx context.Context) (*fusionapi.TopologyView, error) {
+	return e.a.topoCache.get(ctx, e.a.C.Now, topologyTTL, 0, e.topology)
+}
+
+func (e fusionExtras) topology(ctx context.Context) (*fusionapi.TopologyView, error) {
+	_, doc, err := e.state(ctx)
+	if err != nil {
+		return nil, err
 	}
 	v := topologyView(doc)
 	// Say which ikhnos applications each service is in, from the applications as last worked out (reused for appGroupTTL,
@@ -52,13 +73,9 @@ func (e fusionExtras) Topology(ctx context.Context) (*fusionapi.TopologyView, er
 
 // ClusterNames are the clusters of the organisation, by id and name, as the topology last had them.
 func (e fusionExtras) ClusterNames(ctx context.Context) ([]fusionapi.ClusterName, error) {
-	t, err := e.tenant(ctx)
+	_, doc, err := e.state(ctx)
 	if err != nil {
 		return nil, err
-	}
-	doc, err := t.Hub.State(ctx)
-	if err != nil {
-		return nil, &fusionapi.Error{Status: 503, Msg: "the organisation's topology is not available"}
 	}
 	var out []fusionapi.ClusterName
 	for _, c := range doc.Topology.Clusters {

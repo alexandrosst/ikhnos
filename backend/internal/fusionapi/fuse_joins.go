@@ -35,7 +35,13 @@ func (r *fuseRun) traceLogs() {
 		return
 	}
 	r.start(func() {
+		release, err := acquire(r.ctx, r.sem) // (one read, but one of the read's all the same: see fuseConcurrency)
+		if err != nil {
+			r.warn(SignalLogs, err)
+			return
+		}
 		lines, truncated, err := r.c.Logs(r.ctx, r.s, LogFilter{TraceID: r.f.TraceID, Services: r.logServices, Severity: r.opts.LogSeverity, Contains: r.opts.LogContains}, r.window, r.opts.MaxLogs)
+		release()
 		if err != nil {
 			r.warn(SignalLogs, err)
 			return
@@ -67,21 +73,35 @@ func fromOneOf(l LogEntry, resources []*Resource) bool {
 }
 
 // contextLogs reads, for each looked-up resource, the lines it wrote in the trace's window without a trace id (include=context_logs).
+// The resources are read together, in one query, and the answer split among them; a resource whose own lines that answer
+// cannot tell exactly is then read on its own (see contextLogsAtOnce).
 func (r *fuseRun) contextLogs() {
 	if !r.allowed(r.opts.ContextLogs, SourceContextLogs, SignalLogs) {
 		return
 	}
 	r.setSource(SourceContextLogs, SourceOK)
-	r.forEachLooked(SourceContextLogs, func(res *Resource) error {
-		lines, truncated, err := r.c.Logs(r.ctx, r.s, LogFilter{Service: res.Service, Namespace: res.Namespace, Pod: res.Pod, Cluster: res.Cluster, NoTrace: true,
-			Severity: r.opts.LogSeverity, Contains: r.opts.LogContains, Backward: true}, r.window, r.opts.MaxContextLogs)
-		if err != nil {
-			return err
-		}
-		reverseLogs(lines) // newest first out of the store; a resource's lines read oldest first
-		r.apply(func() { res.Logs, res.LogsTruncated = lines, truncated })
-		return nil
-	})
+	if len(r.looked) < 2 {
+		r.forEach(r.looked, SourceContextLogs, r.contextLogsOf)
+		return
+	}
+	r.start(func() { r.forEach(r.contextLogsAtOnce(), SourceContextLogs, r.contextLogsOf) })
+}
+
+// contextFilter is what a resource's own read of its context lines asks for.
+func (r *fuseRun) contextFilter(res *Resource) LogFilter {
+	return LogFilter{Service: res.Service, Namespace: res.Namespace, Pod: res.Pod, Cluster: res.Cluster, NoTrace: true,
+		Severity: r.opts.LogSeverity, Contains: r.opts.LogContains, Backward: true}
+}
+
+// contextLogsOf reads one resource's context lines on their own.
+func (r *fuseRun) contextLogsOf(res *Resource) error {
+	lines, truncated, err := r.c.Logs(r.ctx, r.s, r.contextFilter(res), r.window, r.opts.MaxContextLogs)
+	if err != nil {
+		return err
+	}
+	reverseLogs(lines) // newest first out of the store; a resource's lines read oldest first
+	r.apply(func() { res.Logs, res.LogsTruncated = lines, truncated })
+	return nil
 }
 
 // systemLogs reads the system namespaces' lines on the nodes the trace's pods (or, narrowed, the application's) ran on
@@ -95,9 +115,9 @@ func (r *fuseRun) systemLogs() {
 		nodesOf = r.looked
 	}
 	r.start(func() {
-		sl, warns, err := r.c.systemLogs(r.ctx, r.s, nodesOf, r.opts, r.window)
+		sl, warns, err := r.c.systemLogs(r.ctx, r.s, nodesOf, r.opts, r.window, r.sem)
 		if err != nil {
-			r.warn(SourceSystemLogs, err) // (every node failed; one that did not would keep its lines)
+			r.warn(SourceSystemLogs, err) // (the read of all the nodes failed, or, read one by one, every one of them did)
 		}
 		r.apply(func() {
 			if err == nil {
@@ -116,13 +136,25 @@ func (r *fuseRun) metrics() {
 	}
 	r.setSource(SignalMetrics, SourceOK)
 	reads := newMetricReads(r.c, r.s, r.window, r.step, r.opts.MaxSeries)
-	r.forEachLooked(SignalMetrics, func(res *Resource) error {
-		series, truncated, err := resourceMetrics(r.ctx, res, r.opts, reads)
-		if err != nil {
-			return err
+	r.start(func() {
+		// The views of all the resources are read at once first; what that read cannot answer exactly, each resource's own
+		// reads then ask (see metricReads.prefetch).
+		var filters []MetricFilter
+		for _, res := range r.looked {
+			filters = append(filters, metricFilters(res, r.opts)...)
 		}
-		r.apply(func() { res.Metrics, res.MetricsTruncated = series, truncated })
-		return nil
+		if release, err := acquire(r.ctx, r.sem); err == nil {
+			reads.prefetch(r.ctx, filters)
+			release()
+		}
+		r.forEachLooked(SignalMetrics, func(res *Resource) error {
+			series, truncated, err := resourceMetrics(r.ctx, res, r.opts, reads)
+			if err != nil {
+				return err
+			}
+			r.apply(func() { res.Metrics, res.MetricsTruncated = series, truncated })
+			return nil
+		})
 	})
 }
 

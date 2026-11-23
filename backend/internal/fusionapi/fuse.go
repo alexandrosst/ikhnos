@@ -125,7 +125,7 @@ func (f *Fused) join(source, by, how string) {
 //
 // It runs in three steps. Everything that can be the caller's mistake (a bad filter, a window or step out of bounds) is checked
 // before any store is asked. Then each requested join is started (fuseRun's join methods, one per part of the answer), all
-// at once, the per-resource reads sharing one bound on how many are in flight. Last, when all are done, what was read about
+// at once, their store reads sharing one bound on how many are in flight. Last, when all are done, what was read about
 // the resources is cut to each span and the options that only narrow the answer are applied.
 func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOptions) (*Fused, error) {
 	if err := opts.defaults(); err != nil {
@@ -205,7 +205,7 @@ type fuseRun struct {
 	window, qwin TimeRange
 	step, qstep  time.Duration
 
-	sem chan struct{} // bounds the per-resource reads of all joins together
+	sem chan struct{} // bounds the store reads of all the joins together (fuseConcurrency)
 	wg  sync.WaitGroup
 	mu  sync.Mutex // guards f (and the resources' fields) while the joins run
 }
@@ -376,7 +376,12 @@ func (r *fuseRun) start(fn func()) {
 // the joins of the read: a trace of many resources must not take every slot the stores share. A resource that cannot get a slot
 // before the deadline is recorded as a failure of signal.
 func (r *fuseRun) forEachLooked(signal string, fn func(*Resource) error) {
-	for _, res := range r.looked {
+	r.forEach(r.looked, signal, fn)
+}
+
+// forEach is forEachLooked for some of the resources.
+func (r *fuseRun) forEach(resources []*Resource, signal string, fn func(*Resource) error) {
+	for _, res := range resources {
 		res := res
 		r.start(func() {
 			release, err := acquire(r.ctx, r.sem)

@@ -116,8 +116,9 @@ const (
 	maxSystemNodes        = 5
 	defaultMaxSeries      = 15
 	hardMaxSeries         = 100
-	// fuseConcurrency is how many reads of one fused read are in flight at once, its per-resource joins (context logs, metrics,
-	// queries) together; the Client's own lanes bound the stores across reads.
+	// fuseConcurrency is how many store reads of one fused read are in flight at once, those of all its joins together (the
+	// trace's lines, the context and system lines, the metrics and the queries); the Client's own lanes bound the stores
+	// across reads. (The trace itself is read before any join, and the topology and changes are ikhnos' own, not a store's.)
 	fuseConcurrency = 8
 	// maxFusedResources is the most resources one fused read looks up metrics for; a trace with more says so.
 	maxFusedResources = 20

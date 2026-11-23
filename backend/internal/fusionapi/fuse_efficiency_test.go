@@ -55,29 +55,23 @@ func replicas(n int) map[string]any {
 	return map[string]any{"trace": map[string]any{"resourceSpans": rss}}
 }
 
-// The replicas of a service share one app view and the pods of a node one node view: each is asked of Prometheus once, and
-// every resource still carries the series.
+// The replicas of a service share one app view and the pods of a node one node view: each is asked of Prometheus once (in
+// the one query of all the views), and every resource still carries the series.
 func TestReplicasShareTheirAppAndNodeMetricReads(t *testing.T) {
 	f := newFake(t)
 	f.tempo = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, replicas(3)) }
-	f.prom = func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{
-			map[string]any{"metric": map[string]string{"__name__": "up", "k8s_namespace_name": "shop"}, "values": [][]any{{1791200000.0, "1"}}}}}})
-	}
+	st := &promStore{series: []map[string]string{{"__name__": "up", "service_name": "cart", "k8s_namespace_name": "shop", "ikhnos_cluster_id": "cl-1"}}}
+	f.prom = st.handler(t)
 	got, err := f.client().FuseTrace(context.Background(), AllSignals(), traceHex, FuseOptions{Metrics: true, MetricViews: MetricViews{App: true, Pod: true, Node: true}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.mu.Lock()
-	var queries []string
-	for _, r := range f.reqs {
-		if r.URL.Path == "/api/v1/query_range" {
-			queries = append(queries, r.URL.Query().Get("query"))
-		}
+	queries, _ := st.reads()
+	if len(queries) != 1 {
+		t.Fatalf("%d reads: %v", len(queries), queries)
 	}
-	f.mu.Unlock()
 	app, node, pod := 0, 0, 0
-	for _, q := range queries {
+	for _, q := range strings.Split(queries[0], " or ") {
 		switch {
 		case strings.Contains(q, "k8s_node_name"):
 			node++
@@ -88,7 +82,7 @@ func TestReplicasShareTheirAppAndNodeMetricReads(t *testing.T) {
 		}
 	}
 	if app != 1 || node != 1 || pod != 3 {
-		t.Fatalf("app %d, node %d, pod %d reads: %v", app, node, pod, queries)
+		t.Fatalf("app %d, node %d, pod %d views: %v", app, node, pod, queries)
 	}
 	for _, r := range got.Resources {
 		if len(r.Metrics) == 0 || r.Metrics[0].Name != "up" {

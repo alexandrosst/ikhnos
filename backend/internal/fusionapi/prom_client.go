@@ -36,6 +36,25 @@ func (c *Client) promEnv(ctx context.Context, path string, q url.Values) (promEn
 	return env, nil
 }
 
+// maxGetQuery is the longest encoded question sent to Prometheus or Loki in a URL; a longer one is sent as a form (POST),
+// which their query endpoints take alike. 4 KiB stays well inside the 8 KiB request line common proxies allow.
+const maxGetQuery = 4 << 10
+
+// promForm is promEnv for a question that may be long: sent in the URL when it is short, as a form otherwise.
+func (c *Client) promForm(ctx context.Context, path string, q url.Values) (promEnvelope, error) {
+	if len(q.Encode()) <= maxGetQuery {
+		return c.promEnv(ctx, path, q)
+	}
+	var env promEnvelope
+	if err := c.call(ctx, http.MethodPost, storeProm, c.Prometheus, path, q, nil, &env); err != nil {
+		return promEnvelope{}, err
+	}
+	if env.Status != "success" {
+		return promEnvelope{}, errf(http.StatusBadGateway, "%s: %s", storeProm, env.Error)
+	}
+	return env, nil
+}
+
 // promRange evaluates one expression as a range query. A Scope with a namespace or cluster limit has it added to every selector
 // of the expression (restrictPromQL); its results are then made of what it may see only, and are not checked again by their
 // labels (a sum carries no namespace, and is the caller's to have).

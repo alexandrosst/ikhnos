@@ -68,6 +68,9 @@ type Admin struct {
 	// nameCache holds the names of the organisation and its clusters for as long: every trace and log read carries them beside
 	// the ids, and reading them builds the state document and reads the organisation's record.
 	nameCache sharedValue[fusionapi.Names]
+	// topoCache holds the topology a fused read joins for a moment (topologyTTL): each fused read that asks for the topology
+	// or the changes, and each list of services, would otherwise build the state document again.
+	topoCache sharedValue[*fusionapi.TopologyView]
 	// links is the organisation's links API (see linksAPI).
 	links     *linksapi.API
 	linksOnce sync.Once

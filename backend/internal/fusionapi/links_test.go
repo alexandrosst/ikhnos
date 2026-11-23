@@ -29,7 +29,7 @@ func row(v string, kv ...string) map[string]any {
 func TestLinkReadingsReadEachFigureWithItsOwnQuery(t *testing.T) {
 	f := newFake(t)
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query().Get("query")
+		q := formOf(r).Get("query")
 		var out map[string]any
 		switch {
 		case strings.Contains(q, "probe_failures_total"):
@@ -106,7 +106,7 @@ func TestLinkReadingsReadEachFigureWithItsOwnQuery(t *testing.T) {
 	seen := 0
 	f.mu.Lock()
 	for _, r := range f.reqs {
-		if strings.Contains(r.URL.Query().Get("query"), "ikhnos_link_") {
+		if strings.Contains(formOf(r).Get("query"), "ikhnos_link_") {
 			seen++
 		}
 	}
@@ -125,7 +125,7 @@ func TestLinkReadingsDropTheFiguresOfADirectionThatIsDownAndAggregateDuplicates(
 	var mu sync.Mutex
 	queries := map[string]string{}
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query().Get("query")
+		q := formOf(r).Get("query")
 		mu.Lock()
 		for _, k := range []string{"probe_loss_ratio", "delay_variation", "path_mtu", "probe_last_success", "probe_failures_total", "tcp_connect_failures_total", "throughput_bits"} {
 			if strings.Contains(q, k) {
@@ -168,7 +168,7 @@ func TestLinkReadingsNeedAnUnrestrictedScopeAndReportAStoreError(t *testing.T) {
 		t.Fatalf("a limited scope read the link figures: %v", err)
 	}
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Query().Get("query"), "path_mtu") {
+		if strings.Contains(formOf(r).Get("query"), "path_mtu") {
 			w.WriteHeader(500)
 			return
 		}

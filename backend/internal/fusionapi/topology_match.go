@@ -4,27 +4,70 @@ import (
 	"sort"
 )
 
+// topoIndex is a view's services and links by what a read's resources are matched and joined by. It is built once for all
+// the resources of one read: each of them matched by a pass over every service and every link of the topology would
+// cost a large organisation's topology for every resource of every trace.
+type topoIndex struct {
+	v    *TopologyView
+	byID map[string]*TopoService
+	// named and labelled are the services' indexes in v.Services by name, and by the app labels that are not their name
+	// (each in the order of v.Services, so that a match is the one a pass over the services would find first).
+	named, labelled map[string][]int
+	// linksOf is the indexes in v.Links of the links that have a service at either end, by the service's id (in order).
+	linksOf map[string][]int
+	link    map[string]TopoLink // by the link's id
+}
+
+// newTopoIndex indexes a view; nil for no view.
+func newTopoIndex(v *TopologyView) *topoIndex {
+	if v == nil {
+		return nil
+	}
+	ix := &topoIndex{v: v, byID: v.byID(), named: map[string][]int{}, labelled: map[string][]int{},
+		linksOf: map[string][]int{}, link: make(map[string]TopoLink, len(v.Links))}
+	for i := range v.Services {
+		c := &v.Services[i]
+		ix.named[c.Name] = append(ix.named[c.Name], i)
+		for _, l := range uniqueInOrder([]string{c.Labels["app"], c.Labels["app.kubernetes.io/name"]}) {
+			if l != "" && l != c.Name {
+				ix.labelled[l] = append(ix.labelled[l], i)
+			}
+		}
+	}
+	for i, l := range v.Links {
+		ix.linksOf[l.From] = append(ix.linksOf[l.From], i)
+		if l.To != l.From {
+			ix.linksOf[l.To] = append(ix.linksOf[l.To], i)
+		}
+		ix.link[l.ID] = l
+	}
+	return ix
+}
+
 // matchService finds the topology service behind a resource by its name (failing that, its app label) and the namespace
 // and cluster it carries. One that names no namespace or cluster matches by the rest only when that leaves a single service;
 // with several it matches none, and ambiguous says so, rather than the match being whichever service came first. A resource
 // that does carry its whole key can only fit the services of that key.
 func (v *TopologyView) matchService(r *Resource) (sv *TopoService, ambiguous bool) {
+	return newTopoIndex(v).matchService(r)
+}
+
+func (ix *topoIndex) matchService(r *Resource) (sv *TopoService, ambiguous bool) {
 	if r.Service == "" {
 		return nil, false
 	}
-	var byName, byLabel []*TopoService
-	for i := range v.Services {
-		c := &v.Services[i]
-		if (r.Namespace != "" && c.Namespace != r.Namespace) || (r.Cluster != "" && c.Cluster != r.Cluster) {
-			continue
+	fits := func(idx []int) (found []*TopoService) {
+		for _, i := range idx {
+			c := &ix.v.Services[i]
+			if (r.Namespace != "" && c.Namespace != r.Namespace) || (r.Cluster != "" && c.Cluster != r.Cluster) {
+				continue
+			}
+			found = append(found, c)
 		}
-		if c.Name == r.Service {
-			byName = append(byName, c)
-		} else if c.Labels["app"] == r.Service || c.Labels["app.kubernetes.io/name"] == r.Service {
-			byLabel = append(byLabel, c)
-		}
+		return found
 	}
-	for _, found := range [][]*TopoService{byName, byLabel} { // the name wins over the label
+	// The name wins over the label.
+	for _, found := range [][]*TopoService{fits(ix.named[r.Service]), fits(ix.labelled[r.Service])} {
 		switch len(found) {
 		case 0:
 		case 1:
@@ -55,12 +98,12 @@ func endVisible(s Scope, byID map[string]*TopoService, id, kind string) bool {
 }
 
 // topologyFor builds a resource's neighbours, leaving out what the Scope may not see.
-func (v *TopologyView) topologyFor(s Scope, r *Resource) *ResourceTopology {
-	sv, _ := v.matchService(r)
+func (ix *topoIndex) topologyFor(s Scope, r *Resource) *ResourceTopology {
+	sv, _ := ix.matchService(r)
 	if sv == nil {
 		return nil
 	}
-	byID := v.byID()
+	v, byID := ix.v, ix.byID
 	neighbour := func(id, kind string, l TopoLink) (Neighbour, bool) {
 		n := Neighbour{ID: id, Kind: kind, Protocol: l.Protocol, Port: l.Port, Confidence: l.Confidence, Stale: l.Stale}
 		if kind == "external" {
@@ -74,7 +117,8 @@ func (v *TopologyView) topologyFor(s Scope, r *Resource) *ResourceTopology {
 		return n, endVisible(s, byID, id, kind)
 	}
 	rt := &ResourceTopology{Service: sv, Calls: []Neighbour{}, CalledBy: []Neighbour{}}
-	for _, l := range v.Links {
+	for _, i := range ix.linksOf[sv.ID] { // (the links of every other service could match neither case below)
+		l := v.Links[i]
 		if l.Noise != "" {
 			continue
 		}
@@ -104,12 +148,12 @@ func (v *TopologyView) topologyFor(s Scope, r *Resource) *ResourceTopology {
 
 // attachTopology puts each resource's neighbours on it. Returns how many resources the topology knew, and how many it could
 // not tell from several services.
-func attachTopology(v *TopologyView, s Scope, looked []*Resource) (matched, ambiguous int) {
+func attachTopology(ix *topoIndex, s Scope, looked []*Resource) (matched, ambiguous int) {
 	for _, r := range looked {
-		if rt := v.topologyFor(s, r); rt != nil {
+		if rt := ix.topologyFor(s, r); rt != nil {
 			r.Topology = rt
 			matched++
-		} else if _, amb := v.matchService(r); amb {
+		} else if _, amb := ix.matchService(r); amb {
 			ambiguous++
 		}
 	}

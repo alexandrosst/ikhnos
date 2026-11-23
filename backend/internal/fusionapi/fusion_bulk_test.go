@@ -79,7 +79,7 @@ func TestFuseTraceReadsContextLogsAndSystemLogs(t *testing.T) {
 	var mu sync.Mutex
 	var queries []string
 	f.loki = func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query().Get("query")
+		q := formOf(r).Get("query")
 		mu.Lock()
 		queries = append(queries, q)
 		mu.Unlock()
@@ -88,11 +88,19 @@ func TestFuseTraceReadsContextLogsAndSystemLogs(t *testing.T) {
 		}
 		switch {
 		case strings.Contains(q, `k8s_node_name=`):
-			writeJSON(w, lokiResult(line("kubelet", "kube-system", "evicting pod", "1791200002000000000", map[string]string{"k8s_node_name": strings.Split(strings.Split(q, `k8s_node_name="`)[1], `"`)[0]})))
+			// One line of each node the query names (it names them all at once).
+			var lines [][]any
+			for _, part := range strings.Split(q, `k8s_node_name="`)[1:] {
+				lines = append(lines, line("kubelet", "kube-system", "evicting pod", "1791200002000000000", map[string]string{"k8s_node_name": strings.Split(part, `"`)[0]}))
+			}
+			writeJSON(w, lokiResult(lines...))
 		case strings.Contains(q, `trace_id=""`):
-			writeJSON(w, lokiResult(
-				line("cart", "shop", "newer", "1791200003000000000", nil),
-				line("cart", "shop", "older", "1791200001000000000", nil)))
+			// The lines carry the labels of cart's stream, which is how the read of every resource at once tells them to cart.
+			cart := func(text, at string) []any {
+				return []any{map[string]string{"service_name": "cart", "k8s_namespace_name": "shop", "k8s_pod_name": "cart-1", "ikhnos_cluster_id": "cl-1"},
+					[]any{at, text, map[string]any{"structuredMetadata": map[string]string{}}}}
+			}
+			writeJSON(w, lokiResult(cart("newer", "1791200003000000000"), cart("older", "1791200001000000000")))
 		default:
 			writeJSON(w, lokiResult(line("billing", "pay", "declined", "1791200000000000000", map[string]string{"trace_id": traceHex, "span_id": "0000000000000001"})))
 		}
@@ -120,7 +128,7 @@ func TestFuseTraceReadsContextLogsAndSystemLogs(t *testing.T) {
 	if got.Logs.Total != 1 || got.Logs.Matched != 1 {
 		t.Fatalf("trace logs = %+v", got.Logs)
 	}
-	// System lines: one read per node, the namespaces named, kept once.
+	// System lines: one read for the nodes, the namespaces named, kept once.
 	if got.SystemLogs == nil || strings.Join(got.SystemLogs.Nodes, ",") != "node-a,node-b" || len(got.SystemLogs.Entries) != 2 || got.SystemLogs.Namespaces[0] != "kube-system" {
 		t.Fatalf("system logs = %+v", got.SystemLogs)
 	}
@@ -204,7 +212,7 @@ func TestMetricScopePicksWhoseSeriesAResourceCarries(t *testing.T) {
 	var queries []string
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		queries = append(queries, r.URL.Query().Get("query"))
+		queries = append(queries, formOf(r).Get("query"))
 		mu.Unlock()
 		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{}}})
 	}
@@ -319,16 +327,20 @@ func TestBulkReadsLeaveRoomForASingleRead(t *testing.T) {
 	f := newFake(t)
 	f.tempo = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, tempoTrace()) }
 	release := make(chan struct{})
-	var inProm int32
-	f.prom = func(w http.ResponseWriter, r *http.Request) {
-		atomic.AddInt32(&inProm, 1)
-		defer atomic.AddInt32(&inProm, -1)
-		select {
-		case <-release:
-		case <-r.Context().Done():
+	var inFlight int32 // the calls to Prometheus and Loki together
+	stuck := func(answer any) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(&inFlight, 1)
+			defer atomic.AddInt32(&inFlight, -1)
+			select {
+			case <-release:
+			case <-r.Context().Done():
+			}
+			writeJSON(w, answer)
 		}
-		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{}}})
 	}
+	f.prom = stuck(map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{}}})
+	f.loki = stuck(lokiResult())
 	c := f.client()
 	var ids []string
 	for i := 0; i < 9; i++ {
@@ -337,13 +349,15 @@ func TestBulkReadsLeaveRoomForASingleRead(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		c.FuseMany(context.Background(), AllSignals(), ids, FuseOptions{Metrics: true}, nil)
+		// Each trace's metrics are one call and its lines another: the batch's three traces at a time ask for six, more
+		// than the bulk lane holds.
+		c.FuseMany(context.Background(), AllSignals(), ids, FuseOptions{Logs: true, Metrics: true}, nil)
 	}()
 	deadline := time.Now().Add(3 * time.Second)
-	for atomic.LoadInt32(&inProm) < maxBulkUpstream && time.Now().Before(deadline) {
+	for atomic.LoadInt32(&inFlight) < maxBulkUpstream && time.Now().Before(deadline) {
 		time.Sleep(5 * time.Millisecond)
 	}
-	if got := atomic.LoadInt32(&inProm); got != maxBulkUpstream {
+	if got := atomic.LoadInt32(&inFlight); got != maxBulkUpstream {
 		t.Fatalf("bulk holds %d store calls, expected it to fill its lane of %d", got, maxBulkUpstream)
 	}
 	// The bulk read is stuck waiting on Prometheus, and a single read still goes straight through.

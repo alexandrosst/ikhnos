@@ -60,7 +60,7 @@ func TestTheNewestTraceIsLookedForInShortWindowsFirst(t *testing.T) {
 		return append([]string(nil), asked...), len(asked)
 	}
 	f.tempo = func(w http.ResponseWriter, r *http.Request) {
-		from, _ := strconv.ParseInt(r.URL.Query().Get("start"), 10, 64)
+		from, _ := strconv.ParseInt(formOf(r).Get("start"), 10, 64)
 		ask(from)
 		var traces []string
 		for i, at := range []time.Time{older, recent, now.Add(-45 * time.Second)} {
@@ -84,7 +84,7 @@ func TestTheNewestTraceIsLookedForInShortWindowsFirst(t *testing.T) {
 	asked = nil
 	mu.Unlock()
 	f.tempo = func(w http.ResponseWriter, r *http.Request) {
-		from, _ := strconv.ParseInt(r.URL.Query().Get("start"), 10, 64)
+		from, _ := strconv.ParseInt(formOf(r).Get("start"), 10, 64)
 		ask(from)
 		if older.Unix() >= from {
 			fmt.Fprintf(w, `{"traces":[{"traceID":"%032x","startTimeUnixNano":"%d","durationMs":3}]}`, 1, older.UnixNano())

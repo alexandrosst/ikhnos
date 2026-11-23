@@ -20,7 +20,8 @@ func TestFuseTraceKeepsWhatWasReadWhenOneStoreHangs(t *testing.T) {
 	f.loki = hang
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{
-			map[string]any{"metric": map[string]string{"__name__": "up", "k8s_namespace_name": "shop"}, "values": [][]any{{1791200000.0, "1"}}}}}})
+			map[string]any{"metric": map[string]string{"__name__": "up", "service_name": "cart", "k8s_namespace_name": "shop", "ikhnos_cluster_id": "cl-1"},
+				"values": [][]any{{1791200000.0, "1"}}}}}})
 	}
 	c := f.client()
 	c.StoreTimeout = 100 * time.Millisecond

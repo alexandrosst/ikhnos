@@ -106,24 +106,26 @@ func TestTheSpanBudgetIsSpentOnlyOnTheSpansKept(t *testing.T) {
 	}
 }
 
-// One resource's metric read failing costs that resource, not the span metrics of the others.
+// One resource's metric read failing costs that resource, not the span metrics of the others. (Prometheus refuses each
+// query that names billing, so it refuses the query of every view at once too, and the views are then read one by one.)
 func TestOneResourceFailingKeepsTheOthersSpanMetrics(t *testing.T) {
 	f := newFake(t)
 	f.tempo = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, tempoTrace()) }
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query().Get("query")
+		q := formOf(r).Get("query")
 		if strings.Contains(q, "billing") {
-			http.Error(w, "boom", http.StatusInternalServerError)
+			http.Error(w, `{"error":"bad query"}`, http.StatusBadRequest)
 			return
 		}
-		start, _ := strconv.ParseFloat(r.URL.Query().Get("start"), 64)
-		end, _ := strconv.ParseFloat(r.URL.Query().Get("end"), 64)
+		start, _ := strconv.ParseFloat(formOf(r).Get("start"), 64)
+		end, _ := strconv.ParseFloat(formOf(r).Get("end"), 64)
 		var vals [][]any
 		for t := start; t <= end; t += 15 {
 			vals = append(vals, []any{t, "1"})
 		}
 		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{
-			map[string]any{"metric": map[string]string{"__name__": "cpu", "service_name": "cart", "k8s_namespace_name": "shop"}, "values": vals}}}})
+			map[string]any{"metric": map[string]string{"__name__": "cpu", "service_name": "cart", "k8s_namespace_name": "shop",
+				"ikhnos_cluster_id": "cl-1"}, "values": vals}}}})
 	}
 	got, err := f.client().FuseTrace(context.Background(), AllSignals(), traceHex, FuseOptions{Metrics: true})
 	if err != nil {
@@ -155,7 +157,7 @@ func TestTheTraceWideQueriesAreNotCrowdedOutByPerPodOnes(t *testing.T) {
 	asked := map[string]bool{}
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		asked[r.URL.Query().Get("query")] = true
+		asked[formOf(r).Get("query")] = true
 		mu.Unlock()
 		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{}}})
 	}
@@ -183,11 +185,43 @@ func TestTheTraceWideQueriesAreNotCrowdedOutByPerPodOnes(t *testing.T) {
 	}
 }
 
-// One node's system lines failing costs that node's lines, not every node's.
+// The nodes' system lines are one read; when the store fails it (here, with an error of its own), each node's own read
+// would have failed the same way, so the part fails as a whole, as any join whose read failed does, and is not read
+// again node by node.
+func TestTheSystemLinesOfAllTheNodesFailTogether(t *testing.T) {
+	f := newFake(t)
+	var mu sync.Mutex
+	reads := 0
+	f.loki = func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		reads++
+		mu.Unlock()
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}
+	res := []*Resource{{Key: "a", Node: "n1", Cluster: "cl-1"}, {Key: "b", Node: "n2", Cluster: "cl-1"}}
+	opts := FuseOptions{SystemLogs: true}
+	if err := opts.defaults(); err != nil {
+		t.Fatal(err)
+	}
+	sl, warns, err := f.client().systemLogs(context.Background(), AllSignals(), res, opts, rangeAll, make(chan struct{}, 1))
+	mu.Lock()
+	defer mu.Unlock()
+	if err == nil || reads != 1 || len(sl.Entries) != 0 || len(sl.Nodes) != 0 || len(warns) != 0 {
+		t.Fatalf("err %v, %d reads, lines %+v, nodes %v, warnings %v", err, reads, sl.Entries, sl.Nodes, warns)
+	}
+}
+
+// When Loki refuses the read of all the nodes for what it is (a 4xx), the nodes are read one by one as they used to be,
+// and one node failing costs that node's lines, not every node's.
 func TestOneNodeFailingKeepsTheOtherNodesSystemLines(t *testing.T) {
 	f := newFake(t)
 	f.loki = func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Query().Get("query"), `"n2"`) {
+		q := formOf(r).Get("query")
+		switch {
+		case strings.Contains(q, " or "):
+			http.Error(w, `{"error":"query too long"}`, http.StatusBadRequest)
+			return
+		case strings.Contains(q, `"n2"`):
 			http.Error(w, "boom", http.StatusInternalServerError)
 			return
 		}
@@ -198,7 +232,7 @@ func TestOneNodeFailingKeepsTheOtherNodesSystemLines(t *testing.T) {
 	if err := opts.defaults(); err != nil {
 		t.Fatal(err)
 	}
-	sl, warns, err := f.client().systemLogs(context.Background(), AllSignals(), res, opts, rangeAll)
+	sl, warns, err := f.client().systemLogs(context.Background(), AllSignals(), res, opts, rangeAll, make(chan struct{}, 1))
 	if err != nil || len(sl.Entries) != 1 || len(sl.Nodes) != 1 || sl.Nodes[0] != "n1" || !strings.Contains(strings.Join(warns, ""), "n2") {
 		t.Fatalf("err %v, lines %+v, nodes %v, warnings %v", err, sl.Entries, sl.Nodes, warns)
 	}

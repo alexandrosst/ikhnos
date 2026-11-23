@@ -33,7 +33,7 @@ prometheus_tsdb_something_else 99
 func TestVolumeUsageReadsTheKubeletsNumbersByClaim(t *testing.T) {
 	var asked string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		asked = r.URL.Query().Get("query")
+		asked = formOf(r).Get("query")
 		w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[
 		 {"metric":{"k8s_persistentvolumeclaim_name":"data-fusion-loki-0","k8s_namespace_name":"obs"},"value":[1,"5000"]},
 		 {"metric":{"k8s_persistentvolumeclaim_name":"data-fusion-loki-0","k8s_namespace_name":"obs"},"value":[1,"7000"]}]}}`))

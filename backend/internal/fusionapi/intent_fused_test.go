@@ -43,7 +43,7 @@ func TestPromQLIsNarrowedToWhatTheReadIsAbout(t *testing.T) {
 	var sent []string
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		sent = append(sent, r.URL.Query().Get("query"))
+		sent = append(sent, formOf(r).Get("query"))
 		mu.Unlock()
 		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{}}})
 	}
@@ -78,7 +78,7 @@ func TestASpanFilterNarrowsWhatIsJoinedToTheResources(t *testing.T) {
 	var sent []string
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		sent = append(sent, r.URL.Query().Get("query"))
+		sent = append(sent, formOf(r).Get("query"))
 		mu.Unlock()
 		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{}}})
 	}

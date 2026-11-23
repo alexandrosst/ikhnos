@@ -16,11 +16,15 @@ type touched struct {
 
 // touchedBy is what the resources are about; only is the application the read is narrowed to ("" for none), whose events are
 // then the only application events kept (the others' services may be on the resources too).
-func touchedBy(v *TopologyView, resources []*Resource, only string) touched {
+func touchedBy(ix *topoIndex, resources []*Resource, only string) touched {
 	t := touched{map[string]*Resource{}, map[string]*Resource{}, map[string]*Resource{}, map[string]*Resource{}, map[string]bool{}, map[string]string{}}
+	var v *TopologyView
+	if ix != nil {
+		v = ix.v
+	}
 	for _, r := range resources {
 		if v != nil {
-			if sv, _ := v.matchService(r); sv != nil {
+			if sv, _ := ix.matchService(r); sv != nil {
 				t.services[sv.ID], t.ns[sv.ID] = r, sv.Namespace
 				for _, a := range sv.AppIDs {
 					if only == "" || a == only {
@@ -72,17 +76,14 @@ func (t touched) ids() []string {
 }
 
 // relevantChanges keeps the events that are about the trace: those of its services (matched through the topology), of the
-// traffic seen to and from them, of the applications they are in, of the nodes its pods ran on, and of its clusters. A Scope
-// limited to namespaces sees only the events of services in them, and of links between what it may see.
-func relevantChanges(evs []ChangeEvent, v *TopologyView, s Scope, resources []*Resource, only string) []ChangeEvent {
-	t := touchedBy(v, resources, only)
+// traffic seen to and from them, of the applications they are in, of the nodes its pods ran on, and of its clusters (t is
+// what the trace's resources touch: touchedBy, which also said which events to read). A Scope limited to namespaces sees
+// only the events of services in them, and of links between what it may see.
+func relevantChanges(evs []ChangeEvent, ix *topoIndex, s Scope, t touched) []ChangeEvent {
 	var byID map[string]*TopoService
 	var link map[string]TopoLink
-	if v != nil {
-		byID, link = v.byID(), map[string]TopoLink{}
-		for _, l := range v.Links {
-			link[l.ID] = l
-		}
+	if ix != nil {
+		byID, link = ix.byID, ix.link
 	}
 	var out []ChangeEvent
 	for _, e := range evs {

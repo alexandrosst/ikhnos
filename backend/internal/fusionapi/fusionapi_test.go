@@ -1,10 +1,11 @@
 package fusionapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -31,6 +32,12 @@ func newFake(t *testing.T) *fake {
 	f := &fake{t: t}
 	wrap := func(h *http.HandlerFunc) *httptest.Server {
 		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// A long question comes as a form; parsed here, it is in r.Form for the handler and for last alike. The body is
+			// put back for a handler that reads it itself.
+			body, _ := io.ReadAll(r.Body)
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			_ = r.ParseForm()
+			r.Body = io.NopCloser(bytes.NewReader(body))
 			f.mu.Lock()
 			f.reqs = append(f.reqs, r)
 			f.mu.Unlock()
@@ -50,13 +57,13 @@ func (f *fake) client() *Client {
 	return &Client{Prometheus: f.pSrv.URL, Loki: f.lSrv.URL, Tempo: f.tSrv.URL, Now: func() time.Time { return time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC) }}
 }
 
-// last returns the query parameters of the most recent request to a path.
+// last returns the parameters of the most recent request to a path, from its URL or, when it was sent as one, its form.
 func (f *fake) last(path string) url.Values {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	for i := len(f.reqs) - 1; i >= 0; i-- {
 		if f.reqs[i].URL.Path == path {
-			return f.reqs[i].URL.Query()
+			return f.reqs[i].Form
 		}
 	}
 	f.t.Fatalf("no request to %s; saw %v", path, f.paths())
@@ -416,16 +423,8 @@ func TestFuseTraceJoinsLogsToSpansAndMetricsToResources(t *testing.T) {
 			[]any{map[string]string{"service_name": "cart", "k8s_namespace_name": "shop"}, []any{"1791200001000000000", "no span id", map[string]any{"structuredMetadata": map[string]string{"trace_id": traceHex}}}},
 		))
 	}
-	var seen []string
-	var mu sync.Mutex
-	f.prom = func(w http.ResponseWriter, r *http.Request) {
-		mu.Lock()
-		seen = append(seen, r.URL.Query().Get("query"))
-		mu.Unlock()
-		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{
-			map[string]any{"metric": map[string]string{"__name__": "m_" + strings.ReplaceAll(r.URL.Query().Get("query")[:30], "\"", ""), "k8s_namespace_name": "shop"}, "values": [][]any{{1791200000.0, "1"}}},
-		}}})
-	}
+	st := &promStore{series: []map[string]string{{"__name__": "cpu_seconds", "service_name": "cart", "k8s_namespace_name": "shop", "ikhnos_cluster_id": "cl-1"}}}
+	f.prom = st.handler(t)
 	c := f.client()
 	got, err := c.FuseTrace(context.Background(), AllSignals(), traceHex, FuseOptions{Logs: true, Metrics: true, MetricRegex: "cpu.*|mem.*"})
 	if err != nil {
@@ -452,8 +451,10 @@ func TestFuseTraceJoinsLogsToSpansAndMetricsToResources(t *testing.T) {
 	if q.Get("start") != itoa(wantStart.UnixNano()) {
 		t.Fatalf("log window start = %s, want %d", q.Get("start"), wantStart.UnixNano())
 	}
-	// Each of the three resources was asked for twice at most (service and pod view) and carries a series.
-	if len(seen) < 5 {
+	// The views of the three resources (their service, and the pod of those that name one) are one query, and cart carries
+	// its series.
+	seen, _ := st.reads()
+	if len(seen) != 1 || strings.Count(seen[0], "{") != 5 {
 		t.Fatalf("metric queries = %v", seen)
 	}
 	joined := strings.Join(seen, "\n")
@@ -695,8 +696,8 @@ func TestAFusedReadBoundsItsWindowAndItsFanOut(t *testing.T) {
 			metricCalls++
 		}
 		if r.URL.Path == "/loki/api/v1/query_range" {
-			from, _ := strconv.ParseInt(r.URL.Query().Get("start"), 10, 64)
-			to, _ := strconv.ParseInt(r.URL.Query().Get("end"), 10, 64)
+			from, _ := strconv.ParseInt(formOf(r).Get("start"), 10, 64)
+			to, _ := strconv.ParseInt(formOf(r).Get("end"), 10, 64)
 			if time.Duration(to-from) > MaxLogWindow {
 				t.Fatalf("log window %v exceeds the maximum", time.Duration(to-from))
 			}
@@ -777,13 +778,14 @@ func TestFuseTraceCutsEachResourcesSeriesToEachSpansOwnTime(t *testing.T) {
 	f.loki = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, lokiResult()) }
 	base := float64(time.Date(2026, 10, 5, 11, 30, 0, 0, time.UTC).Unix())
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
-		// Samples every 20 s from a minute before the trace to a minute after it, 1, 2, 3 ...
+		// Samples every 20 s from a minute before the trace to a minute after it, 1, 2, 3 ... of a series of cart's (the
+		// views of all the resources are one query, which the answer is split by).
 		var vals [][]any
 		for i := 0; i <= 9; i++ {
 			vals = append(vals, []any{base - 60 + float64(i)*20, strconv.Itoa(i + 1)})
 		}
 		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{
-			map[string]any{"metric": map[string]string{"__name__": "cpu", "k8s_namespace_name": "shop"}, "values": vals},
+			map[string]any{"metric": map[string]string{"__name__": "cpu", "service_name": "cart", "k8s_namespace_name": "shop", "ikhnos_cluster_id": "cl-1"}, "values": vals},
 		}}})
 	}
 	got, err := f.client().FuseTrace(context.Background(), AllSignals(), traceHex, FuseOptions{Metrics: true, SpanPad: 25 * time.Second})
@@ -932,20 +934,13 @@ func TestTheSameWarningIsGivenOnce(t *testing.T) {
 func TestAResourcesTwoMetricViewsShareTheRoomWhenTheAnswerIsCut(t *testing.T) {
 	f := newFake(t)
 	f.tempo = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, tempoTrace()) }
-	f.prom = func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query().Get("query")
-		var res []any
-		if strings.Contains(q, "k8s_pod_name=") {
-			for _, n := range []string{"pod_cpu", "pod_memory", "pod_restarts"} {
-				res = append(res, map[string]any{"metric": map[string]string{"__name__": n, "k8s_namespace_name": "shop"}, "values": [][]any{{1791200000.0, "1"}}})
-			}
-		} else {
-			for i := 0; i < 30; i++ {
-				res = append(res, map[string]any{"metric": map[string]string{"__name__": fmt.Sprintf("app_%02d", i), "k8s_namespace_name": "shop"}, "values": [][]any{{1791200000.0, "1"}}})
-			}
-		}
-		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": res}})
+	// cart's pod reports three series, the service itself thirty (the store answers each view by its labels).
+	st := &promStore{}
+	for _, n := range []string{"pod_cpu", "pod_memory", "pod_restarts"} {
+		st.series = append(st.series, map[string]string{"__name__": n, "k8s_namespace_name": "shop", "k8s_pod_name": "cart-1", "ikhnos_cluster_id": "cl-1"})
 	}
+	st.series = append(st.series, series("app", 30, map[string]string{"service_name": "cart", "k8s_namespace_name": "shop", "ikhnos_cluster_id": "cl-1"})...)
+	f.prom = st.handler(t)
 	got, err := f.client().FuseTrace(context.Background(), AllSignals(), traceHex, FuseOptions{Metrics: true, MetricRegex: "app.*|pod.*", MaxSeries: 10})
 	if err != nil {
 		t.Fatal(err)
@@ -1047,4 +1042,10 @@ func TestTracesAreListedNewestFirstAndTheStoreIsAskedForTheNewest(t *testing.T) 
 	if f.last("/api/search").Get("most_recent") != "true" {
 		t.Fatalf("the store was not asked for the newest: %v", f.last("/api/search"))
 	}
+}
+
+// formOf is a request's parameters, from its URL or its form alike: a long question to a store is sent as a form.
+func formOf(r *http.Request) url.Values {
+	_ = r.ParseForm()
+	return r.Form
 }

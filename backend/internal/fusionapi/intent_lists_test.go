@@ -27,13 +27,13 @@ func TestAnApplicationsServicesAreLookedForWhereEachRuns(t *testing.T) {
 	var promMatch, lokiQ []string
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		promMatch = append(promMatch, r.URL.Query()["match[]"]...)
+		promMatch = append(promMatch, formOf(r)["match[]"]...)
 		mu.Unlock()
 		writeJSON(w, map[string]any{"status": "success", "data": []string{"redis"}}) // only redis has metrics, where it runs
 	}
 	f.loki = func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		lokiQ = append(lokiQ, r.URL.Query().Get("query"))
+		lokiQ = append(lokiQ, formOf(r).Get("query"))
 		mu.Unlock()
 		writeJSON(w, map[string]any{"status": "success", "data": []string{}})
 	}
@@ -92,7 +92,7 @@ func TestAnApplicationsLogServicesAreReadPlaceByPlaceAFewAtATime(t *testing.T) {
 	var queries []string
 	inFlight, most := 0, 0
 	f.loki = func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query().Get("query")
+		q := formOf(r).Get("query")
 		mu.Lock()
 		queries = append(queries, r.URL.Path+" "+q)
 		inFlight++

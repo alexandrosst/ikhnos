@@ -64,6 +64,14 @@ func (f LogFilter) selector(s Scope) (string, error) {
 		return "", err
 	}
 	sel = append(sel, eq...)
+	if len(f.pods) > 0 {
+		for _, p := range f.pods {
+			if err := checkValue("pod", p); err != nil {
+				return "", err
+			}
+		}
+		sel = append(sel, lblPod+"=~"+quote(regexAny(f.pods)))
+	}
 	if len(f.Namespaces) > 0 {
 		for _, n := range f.Namespaces {
 			if err := checkValue("namespace", n); err != nil {

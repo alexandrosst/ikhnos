@@ -35,17 +35,35 @@ func (c *Client) MetricRange(ctx context.Context, s Scope, f MetricFilter, tr Ti
 // decodeMatrix reads the "data" of a Prometheus range query into series, leaving out those the Scope may not see and
 // keeping at most maxSeries of them (sorted by name and labels, so the cut is stable).
 func decodeMatrix(data json.RawMessage, s Scope, maxSeries int) (series []MetricSeries, truncated bool, err error) {
+	rs, err := parseMatrix(data)
+	if err != nil {
+		return nil, false, err
+	}
+	series, truncated = cutMatrix(rs, s, maxSeries)
+	return series, truncated, nil
+}
+
+// promSeries is one series of a range query's answer as Prometheus gave it.
+type promSeries struct {
+	Metric map[string]string `json:"metric"`
+	Values [][2]any          `json:"values"`
+}
+
+// parseMatrix reads the "data" of a Prometheus range query, in the answer's order.
+func parseMatrix(data json.RawMessage) ([]promSeries, error) {
 	var res struct {
-		ResultType string `json:"resultType"`
-		Result     []struct {
-			Metric map[string]string `json:"metric"`
-			Values [][2]any          `json:"values"`
-		} `json:"result"`
+		ResultType string       `json:"resultType"`
+		Result     []promSeries `json:"result"`
 	}
 	if err := json.Unmarshal(data, &res); err != nil || res.ResultType != "matrix" {
-		return nil, false, errf(http.StatusBadGateway, "%s answered with something unexpected", storeProm)
+		return nil, errf(http.StatusBadGateway, "%s answered with something unexpected", storeProm)
 	}
-	for _, r := range res.Result {
+	return res.Result, nil
+}
+
+// cutMatrix is decodeMatrix's work on an answer already read.
+func cutMatrix(rs []promSeries, s Scope, maxSeries int) (series []MetricSeries, truncated bool) {
+	for _, r := range rs {
 		if !s.NamespaceVisible(r.Metric[lblNamespace]) || !s.ClusterVisible(r.Metric[lblCluster]) {
 			continue
 		}
@@ -79,7 +97,7 @@ func decodeMatrix(data json.RawMessage, s Scope, maxSeries int) (series []Metric
 	if len(series) > maxSeries {
 		series, truncated = series[:maxSeries], true
 	}
-	return series, truncated, nil
+	return series, truncated
 }
 
 func (m *MetricSeries) summarise() {

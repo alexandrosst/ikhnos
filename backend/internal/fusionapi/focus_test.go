@@ -18,13 +18,13 @@ func TestAFusedReadNarrowedToAnApplicationJoinsOnlyItsOwnResources(t *testing.T)
 	var promQs, lokiQs []string
 	f.loki = func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		lokiQs = append(lokiQs, r.URL.Query().Get("query"))
+		lokiQs = append(lokiQs, formOf(r).Get("query"))
 		mu.Unlock()
 		writeJSON(w, lokiResult())
 	}
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		promQs = append(promQs, r.URL.Query().Get("query"))
+		promQs = append(promQs, formOf(r).Get("query"))
 		mu.Unlock()
 		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{}}})
 	}
@@ -143,7 +143,7 @@ func TestATraceWideQueryOfAnApplicationsReadReadsTheApplicationOnly(t *testing.T
 	var sent []string
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		sent = append(sent, r.URL.Query().Get("query"))
+		sent = append(sent, formOf(r).Get("query"))
 		mu.Unlock()
 		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{}}})
 	}
