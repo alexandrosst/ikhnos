@@ -95,6 +95,32 @@ type Trace struct {
 // MaxSpans is the most spans one trace read returns.
 const MaxSpans = 5000
 
+// keepSpans cuts a trace's spans (in start order) to n: its error spans first, since they are what a reader of a large trace
+// is usually after, then the earliest of the others; the result is in start order again.
+func keepSpans(spans []*Span, n int) []*Span {
+	keep := make([]bool, len(spans))
+	left := n
+	for i, sp := range spans {
+		if left > 0 && sp.Status == "error" {
+			keep[i] = true
+			left--
+		}
+	}
+	for i := range spans {
+		if left > 0 && !keep[i] {
+			keep[i] = true
+			left--
+		}
+	}
+	out := make([]*Span, 0, n)
+	for i, sp := range spans {
+		if keep[i] {
+			out = append(out, sp)
+		}
+	}
+	return out
+}
+
 // ---- OTLP/JSON, as Tempo returns it ----
 
 type otlpValue struct {
@@ -316,14 +342,9 @@ func buildTrace(id string, rss []otlpResourceSpans, s Scope) *Trace {
 		}
 		return tr.Spans[i].SpanID < tr.Spans[j].SpanID
 	})
+	// The totals are those of the whole trace, so they are taken before the spans are cut: the end of a long trace is often where it
+	// failed, and the window every other signal is read in is the trace's start to its end.
 	tr.SpanCount = len(tr.Spans)
-	if len(tr.Spans) > MaxSpans {
-		tr.Spans, tr.Truncated = tr.Spans[:MaxSpans], true
-	}
-	byID := make(map[string]*Span, len(tr.Spans))
-	for _, sp := range tr.Spans {
-		byID[sp.SpanID] = sp
-	}
 	for _, sp := range tr.Spans {
 		// A span with no start time (a sender that left it out) would put the start of the trace in the year 1 and stretch its length,
 		// and with it the window of every other signal read around the trace.
@@ -338,6 +359,15 @@ func buildTrace(id string, rss []otlpResourceSpans, s Scope) *Trace {
 		if sp.Status == "error" {
 			tr.ErrorCount++
 		}
+	}
+	if len(tr.Spans) > MaxSpans {
+		tr.Spans, tr.Truncated = keepSpans(tr.Spans, MaxSpans), true
+	}
+	byID := make(map[string]*Span, len(tr.Spans))
+	for _, sp := range tr.Spans {
+		byID[sp.SpanID] = sp
+	}
+	for _, sp := range tr.Spans {
 		// A span whose parent is not here (or is hidden from this Scope) is a root of what is visible.
 		if p, ok := byID[sp.ParentSpanID]; !ok || sp.ParentSpanID == "" || p == sp {
 			tr.Roots = append(tr.Roots, sp.SpanID)

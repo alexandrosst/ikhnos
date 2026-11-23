@@ -318,12 +318,9 @@ func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOpt
 		f.Joins[SourcePromQL] = "associated, not proven: your own queries, each evaluated for a resource with its service, namespace and pod filled in (or once for the trace), over the trace's time; a metric sample carries no trace id"
 	}
 	opts.ikhnosJoins(f)
-	window := TimeRange{From: tr.Start.Add(-opts.Pad), To: tr.End.Add(opts.Pad)}
-	if !window.From.Before(window.To) {
-		window.To = window.From.Add(time.Second)
-	}
-	if window.To.Sub(window.From) > MaxLogWindow { // a trace that spans weeks must not turn into an unbounded store read (nor one Loki refuses)
-		window = window.newest(MaxLogWindow)
+	// A trace that spans weeks must not turn into an unbounded store read (nor one Loki refuses).
+	window, cut := windowAround(tr, opts.Pad, MaxLogWindow)
+	if cut {
 		f.Warnings = append(f.Warnings, fmt.Sprintf("the trace is longer than %d days; logs and metrics cover its last %d days", int(MaxLogWindow.Hours()/24), int(MaxLogWindow.Hours()/24)))
 	}
 
@@ -369,17 +366,20 @@ func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOpt
 		looked = looked[:maxFusedResources]
 	}
 	if opts.Metrics || opts.ContextLogs {
-		// A resource that does not say which cluster it is from cannot be pinned to one: the series and lines of the same service or pod
-		// in every cluster are read for it (a pod called web-0 exists in each), and the answer must say so.
-		var unpinned []string
-		for _, r := range looked {
-			if r.Cluster == "" {
-				unpinned = append(unpinned, r.Key)
+		// A resource that does not say which cluster (or namespace) it is from cannot be pinned to one: the series and lines of the
+		// same service or pod in every cluster (or namespace) are read for it - a pod called web-0 exists in each - and the answer
+		// must say so.
+		for _, d := range []struct{ what, attr, where string }{{"cluster id", attrCluster, "cluster"}, {"namespace", attrNamespace, "namespace"}} {
+			var unpinned []string
+			for _, r := range looked {
+				if (d.where == "cluster" && r.Cluster == "") || (d.where == "namespace" && r.Namespace == "") {
+					unpinned = append(unpinned, r.Key)
+				}
 			}
-		}
-		if len(unpinned) > 0 {
-			sort.Strings(unpinned)
-			note("%d resource(s) carry no cluster id (ikhnos.cluster.id), so their metrics and context logs may include those of a service or pod of the same name in another cluster: %s", len(unpinned), names(unpinned))
+			if len(unpinned) > 0 {
+				sort.Strings(unpinned)
+				note("%d resource(s) carry no %s (%s), so their metrics and context logs may include those of a service or pod of the same name in another %s: %s", len(unpinned), d.what, d.attr, d.where, names(unpinned))
+			}
 		}
 	}
 
@@ -451,16 +451,15 @@ func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOpt
 			}
 			sl, warns, err := c.systemLogs(ctx, s, nodesOf, opts, window)
 			if err != nil {
-				warn(SourceSystemLogs, err)
-				return
+				warn(SourceSystemLogs, err) // (every node failed; one that did not keeps its lines below)
 			}
 			mu.Lock()
 			defer mu.Unlock()
-			f.Sources[SourceSystemLogs] = SourceOK
-			f.SystemLogs = sl
-			for _, w := range warns {
-				f.Warnings = append(f.Warnings, w)
+			if err == nil {
+				f.Sources[SourceSystemLogs] = SourceOK
+				f.SystemLogs = sl
 			}
+			f.Warnings = append(f.Warnings, warns...)
 		}()
 	}
 
@@ -510,12 +509,9 @@ func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOpt
 	default:
 		qwin := window
 		if opts.PromQLPad > 0 {
-			qwin = TimeRange{From: tr.Start.Add(-opts.PromQLPad), To: tr.End.Add(opts.PromQLPad)}
-			if !qwin.From.Before(qwin.To) {
-				qwin.To = qwin.From.Add(time.Second)
-			}
-			if qwin.To.Sub(qwin.From) > MaxWindow {
-				qwin.From = qwin.To.Add(-MaxWindow)
+			var cut bool
+			if qwin, cut = windowAround(tr, opts.PromQLPad, MaxWindow); cut {
+				note("promql: the trace and promql_pad are longer than %d days; the queries cover the last %d days", int(MaxWindow.Hours()/24), int(MaxWindow.Hours()/24))
 			}
 		}
 		qstep := opts.PromQLStep
@@ -555,18 +551,30 @@ func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOpt
 	if err := callerGone(ctx); err != nil {
 		return nil, err
 	}
-	if len(opts.PromQL) > 0 && opts.PromQLSpans && f.Sources[SourcePromQL] != SourceNotAllowed {
-		if cut := attachSpanQueries(f, opts.SpanPad); cut {
-			f.Warnings = append(f.Warnings, fmt.Sprintf("promql: spans carry more than %d points between them; later spans keep each series' summary but not its points", maxSpanPoints))
-		}
-	}
-	if opts.Metrics && f.Sources[SignalMetrics] == SourceOK {
-		if cut := attachSpanMetrics(f, opts.SpanPad); cut {
-			f.Warnings = append(f.Warnings, fmt.Sprintf("metrics: spans carry more than %d points between them; later spans keep each series' summary but not its points", maxSpanPoints))
+	metricsHit, queriesHit := attachToSpans(f, opts, opts.Metrics, len(opts.PromQL) > 0 && opts.PromQLSpans)
+	for _, k := range []struct {
+		kind string
+		hit  bool
+	}{{SignalMetrics, metricsHit}, {SourcePromQL, queriesHit}} {
+		if k.hit {
+			f.Warnings = append(f.Warnings, fmt.Sprintf("%s: the spans carry more than %d metric and query points between them; later spans keep each series' summary but not its points", k.kind, maxSpanPoints))
 		}
 	}
 	shape(f, opts)
 	return f, nil
+}
+
+// windowAround is the trace's time widened by pad either side: at least a second long, and at most max (its newest part, with
+// cut set).
+func windowAround(tr *Trace, pad, max time.Duration) (w TimeRange, cut bool) {
+	w = TimeRange{From: tr.Start.Add(-pad), To: tr.End.Add(pad)}
+	if !w.From.Before(w.To) {
+		w.To = w.From.Add(time.Second)
+	}
+	if w.To.Sub(w.From) > max {
+		return w.newest(max), true
+	}
+	return w, false
 }
 
 // shape applies the options that only narrow the answer: the span filter and the attributes and events left out.
@@ -634,8 +642,11 @@ func (c *Client) systemLogs(ctx context.Context, s Scope, resources []*Resource,
 		warns = append(warns, fmt.Sprintf("system_logs: the trace ran on %d nodes; the first %d are read", len(locs), maxSystemNodes))
 		locs = locs[:maxSystemNodes]
 	}
+	// One read per node; a node whose read fails is named in a warning and costs only its own lines. err is set only when
+	// every node failed (sl is then empty, and still returned).
 	var mu sync.Mutex
 	var wg sync.WaitGroup
+	var failed []string
 	var firstErr error
 	for _, l := range locs {
 		l := l
@@ -647,6 +658,7 @@ func (c *Client) systemLogs(ctx context.Context, s Scope, resources []*Resource,
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
+				failed = append(failed, l.node)
 				if firstErr == nil {
 					firstErr = err
 				}
@@ -658,8 +670,12 @@ func (c *Client) systemLogs(ctx context.Context, s Scope, resources []*Resource,
 		}()
 	}
 	wg.Wait()
-	if firstErr != nil {
-		return nil, nil, firstErr
+	if len(failed) == len(locs) {
+		return sl, warns, firstErr
+	}
+	if len(failed) > 0 {
+		sort.Strings(failed)
+		warns = append(warns, fmt.Sprintf("system_logs: the lines of %d node(s) could not be read (%s): %v", len(failed), strings.Join(failed, ", "), firstErr))
 	}
 	sort.Strings(sl.Nodes)
 	sort.SliceStable(sl.Entries, func(i, j int) bool { return sl.Entries[i].Time.After(sl.Entries[j].Time) })
@@ -670,42 +686,71 @@ func (c *Client) systemLogs(ctx context.Context, s Scope, resources []*Resource,
 	return sl, warns, nil
 }
 
-// attachSpanMetrics gives each span the part of its resource's series that falls inside the span's own time widened by
-// pad either side. It reads nothing more from the store: the resource's series, already fetched over the whole trace,
-// are cut. A series with no point in a span's window is left off that span. It reports whether the point budget ran out.
-func attachSpanMetrics(f *Fused, pad time.Duration) (budgetHit bool) {
+// spanBudget is what is left of the points all the spans of one fused read may carry between them (maxSpanPoints), metrics
+// and the caller's queries alike.
+type spanBudget struct{ left int }
+
+// cut is the part of a series inside [from, to] (unix seconds), summarised; ok is false when no point falls inside. Its
+// points come out of the budget; when there are not enough left it keeps the summary, loses the points and sets hit.
+func (b *spanBudget) cut(m MetricSeries, from, to float64, hit *bool) (out MetricSeries, ok bool) {
+	var in []Point
+	for _, p := range m.Points {
+		if p[0] >= from && p[0] <= to {
+			in = append(in, p)
+		}
+	}
+	if len(in) == 0 {
+		return MetricSeries{}, false
+	}
+	out = MetricSeries{Name: m.Name, Category: m.Category, Labels: m.Labels, Points: in}
+	out.summarise()
+	if len(in) > b.left {
+		out.Points, *hit = nil, true
+	} else {
+		b.left -= len(in)
+	}
+	return out, true
+}
+
+// attachToSpans gives each span the part of its resource's series that falls inside the span's own time widened by pad either
+// side: the metrics (metrics) and the caller's per-resource queries (queries). It reads nothing more from the stores - the
+// resource's series, already read over the whole trace, are cut - and only the spans the span filter keeps are given any, so
+// the budget is not spent on spans the answer then leaves out. A resource whose read failed has nothing to cut; the others still
+// are. It says, per kind, whether the budget ran out.
+func attachToSpans(f *Fused, opts FuseOptions, metrics, queries bool) (metricsHit, queriesHit bool) {
 	byKey := make(map[string]*Resource, len(f.Resources))
 	for _, r := range f.Resources {
 		byKey[r.Key] = r
 	}
-	budget := maxSpanPoints
+	b := &spanBudget{maxSpanPoints}
 	for _, sp := range f.Spans {
 		r := byKey[sp.Resource]
-		if r == nil {
+		if r == nil || (opts.Spans.active() && !opts.Spans.keeps(sp)) {
 			continue
 		}
-		from, to := float64(sp.Start.Add(-pad).UnixNano())/1e9, float64(sp.End.Add(pad).UnixNano())/1e9
-		for _, m := range r.Metrics {
-			var in []Point
-			for _, p := range m.Points {
-				if p[0] >= from && p[0] <= to {
-					in = append(in, p)
+		from, to := float64(sp.Start.Add(-opts.SpanPad).UnixNano())/1e9, float64(sp.End.Add(opts.SpanPad).UnixNano())/1e9
+		if metrics {
+			for _, m := range r.Metrics {
+				if cut, ok := b.cut(m, from, to, &metricsHit); ok {
+					sp.Metrics = append(sp.Metrics, cut)
 				}
 			}
-			if len(in) == 0 {
-				continue
+		}
+		if queries {
+			for _, qr := range r.Queries {
+				out := QueryResult{Name: qr.Name, Error: qr.Error, Series: []MetricSeries{}}
+				for _, m := range qr.Series {
+					if cut, ok := b.cut(m, from, to, &queriesHit); ok {
+						out.Series = append(out.Series, cut)
+					}
+				}
+				if len(out.Series) > 0 || out.Error != "" {
+					sp.Queries = append(sp.Queries, out)
+				}
 			}
-			cut := MetricSeries{Name: m.Name, Labels: m.Labels, Points: in}
-			cut.summarise()
-			if len(in) > budget {
-				cut.Points, budgetHit = nil, true
-			} else {
-				budget -= len(in)
-			}
-			sp.Metrics = append(sp.Metrics, cut)
 		}
 	}
-	return budgetHit
+	return metricsHit, queriesHit
 }
 
 // attachLogs puts each line on the span it names and the rest in f.Logs.Unmatched.

@@ -174,7 +174,7 @@ func ParseFuseOptions(q url.Values) (opts FuseOptions, err error) {
 	if opts.PromQLStep, err = DurationParam(q.Get(ParamPromQLStep)); err != nil {
 		return opts, err
 	}
-	if opts.PromQLPad, err = DurationParam(q.Get(ParamPromQLPad)); err != nil {
+	if opts.PromQLPad, err = padParam(q, ParamPromQLPad); err != nil {
 		return opts, err
 	}
 	if opts.ChangesBefore, err = padParam(q, ParamChangesBefore); err != nil {

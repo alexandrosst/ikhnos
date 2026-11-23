@@ -839,7 +839,7 @@ func TestSpanMetricsStayWithinAPointBudget(t *testing.T) {
 	for i := 0; i < maxSpanPoints/100+5; i++ {
 		f.Spans = append(f.Spans, &Span{Resource: "k", Start: start, End: start.Add(100 * time.Second)})
 	}
-	if !attachSpanMetrics(f, 0) {
+	if hit, _ := attachToSpans(f, FuseOptions{}, true, false); !hit {
 		t.Fatal("the budget was not reported as reached")
 	}
 	points, summaryOnly := 0, 0

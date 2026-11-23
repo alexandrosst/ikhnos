@@ -249,6 +249,9 @@ func (c *Client) promRange(ctx context.Context, s Scope, expr string, w TimeRang
 	return decodeMatrix(data, s, maxSeries)
 }
 
+// errNotEvaluated is the result of an expansion past maxPromRuns: not the store's failure, the read's own limit.
+var errNotEvaluated = fmt.Errorf("not evaluated: this read evaluates at most %d distinct queries", maxPromRuns)
+
 type promRun struct {
 	series    []MetricSeries
 	truncated bool
@@ -273,7 +276,7 @@ func (c *Client) fusePromQL(ctx context.Context, s Scope, tr *Trace, looked []*R
 	runs := map[string]*promRun{}
 	var order []string
 	skipped := map[string][]string{} // query name -> why, for the warning
-	over := false
+	over := map[string]bool{}        // the queries with an expansion past maxPromRuns
 
 	add := func(q *PromQuery, r *Resource, vars map[string]string) {
 		expr, skip := q.expand(vars)
@@ -287,11 +290,12 @@ func (c *Client) fusePromQL(ctx context.Context, s Scope, tr *Trace, looked []*R
 		}
 		if _, ok := runs[expr]; !ok {
 			if len(runs) >= maxPromRuns {
-				over = true
-				return
+				over[q.Name] = true
+				runs[expr] = &promRun{err: errNotEvaluated} // answered without asking the store, so the caller sees which went unasked
+			} else {
+				runs[expr] = &promRun{}
+				order = append(order, expr)
 			}
-			runs[expr] = &promRun{}
-			order = append(order, expr)
 		}
 		slots = append(slots, slot{q, r, expr})
 	}
@@ -299,10 +303,16 @@ func (c *Client) fusePromQL(ctx context.Context, s Scope, tr *Trace, looked []*R
 	for _, n := range opts.PromQLServices {
 		services[n] = true
 	}
+	// The queries about the whole trace first: each is one expansion, and one per-resource query of a trace with many pods could
+	// otherwise take every slot before them.
+	for i := range opts.PromQL {
+		if q := &opts.PromQL[i]; !q.perResource {
+			add(q, nil, common)
+		}
+	}
 	for i := range opts.PromQL {
 		q := &opts.PromQL[i]
 		if !q.perResource {
-			add(q, nil, common)
 			continue
 		}
 		for _, r := range looked {
@@ -316,8 +326,13 @@ func (c *Client) fusePromQL(ctx context.Context, s Scope, tr *Trace, looked []*R
 			add(q, r, vars)
 		}
 	}
-	if over {
-		warns = append(warns, fmt.Sprintf("promql: this read evaluates at most %d distinct queries; the rest were left out", maxPromRuns))
+	if len(over) > 0 {
+		names := make([]string, 0, len(over))
+		for n := range over {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		warns = append(warns, fmt.Sprintf("promql: this read evaluates at most %d distinct queries; some expansions of %s were not evaluated (their results say so)", maxPromRuns, strings.Join(names, ", ")))
 	}
 	names := make([]string, 0, len(skipped))
 	for n := range skipped {
@@ -356,7 +371,7 @@ func (c *Client) fusePromQL(ctx context.Context, s Scope, tr *Trace, looked []*R
 		res := QueryResult{Name: sl.q.Name, Query: sl.expr, Series: run.series, Truncated: run.truncated}
 		if run.err != nil {
 			res.Error = run.err.Error()
-			if firstErr == nil {
+			if firstErr == nil && run.err != errNotEvaluated {
 				firstErr = run.err
 			}
 		}
@@ -370,47 +385,4 @@ func (c *Client) fusePromQL(ctx context.Context, s Scope, tr *Trace, looked []*R
 		}
 	}
 	return global, warns, firstErr
-}
-
-// attachSpanQueries gives each span the points of its resource's query results that fall inside the span's own time
-// widened by pad either side (the same cut metrics get). It reports whether the point budget ran out.
-func attachSpanQueries(f *Fused, pad time.Duration) (budgetHit bool) {
-	byKey := make(map[string]*Resource, len(f.Resources))
-	for _, r := range f.Resources {
-		byKey[r.Key] = r
-	}
-	budget := maxSpanPoints
-	for _, sp := range f.Spans {
-		r := byKey[sp.Resource]
-		if r == nil {
-			continue
-		}
-		from, to := float64(sp.Start.Add(-pad).UnixNano())/1e9, float64(sp.End.Add(pad).UnixNano())/1e9
-		for _, qr := range r.Queries {
-			cut := QueryResult{Name: qr.Name, Error: qr.Error, Series: []MetricSeries{}}
-			for _, m := range qr.Series {
-				var in []Point
-				for _, p := range m.Points {
-					if p[0] >= from && p[0] <= to {
-						in = append(in, p)
-					}
-				}
-				if len(in) == 0 {
-					continue
-				}
-				ms := MetricSeries{Name: m.Name, Labels: m.Labels, Points: in}
-				ms.summarise()
-				if len(in) > budget {
-					ms.Points, budgetHit = nil, true
-				} else {
-					budget -= len(in)
-				}
-				cut.Series = append(cut.Series, ms)
-			}
-			if len(cut.Series) > 0 || cut.Error != "" {
-				sp.Queries = append(sp.Queries, cut)
-			}
-		}
-	}
-	return budgetHit
 }
