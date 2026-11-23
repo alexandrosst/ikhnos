@@ -101,3 +101,42 @@ func TestAnUnreadableScopeIsAnErrorNotAnUnrestrictedToken(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A list stored as JSON null decodes in Go to the same empty list as [], which means "no limit". It is not what this
+// code writes, so it reads back as unreadable: a token whose namespaces column is null is refused, not given every
+// namespace.
+func TestAScopeStoredAsNullFailsClosed(t *testing.T) {
+	st := openFusionTokenStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	if err := st.CreateFusionToken(ctx, FusionToken{ID: "fk-1", OrgID: "o", Name: "limited", Signals: []string{"logs"},
+		Namespaces: []string{"shop"}, CreatedAt: now, ExpiresAt: now.Add(time.Hour)}, []byte("h")); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.CreateFusionToken(ctx, FusionToken{ID: "fk-2", OrgID: "o", Name: "open", Signals: []string{"logs"},
+		CreatedAt: now, ExpiresAt: now.Add(time.Hour)}, []byte("h2")); err != nil {
+		t.Fatal(err)
+	}
+	var stored string
+	if err := st.db.QueryRow(`SELECT namespaces FROM fusion_tokens WHERE id='fk-2'`).Scan(&stored); err != nil || stored != "[]" {
+		t.Fatalf("no limit is written as %q (%v), want []", stored, err)
+	}
+	if tok, err := st.LookupFusionToken(ctx, []byte("h2")); err != nil || len(tok.Namespaces) != 0 {
+		t.Fatalf("a token written with no limit does not read back: %+v %v", tok, err)
+	}
+	if _, err := st.db.Exec(`UPDATE fusion_tokens SET namespaces='null' WHERE id='fk-1'`); err != nil {
+		t.Fatal(err)
+	}
+	if tok, err := st.LookupFusionToken(ctx, []byte("h")); !errors.Is(err, errUnreadableScope) {
+		t.Fatalf("a null scope was read as %+v (%v), not refused", tok, err)
+	}
+	list, err := st.ListFusionTokens(ctx, "o")
+	if err != nil || len(list) != 2 {
+		t.Fatalf("list = %+v %v", list, err)
+	}
+	for _, tok := range list {
+		if tok.ID == "fk-1" && len(tok.Signals) != 0 {
+			t.Fatalf("a token with a null scope is listed with rights: %+v", tok)
+		}
+	}
+}

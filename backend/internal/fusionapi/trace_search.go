@@ -88,15 +88,27 @@ func (c *Client) tempoSearch(ctx context.Context, s Scope, q string, tr TimeRang
 	out := make([]TraceSummary, 0, len(res.Traces))
 	for _, t := range res.Traces {
 		sum := TraceSummary{TraceID: normID(t.TraceID, 32), Start: nanos(t.Start), DurationMs: t.DurationMs}
+		// spanSet is the older form of spanSets, which Tempo still fills with a copy of the first set: read it only when
+		// there are no sets, or every span it matched would count twice.
 		sets := t.SpanSets
-		if t.SpanSet != nil {
-			sets = append(sets, *t.SpanSet)
+		if len(sets) == 0 && t.SpanSet != nil {
+			sets = []tempoSpanSet{*t.SpanSet}
 		}
 		seen := map[string]bool{}
 		var first, last time.Time
+		kept := 0
 		for _, ss := range sets {
-			sum.MatchedSpans += ss.Matched
+			matched := ss.Matched
 			for _, sp := range ss.Spans {
+				attrs := kvMap(sp.Attributes)
+				// The TraceQL carries the Scope's limits, but what comes back is checked once more, as a trace read whole is: a
+				// span whose own namespace or cluster the Scope cannot see is not counted, and neither is its service named. The
+				// query names those attributes, so Tempo gives them with every span it matched.
+				if restricted && !s.attrsVisible(attrs) {
+					matched--
+					continue
+				}
+				kept++
 				if st := nanos(sp.Start); !st.IsZero() {
 					en := st
 					if d, err := strconv.ParseInt(sp.Duration.String(), 10, 64); err == nil && d > 0 {
@@ -109,14 +121,20 @@ func (c *Client) tempoSearch(ctx context.Context, s Scope, q string, tr TimeRang
 						last = en
 					}
 				}
-				if svc := strAttr(kvMap(sp.Attributes), attrService); svc != "" && !seen[svc] {
+				if svc := strAttr(attrs, attrService); svc != "" && !seen[svc] {
 					seen[svc] = true
 					sum.Services = append(sum.Services, svc)
 				}
 			}
+			sum.MatchedSpans += max(matched, 0)
+		}
+		// A limited caller is told of a trace only through spans it may see, so a hit left with none of them is dropped.
+		if restricted && kept == 0 {
+			continue
 		}
 		sort.Strings(sum.Services)
-		// The root of a trace may belong to a namespace this Scope cannot see; only what matched is its to know.
+		// The root of a trace may belong to a namespace this Scope cannot see, and Tempo does not say which; only what
+		// matched is its to know, so a limited caller is never told the root's service or name.
 		if !restricted {
 			sum.RootService, sum.RootName = t.RootSvc, t.RootName
 		} else if !first.IsZero() {
@@ -128,8 +146,8 @@ func (c *Client) tempoSearch(ctx context.Context, s Scope, q string, tr TimeRang
 		}
 		out = append(out, sum)
 	}
-	// Tempo does not promise an order: the newest come first here, the ones whose start is not known (a limited caller's trace with no
-	// matched span) last.
+	// Tempo does not promise an order: the newest come first here, the ones whose start is not known (a limited caller's
+	// trace whose visible spans carry no start) last.
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Start.IsZero() != out[j].Start.IsZero() {
 			return !out[i].Start.IsZero()

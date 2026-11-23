@@ -69,11 +69,12 @@ func (c *Client) lokiQuery(ctx context.Context, s Scope, query string, backward 
 	if res.Status != "success" || (res.Data.ResultType != "streams" && res.Data.ResultType != "") {
 		return nil, false, badRequest("that LogQL query does not return log lines (it returned %q)", res.Data.ResultType)
 	}
+	restricted := !s.Unrestricted()
 	var out []LogEntry
 	for _, st := range res.Data.Result {
 		for _, v := range st.Values {
-			e, ok := lokiEntry(st.Stream, v)
-			if !ok {
+			e, mixed, ok := lokiEntry(st.Stream, v)
+			if !ok || mixed && restricted {
 				continue
 			}
 			if !s.NamespaceVisible(e.Namespace) || !s.ClusterVisible(e.Cluster) {
@@ -94,17 +95,19 @@ func (c *Client) lokiQuery(ctx context.Context, s Scope, query string, backward 
 	return out, false, nil
 }
 
-func lokiEntry(stream map[string]string, v []json.RawMessage) (LogEntry, bool) {
+// lokiEntry decodes one line of a stream. mixed says the line's structured metadata names a namespace or a cluster
+// other than its stream's, which a caller whose access is limited is not given the line for (see rightsLabel).
+func lokiEntry(stream map[string]string, v []json.RawMessage) (e LogEntry, mixed, ok bool) {
 	if len(v) < 2 {
-		return LogEntry{}, false
+		return LogEntry{}, false, false
 	}
-	var ns, line string
-	if json.Unmarshal(v[0], &ns) != nil || json.Unmarshal(v[1], &line) != nil {
-		return LogEntry{}, false
+	var ts, line string
+	if json.Unmarshal(v[0], &ts) != nil || json.Unmarshal(v[1], &line) != nil {
+		return LogEntry{}, false, false
 	}
-	n, err := strconv.ParseInt(ns, 10, 64)
+	n, err := strconv.ParseInt(ts, 10, 64)
 	if err != nil {
-		return LogEntry{}, false
+		return LogEntry{}, false, false
 	}
 	meta := map[string]string{}
 	if len(v) > 2 {
@@ -121,18 +124,39 @@ func lokiEntry(stream map[string]string, v []json.RawMessage) (LogEntry, bool) {
 		}
 		return stream[k]
 	}
-	e := LogEntry{
+	// The labels the rights are checked by come from the stream. A record's own attributes, which Loki keeps as structured
+	// metadata, are whatever its sender wrote; the stream's labels are what the agent stamped on the way in, and what
+	// Loki's own filter on the query matched. The namespace is a stream label only; the cluster id is one too, but older
+	// lines carry it as structured metadata alone (see logServices), so that is the fallback. A line whose metadata names
+	// another namespace or cluster than its stream is told as its stream has it, and not at all to a limited caller, which
+	// is not to be shown a line that claims to be from elsewhere.
+	ns, nsMixed := rightsLabel(stream, meta, lblNamespace, false)
+	cl, clMixed := rightsLabel(stream, meta, lblCluster, true)
+	e = LogEntry{
 		Time: time.Unix(0, n).UTC(), Line: line,
 		Severity: firstNonEmpty(get(lokiSeverity), get("detected_level"), get("level")),
 		TraceID:  get(lokiTraceID), SpanID: get(lokiSpanID),
-		Service: stream[lblService], Namespace: stream[lblNamespace], Pod: stream[lblPod], Cluster: get(lblCluster),
+		Service: stream[lblService], Namespace: ns, Pod: stream[lblPod], Cluster: cl,
 		Labels: stream,
 	}
 	e.Category = LogCategory(e.Namespace)
 	if len(meta) > 0 {
 		e.Metadata = meta
 	}
-	return e, true
+	return e, nsMixed || clMixed, true
+}
+
+// rightsLabel is the value of a label the rights are checked by: the stream's, else (when orMeta) the structured
+// metadata's. mixed says both carry one and they differ.
+func rightsLabel(stream, meta map[string]string, k string, orMeta bool) (v string, mixed bool) {
+	st, md := stream[k], meta[k]
+	switch {
+	case st != "":
+		return st, md != "" && md != st
+	case orMeta:
+		return md, false
+	}
+	return "", false
 }
 
 func firstNonEmpty(v ...string) string {

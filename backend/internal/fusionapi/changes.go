@@ -84,10 +84,9 @@ func relevantChanges(evs []ChangeEvent, v *TopologyView, s Scope, resources []*R
 			link[l.ID] = l
 		}
 	}
-	limited := len(s.Namespaces) > 0
 	var out []ChangeEvent
 	for _, e := range evs {
-		if !s.ClusterVisible(e.Cluster) {
+		if !changeVisible(s, e, byID, link) {
 			continue
 		}
 		switch e.TargetKind {
@@ -97,25 +96,19 @@ func relevantChanges(evs []ChangeEvent, v *TopologyView, s Scope, resources []*R
 				continue
 			}
 			e.Namespace, e.Resource = t.ns[e.TargetID], r.Key
-			if !s.NamespaceVisible(e.Namespace) {
-				continue
-			}
 		case "dependency":
 			r, ok := t.deps[e.TargetID]
-			if !ok || !endVisible(s, byID, link[e.TargetID].From, link[e.TargetID].FromKind) || !endVisible(s, byID, link[e.TargetID].To, link[e.TargetID].ToKind) {
+			if !ok {
 				continue
 			}
 			e.Resource = r.Key
 		case "application":
 			r, ok := t.apps[e.TargetID]
-			if !ok || !s.Unrestricted() { // it holds services the Scope may not see, in a namespace or a cluster it is not limited to
+			if !ok {
 				continue
 			}
 			e.Resource = r.Key
 		case "node":
-			if limited {
-				continue
-			}
 			r := t.nodes[e.TargetID]
 			if r == nil {
 				r = t.nodes[e.Name]
@@ -125,13 +118,59 @@ func relevantChanges(evs []ChangeEvent, v *TopologyView, s Scope, resources []*R
 			}
 			e.Resource = r.Key
 		case "cluster":
-			if limited || !t.clusters[e.TargetID] && !t.clusters[e.Cluster] {
+			if !t.clusters[e.TargetID] && !t.clusters[e.Cluster] {
 				continue
 			}
 		default:
 			continue
 		}
 		out = append(out, e)
+	}
+	return out
+}
+
+// changeVisible is whether a caller with Scope s may see an event at all, by what the topology says its target is;
+// relevantChanges and the events of an application's topology both ask it, so that the two cannot drift apart. byID and
+// link are the topology's services and links by id.
+//
+// An event's cluster must be one the Scope may see. A service's event needs the service known to the topology, in a
+// namespace and cluster the Scope may see (whatever cluster the event itself names); a link's event needs
+// both its ends visible. An application's event says which services it gained and lost, some of which a limited caller
+// may not see, so it is for an unrestricted caller only; a node's or a cluster's is about everything running there, so
+// not for one limited to namespaces.
+func changeVisible(s Scope, e ChangeEvent, byID map[string]*TopoService, link map[string]TopoLink) bool {
+	if e.Cluster != "" && !s.ClusterVisible(e.Cluster) {
+		return false
+	}
+	switch e.TargetKind {
+	case "service":
+		sv := byID[e.TargetID]
+		return sv != nil && s.NamespaceVisible(sv.Namespace) && s.ClusterVisible(sv.Cluster)
+	case "dependency":
+		l, ok := link[e.TargetID]
+		return ok && endVisible(s, byID, l.From, l.FromKind) && endVisible(s, byID, l.To, l.ToKind)
+	case "application":
+		return s.Unrestricted()
+	case "node", "cluster":
+		return len(s.Namespaces) == 0 && s.ClusterVisible(e.Cluster)
+	}
+	return false
+}
+
+// visibleChanges keeps the events a caller with Scope s may see, by changeVisible, against the topology v.
+func visibleChanges(evs []ChangeEvent, v *TopologyView, s Scope) []ChangeEvent {
+	if v == nil {
+		return []ChangeEvent{}
+	}
+	byID, link := v.byID(), make(map[string]TopoLink, len(v.Links))
+	for _, l := range v.Links {
+		link[l.ID] = l
+	}
+	out := make([]ChangeEvent, 0, len(evs))
+	for _, e := range evs {
+		if changeVisible(s, e, byID, link) {
+			out = append(out, e)
+		}
 	}
 	return out
 }

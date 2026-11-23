@@ -290,8 +290,7 @@ func nonNilItems(items []fusionapi.BulkItem) []fusionapi.BulkItem {
 // The charge is taken whole or not at all: a batch refused for want of room leaves the room it found for a smaller one.
 func (g *Guard) bulkAllowed(w http.ResponseWriter, who Caller, n int) bool {
 	if n > 1 && !g.Reads.AllowN(who.Kind+"|"+who.ID, n-1) {
-		w.Header().Set("Retry-After", "5")
-		httpkit.WriteErr(w, http.StatusTooManyRequests, "too many requests, slow down; read fewer traces at a time")
+		tooMany(w, "too many requests, slow down; read fewer traces at a time")
 		return false
 	}
 	return true

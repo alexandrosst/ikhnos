@@ -254,6 +254,23 @@ func DescribeGroupsIn(groups []AppGroup, perGroup map[string][]Application) []Ap
 // MaxGroupSignals is how many applications GroupSignals reads one by one; past it a caller matches by name (DescribeGroups).
 const MaxGroupSignals = 25
 
+// GroupSignalsReads is how many store reads listing n applications' signals makes for a caller with Scope s: each store
+// it may read, once per application (GroupSignals), or once in all past MaxGroupSignals applications, when they are
+// matched by name. An application whose members run in several places is asked of Loki once per place, so this is the
+// least it makes.
+func GroupSignalsReads(s Scope, n int) int {
+	stores := 0
+	for _, sig := range Signals {
+		if s.Allows(sig) {
+			stores++
+		}
+	}
+	if n > MaxGroupSignals {
+		n = 1
+	}
+	return max(stores*n, 1)
+}
+
 // GroupSignals is, for each application, its services that have telemetry in the range, each looked for in the application's
 // own places (s focused on it): what DescribeGroupsIn needs. It reads the stores once per application, a few at a time. The
 // sources say, per signal, the worst any application's read went; the warnings are those of all of them, once each.

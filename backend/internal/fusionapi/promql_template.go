@@ -159,7 +159,7 @@ func narrowQuery(expr string, opts FuseOptions) (string, error) {
 		}
 	}
 	if len(opts.PromQLServices) > 0 {
-		return withMatchers(expr, map[string][]string{lblService: opts.PromQLServices})
+		return withMatchers(expr, map[string][]string{lblService: opts.PromQLServices}, narrowedByRead)
 	}
 	return expr, nil
 }

@@ -54,6 +54,7 @@ CREATE INDEX IF NOT EXISTS fusion_tokens_org ON fusion_tokens(org_id);
 
 const fusionTokenCols = `id, org_id, name, signals, namespaces, clusters, created_by, created_at, expires_at, last_used`
 
+// stringsJSON writes a scope list for jsonStrings: "no limit" is [], never null, which jsonStrings refuses.
 func stringsJSON(v []string) string {
 	if v == nil {
 		v = []string{}
@@ -63,11 +64,16 @@ func stringsJSON(v []string) string {
 }
 
 // jsonStrings reads a stored scope list. An unreadable one is an error, never "no limit": a token whose scope cannot be
-// read must not be honoured, since an empty list means unrestricted.
+// read must not be honoured, since an empty list means unrestricted. A JSON null is unreadable too: stringsJSON writes
+// "no limit" as [] and never as null, so a null is a column written by something else, and Go would decode it to the
+// same empty list as [] and so to a token with no limit.
 func jsonStrings(s string) ([]string, error) {
 	var v []string
 	if err := json.Unmarshal([]byte(s), &v); err != nil {
 		return nil, err
+	}
+	if v == nil {
+		return nil, errors.New("the list is null, not [] or a list of values")
 	}
 	return v, nil
 }

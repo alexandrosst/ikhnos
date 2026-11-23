@@ -87,20 +87,24 @@ func shortDuration(d time.Duration) string {
 // scopedLogSample is how many lines a cluster-limited Scope's service listing reads.
 const scopedLogSample = 1000
 
-// logServices lists the service names that have logs in the range (inside the Scope). A Scope limited to clusters reads
-// them off a sample of the newest lines; sample says so (it is empty for a complete list).
+// logPlaceReads is how many of an application's places logServicesIn asks Loki about at once.
+const logPlaceReads = 4
+
+// logServices lists the service names that have logs in the range (inside the Scope). A Scope whose rights limit it to
+// clusters reads them off a sample of the newest lines; sample says so (it is empty for a complete list).
 func (c *Client) logServices(ctx context.Context, s Scope, tr TimeRange) (names []string, sample string, err error) {
 	if err := s.needSignal(SignalLogs); err != nil {
 		return nil, "", err
 	}
 	if len(s.Focus) > 0 && len(s.Clusters) == 0 {
-		// An application's services, each where it runs: one label-value call per place (the cluster is an index label, so
-		// the stream selector can name it).
+		// An application's services, each where it runs: one read per place.
 		return c.logServicesIn(ctx, s, tr)
 	}
-	if len(s.clLimit()) > 0 {
+	if len(s.Clusters) > 0 {
 		// A cluster the caller's own rights limit it to is matched after the selector (lines stored before the cluster became an
-		// index label carry it as structured metadata only): read the newest in-scope lines and take the services they came from.
+		// index label carry it as structured metadata only), and every line read is checked once more against the rights:
+		// read the newest in-scope lines and take the services they came from. A focus's clusters are a choice, not a right,
+		// and go the way below.
 		lines, truncated, err := c.Logs(ctx, s, LogFilter{Backward: true}, tr.newest(MaxLogWindow), scopedLogSample)
 		if err != nil {
 			return nil, "", err
@@ -122,44 +126,56 @@ func (c *Client) logServices(ctx context.Context, s Scope, tr TimeRange) (names 
 	if err != nil {
 		return nil, "", err
 	}
-	var res struct {
-		Data []string `json:"data"`
-	}
-	if err := c.get(ctx, storeLoki, c.Loki, "/loki/api/v1/label/"+lblService+"/values", url.Values{
-		"query": {sel}, "start": {unixNano(tr.From)}, "end": {unixNano(tr.To)},
-	}, nil, &res); err != nil {
-		return nil, "", err
-	}
-	if res.Data == nil {
-		return nil, "", errf(http.StatusBadGateway, "%s answered with something unexpected", storeLoki)
-	}
-	return res.Data, "", nil
+	names, err = c.lokiServiceNames(ctx, sel, s.FocusClusters, tr)
+	return names, "", err
 }
 
 // logServicesIn is logServices for an application, place by place: the services of its names with lines in each of its
-// namespaces and clusters.
+// namespaces and clusters. The places are asked about a few at a time, and the answer is sorted, so it reads the same
+// whatever order they come back in.
 func (c *Client) logServicesIn(ctx context.Context, s Scope, tr TimeRange) ([]string, string, error) {
+	type result struct {
+		names []string
+		err   error
+	}
+	results := make([]result, len(s.Focus))
+	sem := make(chan struct{}, logPlaceReads)
+	var wg sync.WaitGroup
+	for i, p := range s.Focus {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			release, err := acquire(ctx, sem)
+			if err != nil {
+				results[i].err = err
+				return
+			}
+			defer release()
+			// The caller's namespace rights are on every selector with the place's own namespace, as the other renderers put
+			// rights and focus together: a place outside the rights reads nothing.
+			sel := []string{lblService + "=~" + quote(regexAny(p.Names))}
+			if p.Namespace != "" {
+				sel = append(sel, lblNamespace+"="+quote(p.Namespace))
+			}
+			if len(s.Namespaces) > 0 {
+				sel = append(sel, lblNamespace+"=~"+quote(regexAny(s.Namespaces)))
+			}
+			var cl []string
+			if p.Cluster != "" {
+				cl = []string{p.Cluster}
+			}
+			results[i].names, results[i].err = c.lokiServiceNames(ctx, "{"+strings.Join(sel, ",")+"}", cl, tr)
+		}()
+	}
+	wg.Wait()
 	seen := map[string]bool{}
 	var out []string
-	for _, p := range s.Focus {
-		sel := []string{lblService + "=~" + quote(regexAny(p.Names))}
-		if p.Namespace != "" {
-			sel = append(sel, lblNamespace+"="+quote(p.Namespace))
-		} else if ns := s.Namespaces; len(ns) > 0 {
-			sel = append(sel, lblNamespace+"=~"+quote(regexAny(ns)))
+	for _, r := range results {
+		if r.err != nil {
+			// The first place's error in their order, not the first to fail, so the answer is the same each time.
+			return nil, "", r.err
 		}
-		if p.Cluster != "" {
-			sel = append(sel, lblCluster+"="+quote(p.Cluster))
-		}
-		var res struct {
-			Data []string `json:"data"`
-		}
-		if err := c.get(ctx, storeLoki, c.Loki, "/loki/api/v1/label/"+lblService+"/values", url.Values{
-			"query": {"{" + strings.Join(sel, ",") + "}"}, "start": {unixNano(tr.From)}, "end": {unixNano(tr.To)},
-		}, nil, &res); err != nil {
-			return nil, "", err
-		}
-		for _, n := range res.Data {
+		for _, n := range r.names {
 			if !seen[n] {
 				seen[n] = true
 				out = append(out, n)
@@ -168,6 +184,33 @@ func (c *Client) logServicesIn(ctx context.Context, s Scope, tr TimeRange) ([]st
 	}
 	sort.Strings(out)
 	return out, "", nil
+}
+
+// lokiServiceNames lists the services with lines in the range under a stream selector and, when clusters are given, in
+// one of them. The index answers: the cluster goes into the stream selector here, because Loki's label-values call takes
+// no pipeline. Lines stored before the cluster became an index label carry it as structured metadata only and are not
+// counted; they leave with the store's retention. Reading the lines themselves to find them (a count over the range)
+// would make a service list cost as much as reading every log line of the range.
+func (c *Client) lokiServiceNames(ctx context.Context, sel string, clusters []string, tr TimeRange) ([]string, error) {
+	if len(clusters) > 0 {
+		cond := lblCluster + "=" + quote(clusters[0])
+		if len(clusters) > 1 {
+			cond = lblCluster + "=~" + quote(regexAny(clusters))
+		}
+		sel = strings.TrimSuffix(sel, "}") + "," + cond + "}"
+	}
+	var res struct {
+		Data []string `json:"data"`
+	}
+	if err := c.get(ctx, storeLoki, c.Loki, "/loki/api/v1/label/"+lblService+"/values", url.Values{
+		"query": {sel}, "start": {unixNano(tr.From)}, "end": {unixNano(tr.To)},
+	}, nil, &res); err != nil {
+		return nil, err
+	}
+	if res.Data == nil {
+		return nil, errf(http.StatusBadGateway, "%s answered with something unexpected", storeLoki)
+	}
+	return res.Data, nil
 }
 
 // Application is a service FUSION has data for, and which signal types.

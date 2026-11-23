@@ -79,6 +79,23 @@ func (c *Client) ApplicationOverview(ctx context.Context, s Scope, g *AppGroup, 
 	return o, nil
 }
 
+// OverviewReads is how many store reads a service's overview makes for a caller with Scope s, of the signals it may
+// read: two trace searches (the recent and the failing), two log reads (the errors, and whether there is any line) and
+// one list of metric names. The server charges a caller's rate limit by it.
+func OverviewReads(s Scope) int {
+	n := 0
+	for sig, reads := range map[string]int{SignalTraces: 2, SignalLogs: 2, SignalMetrics: 1} {
+		if s.Allows(sig) {
+			n += reads
+		}
+	}
+	return max(n, 1)
+}
+
+// ApplicationOverviewReads is OverviewReads for an application's overview, which also reads its members' signals
+// (GroupSignals of the one application).
+func ApplicationOverviewReads(s Scope) int { return OverviewReads(s) + GroupSignalsReads(s, 1) }
+
 // overview reads what a service (or, with no service named, whatever the Scope's focus selects) has. label is what the
 // answer is called.
 func (c *Client) overview(ctx context.Context, s Scope, name, label string, tr TimeRange) (*Overview, error) {

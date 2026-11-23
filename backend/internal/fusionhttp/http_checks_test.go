@@ -1,6 +1,7 @@
 package fusionhttp
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -136,5 +137,86 @@ func TestApplicationVariablesWithoutAnApplicationAreRefusedBeforeTheSearch(t *te
 	g.Traces(w, r, &fusionapi.Client{}, Caller{Kind: "user", ID: "u", Scope: fusionapi.AllSignals()})
 	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "application=") {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+}
+
+// A read that asks the stores several times is charged each time, not once per request: a service's overview reads the
+// stores five times, and the list of applications three times for each application. The first read is the one Serve
+// charges.
+func TestAnOverviewAndTheApplicationsAreChargedTheReadsTheyMake(t *testing.T) {
+	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	var groups []fusionapi.AppGroup
+	for i := range 3 {
+		groups = append(groups, fusionapi.AppGroup{ID: fmt.Sprintf("app-%d", i), Name: fmt.Sprintf("App %d", i),
+			Members: []fusionapi.AppMember{{Name: fmt.Sprintf("svc%d", i), Namespace: "a", Cluster: "cl-1"}}})
+	}
+	setup := func() (*Guard, Caller, string) {
+		g := newGuard(fakeAccounts{}, fakeTokens{})
+		g.Now = func() time.Time { return now }
+		g.Reads = kernel.NewLimiter(1, 20)
+		g.Extras = func() fusionapi.Extras { return extrasWith{groups: groups} }
+		who := Caller{Kind: "token", ID: "t", Scope: fusionapi.AllSignals()}
+		return g, who, who.Kind + "|" + who.ID
+	}
+	served := func(g *Guard, who Caller, h Handler, path string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		if !g.Allow(who) { // what Serve charges
+			t.Fatalf("%s: the first read was refused", path)
+		}
+		r := httptest.NewRequest("GET", path, nil)
+		r.SetPathValue("name", "cart")
+		h(w, r, &fusionapi.Client{}, who)
+		return w
+	}
+	g, who, key := setup()
+	if w := served(g, who, g.Service, "/services/cart"); w.Code == http.StatusTooManyRequests {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if g.Reads.AllowN(key, 16) || !g.Reads.AllowN(key, 15) {
+		t.Fatal("a service's overview was not charged the five reads it makes")
+	}
+
+	g, who, key = setup()
+	if w := served(g, who, g.Applications, "/applications"); w.Code == http.StatusTooManyRequests {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if g.Reads.AllowN(key, 12) || !g.Reads.AllowN(key, 11) {
+		t.Fatal("three applications were not charged three reads each")
+	}
+
+	// Short of the allowance, the request is refused the way Serve refuses one, and takes nothing.
+	g, who, key = setup()
+	g.Reads.AllowN(key, 17)
+	w := served(g, who, g.Service, "/services/cart")
+	if w.Code != http.StatusTooManyRequests || w.Header().Get("Retry-After") == "" || !strings.Contains(w.Body.String(), "5 reads") {
+		t.Fatalf("%d %q %s", w.Code, w.Header().Get("Retry-After"), w.Body.String())
+	}
+	if !g.Reads.AllowN(key, 2) {
+		t.Fatal("a refused overview used up the room it found")
+	}
+
+	// A caller who may read traces alone is charged for the trace searches alone.
+	g, who, key = setup()
+	who.Scope.Signals = []string{fusionapi.SignalTraces}
+	served(g, who, g.Service, "/services/cart")
+	if g.Reads.AllowN(key, 19) || !g.Reads.AllowN(key, 18) {
+		t.Fatal("a traces-only caller was charged for stores it does not read")
+	}
+}
+
+// A request that would cost more than half the burst costs half of it, so a caller can make it while its other reads go
+// on, not only with an allowance nothing has touched.
+func TestAReadDearerThanHalfTheBurstCanBeMadeWhileOtherReadsGoOn(t *testing.T) {
+	g := newGuard(fakeAccounts{}, fakeTokens{})
+	g.Reads = kernel.NewLimiter(1, 10)
+	who := Caller{Kind: "token", ID: "t"}
+	if !g.Reads.AllowN(who.Kind+"|"+who.ID, 4) {
+		t.Fatal("the other reads were refused")
+	}
+	if !g.Allow(who) || !g.chargeReads(httptest.NewRecorder(), who, 75) {
+		t.Fatal("a read dearer than the burst was refused with half the allowance free")
+	}
+	if !g.Allow(who) || g.Allow(who) {
+		t.Fatal("it was not charged half the burst")
 	}
 }

@@ -55,7 +55,11 @@ func (g *Guard) Applications(w http.ResponseWriter, r *http.Request, c *fusionap
 		return
 	}
 	// Each application's signals are those of its members where they run, read application by application; past
-	// MaxGroupSignals applications, by service name across everything the caller may see, and the answer says so.
+	// MaxGroupSignals applications, by service name across everything the caller may see, and the answer says so. Either
+	// way the request is charged the store reads it makes.
+	if !g.chargeReads(w, who, fusionapi.GroupSignalsReads(who.Scope, len(groups))) {
+		return
+	}
 	if len(groups) <= fusionapi.MaxGroupSignals {
 		perGroup, sources, warnings, err := c.GroupSignals(r.Context(), who.Scope, groups, tr)
 		if err != nil {
@@ -189,6 +193,9 @@ func (g *Guard) Application(w http.ResponseWriter, r *http.Request, c *fusionapi
 		g.Err(w, err)
 		return
 	}
+	if !g.chargeReads(w, who, fusionapi.ApplicationOverviewReads(who.Scope)) {
+		return
+	}
 	o, err := c.ApplicationOverview(r.Context(), who.Scope, app, tr)
 	if err != nil {
 		g.Err(w, err)
@@ -293,7 +300,7 @@ func (g *Guard) AppTopology(w http.ResponseWriter, r *http.Request, c *fusionapi
 			g.Err(w, err)
 			return
 		}
-		t.AddChanges(evs)
+		t.AddVisibleChanges(evs, v, who.Scope)
 	}
 	if format == fusionapi.FormatNodeLink {
 		httpkit.WriteJSON(w, 200, t.NodeLink())
@@ -307,6 +314,9 @@ func (g *Guard) Service(w http.ResponseWriter, r *http.Request, c *fusionapi.Cli
 	tr, err := Range(r, g.Now())
 	if err != nil {
 		g.Err(w, err)
+		return
+	}
+	if !g.chargeReads(w, who, fusionapi.OverviewReads(who.Scope)) {
 		return
 	}
 	q := r.URL.Query()

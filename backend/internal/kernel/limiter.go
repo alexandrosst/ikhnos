@@ -39,6 +39,9 @@ func NewLimiter(perMinute int, burst int) *Limiter {
 	return &Limiter{rate: float64(perMinute) / 60, burst: float64(burst), max: maxBuckets, buckets: map[string]*bucket{}, order: list.New(), now: time.Now}
 }
 
+// Burst is the most tokens a key can hold, and so the most one AllowN can ever be granted.
+func (l *Limiter) Burst() int { return int(l.burst) }
+
 // Allow consumes one token for key, reporting whether the call may proceed.
 func (l *Limiter) Allow(key string) bool { return l.AllowN(key, 1) }
 

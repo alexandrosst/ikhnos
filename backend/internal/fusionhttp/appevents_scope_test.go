@@ -172,3 +172,57 @@ func TestTheTopologyIsAskedForAsANodeLinkGraphOrRefusedAnUnknownFormat(t *testin
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
 }
+
+// careless answers Changes with every event it holds, whatever ids it is asked for, as a store that matched too much
+// would.
+type careless struct{ extrasWith }
+
+func (f careless) Changes(context.Context, time.Time, time.Time, []string, []string, int) ([]fusionapi.ChangeEvent, error) {
+	return f.evs, nil
+}
+
+// What the store answers for an application's topology is checked once more, by the rule the events of a trace are kept
+// by: the event's cluster, the namespace the topology gives its service, and both ends of a link must be ones the
+// caller may see.
+func TestAppTopologyEventsTheStoreGaveTooFreelyAreCheckedAgainstTheTopology(t *testing.T) {
+	g := newGuard(fakeAccounts{}, fakeTokens{})
+	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	g.Now = func() time.Time { return now }
+	ex := careless{extrasWith{
+		groups: []fusionapi.AppGroup{{ID: "app-1", Name: "Shop", Members: []fusionapi.AppMember{
+			{ID: "sv-web", Name: "web", Namespace: "a", Cluster: "cl-1"}}}},
+		topo: &fusionapi.TopologyView{At: now, Services: []fusionapi.TopoService{
+			{ID: "sv-web", Name: "web", Namespace: "a", Cluster: "cl-1", Replicas: 1, Ready: 1},
+			{ID: "sv-payroll", Name: "payroll", Namespace: "secret", Cluster: "cl-1", Replicas: 1, Ready: 1}},
+			Links: []fusionapi.TopoLink{{ID: "dep-web-payroll", From: "sv-web", To: "sv-payroll",
+				FromKind: "service", ToKind: "service"}}},
+		evs: []fusionapi.ChangeEvent{
+			{Time: now.Add(-time.Minute), Kind: "scaled", TargetKind: "service", TargetID: "sv-web", Name: "web", Cluster: "cl-1"},
+			{Time: now.Add(-time.Minute), Kind: "scaled", TargetKind: "service", TargetID: "sv-payroll", Name: "payroll", Cluster: "cl-1"},
+			{Time: now.Add(-time.Minute), Kind: "scaled", TargetKind: "service", TargetID: "sv-web", Name: "web", Cluster: "cl-9"},
+			{Time: now.Add(-time.Minute), Kind: "dependency-seen", TargetKind: "dependency", TargetID: "dep-web-payroll", Cluster: "cl-1"},
+			{Time: now.Add(-time.Minute), Kind: "node-status", TargetKind: "node", TargetID: "node-1", Name: "node-1", Cluster: "cl-1"},
+		},
+	}}
+	g.Extras = func() fusionapi.Extras { return ex }
+	ask := func(scope fusionapi.Scope) []fusionapi.ChangeEvent {
+		r := httptest.NewRequest("GET", "/x", nil)
+		r.SetPathValue("name", "app-1")
+		w := httptest.NewRecorder()
+		g.AppTopology(w, r, &fusionapi.Client{}, Caller{Kind: "token", ID: "t", Scope: scope})
+		var v struct {
+			Changes []fusionapi.ChangeEvent `json:"changes"`
+		}
+		if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &v) != nil {
+			t.Fatalf("%d %s", w.Code, w.Body.String())
+		}
+		return v.Changes
+	}
+	got := ask(fusionapi.Scope{Signals: fusionapi.Signals, Namespaces: []string{"a"}, Clusters: []string{"cl-1"}})
+	if len(got) != 1 || got[0].TargetID != "sv-web" || got[0].Cluster != "cl-1" {
+		t.Fatalf("a caller limited to namespace a of cl-1 was given events it may not see: %+v", got)
+	}
+	if all := ask(fusionapi.AllSignals()); len(all) != len(ex.evs) {
+		t.Fatalf("an unrestricted caller should see every event the store gave: %+v", all)
+	}
+}

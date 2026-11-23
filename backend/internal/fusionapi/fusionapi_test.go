@@ -368,8 +368,10 @@ func TestTraceSearchBuildsScopedTraceQLAndHidesTheRoot(t *testing.T) {
 		writeJSON(w, map[string]any{"traces": []any{map[string]any{
 			"traceID": traceHex, "rootServiceName": "gateway", "rootTraceName": "GET /", "startTimeUnixNano": "1791200000000000000", "durationMs": 120,
 			"spanSet": map[string]any{"matched": 2, "spans": []any{
-				map[string]any{"startTimeUnixNano": "1791200000050000000", "durationNanos": "30000000", "attributes": []any{kv("service.name", "cart")}},
-				map[string]any{"startTimeUnixNano": "1791200000010000000", "durationNanos": "20000000", "attributes": []any{kv("service.name", "cart")}}}},
+				map[string]any{"startTimeUnixNano": "1791200000050000000", "durationNanos": "30000000",
+					"attributes": []any{kv("service.name", "cart"), kv("k8s.namespace.name", "shop"), kv("ikhnos.cluster.id", "cl-1")}},
+				map[string]any{"startTimeUnixNano": "1791200000010000000", "durationNanos": "20000000",
+					"attributes": []any{kv("service.name", "cart"), kv("k8s.namespace.name", "shop"), kv("ikhnos.cluster.id", "cl-1")}}}},
 		}}})
 	}
 	c := f.client()

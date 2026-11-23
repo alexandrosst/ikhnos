@@ -384,6 +384,16 @@ func (t *AppTopology) AddChanges(evs []ChangeEvent) {
 	t.Changes = evs
 }
 
+// AddVisibleChanges sets the events a caller with Scope s may see, as AddChanges does. The events are read by the ids
+// of the services and links the caller may see (TargetsFor), but what the store answers is checked once more against
+// the topology v, with the same rule the events of a trace are kept by (changeVisible). There may be more when the
+// store gave more than an answer carries, even if fewer than that are left.
+func (t *AppTopology) AddVisibleChanges(evs []ChangeEvent, v *TopologyView, s Scope) {
+	more := len(evs) > maxAppChanges
+	t.AddChanges(visibleChanges(evs, v, s))
+	t.Truncated.Changes = t.Truncated.Changes || more
+}
+
 // AddPlacement says, for each service of the application that the topology knows, which cluster it runs in and on which nodes, as the view
 // has them. A node the topology does not know is not named (the same rule the service's own node list follows), so a service can
 // have fewer nodes than replicas.

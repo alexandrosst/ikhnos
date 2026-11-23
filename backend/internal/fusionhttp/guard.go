@@ -3,6 +3,7 @@ package fusionhttp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -29,7 +30,8 @@ import (
 // stores themselves authenticate nothing and are not exposed outside the cluster: everything goes through the guard.
 
 const (
-	// ReadsPerMinute is how many reads a credential may make a minute (a bulk read of n traces is n), ReadBurst how many at once.
+	// ReadsPerMinute is how many reads a credential may make a minute (a bulk read of n traces is n, and so is a read that asks
+	// the stores n times: see chargeReads), ReadBurst how many at once.
 	ReadsPerMinute = 600
 	ReadBurst      = 60
 	// RequestTimeout is how long one request may take, all the reads it makes together.
@@ -120,8 +122,7 @@ func (g *Guard) Serve(h Handler) http.Handler {
 			return
 		}
 		if !g.Allow(who) {
-			w.Header().Set("Retry-After", "5")
-			httpkit.WriteErr(w, http.StatusTooManyRequests, "too many requests, slow down")
+			tooMany(w, "too many requests, slow down")
 			return
 		}
 		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(RequestTimeout + WriteGrace))
@@ -132,8 +133,28 @@ func (g *Guard) Serve(h Handler) http.Handler {
 }
 
 // Allow charges one read to the caller's rate limit, reporting whether it may go on. A route that does the work of several reads (a
-// bulk read of n traces) charges the others itself.
+// bulk read of n traces, an overview, the list of applications) charges the others itself (bulkAllowed, chargeReads).
 func (g *Guard) Allow(who Caller) bool { return g.Reads.Allow(who.Kind + "|" + who.ID) }
+
+// chargeReads charges the caller's rate limit for a request that makes n store reads, of which Serve has charged the
+// first, and writes the 429 Serve would when the allowance is short. The charge is taken whole or not at all, as
+// bulkAllowed's is. It is at most half the limiter's burst: a request that reads more than that (every application's
+// three stores, when there are many) must still be one a caller can make while its other reads go on, not only with an
+// allowance no read has touched for a while.
+func (g *Guard) chargeReads(w http.ResponseWriter, who Caller, n int) bool {
+	n = min(n, max(g.Reads.Burst()/2, 1))
+	if n > 1 && !g.Reads.AllowN(who.Kind+"|"+who.ID, n-1) {
+		tooMany(w, fmt.Sprintf("too many requests, slow down; this one counts as %d reads, one for each store read it makes", n))
+		return false
+	}
+	return true
+}
+
+// tooMany is the answer to a caller whose reads per minute are used: a 429 that says when to come back.
+func tooMany(w http.ResponseWriter, msg string) {
+	w.Header().Set("Retry-After", "5")
+	httpkit.WriteErr(w, http.StatusTooManyRequests, msg)
+}
 
 // Caller works out who is asking: a FUSION token, or a signed-in administrator of the FUSION organisation.
 func (g *Guard) Caller(r *http.Request) (Caller, error) {

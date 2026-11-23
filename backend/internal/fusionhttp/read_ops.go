@@ -32,10 +32,10 @@ func (g *Guard) ReadOps() []Op {
 			Params:      join(rng, MetricFilter, []string{"step", "limit"}), Notes: map[string]string{"limit": "The most series (default 20, at most 100)."},
 			Excludes: map[string][]string{"name": {"metric"}}, Response: "MetricRange", Handler: g.MetricRange},
 		{Method: "GET", Path: "/metrics/query", Tag: "Metrics", Summary: "Run a PromQL instant query",
-			Description: "PromQL as written, answered the way Prometheus answers (with its `warnings` and `infos`). A caller whose access is limited to certain namespaces or clusters may send one too: its limits are added to every selector of the query, so every series it reads is one the caller may see (`info()`, which reads series of its own, is refused).",
+			Description: "PromQL as written, answered the way Prometheus answers (with its `warnings` and `infos`). A caller whose access is limited to certain namespaces or clusters may send one too: its limits are added to every selector of the query, so every series it reads is one the caller may see (`info()`, which reads series of its own, and the experimental functions are refused).",
 			Params:      []string{"query", "time"}, Required: []string{"query"}, Response: "PromResult", Handler: g.MetricRaw("query")},
 		{Method: "GET", Path: "/metrics/query_range", Tag: "Metrics", Summary: "Run a PromQL range query",
-			Description: "PromQL over a range, answered the way Prometheus answers (with its `warnings` and `infos`). A caller whose access is limited to certain namespaces or clusters may send one too: its limits are added to every selector of the query, so every series it reads is one the caller may see (`info()`, which reads series of its own, is refused). `start`, `end` and `step` are all required.",
+			Description: "PromQL over a range, answered the way Prometheus answers (with its `warnings` and `infos`). A caller whose access is limited to certain namespaces or clusters may send one too: its limits are added to every selector of the query, so every series it reads is one the caller may see (`info()`, which reads series of its own, and the experimental functions are refused). `start`, `end` and `step` are all required.",
 			Params:      []string{"query", "start", "end", "step"}, Required: []string{"query", "start", "end", "step"}, Response: "PromResult", Handler: g.MetricRaw("query_range")},
 
 		{Method: "GET", Path: "/logs", Tag: "Logs", Summary: "Search log lines",
