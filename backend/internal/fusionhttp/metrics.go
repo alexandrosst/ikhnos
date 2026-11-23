@@ -26,7 +26,7 @@ func (g *Guard) MetricNames(w http.ResponseWriter, r *http.Request, c *fusionapi
 		g.Err(w, err)
 		return
 	}
-	scope, err := g.Scope(r, who)
+	scope, notes, err := g.Scope(r, who)
 	if err != nil {
 		g.Err(w, err)
 		return
@@ -40,7 +40,8 @@ func (g *Guard) MetricNames(w http.ResponseWriter, r *http.Request, c *fusionapi
 	for _, n := range names {
 		cat[n] = fusionapi.MetricCategory(n)
 	}
-	httpkit.WriteJSON(w, 200, metricNamesDoc{Names: orEmpty(names), Categories: cat, Truncated: truncated, Limit: limit, From: tr.From, To: tr.To})
+	httpkit.WriteJSON(w, 200, metricNamesDoc{Names: orEmpty(names), Categories: cat, Truncated: truncated, Limit: limit, From: tr.From, To: tr.To,
+		Warnings: notes})
 }
 
 func (g *Guard) MetricSeries(w http.ResponseWriter, r *http.Request, c *fusionapi.Client, who Caller) {
@@ -54,7 +55,7 @@ func (g *Guard) MetricSeries(w http.ResponseWriter, r *http.Request, c *fusionap
 		g.Err(w, err)
 		return
 	}
-	scope, err := g.Scope(r, who)
+	scope, notes, err := g.Scope(r, who)
 	if err != nil {
 		g.Err(w, err)
 		return
@@ -67,7 +68,8 @@ func (g *Guard) MetricSeries(w http.ResponseWriter, r *http.Request, c *fusionap
 	if series == nil {
 		series = []map[string]string{}
 	}
-	httpkit.WriteJSON(w, 200, metricSeriesDoc{Series: series, Truncated: truncated, Limit: limit, From: tr.From, To: tr.To})
+	httpkit.WriteJSON(w, 200, metricSeriesDoc{Series: series, Truncated: truncated, Limit: limit, From: tr.From, To: tr.To,
+		Warnings: notes})
 }
 
 func (g *Guard) MetricRange(w http.ResponseWriter, r *http.Request, c *fusionapi.Client, who Caller) {
@@ -92,7 +94,7 @@ func (g *Guard) MetricRange(w http.ResponseWriter, r *http.Request, c *fusionapi
 		g.Err(w, err)
 		return
 	}
-	scope, err := g.Scope(r, who)
+	scope, notes, err := g.Scope(r, who)
 	if err != nil {
 		g.Err(w, err)
 		return
@@ -110,7 +112,8 @@ func (g *Guard) MetricRange(w http.ResponseWriter, r *http.Request, c *fusionapi
 	if series == nil {
 		series = []fusionapi.MetricSeries{}
 	}
-	httpkit.WriteJSON(w, 200, metricRangeDoc{Series: series, Truncated: truncated, Limit: limit, StepSeconds: step.Seconds(), From: tr.From, To: tr.To})
+	httpkit.WriteJSON(w, 200, metricRangeDoc{Series: series, Truncated: truncated, Limit: limit, StepSeconds: step.Seconds(),
+		From: tr.From, To: tr.To, Warnings: notes})
 }
 
 // MetricRaw is PromQL as written, answered the way Prometheus itself answers.

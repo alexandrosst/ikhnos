@@ -22,7 +22,7 @@ func TestAMirrorRefusesThisAPIsOwnFilters(t *testing.T) {
 func TestSystemTelemetryWithAnApplicationIsRefused(t *testing.T) {
 	g := newGuard(fakeAccounts{}, fakeTokens{})
 	for _, q := range []string{"application=Shop&category=system", "application=Shop&name=kepler_container_joules_total"} {
-		_, err := g.Scope(httptest.NewRequest("GET", "/x?"+q, nil), Caller{Scope: fusionapi.AllSignals()})
+		_, _, err := g.Scope(httptest.NewRequest("GET", "/x?"+q, nil), Caller{Scope: fusionapi.AllSignals()})
 		if err == nil || !strings.Contains(err.Error(), "application") {
 			t.Errorf("%s: %v", q, err)
 		}

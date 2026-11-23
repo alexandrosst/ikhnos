@@ -80,6 +80,36 @@ func (e fusionExtras) OrgName(ctx context.Context) (fusionapi.OrgName, error) {
 	return fusionapi.OrgName{ID: o.ID, Name: o.Name}, nil
 }
 
+// namesStale is how long past appGroupTTL the names may still be given while they are read again: they are a help to a
+// reader, not what decides what a caller may see, so a request should not wait on the state document for them.
+const namesStale = time.Minute
+
+// Names are the names of the organisation and its clusters (fusionapi.Namer), reused for appGroupTTL like the applications
+// (sharedValue), so that a script reading traces many times a second does not build the state document and read the
+// organisation each time: a cluster renamed in ikhnos shows in the API within that, or by the next request after it. The
+// kept map is never changed, so it is shared, not copied. A read that cannot have the clusters' names fails; one that
+// cannot have the organisation's gives the clusters' alone.
+func (e fusionExtras) Names(ctx context.Context) (fusionapi.Names, error) {
+	return e.a.nameCache.get(ctx, e.a.C.Now, appGroupTTL, namesStale, e.names)
+}
+
+func (e fusionExtras) names(ctx context.Context) (fusionapi.Names, error) {
+	cs, err := e.ClusterNames(ctx)
+	if err != nil {
+		return fusionapi.Names{}, err
+	}
+	n := fusionapi.Names{Clusters: make(map[string]string, len(cs))}
+	for _, cl := range cs {
+		if cl.ID != "" && cl.Name != "" {
+			n.Clusters[cl.ID] = cl.Name
+		}
+	}
+	if o, err := e.OrgName(ctx); err == nil {
+		n.Org = &o
+	}
+	return n, nil
+}
+
 func (e fusionExtras) Changes(ctx context.Context, since, until time.Time, clusters, targetIDs []string, limit int) ([]fusionapi.ChangeEvent, error) {
 	// A nil list of targets asks for the events of every target; an empty one asks for none. The store reads an empty list as no filter,
 	// so it must not be passed on: a caller who may see none of an application's services would be handed the whole organisation's events.

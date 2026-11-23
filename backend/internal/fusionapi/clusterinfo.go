@@ -28,8 +28,11 @@ const ClusterInfoMetric = "ikhnos_cluster_info"
 // maxClusterInfoSeries bounds what one push carries.
 const maxClusterInfoSeries = 1000
 
-// ClusterName is a cluster's id and the name people know it by.
-type ClusterName struct{ ID, Name string }
+// ClusterName is a cluster's id and the name people know it by. In an answer the name is left out when ikhnos knows none.
+type ClusterName struct {
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
+}
 
 // ClusterInfoSeriesOf keeps the clusters that have both an id and a name, sorted by id, without repeats, at most
 // maxClusterInfoSeries.

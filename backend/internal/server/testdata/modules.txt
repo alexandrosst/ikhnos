@@ -37,6 +37,7 @@ admin_fusion_proxy.go shell
 admin_images.go                 shell
 docs.go shell
 fusion_appinfo.go shell
+fusion_cache.go shell
 fusion_extras.go shell
 fusion_extras_apps.go shell
 fusion_extras_history.go shell

@@ -4,6 +4,26 @@ import "slices"
 
 // The joins of a fused read, one method of fuseRun each: what it reads, and where in the answer it puts it (see FuseTrace).
 
+// promQLJoin is how the caller's queries are tied to the trace: those that name a resource variable for each resource, the
+// others once for the whole trace (see FuseOptions.PromQL).
+func promQLJoin(qs []PromQuery) string {
+	per, whole := false, false
+	for i := range qs {
+		if qs[i].perResource {
+			per = true
+		} else {
+			whole = true
+		}
+	}
+	switch {
+	case per && whole:
+		return JoinResourceOrWindow
+	case per:
+		return JoinResourceWindow
+	}
+	return JoinWindow
+}
+
 // traceLogs reads the lines that carry the trace's id and puts each on its span (include=logs).
 func (r *fuseRun) traceLogs() {
 	if !r.allowed(r.opts.Logs, SignalLogs, SignalLogs) {

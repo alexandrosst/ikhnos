@@ -19,28 +19,54 @@ func Range(r *http.Request, now time.Time) (fusionapi.TimeRange, error) {
 // now, so changing an application changes what it shows without touching any stored telemetry. The caller's own Scope
 // (who.Scope) is what reading a trace keeps using: a fused read is narrowed to an application by what it joins (fuseFocus),
 // never by the spans of the trace, which a search for the application's traces must return whole.
-func (g *Guard) Scope(r *http.Request, who Caller) (fusionapi.Scope, error) {
+//
+// The notes are what the answer must say about the narrowing: an application in more places than one query can name one by one
+// is matched by the union of its names, namespaces and clusters, and the answer says so (AppGroup.UnionFocusNote).
+func (g *Guard) Scope(r *http.Request, who Caller) (fusionapi.Scope, []string, error) {
 	q := r.URL.Query()
 	if !q.Has("application") {
-		return who.Scope, nil
+		return who.Scope, nil, nil
 	}
 	// System telemetry (the hosts, the collectors, energy, accelerators, the links between clusters) carries no service, so it
 	// is no application's: asked for together, the answer would be empty every time.
 	if cats, _ := fusionapi.ParseCategories(q.Get("category")); len(cats) == 1 && cats[0] == fusionapi.CategorySystem {
-		return fusionapi.Scope{}, &fusionapi.Error{Status: http.StatusBadRequest, Msg: "category=system is the hosts, the collectors and the links between clusters, which are no application's; leave application out to read them"}
+		return fusionapi.Scope{}, nil, &fusionapi.Error{Status: http.StatusBadRequest, Msg: "category=system is the hosts, the collectors and the links between clusters, which are no application's; leave application out to read them"}
 	}
 	if n := q.Get("name"); n != "" && fusionapi.MetricCategory(n) == fusionapi.CategorySystem {
-		return fusionapi.Scope{}, &fusionapi.Error{Status: http.StatusBadRequest, Msg: fmt.Sprintf("%s is a system metric (of a host, a collector, an energy meter or an accelerator), which carries no service and so is no application's; leave application out, or join it with the application's pods in your own PromQL", n)}
+		return fusionapi.Scope{}, nil, &fusionapi.Error{Status: http.StatusBadRequest, Msg: fmt.Sprintf("%s is a system metric (of a host, a collector, an energy meter or an accelerator), which carries no service and so is no application's; leave application out, or join it with the application's pods in your own PromQL", n)}
 	}
 	groups, err := g.Groups(r, who)
 	if err != nil {
-		return fusionapi.Scope{}, err
+		return fusionapi.Scope{}, nil, err
 	}
 	grp, err := fusionapi.FindGroup(groups, q.Get("application"))
 	if err != nil {
-		return fusionapi.Scope{}, err
+		return fusionapi.Scope{}, nil, err
 	}
-	return who.Scope.FocusOn(grp)
+	s, err := who.Scope.FocusOn(grp)
+	if err != nil {
+		return fusionapi.Scope{}, nil, err
+	}
+	var notes []string
+	if note := grp.UnionFocusNote(); note != "" {
+		notes = append(notes, note)
+	}
+	return s, notes, nil
+}
+
+// names are the names of the organisation and its clusters, read once for the request, for the answers to carry beside the
+// ids. A server that does not know them gives none; one that cannot read them now gives Names that say so, and the answer
+// carries the ids alone: the names are a help, never a reason for a read to fail.
+func (g *Guard) names(r *http.Request) *fusionapi.Names {
+	nm, ok := g.Extras().(fusionapi.Namer)
+	if !ok {
+		return nil
+	}
+	n, err := nm.Names(r.Context())
+	if err != nil {
+		return &fusionapi.Names{Unavailable: true}
+	}
+	return &n
 }
 
 // fuseFocus gives a fused read the applications its resources are tagged with and, when ref names one (application=), the

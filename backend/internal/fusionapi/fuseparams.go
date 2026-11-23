@@ -36,13 +36,21 @@ const (
 	ParamPromQLAsWritten  = "promql_as_written"
 	ParamChangesBefore    = "changes_before"
 	ParamMaxChanges       = "max_changes"
+	ParamShape            = "shape"
 )
 
 // FuseParamNames lists every parameter ParseFuseParams reads (the API description and its tests use it).
 var FuseParamNames = []string{ParamFused, ParamInclude, ParamPad, ParamSpanPad, ParamMetric, ParamMetricScope, ParamMaxLogs,
 	ParamMaxContextLogs, ParamMaxSystemLogs, ParamMaxSeries, ParamPoints, ParamSystemNamespaces, ParamLogSeverity, ParamLogContains,
 	ParamOmit, ParamSpanService, ParamSpanStatus, ParamSpanMinDuration, ParamPromQL, ParamPromQLSpans, ParamPromQLStep, ParamPromQLPad,
-	ParamPromQLServices, ParamPromQLAsWritten, ParamChangesBefore, ParamMaxChanges}
+	ParamPromQLServices, ParamPromQLAsWritten, ParamChangesBefore, ParamMaxChanges, ParamShape}
+
+// The shapes a fused read takes (shape=). Full is every span with its own copy of where it ran, as a plain trace read gives it;
+// compact gives where it ran once, on the resource the span's resource key names.
+const (
+	ShapeFull    = "full"
+	ShapeCompact = "compact"
+)
 
 // Names the include list accepts.
 const (
@@ -215,6 +223,13 @@ func ParseFuseOptions(q url.Values) (opts FuseOptions, err error) {
 		default:
 			return opts, badRequest("metric_scope takes app, pod and/or node")
 		}
+	}
+	switch q.Get(ParamShape) {
+	case "", ShapeFull:
+	case ShapeCompact:
+		opts.Compact = true
+	default:
+		return opts, badRequest("shape takes full or compact")
 	}
 	for _, o := range splitList(q.Get(ParamOmit)) {
 		switch o {

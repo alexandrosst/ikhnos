@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"slices"
-	"sync"
 	"time"
 
 	"ikhnos/internal/fusionapi"
@@ -16,27 +15,14 @@ import (
 // appGroupTTL is how long the applications are reused: an application edited in ikhnos shows in the API within this.
 const appGroupTTL = 10 * time.Second
 
-// appGroupCache is the applications as last worked out, shared by every request of this server.
-type appGroupCache struct {
-	mu     sync.Mutex
-	at     time.Time
-	groups []fusionapi.AppGroup
-}
-
 // Applications are the ikhnos applications of the organisation, each with the services in it as the topology knows them.
-// A failure is not cached; a result is, for appGroupTTL, and callers get their own copy of the slice header.
+// A failure is not kept; a result is, for appGroupTTL (sharedValue), and callers get their own copy of the slice header. A
+// stale result is never given: which services an application has decides what a caller narrowed to it reads.
 func (e fusionExtras) Applications(ctx context.Context) ([]fusionapi.AppGroup, error) {
-	c := &e.a.appCache
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if now := e.a.C.Now(); !c.at.IsZero() && now.Sub(c.at) >= 0 && now.Sub(c.at) < appGroupTTL {
-		return slices.Clone(c.groups), nil
-	}
-	groups, err := e.applications(ctx)
+	groups, err := e.a.appCache.get(ctx, e.a.C.Now, appGroupTTL, 0, e.applications)
 	if err != nil {
 		return nil, err
 	}
-	c.at, c.groups = e.a.C.Now(), groups
 	return slices.Clone(groups), nil
 }
 

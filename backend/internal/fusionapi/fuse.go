@@ -80,8 +80,45 @@ type Fused struct {
 	Sources     map[string]string `json:"sources"`
 	// Joins says in words how each requested signal was tied to the trace, because the two are not alike: a log line
 	// carries the trace and span id, a metric sample carries neither.
-	Joins    map[string]string `json:"joins,omitempty"`
-	Warnings []string          `json:"warnings,omitempty"`
+	Joins map[string]string `json:"joins,omitempty"`
+	// JoinedBy says the same as Joins, source by source, in the words of a closed list (the Join* constants), so a program
+	// can tell an exact join from an associated one without reading the prose. It has the same keys as Joins.
+	JoinedBy map[string]string `json:"joinedBy,omitempty"`
+	// Context names the organisation, the clusters and the applications the trace is part of, where ikhnos knows them.
+	Context  *FusedContext `json:"context,omitempty"`
+	Warnings []string      `json:"warnings,omitempty"`
+}
+
+// How a part of a fused read is tied to the trace (Fused.JoinedBy). Only the first is exact; the rest are associated, not
+// proven: what was read sits where the trace ran, when it ran, but carries nothing that says it belongs to the trace.
+const (
+	// JoinTraceID: the records carry the trace's id, and each sits on the span whose id it carries (include=logs).
+	JoinTraceID = "trace_id"
+	// JoinResourceWindow: what the same service, namespace and pod as a resource wrote or reported in the trace's window,
+	// padded (include=context_logs, include=metrics, and promql queries that name a resource variable).
+	JoinResourceWindow = "resource_window"
+	// JoinNodeWindow: what was written on the nodes the trace ran on, in the trace's window (include=system_logs).
+	JoinNodeWindow = "node_window"
+	// JoinWindow: read once for the whole trace over its window, tied to no resource (promql queries that name none).
+	JoinWindow = "window"
+	// JoinResourceOrWindow is promql when some queries name a resource variable and some do not: each query is read the
+	// one way or the other, its results on a resource (resource_window) or in queries (window). One word, so that a
+	// program compares it and never splits it.
+	JoinResourceOrWindow = "resource_or_window"
+	// JoinTopology: the service ikhnos knows by the same name, namespace and cluster, as of now (include=topology).
+	JoinTopology = "topology"
+	// JoinChangesWindow: what ikhnos recorded about the trace's services, nodes and clusters around its window
+	// (include=changes).
+	JoinChangesWindow = "changes_window"
+)
+
+// JoinWords is every value Fused.JoinedBy may hold.
+var JoinWords = []string{JoinTraceID, JoinResourceWindow, JoinNodeWindow, JoinWindow, JoinResourceOrWindow,
+	JoinTopology, JoinChangesWindow}
+
+// join says how a source was tied to the trace, in words and in the Join* words, so that the two cannot drift apart.
+func (f *Fused) join(source, by, how string) {
+	f.Joins[source], f.JoinedBy[source] = how, by
 }
 
 // FuseTrace reads one trace and joins logs and metrics to it as asked.
@@ -147,6 +184,7 @@ func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOpt
 		}
 	}
 	shape(f, opts)
+	nameFused(f, s, opts.Names)
 	return f, nil
 }
 
@@ -176,27 +214,28 @@ type fuseRun struct {
 // look up and works out the windows and steps, refusing a window or step that cannot be read.
 func (c *Client) newFuseRun(ctx context.Context, s Scope, tr *Trace, opts FuseOptions) (*fuseRun, error) {
 	f := &Fused{Trace: tr, Sources: map[string]string{SignalTraces: SourceOK, SignalLogs: SourceNotRequested, SignalMetrics: SourceNotRequested},
-		Joins: map[string]string{}}
+		Joins: map[string]string{}, JoinedBy: map[string]string{}}
 	if opts.Logs {
-		f.Joins[SignalLogs] = "exact: log records of the trace's services that carry this trace's id, each placed on the span whose id it carries"
+		f.join(SignalLogs, JoinTraceID, "exact: log records of the trace's services that carry this trace's id, each placed on the span whose id it carries")
 	}
 	if opts.ContextLogs {
 		f.Sources[SourceContextLogs] = SourceNotRequested
-		f.Joins[SourceContextLogs] = "associated, not proven: lines with no trace id from the same service, namespace and pod, in the trace's window (padded by pad); on the resource, not on a span"
+		f.join(SourceContextLogs, JoinResourceWindow, "associated, not proven: lines with no trace id from the same service, namespace and pod, in the trace's window (padded by pad); on the resource, not on a span")
 	}
 	if opts.SystemLogs {
 		f.Sources[SourceSystemLogs] = SourceNotRequested
-		f.Joins[SourceSystemLogs] = "associated, not proven: lines of " + strings.Join(opts.SystemNamespaces, ", ") + " on the nodes the trace's pods ran on, in the trace's window (padded by pad)"
+		f.join(SourceSystemLogs, JoinNodeWindow, "associated, not proven: lines of "+strings.Join(opts.SystemNamespaces, ", ")+" on the nodes the trace's pods ran on, in the trace's window (padded by pad)")
 	}
 	if opts.Metrics {
-		f.Joins[SignalMetrics] = "associated, not proven: series saved for the same service, namespace and pod; each resource carries them over the trace's time and each span the points inside its own time (plus span_pad either side); a metric sample carries no trace id"
+		f.join(SignalMetrics, JoinResourceWindow, "associated, not proven: series saved for the same service, namespace and pod; each resource carries them over the trace's time and each span the points inside its own time (plus span_pad either side); a metric sample carries no trace id")
 	}
 	if len(opts.PromQL) > 0 {
 		f.Sources[SourcePromQL] = SourceNotRequested
-		f.Joins[SourcePromQL] = "associated, not proven: your own queries, each evaluated for a resource with its service, namespace and pod filled in (or once for the trace), over the trace's time; a metric sample carries no trace id"
+		how := "associated, not proven: your own queries, each evaluated for a resource with its service, namespace and pod filled in (or once for the trace), over the trace's time; a metric sample carries no trace id"
 		if opts.Application != nil && !opts.PromQLAsWritten {
-			f.Joins[SourcePromQL] += "; a query for the trace as a whole reads the application's series only: its service names, namespaces and clusters are on every selector (promql_as_written=true keeps it as written)"
+			how += "; a query for the trace as a whole reads the application's series only: its service names, namespaces and clusters are on every selector (promql_as_written=true keeps it as written)"
 		}
+		f.join(SourcePromQL, promQLJoin(opts.PromQL), how)
 	}
 	opts.ikhnosJoins(f)
 	run := &fuseRun{c: c, ctx: ctx, s: s, opts: opts, f: f, sem: make(chan struct{}, fuseConcurrency)}

@@ -45,12 +45,14 @@ type Span struct {
 // Resource is what produced spans: a service in a pod in a namespace of a cluster. Metrics are the series saved for
 // the same service, namespace and pod around the trace (filled in by a fused read).
 type Resource struct {
-	Key              string         `json:"key"`
-	Service          string         `json:"service,omitempty"`
-	Namespace        string         `json:"namespace,omitempty"`
-	Pod              string         `json:"pod,omitempty"`
-	Node             string         `json:"node,omitempty"`
-	Cluster          string         `json:"cluster,omitempty"`
+	Key       string `json:"key"`
+	Service   string `json:"service,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Pod       string `json:"pod,omitempty"`
+	Node      string `json:"node,omitempty"`
+	Cluster   string `json:"cluster,omitempty"`
+	// ClusterName is the name people know the cluster by, when ikhnos knows it (the telemetry carries its id alone).
+	ClusterName      string         `json:"clusterName,omitempty"`
 	Attributes       map[string]any `json:"attributes,omitempty"`
 	Metrics          []MetricSeries `json:"metrics,omitempty"`
 	MetricsTruncated bool           `json:"metricsTruncated,omitempty"`

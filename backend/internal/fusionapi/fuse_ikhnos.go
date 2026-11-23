@@ -94,10 +94,10 @@ const changesRead = 2000
 func (o *FuseOptions) ikhnosJoins(f *Fused) {
 	if o.Topology {
 		f.Sources[SourceTopology] = SourceNotRequested
-		f.Joins[SourceTopology] = "associated, not proven: the service ikhnos knows by the same name, namespace and cluster, and the traffic it has seen to and from it as of now (the topology is not kept per trace). A resource that carries no namespace or cluster matches only when exactly one service has its name; when several do it has no match, and a warning says so"
+		f.join(SourceTopology, JoinTopology, "associated, not proven: the service ikhnos knows by the same name, namespace and cluster, and the traffic it has seen to and from it as of now (the topology is not kept per trace). A resource that carries no namespace or cluster matches only when exactly one service has its name; when several do it has no match, and a warning says so")
 	}
 	if o.Changes {
 		f.Sources[SourceChanges] = SourceNotRequested
-		f.Joins[SourceChanges] = fmt.Sprintf("associated, not proven: events ikhnos recorded about the trace's services, the traffic seen to and from them, the applications they are in, and its nodes and clusters, from %s before the trace to %s after it", o.ChangesBefore, o.Pad)
+		f.join(SourceChanges, JoinChangesWindow, fmt.Sprintf("associated, not proven: events ikhnos recorded about the trace's services, the traffic seen to and from them, the applications they are in, and its nodes and clusters, from %s before the trace to %s after it", o.ChangesBefore, o.Pad))
 	}
 }

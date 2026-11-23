@@ -82,6 +82,20 @@ func (s Scope) FocusOn(g *AppGroup) (Scope, error) {
 // 1 MiB (Go's default); past the bound the cost of the read itself is what grows too much, so the union alone applies.
 const maxFocusPlaces = 20
 
+// UnionFocusNote is the warning an answer narrowed to the application carries when FocusOn could not look for each member
+// where it runs (the application is in more than maxFocusPlaces places), so that its names are matched in all of its
+// namespaces and clusters together; "" when each member is looked for in its own place. A reader must be told, because the
+// answer can then hold telemetry that is not the application's.
+func (g *AppGroup) UnionFocusNote() string {
+	n := len(g.places())
+	if n <= maxFocusPlaces {
+		return ""
+	}
+	return fmt.Sprintf("application %s runs in %d places, more than the %d a query can name one by one, so its names are "+
+		"matched in all of its namespaces and clusters together: a name of one member in another member's namespace is read "+
+		"as part of it", g.Name, n, maxFocusPlaces)
+}
+
 // places groups the members' names by the namespace and cluster they run in, in a stable order.
 func (g *AppGroup) places() []FocusPlace {
 	idx := map[[2]string]int{}
@@ -300,6 +314,9 @@ func (c *Client) GroupSignals(ctx context.Context, s Scope, groups []AppGroup, t
 			defer release()
 			r := &results[i]
 			r.apps, r.sources, r.warnings, r.err = c.Applications(ctx, fs, tr)
+			if note := groups[i].UnionFocusNote(); note != "" {
+				r.warnings = append(r.warnings, note)
+			}
 		}()
 	}
 	wg.Wait()

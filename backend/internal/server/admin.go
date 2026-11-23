@@ -64,7 +64,10 @@ type Admin struct {
 	extras fusionapi.Extras
 	// appCache holds the ikhnos applications for a few seconds: working them out builds the whole state document (every agent
 	// and the topology) and a dashboard or a script reading the API many times a second would otherwise redo it each time.
-	appCache appGroupCache
+	appCache sharedValue[[]fusionapi.AppGroup]
+	// nameCache holds the names of the organisation and its clusters for as long: every trace and log read carries them beside
+	// the ids, and reading them builds the state document and reads the organisation's record.
+	nameCache sharedValue[fusionapi.Names]
 	// links is the organisation's links API (see linksAPI).
 	links     *linksapi.API
 	linksOnce sync.Once

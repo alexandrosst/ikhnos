@@ -68,6 +68,9 @@ func (c *Client) ApplicationOverview(ctx context.Context, s Scope, g *AppGroup, 
 		return nil, err
 	}
 	o.ID, o.Services = g.ID, fs.FocusServices
+	if note := g.UnionFocusNote(); note != "" {
+		o.Warnings = append(o.Warnings, note)
+	}
 	if per, _, warns, err := c.GroupSignals(ctx, s, []AppGroup{*g}, tr); err == nil {
 		if views := DescribeGroupsIn([]AppGroup{*g}, per); len(views) == 1 {
 			o.Members = views[0].Services

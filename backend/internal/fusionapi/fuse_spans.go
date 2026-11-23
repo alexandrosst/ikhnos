@@ -40,6 +40,10 @@ func shape(f *Fused, opts FuseOptions) {
 		if opts.OmitEvents {
 			sp.Events = nil
 		}
+		if opts.Compact {
+			// The span's resource says these once for all its spans; a trace of thousands of spans would repeat them in each.
+			sp.Service, sp.Namespace, sp.Pod, sp.Node, sp.Cluster = "", "", "", "", ""
+		}
 	}
 	if opts.OmitAttributes {
 		for _, r := range f.Resources {

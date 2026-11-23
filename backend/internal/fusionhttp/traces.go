@@ -51,9 +51,11 @@ func (g *Guard) Traces(w http.ResponseWriter, r *http.Request, c *fusionapi.Clie
 			g.Err(w, err)
 			return
 		}
+		opts.Names = g.names(r)
 	}
 	var traces []fusionapi.TraceSummary
 	var truncated bool
+	var notes []string
 	if raw := q.Get("q"); raw != "" {
 		traces, truncated, err = c.RawTraceSearch(r.Context(), who.Scope, raw, tr, limit)
 	} else {
@@ -63,7 +65,7 @@ func (g *Guard) Traces(w http.ResponseWriter, r *http.Request, c *fusionapi.Clie
 		}
 		var scope fusionapi.Scope
 		if err == nil {
-			scope, err = g.Scope(r, who)
+			scope, notes, err = g.Scope(r, who)
 		}
 		if err == nil {
 			cats, _ := fusionapi.ParseCategories(q.Get("category")) // already checked by the route (Op.CheckQuery)
@@ -81,7 +83,7 @@ func (g *Guard) Traces(w http.ResponseWriter, r *http.Request, c *fusionapi.Clie
 	if traces == nil {
 		traces = []fusionapi.TraceSummary{}
 	}
-	page := tracesDoc{Traces: traces, Truncated: truncated, Limit: limit, From: tr.From, To: tr.To}
+	page := tracesDoc{Traces: traces, Truncated: truncated, Limit: limit, From: tr.From, To: tr.To, Warnings: notes}
 	if !fused {
 		httpkit.WriteJSON(w, 200, page)
 		return
@@ -124,6 +126,7 @@ func (g *Guard) Trace(w http.ResponseWriter, r *http.Request, c *fusionapi.Clien
 			g.Err(w, err)
 			return
 		}
+		tr.NameClusters(who.Scope, g.names(r))
 		httpkit.WriteJSON(w, 200, tr)
 		return
 	}
@@ -131,6 +134,7 @@ func (g *Guard) Trace(w http.ResponseWriter, r *http.Request, c *fusionapi.Clien
 		g.Err(w, err)
 		return
 	}
+	opts.Names = g.names(r)
 	f, err := c.FuseTrace(r.Context(), who.Scope, id, opts)
 	if err != nil {
 		g.Err(w, err)
@@ -208,6 +212,7 @@ func (g *Guard) TraceBatch(w http.ResponseWriter, r *http.Request, c *fusionapi.
 	if !g.bulkAllowed(w, who, len(ids)) {
 		return
 	}
+	opts.Names = g.names(r) // once for the batch, not once per trace
 	if stream {
 		g.streamBulk(w, r, c, who, ids, opts, nil)
 		return

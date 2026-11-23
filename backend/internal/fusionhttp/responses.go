@@ -12,11 +12,16 @@ import (
 
 // logsDoc answers the log search: the lines found, and whether there were more than Limit.
 type logsDoc struct {
-	Entries   []fusionapi.LogEntry `json:"entries"`
-	From      time.Time            `json:"from"`
-	Limit     int                  `json:"limit"`
-	To        time.Time            `json:"to"`
-	Truncated bool                 `json:"truncated"`
+	// Clusters are the clusters the lines come from, each by its id and with the name ikhnos knows it by, so a line need not
+	// carry the name itself. Absent when the server does not know the names.
+	Clusters  []fusionapi.ClusterName `json:"clusters,omitempty"`
+	Entries   []fusionapi.LogEntry    `json:"entries"`
+	From      time.Time               `json:"from"`
+	Limit     int                     `json:"limit"`
+	To        time.Time               `json:"to"`
+	Truncated bool                    `json:"truncated"`
+	// Warnings say what the reader of the answer must know about how it was read (see Guard.Scope).
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // metricNamesDoc answers the list of metric names, with the category each belongs to.
@@ -27,6 +32,7 @@ type metricNamesDoc struct {
 	Names      []string          `json:"names"`
 	To         time.Time         `json:"to"`
 	Truncated  bool              `json:"truncated"`
+	Warnings   []string          `json:"warnings,omitempty"`
 }
 
 // metricSeriesDoc answers the list of series (each the labels that tell it apart).
@@ -36,6 +42,7 @@ type metricSeriesDoc struct {
 	Series    []map[string]string `json:"series"`
 	To        time.Time           `json:"to"`
 	Truncated bool                `json:"truncated"`
+	Warnings  []string            `json:"warnings,omitempty"`
 }
 
 // metricRangeDoc answers a metric read over time, at a step of StepSeconds.
@@ -46,6 +53,7 @@ type metricRangeDoc struct {
 	StepSeconds float64                  `json:"stepSeconds"`
 	To          time.Time                `json:"to"`
 	Truncated   bool                     `json:"truncated"`
+	Warnings    []string                 `json:"warnings,omitempty"`
 }
 
 // callerAccessDoc says what the caller is and may read, as the status answer tells it back.
@@ -118,6 +126,8 @@ type tracesDoc struct {
 	Traces    []fusionapi.TraceSummary `json:"traces"`
 	Truncated bool                     `json:"truncated"`
 	Type      string                   `json:"type,omitempty"`
+	// Warnings say what the reader of the search must know about how it was read (see Guard.Scope).
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // traceBatchDoc answers a batch read of traces: what each id gave, and the count of those that worked.

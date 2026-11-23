@@ -29,11 +29,13 @@ func (g *Guard) Logs(w http.ResponseWriter, r *http.Request, c *fusionapi.Client
 	backward := order != "oldest"
 	var entries []fusionapi.LogEntry
 	var truncated bool
+	var notes []string
 	if raw := q.Get("query"); raw != "" {
 		entries, truncated, err = c.RawLogQuery(r.Context(), who.Scope, raw, backward, tr, limit)
-	} else if scope, serr := g.Scope(r, who); serr != nil {
+	} else if scope, sn, serr := g.Scope(r, who); serr != nil {
 		err = serr
 	} else {
+		notes = sn
 		cats, _ := fusionapi.ParseCategories(q.Get("category")) // already checked by the route (Op.CheckQuery)
 		entries, truncated, err = c.Logs(r.Context(), scope, fusionapi.LogFilter{
 			Service: q.Get("service"), Namespace: q.Get("namespace"), Pod: q.Get("pod"), Node: q.Get("node"), Cluster: q.Get("cluster"), Categories: cats,
@@ -47,5 +49,8 @@ func (g *Guard) Logs(w http.ResponseWriter, r *http.Request, c *fusionapi.Client
 	if entries == nil {
 		entries = []fusionapi.LogEntry{}
 	}
-	httpkit.WriteJSON(w, 200, logsDoc{Entries: entries, Truncated: truncated, Limit: limit, From: tr.From, To: tr.To})
+	// The names of the lines' clusters are given once, beside the lines, rather than on each line: a page of 2000 lines from
+	// two clusters would otherwise carry the same two names 2000 times.
+	httpkit.WriteJSON(w, 200, logsDoc{Entries: entries, Truncated: truncated, Limit: limit, From: tr.From, To: tr.To,
+		Clusters: fusionapi.ClustersOf(who.Scope, entries, g.names(r)), Warnings: notes})
 }

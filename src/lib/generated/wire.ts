@@ -639,6 +639,11 @@ export interface ClusterMesh {
   policyNote?: string
 }
 
+export interface ClusterName {
+  id: string
+  name?: string
+}
+
 export interface ClusterOption {
   id: string
   name: string
@@ -1243,7 +1248,15 @@ export interface Fused {
   application?: AppRef
   sources: Record<string, string>
   joins?: Record<string, string>
+  joinedBy?: Record<string, string>
+  context?: FusedContext
   warnings?: string[]
+}
+
+export interface FusedContext {
+  org?: OrgName
+  clusters?: ClusterName[]
+  applications?: AppRef[]
 }
 
 export interface FusedLogs {
@@ -1720,11 +1733,13 @@ export interface LoginRequest {
 }
 
 export interface LogsDoc {
+  clusters?: ClusterName[]
   entries: LogEntry[]
   from: string
   limit: number
   to: string
   truncated: boolean
+  warnings?: string[]
 }
 
 export type MachineKind = 'vm' | 'bare-metal' | 'edge-device'
@@ -1758,6 +1773,7 @@ export interface MetricNamesDoc {
   names: string[]
   to: string
   truncated: boolean
+  warnings?: string[]
 }
 
 export interface MetricRangeDoc {
@@ -1767,6 +1783,7 @@ export interface MetricRangeDoc {
   stepSeconds: number
   to: string
   truncated: boolean
+  warnings?: string[]
 }
 
 export interface MetricSeries {
@@ -1786,6 +1803,7 @@ export interface MetricSeriesDoc {
   series: (Record<string, string>)[]
   to: string
   truncated: boolean
+  warnings?: string[]
 }
 
 export type Modality = 'metrics' | 'logs' | 'traces' | 'unreadable'
@@ -2351,6 +2369,7 @@ export interface Resource {
   pod?: string
   node?: string
   cluster?: string
+  clusterName?: string
   attributes?: Record<string, unknown>
   metrics?: MetricSeries[]
   metricsTruncated?: boolean
@@ -3161,6 +3180,7 @@ export interface TracesDoc {
   traces: TraceSummary[]
   truncated: boolean
   type?: string
+  warnings?: string[]
 }
 
 export interface TrafficDoc {

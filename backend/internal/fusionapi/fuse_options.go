@@ -38,6 +38,9 @@ type FuseOptions struct {
 	// OmitAttributes and OmitEvents leave the span and resource attributes, or the span events, out of the answer.
 	OmitAttributes bool
 	OmitEvents     bool
+	// Compact leaves out of each span what its resource already says (service, namespace, pod, node, cluster): the span's
+	// resource key names the resource, where they are given once (shape=compact).
+	Compact bool
 	// Spans keeps only the spans that match (the trace's own totals stay those of the whole trace).
 	Spans SpanFilter
 
@@ -67,6 +70,9 @@ type FuseOptions struct {
 	// also gives ${application} and ${application_id} to the caller's PromQL.
 	Applications []AppGroup
 	Application  *AppGroup
+	// Names are the names of the organisation and its clusters, read by the server once for the request (nil when it knows
+	// none): the resources and the context of the answer carry them beside the ids.
+	Names *Names
 }
 
 // MetricViews picks which metric series a resource carries. None set means the default, App and Pod.

@@ -199,7 +199,7 @@ func TestTheApplicationsAreReusedForAShortWhile(t *testing.T) {
 		c.mu.Unlock()
 		t.Fatal("the first answer was not kept")
 	}
-	c.groups = []fusionapi.AppGroup{{ID: "from-cache", Name: "from-cache", Members: []fusionapi.AppMember{{Name: "cached"}}}}
+	c.val = []fusionapi.AppGroup{{ID: "from-cache", Name: "from-cache", Members: []fusionapi.AppMember{{Name: "cached"}}}}
 	c.mu.Unlock()
 
 	r := d.get("/api/v1/fusion/applications", withCookie(d.admin))
@@ -264,5 +264,52 @@ func TestAnEmptyListOfTargetsIsNoEventsAndTheTargetsNeedNoClusterFilter(t *testi
 	got, err := ex.Changes(context.Background(), since, until, []string{"cl-1"}, []string{"sv-1", "app-1"}, 100)
 	if err != nil || len(got) != 2 {
 		t.Fatalf("the service and the application it is in, asked with the cluster of the trace: %+v, %v", got, err)
+	}
+}
+
+// Every trace and log read carries the names of the organisation and its clusters, and reading them builds the state document
+// and reads the organisation's record: they are reused for appGroupTTL, like the applications, and read again after it.
+func TestTheNamesOfTheOrganisationAndItsClustersAreReusedForAShortWhile(t *testing.T) {
+	d := newDataRig(t)
+	ex := fusionExtras{d.a}
+	var _ fusionapi.Namer = ex
+	n, err := ex.Names(context.Background())
+	if err != nil || n.Org == nil || n.Org.ID == "" || n.Clusters == nil {
+		t.Fatalf("%+v %v", n, err)
+	}
+	c := &d.a.nameCache
+	c.mu.Lock()
+	if c.at.IsZero() {
+		c.mu.Unlock()
+		t.Fatal("the first answer was not kept")
+	}
+	c.val = fusionapi.Names{Clusters: map[string]string{"cl-kept": "from-cache"}}
+	c.mu.Unlock()
+	if n, _ := ex.Names(context.Background()); n.Clusters["cl-kept"] != "from-cache" {
+		t.Fatalf("a second read within the TTL did not use the kept answer: %+v", n)
+	}
+	// Past the TTL the kept names are still given, at once, while they are read again for the next caller.
+	*d.now = d.now.Add(appGroupTTL + time.Second)
+	if n, _ := ex.Names(context.Background()); n.Clusters["cl-kept"] != "from-cache" {
+		t.Fatalf("a stale answer was not given while the names were read again: %+v", n)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		n, _ := ex.Names(context.Background())
+		if n.Clusters["cl-kept"] == "" && n.Org != nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("after the TTL the names were not read again: %+v", n)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	// Past what may be given stale, a caller waits for the names to be read.
+	c.mu.Lock()
+	c.val = fusionapi.Names{Clusters: map[string]string{"cl-kept": "from-cache"}}
+	c.mu.Unlock()
+	*d.now = d.now.Add(appGroupTTL + namesStale + time.Second)
+	if n, _ := ex.Names(context.Background()); n.Clusters["cl-kept"] != "" || n.Org == nil {
+		t.Fatalf("names too old to give were given: %+v", n)
 	}
 }

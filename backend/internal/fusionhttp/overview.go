@@ -86,7 +86,7 @@ func (g *Guard) Services(w http.ResponseWriter, r *http.Request, c *fusionapi.Cl
 		g.Err(w, err)
 		return
 	}
-	scope, err := g.Scope(r, who)
+	scope, notes, err := g.Scope(r, who)
 	if err != nil {
 		g.Err(w, err)
 		return
@@ -96,6 +96,7 @@ func (g *Guard) Services(w http.ResponseWriter, r *http.Request, c *fusionapi.Cl
 		g.Err(w, err)
 		return
 	}
+	warnings = append(notes, warnings...)
 	in := map[string][]string{}
 	if groups, err := g.Groups(r, who); err == nil { // best effort: the list is useful without it
 		for _, grp := range groups {
