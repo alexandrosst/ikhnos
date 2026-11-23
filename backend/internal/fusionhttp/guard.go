@@ -29,6 +29,9 @@ import (
 // stores themselves authenticate nothing and are not exposed outside the cluster: everything goes through the guard.
 
 const (
+	// ReadsPerMinute is how many reads a credential may make a minute (a bulk read of n traces is n), ReadBurst how many at once.
+	ReadsPerMinute = 600
+	ReadBurst      = 60
 	// RequestTimeout is how long one request may take, all the reads it makes together.
 	RequestTimeout = 30 * time.Second
 	// WriteGrace is how long after the request budget the connection can still be written to, so the partial answer (the 504

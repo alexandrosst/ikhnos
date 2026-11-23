@@ -210,3 +210,26 @@ func TestAPromQLMarginOfZeroIsNoMarginLikeTheOthers(t *testing.T) {
 		t.Fatalf("promql_pad=0: %v %v", opts.PromQLPad, err)
 	}
 }
+
+// A trace no span of which says when it ran has no window to read anything in; nothing is joined, and the answer says why.
+func TestATraceWithNoTimedSpanJoinsNothing(t *testing.T) {
+	f := newFake(t)
+	f.tempo = func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"trace": map[string]any{"resourceSpans": []any{map[string]any{
+			"resource":   map[string]any{"attributes": []any{kv("service.name", "web")}},
+			"scopeSpans": []any{map[string]any{"spans": []any{map[string]any{"traceId": traceHex, "spanId": "00f067aa0ba902b7", "name": "x", "startTimeUnixNano": json.Number("0"), "endTimeUnixNano": json.Number("0")}}}},
+		}}}})
+	}
+	got, err := f.client().FuseTrace(context.Background(), AllSignals(), traceHex, FuseOptions{Logs: true, Metrics: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range f.paths() {
+		if !strings.HasPrefix(p, "/api/v2/traces/") && !strings.HasPrefix(p, "/api/traces/") {
+			t.Fatalf("a store other than the trace store was asked: %s", p)
+		}
+	}
+	if !strings.Contains(strings.Join(got.Warnings, " "), "no span with a start time") {
+		t.Fatalf("warnings = %v", got.Warnings)
+	}
+}

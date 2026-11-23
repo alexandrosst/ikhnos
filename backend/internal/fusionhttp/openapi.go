@@ -3,6 +3,8 @@ package fusionhttp
 import (
 	"embed"
 	"encoding/json"
+	"fmt"
+	"ikhnos/internal/fusionapi"
 	"net/http"
 	"slices"
 	"strings"
@@ -146,6 +148,26 @@ func OpenAPI(ops []Op) obj {
 			paths[path] = obj{}
 		}
 		paths[path].(obj)[strings.ToLower(op.Method)] = o
+		if op.AlsoPost { // the same read, its parameters sent as a form (how a backend's own clients send a long query)
+			post := obj{}
+			for k, v := range o {
+				post[k] = v
+			}
+			post["operationId"] = OperationID(op) + "Post"
+			post["x-form-of"] = strings.ToLower(op.Method) // the page shows the GET; this is for clients generated from the description
+			var inPath []obj
+			form := obj{}
+			for _, pm := range params {
+				if pm["in"] == "path" {
+					inPath = append(inPath, pm)
+					continue
+				}
+				form[pm["name"].(string)] = obj{"type": "string", "description": pm["description"]}
+			}
+			post["parameters"] = inPath
+			post["requestBody"] = obj{"content": obj{"application/x-www-form-urlencoded": obj{"schema": obj{"type": "object", "properties": form}}}}
+			paths[path].(obj)["post"] = post
+		}
 	}
 	return obj{
 		"openapi": "3.0.3",
@@ -155,7 +177,8 @@ func OpenAPI(ops []Op) obj {
 				"**The fused object.** `GET /traces/{id}?fused=true` returns a trace whose spans carry the log lines written under their ids (an exact join) and the metric points of their own time, and whose resources carry the series of the same service, namespace and pod (associated, not proven: a metric sample carries no trace id). Add `include=context_logs,system_logs` for the lines around the trace that carry no trace id.\n\n" +
 				"**Reading many.** `GET /traces?fused=true` and `POST /traces/batch` read up to 25 traces in parallel inside a bounded share of the stores' capacity, so they do not hold up other reads; add `stream=true` to receive each trace as soon as it is ready.\n\n" +
 				"**The backends' own APIs.** `/prometheus/...`, `/loki/...` and `/tempo/...` serve each backend's read endpoints exactly as it answers them (same paths after the prefix, same format), so a Grafana datasource, `promtool` or `logcli` pointed at `/api/v1/fusion/prometheus` (or `/loki`, `/tempo`) with the token works unchanged. Nothing that writes or administers a backend is served. Only an administrator, or a token with no namespace or cluster limit, may use them.\n\n" +
-				"**Limits.** 600 reads a minute per credential (a bulk read of n traces counts as n), 30 seconds per request and 10 seconds per call to a store, 16 MiB per store answer. A fused read whose store is too slow still returns what the other stores answered; the part that did not make it is `error` in `sources`, with the reason in `warnings`."},
+				fmt.Sprintf("**Limits.** %d reads a minute per credential (a bulk read of n traces counts as n), %d seconds per request and %d seconds per call to a store, %d MiB per store answer. ",
+					ReadsPerMinute, int(RequestTimeout.Seconds()), int(fusionapi.DefaultStoreTimeout.Seconds()), fusionapi.DefaultMaxBytes>>20) + "A fused read whose store is too slow still returns what the other stores answered; the part that did not make it is `error` in `sources`, with the reason in `warnings`."},
 		"x-guide":  guide(),
 		"servers":  []obj{{"url": "/"}},
 		"tags":     tags,

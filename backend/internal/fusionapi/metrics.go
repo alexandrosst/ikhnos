@@ -176,17 +176,26 @@ type promEnvelope struct {
 	Status string          `json:"status"`
 	Data   json.RawMessage `json:"data"`
 	Error  string          `json:"error"`
+	// Warnings and Infos are what Prometheus says about an answer it gave (a query that hit a limit, a rate over a gauge).
+	Warnings []string `json:"warnings,omitempty"`
+	Infos    []string `json:"infos,omitempty"`
 }
 
 func (c *Client) prom(ctx context.Context, path string, q url.Values) (json.RawMessage, error) {
+	env, err := c.promEnv(ctx, path, q)
+	return env.Data, err
+}
+
+// promEnv is Prometheus' whole answer, with what it said about it.
+func (c *Client) promEnv(ctx context.Context, path string, q url.Values) (promEnvelope, error) {
 	var env promEnvelope
 	if err := c.get(ctx, storeProm, c.Prometheus, path, q, nil, &env); err != nil {
-		return nil, err
+		return promEnvelope{}, err
 	}
 	if env.Status != "success" {
-		return nil, errf(http.StatusBadGateway, "%s: %s", storeProm, env.Error)
+		return promEnvelope{}, errf(http.StatusBadGateway, "%s: %s", storeProm, env.Error)
 	}
-	return env.Data, nil
+	return env, nil
 }
 
 // HeadMaxTime is the timestamp of the newest sample Prometheus holds, from its TSDB status (GET /api/v1/status/tsdb:
@@ -448,15 +457,29 @@ var rawPromParams = map[string][]string{
 // RawMetricQuery runs a PromQL query exactly as written and returns Prometheus' own "data" object. endpoint is
 // "query" or "query_range". Only a Scope with no namespace or cluster limit may do this.
 func (c *Client) RawMetricQuery(ctx context.Context, s Scope, endpoint string, params url.Values) (json.RawMessage, error) {
+	a, err := c.RawMetricAnswer(ctx, s, endpoint, params)
+	return a.Data, err
+}
+
+// RawPromAnswer is Prometheus' answer to a query as written: its data, and the warnings and infos it gave with it.
+type RawPromAnswer struct {
+	Data     json.RawMessage
+	Warnings []string
+	Infos    []string
+}
+
+// RawMetricAnswer is RawMetricQuery with what Prometheus said about its answer, for a caller that passes the answer on as
+// Prometheus gave it.
+func (c *Client) RawMetricAnswer(ctx context.Context, s Scope, endpoint string, params url.Values) (RawPromAnswer, error) {
 	if err := s.needSignal(SignalMetrics); err != nil {
-		return nil, err
+		return RawPromAnswer{}, err
 	}
 	if err := s.needUnrestricted("a PromQL query"); err != nil {
-		return nil, err
+		return RawPromAnswer{}, err
 	}
 	allowed, ok := rawPromParams[endpoint]
 	if !ok {
-		return nil, badRequest("unknown metrics endpoint")
+		return RawPromAnswer{}, badRequest("unknown metrics endpoint")
 	}
 	q := url.Values{}
 	for _, k := range allowed {
@@ -465,12 +488,16 @@ func (c *Client) RawMetricQuery(ctx context.Context, s Scope, endpoint string, p
 		}
 	}
 	if q.Get("query") == "" || len(q.Get("query")) > 4096 {
-		return nil, badRequest("query is required and at most 4096 characters")
+		return RawPromAnswer{}, badRequest("query is required and at most 4096 characters")
 	}
 	if endpoint == "query_range" && (q.Get("start") == "" || q.Get("end") == "" || q.Get("step") == "") {
-		return nil, badRequest("query_range needs start, end and step")
+		return RawPromAnswer{}, badRequest("query_range needs start, end and step")
 	}
-	return c.prom(ctx, "/api/v1/"+endpoint, q)
+	env, err := c.promEnv(ctx, "/api/v1/"+endpoint, q)
+	if err != nil {
+		return RawPromAnswer{}, err
+	}
+	return RawPromAnswer{Data: env.Data, Warnings: env.Warnings, Infos: env.Infos}, nil
 }
 
 // DurationParam reads a duration parameter written as Go ("30s", "2m") or as plain seconds.

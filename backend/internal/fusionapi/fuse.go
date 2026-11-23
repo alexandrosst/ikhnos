@@ -105,12 +105,17 @@ func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOpt
 	if err != nil {
 		return nil, err
 	}
-	run.traceLogs()
-	run.contextLogs()
-	run.systemLogs()
-	run.metrics()
-	run.promQL()
-	run.ikhnos()
+	if tr.Start.IsZero() {
+		// No span says when it ran, so there is no window to read anything around it (it would be read around the year 1).
+		run.note("the trace has no span with a start time, so nothing is joined to it: logs, metrics and queries are read in a window around the trace, and it has none")
+	} else {
+		run.traceLogs()
+		run.contextLogs()
+		run.systemLogs()
+		run.metrics()
+		run.promQL()
+		run.ikhnos()
+	}
 	run.wg.Wait()
 	if err := callerGone(ctx); err != nil {
 		return nil, err

@@ -50,6 +50,13 @@ const (
 	defaultStoreTimeout = 10 * time.Second
 )
 
+// DefaultMaxBytes and DefaultStoreTimeout are the bounds of one call to a store, unless the Client sets its own (the API's
+// description states them).
+const (
+	DefaultMaxBytes     = defaultMaxBytes
+	DefaultStoreTimeout = defaultStoreTimeout
+)
+
 func (c *Client) now() time.Time {
 	if c.Now != nil {
 		return c.Now()

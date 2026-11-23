@@ -1,6 +1,7 @@
 package fusionhttp
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/url"
 
@@ -115,14 +116,17 @@ func (g *Guard) MetricRange(w http.ResponseWriter, r *http.Request, c *fusionapi
 // MetricRaw is PromQL as written, answered the way Prometheus itself answers.
 func (g *Guard) MetricRaw(endpoint string) Handler {
 	return func(w http.ResponseWriter, r *http.Request, c *fusionapi.Client, who Caller) {
-		data, err := c.RawMetricQuery(r.Context(), who.Scope, endpoint, r.URL.Query())
+		a, err := c.RawMetricAnswer(r.Context(), who.Scope, endpoint, r.URL.Query())
 		if err != nil {
 			g.Err(w, err)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"success","data":`))
-		_, _ = w.Write(data)
-		_, _ = w.Write([]byte(`}`))
+		// Prometheus' own envelope, with what it said about the answer (a limit it hit, a rate taken over a gauge).
+		httpkit.WriteJSON(w, 200, struct {
+			Status   string          `json:"status"`
+			Data     json.RawMessage `json:"data"`
+			Warnings []string        `json:"warnings,omitempty"`
+			Infos    []string        `json:"infos,omitempty"`
+		}{"success", a.Data, a.Warnings, a.Infos})
 	}
 }

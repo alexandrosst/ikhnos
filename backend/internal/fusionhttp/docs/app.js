@@ -478,6 +478,7 @@
     Object.keys(SPEC.paths).forEach(function (path) {
       Object.keys(SPEC.paths[path]).forEach(function (method) {
         var op = SPEC.paths[path][method], t = (op.tags || ['Other'])[0];
+        if (op['x-form-of']) return; // the same read as the GET beside it, sent as a form: shown once, as the GET
         (byTag[t] = byTag[t] || []).push({ path: path, method: method, op: op });
       });
     });

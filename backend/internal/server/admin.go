@@ -157,7 +157,7 @@ func (a *Admin) core(r *http.Request) *Core { return a.tn(r).C }
 func (a *Admin) Handler() http.Handler {
 	a.authRL = kernel.NewLimiter(30, 10)
 	a.hbFailRL = kernel.NewLimiter(30, 10)
-	a.fusionRL = kernel.NewLimiter(600, 60)
+	a.fusionRL = kernel.NewLimiter(fusionhttp.ReadsPerMinute, fusionhttp.ReadBurst)
 	a.fusionUIRL = kernel.NewLimiter(6000, 600)
 	a.fusionPageRL = kernel.NewLimiter(30, 10)
 	a.fusionUIAccess = fusionpages.NewAccess()
