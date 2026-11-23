@@ -119,3 +119,22 @@ func TestAppTopologyTakesAtLikeFromAndRefusesAZeroWindow(t *testing.T) {
 		t.Fatalf("at=now-3d: %d %s", w.Code, w.Body.String())
 	}
 }
+
+func TestLimiterAllowNOfNothingChargesNothing(t *testing.T) {
+	l := kernel.NewLimiter(1, 2)
+	if !l.AllowN("k", 0) || !l.AllowN("k", -5) || !l.AllowN("k", 2) || l.Allow("k") {
+		t.Fatal("a charge of nothing, or less, is allowed and adds no tokens")
+	}
+}
+
+// A search whose queries name the application without one is refused before the search, not once per hit.
+func TestApplicationVariablesWithoutAnApplicationAreRefusedBeforeTheSearch(t *testing.T) {
+	g := newGuard(fakeAccounts{}, fakeTokens{})
+	g.Now = func() time.Time { return time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC) }
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/traces?fused=true&promql="+url.QueryEscape(`a=count(ikhnos_application_info{application_id="${application_id}"})`), nil)
+	g.Traces(w, r, &fusionapi.Client{}, Caller{Kind: "user", ID: "u", Scope: fusionapi.AllSignals()})
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "application=") {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+}

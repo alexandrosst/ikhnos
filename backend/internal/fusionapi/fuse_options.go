@@ -106,18 +106,30 @@ const (
 	maxSystemNodes        = 5
 	defaultMaxSeries      = 15
 	hardMaxSeries         = 100
-	fuseConcurrency       = 4
+	// fuseConcurrency is how many reads of one fused read are in flight at once, its per-resource joins (context logs, metrics,
+	// queries) together; the Client's own lanes bound the stores across reads.
+	fuseConcurrency = 8
 	// maxFusedResources is the most resources one fused read looks up metrics for; a trace with more says so.
 	maxFusedResources = 20
 )
 
-func (o *FuseOptions) defaults() error {
-	if o.Application == nil {
-		for i := range o.PromQL {
-			if o.PromQL[i].uses(promAppVars...) {
-				return badRequest("promql %s uses ${application} or ${application_id}: name the application with application=", o.PromQL[i].Name)
-			}
+// CheckApplicationVars refuses a query that names the application (${application}, ${application_id}) in a read that is
+// not narrowed to one.
+func (o *FuseOptions) CheckApplicationVars() error {
+	if o.Application != nil {
+		return nil
+	}
+	for i := range o.PromQL {
+		if o.PromQL[i].uses(promAppVars...) {
+			return badRequest("promql %s uses ${application} or ${application_id}: name the application with application=", o.PromQL[i].Name)
 		}
+	}
+	return nil
+}
+
+func (o *FuseOptions) defaults() error {
+	if err := o.CheckApplicationVars(); err != nil {
+		return err
 	}
 	if o.Pad == 0 {
 		o.Pad = defaultPad

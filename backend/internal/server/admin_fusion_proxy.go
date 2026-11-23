@@ -74,6 +74,11 @@ func (a *Admin) fusionUI(component string) http.Handler {
 				who, err = pu, nil
 			}
 		}
+		if e, ok := err.(*kernel.Error); ok && e.Kind == kernel.KindUnavailable { // the store could not say who this is: no failed attempt
+			w.Header().Set("Retry-After", "5")
+			httpkit.WriteErr(w, http.StatusServiceUnavailable, e.Msg)
+			return
+		}
 		if err != nil || who.Kind != "user" { // a FUSION access token reads data through the API; it does not get a web page
 			kernel.Metrics.AuthFailures.Add(1)
 			if !a.fusionPageRL.Allow(kernel.LimitKey(a.clientIP(r))) {

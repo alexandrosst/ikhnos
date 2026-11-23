@@ -160,7 +160,7 @@ func TestTheTraceWideQueriesAreNotCrowdedOutByPerPodOnes(t *testing.T) {
 		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{}}})
 	}
 	tr := &Trace{TraceID: traceHex, Start: rangeAll.From, End: rangeAll.To}
-	global, warns, err := f.client().fusePromQL(context.Background(), AllSignals(), tr, looked, FuseOptions{PromQL: qs, MaxSeries: 5}, rangeAll, time.Minute, func(fn func()) { fn() })
+	global, warns, err := f.client().fusePromQL(context.Background(), AllSignals(), tr, looked, FuseOptions{PromQL: qs, MaxSeries: 5}, rangeAll, time.Minute, make(chan struct{}, 4), func(fn func()) { fn() })
 	if err != nil {
 		t.Fatalf("the read's own limit is not a store failure: %v", err)
 	}
@@ -231,5 +231,15 @@ func TestATraceWithNoTimedSpanJoinsNothing(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(got.Warnings, " "), "no span with a start time") {
 		t.Fatalf("warnings = %v", got.Warnings)
+	}
+	if got.Sources[SignalLogs] != SourceOK || got.Sources[SignalMetrics] != SourceOK {
+		t.Fatalf("what was asked for says it is read, with nothing in it: %v", got.Sources)
+	}
+}
+
+func TestAPlaceWithNoNameIsNoPlace(t *testing.T) {
+	g := &AppGroup{Members: []AppMember{{Name: "api", Namespace: "shop"}, {Namespace: "data"}}}
+	if p := g.places(); len(p) != 1 || p[0].Namespace != "shop" {
+		t.Fatalf("places = %+v", p)
 	}
 }

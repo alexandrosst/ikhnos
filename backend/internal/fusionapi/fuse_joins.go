@@ -96,7 +96,7 @@ func (r *fuseRun) promQL() {
 	}
 	r.setSource(SourcePromQL, SourceOK)
 	r.start(func() {
-		global, warns, err := r.c.fusePromQL(r.ctx, r.s, r.f.Trace, r.looked, r.opts, r.qwin, r.qstep, r.apply)
+		global, warns, err := r.c.fusePromQL(r.ctx, r.s, r.f.Trace, r.looked, r.opts, r.qwin, r.qstep, r.sem, r.apply)
 		r.apply(func() {
 			r.f.Queries = global
 			r.f.Warnings = append(r.f.Warnings, warns...)

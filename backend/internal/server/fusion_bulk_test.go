@@ -260,13 +260,24 @@ func TestTheOpenAPIDescriptionIsPublicAndCoversEveryRoute(t *testing.T) {
 			t.Errorf("%s %s is described but not served: %d", op.Method, path, rr.Code)
 		}
 	}
-	// The other way round: nothing in the description that the table does not have.
-	n := 0
+	// The other way round: nothing in the description that the table does not have. A route served as a form POST too is
+	// described twice (x-form-of says which is the form).
+	n, want := 0, 0
 	for _, methods := range spec.Paths {
-		n += len(methods)
+		for _, o := range methods {
+			if o["x-form-of"] == nil {
+				n++
+			}
+		}
 	}
-	if n != len(fusionOps(nil)) {
-		t.Errorf("%d operations described, %d routes", n, len(fusionOps(nil)))
+	for _, op := range fusionOps(nil) {
+		want++
+		if op.AlsoPost && spec.Paths[fusionhttp.APIPath+op.Path]["post"]["x-form-of"] == nil {
+			t.Errorf("%s is served as a form POST too, but not described as one", op.Path)
+		}
+	}
+	if n != want {
+		t.Errorf("%d operations described, %d routes", n, want)
 	}
 }
 

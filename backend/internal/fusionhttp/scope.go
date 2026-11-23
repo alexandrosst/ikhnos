@@ -38,6 +38,11 @@ func (g *Guard) Scope(r *http.Request, who Caller) (fusionapi.Scope, error) {
 // application its joins are narrowed to. The tags are a help, not the answer: without them (a server that does not know the
 // applications, or cannot read them now) the read goes on untagged. A named application must be found, or the read fails.
 func (g *Guard) fuseFocus(r *http.Request, who Caller, ref string, opts *fusionapi.FuseOptions) error {
+	if ref == "" {
+		if err := opts.CheckApplicationVars(); err != nil { // before the search, not once per hit
+			return err
+		}
+	}
 	if g.Extras() == nil && ref == "" {
 		return nil
 	}

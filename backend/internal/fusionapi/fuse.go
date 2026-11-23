@@ -106,8 +106,24 @@ func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOpt
 		return nil, err
 	}
 	if tr.Start.IsZero() {
-		// No span says when it ran, so there is no window to read anything around it (it would be read around the year 1).
-		run.note("the trace has no span with a start time, so nothing is joined to it: logs, metrics and queries are read in a window around the trace, and it has none")
+		// No span says when it ran, so there is no window to read anything in (it would be read around the year 1). Only what
+		// needs no window, the topology as of now, is joined; the rest is said to be what it is: read, with nothing in it.
+		run.note("the trace has no span with a start time, so nothing read in a window around it is joined: no logs, metrics, queries or changes")
+		for _, k := range []struct {
+			asked  bool
+			source string
+		}{{opts.Logs, SignalLogs}, {opts.ContextLogs, SourceContextLogs}, {opts.SystemLogs, SourceSystemLogs}, {opts.Metrics, SignalMetrics},
+			{len(opts.PromQL) > 0, SourcePromQL}, {opts.Changes, SourceChanges}} {
+			if k.asked {
+				run.setSource(k.source, SourceOK)
+			}
+		}
+		if opts.Topology {
+			untimed := opts
+			untimed.Changes = false
+			run.opts = untimed
+			run.ikhnos()
+		}
 	} else {
 		run.traceLogs()
 		run.contextLogs()

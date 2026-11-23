@@ -46,6 +46,12 @@ func (g *Guard) Traces(w http.ResponseWriter, r *http.Request, c *fusionapi.Clie
 		g.Err(w, err)
 		return
 	}
+	if fused { // before the search: a mistake here costs no reads
+		if err := g.fuseFocus(r, who, q.Get("application"), &opts); err != nil {
+			g.Err(w, err)
+			return
+		}
+	}
 	var traces []fusionapi.TraceSummary
 	var truncated bool
 	if raw := q.Get("q"); raw != "" {
@@ -85,10 +91,6 @@ func (g *Guard) Traces(w http.ResponseWriter, r *http.Request, c *fusionapi.Clie
 		ids[i] = t.TraceID
 	}
 	if len(ids) > 0 && !g.bulkAllowed(w, who, len(ids)) {
-		return
-	}
-	if err := g.fuseFocus(r, who, q.Get("application"), &opts); err != nil {
-		g.Err(w, err)
 		return
 	}
 	if stream {
@@ -199,11 +201,11 @@ func (g *Guard) TraceBatch(w http.ResponseWriter, r *http.Request, c *fusionapi.
 		g.Err(w, err)
 		return
 	}
-	if !g.bulkAllowed(w, who, len(ids)) {
+	if err := g.fuseFocus(r, who, q.Get("application"), &opts); err != nil { // (a mistake costs no reads)
+		g.Err(w, err)
 		return
 	}
-	if err := g.fuseFocus(r, who, q.Get("application"), &opts); err != nil {
-		g.Err(w, err)
+	if !g.bulkAllowed(w, who, len(ids)) {
 		return
 	}
 	if stream {

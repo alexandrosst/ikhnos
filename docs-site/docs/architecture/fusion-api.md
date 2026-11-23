@@ -238,7 +238,7 @@ The series is not telemetry: the Grafana dashboards leave it out of their counts
 ikhnos_org_info{ikhnos_org_id="default", org_name="Edge lab"} 1
 ```
 
-so a query or a panel shows the organisation by the name it has in ikhnos now: `sum by (org_name) (rate(http_server_request_duration_seconds_count[5m]) * on (ikhnos_org_id) group_left (org_name) ikhnos_org_info)`. Renaming the organisation shows within a minute. Like the other info series it is not telemetry, and the API's metric reads leave it out unless asked for by name.
+so a query or a panel shows the organisation by the name it has in ikhnos now: `sum by (org_name) (rate(http_server_request_duration_seconds_count[5m]) * on (ikhnos_org_id) group_left (org_name) topk by (ikhnos_org_id) (1, ikhnos_org_info))`. A rename is written within a minute; the old name's series lingers for Prometheus' five-minute lookback, which is why the join takes one series per id (`topk`), as the dashboards do for cluster names. Like the other info series it is not telemetry, and the API's metric reads leave it out unless asked for by name.
 
 ## Cluster links
 

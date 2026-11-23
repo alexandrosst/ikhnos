@@ -260,7 +260,8 @@ type promRun struct {
 
 // fusePromQL evaluates the caller's queries for a trace. Queries about a resource are put on it (looked is the resources
 // worth a lookup); the others are returned. The warnings say what was skipped; firstErr is the first store failure.
-func (c *Client) fusePromQL(ctx context.Context, s Scope, tr *Trace, looked []*Resource, opts FuseOptions, w TimeRange, step time.Duration, locked func(func())) (global []QueryResult, warns []string, firstErr error) {
+// sem bounds the reads in flight (shared with the read's other joins); locked runs a write to the resources under the read's lock.
+func (c *Client) fusePromQL(ctx context.Context, s Scope, tr *Trace, looked []*Resource, opts FuseOptions, w TimeRange, step time.Duration, sem chan struct{}, locked func(func())) (global []QueryResult, warns []string, firstErr error) {
 	rangeVar := strconv.Itoa(int(math.Ceil(w.To.Sub(w.From).Seconds()))) + "s"
 	common := map[string]string{"trace_id": tr.TraceID, "range": rangeVar}
 	if g := opts.Application; g != nil {
@@ -347,7 +348,6 @@ func (c *Client) fusePromQL(ctx context.Context, s Scope, tr *Trace, looked []*R
 		warns = append(warns, fmt.Sprintf("promql %s: not evaluated for %s", n, strings.Join(list, "; ")))
 	}
 
-	sem := make(chan struct{}, fuseConcurrency)
 	var wg sync.WaitGroup
 	for _, expr := range order {
 		run := runs[expr]

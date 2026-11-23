@@ -15,9 +15,10 @@ import (
 //
 // so a query joins on the id:
 //
-//	sum by (org_name) (rate(http_server_request_duration_seconds_count[5m]) * on (ikhnos_org_id) group_left (org_name) ikhnos_org_info)
+//	sum by (org_name) (rate(http_server_request_duration_seconds_count[5m]) * on (ikhnos_org_id) group_left (org_name) topk by (ikhnos_org_id) (1, ikhnos_org_info))
 //
-// An organisation renamed in ikhnos shows its new name within a minute.
+// An organisation renamed in ikhnos is written under its new name within a minute; the old name's series stays for Prometheus'
+// five-minute lookback, which is why the join takes one series per id (topk), as the dashboards do for the cluster names.
 
 // OrgInfoMetric is the name of the organisation info series.
 const OrgInfoMetric = "ikhnos_org_info"

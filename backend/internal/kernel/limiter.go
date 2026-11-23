@@ -45,6 +45,9 @@ func (l *Limiter) Allow(key string) bool { return l.AllowN(key, 1) }
 // AllowN consumes n tokens for key if it has them all, reporting whether it did. When it has fewer it consumes none, so a
 // large request refused does not use up the room a smaller one would have had.
 func (l *Limiter) AllowN(key string, n int) bool {
+	if n <= 0 {
+		return true // nothing to charge (and a negative charge must not add tokens)
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := l.now()

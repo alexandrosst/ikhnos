@@ -74,7 +74,9 @@ func (s Scope) FocusOn(g *AppGroup) (Scope, error) {
 }
 
 // maxFocusPlaces bounds how many namespace-and-cluster places an exact focus names. A metric read adds a selector per place
-// and per workload label, so past it the URL would be longer than a store or a proxy in front of it takes well.
+// and per name label (the service's and the three workload labels), so at the bound one read is some 80 selectors and its
+// request line tens of KiB. The stores are asked directly, at their in-cluster Services, and take request lines of up to
+// 1 MiB (Go's default); past the bound the cost of the read itself is what grows too much, so the union alone applies.
 const maxFocusPlaces = 20
 
 // places groups the members' names by the namespace and cluster they run in, in a stable order.
@@ -95,6 +97,8 @@ func (g *AppGroup) places() []FocusPlace {
 			}
 		}
 	}
+	// A place none of whose members has a name says nothing to match (and an empty list would match every series there).
+	out = slices.DeleteFunc(out, func(p FocusPlace) bool { return len(p.Names) == 0 })
 	for i := range out {
 		sort.Strings(out[i].Names)
 	}
