@@ -133,3 +133,42 @@ func TestPerResourceQueriesCanNameTheWorkload(t *testing.T) {
 		t.Fatal("a resource that names no workload is skipped, not queried with an empty name")
 	}
 }
+
+// In a read narrowed to an application, a query about the whole trace is about the application: it reads the application's own
+// series. Kept as written on request.
+func TestATraceWideQueryOfAnApplicationsReadReadsTheApplicationOnly(t *testing.T) {
+	f := newFake(t)
+	f.tempo = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, tempoTrace()) }
+	var mu sync.Mutex
+	var sent []string
+	f.prom = func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		sent = append(sent, r.URL.Query().Get("query"))
+		mu.Unlock()
+		writeJSON(w, map[string]any{"status": "success", "data": map[string]any{"resultType": "matrix", "result": []any{}}})
+	}
+	shop := AppGroup{ID: "app-shop", Name: "Shop", Members: []AppMember{{Name: "cart", Namespace: "shop", Cluster: "cl-1"}, {Name: "web", Namespace: "shop", Cluster: "cl-1", Aliases: []string{"web-ui"}}}}
+	qs, err := ParsePromQueries([]string{`cpu=sum by (k8s_pod_name) (increase(container_cpu_time_seconds_total[1m]))`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := f.client().FuseTrace(context.Background(), AllSignals(), traceHex, FuseOptions{PromQL: qs, Applications: []AppGroup{shop}, Application: &shop})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `sum by (k8s_pod_name) (increase(container_cpu_time_seconds_total{ikhnos_cluster_id=~"cl-1",k8s_namespace_name=~"shop",service_name=~"cart|web|web-ui"}[1m]))`
+	if len(sent) != 1 || sent[0] != want {
+		t.Fatalf("sent %q, want %q", sent, want)
+	}
+	if len(got.Queries) != 1 || got.Queries[0].Query != want || !strings.Contains(got.Joins[SourcePromQL], "application's series only") {
+		t.Fatalf("queries %+v, joins %q", got.Queries, got.Joins[SourcePromQL])
+	}
+
+	sent = nil
+	if _, err := f.client().FuseTrace(context.Background(), AllSignals(), traceHex, FuseOptions{PromQL: qs, Applications: []AppGroup{shop}, Application: &shop, PromQLAsWritten: true}); err != nil {
+		t.Fatal(err)
+	}
+	if len(sent) != 1 || sent[0] != qs[0].Expr {
+		t.Fatalf("as written: %q", sent)
+	}
+}

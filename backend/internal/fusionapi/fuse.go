@@ -194,6 +194,9 @@ func (c *Client) newFuseRun(ctx context.Context, s Scope, tr *Trace, opts FuseOp
 	if len(opts.PromQL) > 0 {
 		f.Sources[SourcePromQL] = SourceNotRequested
 		f.Joins[SourcePromQL] = "associated, not proven: your own queries, each evaluated for a resource with its service, namespace and pod filled in (or once for the trace), over the trace's time; a metric sample carries no trace id"
+		if opts.Application != nil && !opts.PromQLAsWritten {
+			f.Joins[SourcePromQL] += "; a query for the trace as a whole reads the application's series only: its service names, namespaces and clusters are on every selector (promql_as_written=true keeps it as written)"
+		}
 	}
 	opts.ikhnosJoins(f)
 	run := &fuseRun{c: c, ctx: ctx, s: s, opts: opts, f: f, sem: make(chan struct{}, fuseConcurrency)}

@@ -292,6 +292,19 @@ func (c *Client) fusePromQL(ctx context.Context, s Scope, tr *Trace, looked []*R
 			skipped[q.Name] = append(skipped[q.Name], label+": "+skip)
 			return
 		}
+		// A query about the whole trace, in a read narrowed to an application, is about the application: what it reads is the
+		// application's own (unless asked to keep it as written). A per-resource one is already about one of its resources.
+		if r == nil && opts.Application != nil && !opts.PromQLAsWritten {
+			narrowed, err := narrowToApplication(expr, opts.Application)
+			if err != nil {
+				if _, ok := runs[expr]; !ok {
+					runs[expr] = &promRun{err: err}
+				}
+				slots = append(slots, slot{q, r, expr})
+				return
+			}
+			expr = narrowed
+		}
 		if _, ok := runs[expr]; !ok {
 			if len(runs) >= maxPromRuns {
 				over[q.Name] = true

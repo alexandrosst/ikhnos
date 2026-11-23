@@ -49,6 +49,9 @@ type FuseOptions struct {
 	PromQLStep     time.Duration
 	PromQLPad      time.Duration
 	PromQLServices []string
+	// PromQLAsWritten keeps the queries about the whole trace as written when the read is narrowed to an application; by
+	// default they are narrowed to it too (narrowToApplication).
+	PromQLAsWritten bool
 
 	// Topology adds what each service calls and is called by; Changes the events around the trace (ChangesBefore before
 	// it, Pad after it, at most MaxChanges). Both come from Extras, which the server sets; without it they are unavailable.

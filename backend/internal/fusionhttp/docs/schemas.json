@@ -221,7 +221,7 @@
     "omit": {"type": "array", "items": {"type": "string", "enum": ["attributes", "events"]}},
     "span_service": {"type": "string"}, "span_status": {"type": "string", "enum": ["error", "ok", "unset"]}, "span_min_duration": {"type": "string"},
     "promql": {"description": "Your own queries: an object of name to expression, or a list of `name=expression` strings.", "oneOf": [{"type": "object", "additionalProperties": {"type": "string"}}, {"type": "array", "items": {"type": "string"}}]},
-    "promql_spans": {"type": "boolean"}, "promql_step": {"type": "string"}, "promql_pad": {"type": "string"}, "promql_services": {"type": "array", "items": {"type": "string"}},
+    "promql_spans": {"type": "boolean"}, "promql_step": {"type": "string"}, "promql_pad": {"type": "string"}, "promql_services": {"type": "array", "items": {"type": "string"}}, "promql_as_written": {"type": "boolean"},
     "changes_before": {"type": "string"}, "max_changes": {"type": "integer"},
     "application": {"type": "string", "description": "Narrow what is joined to each trace to this ikhnos application's resources (its id or name), as `application` does on `/traces/{id}`."},
     "stream": {"type": "boolean"}}}

@@ -33,6 +33,7 @@ const (
 	ParamPromQLStep       = "promql_step"
 	ParamPromQLPad        = "promql_pad"
 	ParamPromQLServices   = "promql_services"
+	ParamPromQLAsWritten  = "promql_as_written"
 	ParamChangesBefore    = "changes_before"
 	ParamMaxChanges       = "max_changes"
 )
@@ -41,7 +42,7 @@ const (
 var FuseParamNames = []string{ParamFused, ParamInclude, ParamPad, ParamSpanPad, ParamMetric, ParamMetricScope, ParamMaxLogs,
 	ParamMaxContextLogs, ParamMaxSystemLogs, ParamMaxSeries, ParamPoints, ParamSystemNamespaces, ParamLogSeverity, ParamLogContains,
 	ParamOmit, ParamSpanService, ParamSpanStatus, ParamSpanMinDuration, ParamPromQL, ParamPromQLSpans, ParamPromQLStep, ParamPromQLPad,
-	ParamPromQLServices, ParamChangesBefore, ParamMaxChanges}
+	ParamPromQLServices, ParamPromQLAsWritten, ParamChangesBefore, ParamMaxChanges}
 
 // Names the include list accepts.
 const (
@@ -170,6 +171,9 @@ func ParseFuseOptions(q url.Values) (opts FuseOptions, err error) {
 	}
 	if opts.PromQLSpans && len(opts.PromQL) == 0 {
 		return opts, badRequest("promql_spans needs a promql query")
+	}
+	if opts.PromQLAsWritten, err = ParseBool(ParamPromQLAsWritten, q.Get(ParamPromQLAsWritten), false); err != nil {
+		return opts, err
 	}
 	if opts.PromQLStep, err = DurationParam(q.Get(ParamPromQLStep)); err != nil {
 		return opts, err
