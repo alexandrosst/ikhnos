@@ -55,9 +55,9 @@ func firstOf(l []string, n int, more func(rest int) string) []string {
 }
 
 // SortByPlace orders l by cluster, then namespace, as at gives them: the order the places of an application, and of a
-// service, are listed in.
+// service, are listed in. Entries of the same place keep the order they came in, so the answer reads the same each time.
 func SortByPlace[T any](l []T, at func(T) (cluster, namespace string)) {
-	sort.Slice(l, func(i, j int) bool {
+	sort.SliceStable(l, func(i, j int) bool {
 		ci, ni := at(l[i])
 		cj, nj := at(l[j])
 		if ci != cj {
