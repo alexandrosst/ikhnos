@@ -246,6 +246,21 @@ func (r *fuseRun) chooseResources() {
 		r.f.Warnings = append(r.f.Warnings, warns...)
 		r.logServices = servicesOf(looked)
 	}
+	if opts.Spans.active() {
+		// Only the spans the span_* filters keep are returned, so what is joined to the resources is what those spans ran on: a
+		// resource none of whose spans is kept has no span left in the answer for its metrics, context lines or queries. (The
+		// trace's own lines are still read for every service: those on spans left out are counted, in logs.onFilteredSpans.)
+		kept := map[string]bool{}
+		for _, sp := range tr.Spans {
+			if opts.Spans.keeps(sp) {
+				kept[sp.Resource] = true
+			}
+		}
+		looked = slices.DeleteFunc(slices.Clone(looked), func(res *Resource) bool { return !kept[res.Key] })
+		if len(looked) == 0 {
+			r.note("no span matches the span_* filters, so nothing is joined")
+		}
+	}
 	looked = slices.DeleteFunc(slices.Clone(looked), func(res *Resource) bool { return res.Service == "" && res.Pod == "" })
 	if len(looked) > maxFusedResources {
 		r.note("the trace has more than %d resources; the rest have no metrics, context logs, queries or topology here", maxFusedResources)

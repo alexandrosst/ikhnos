@@ -1,5 +1,7 @@
 package fusionapi
 
+import "slices"
+
 // The joins of a fused read, one method of fuseRun each: what it reads, and where in the answer it puts it (see FuseTrace).
 
 // traceLogs reads the lines that carry the trace's id and puts each on its span (include=logs).
@@ -7,7 +9,8 @@ func (r *fuseRun) traceLogs() {
 	if !r.allowed(r.opts.Logs, SignalLogs, SignalLogs) {
 		return
 	}
-	if len(r.logServices) == 0 && r.opts.Application != nil { // nothing of the application to read lines of (an empty list would mean every service)
+	narrowed := r.opts.Application != nil
+	if len(r.logServices) == 0 && narrowed { // nothing to read lines of (an empty list would mean every service)
 		r.setSource(SignalLogs, SourceOK)
 		return
 	}
@@ -17,11 +20,30 @@ func (r *fuseRun) traceLogs() {
 			r.warn(SignalLogs, err)
 			return
 		}
+		if narrowed {
+			// The read named the services; a line is kept only if it is from one of the joined resources' own places (a service of
+			// the same name in another namespace or cluster, on the same trace, is not part of what was asked for).
+			lines = slices.DeleteFunc(lines, func(l LogEntry) bool { return !fromOneOf(l, r.looked) })
+		}
 		r.apply(func() {
 			r.f.Sources[SignalLogs] = SourceOK
 			attachLogs(r.f, lines, truncated)
 		})
 	})
+}
+
+// fromOneOf says whether a line is from one of the resources: the same service, in the same namespace and cluster where both say one.
+func fromOneOf(l LogEntry, resources []*Resource) bool {
+	for _, res := range resources {
+		if l.Service != res.Service {
+			continue
+		}
+		if (l.Namespace != "" && res.Namespace != "" && l.Namespace != res.Namespace) || (l.Cluster != "" && res.Cluster != "" && l.Cluster != res.Cluster) {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 // contextLogs reads, for each looked-up resource, the lines it wrote in the trace's window without a trace id (include=context_logs).

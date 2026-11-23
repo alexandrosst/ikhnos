@@ -222,6 +222,21 @@ func resourceVars(r *Resource) map[string]string {
 	return map[string]string{"service": r.Service, "namespace": r.Namespace, "pod": r.Pod, "node": r.Node, "cluster": r.Cluster, "workload": r.Workload()}
 }
 
+// narrowQuery narrows a query to what the read is about: the application's own series (narrowToApplication), and the services
+// promql_services names.
+func narrowQuery(expr string, opts FuseOptions) (string, error) {
+	var err error
+	if opts.Application != nil {
+		if expr, err = narrowToApplication(expr, opts.Application); err != nil {
+			return "", err
+		}
+	}
+	if len(opts.PromQLServices) > 0 {
+		return withMatchers(expr, map[string][]string{lblService: opts.PromQLServices})
+	}
+	return expr, nil
+}
+
 // uses says whether the expression names one of the variables.
 func (q *PromQuery) uses(vars ...string) bool {
 	for _, p := range q.tpl {
@@ -292,10 +307,11 @@ func (c *Client) fusePromQL(ctx context.Context, s Scope, tr *Trace, looked []*R
 			skipped[q.Name] = append(skipped[q.Name], label+": "+skip)
 			return
 		}
-		// A query about the whole trace, in a read narrowed to an application, is about the application: what it reads is the
-		// application's own (unless asked to keep it as written). A per-resource one is already about one of its resources.
-		if r == nil && opts.Application != nil && !opts.PromQLAsWritten {
-			narrowed, err := narrowToApplication(expr, opts.Application)
+		if wide := r == nil || (q.uses("namespace", "cluster") && !q.uses("service", "pod", "workload")); wide && !opts.PromQLAsWritten && (opts.Application != nil || len(opts.PromQLServices) > 0) {
+			// A query that is not about one service or pod (it names none of them, or only the namespace or cluster a resource is
+			// in) would read every service there: narrowed, it reads what the read is about - the application's own, and only the
+			// services of promql_services when they are named.
+			narrowed, err := narrowQuery(expr, opts)
 			if err != nil {
 				if _, ok := runs[expr]; !ok {
 					runs[expr] = &promRun{err: err}

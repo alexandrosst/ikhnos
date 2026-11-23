@@ -340,14 +340,18 @@ type touched struct {
 	ns       map[string]string // service id -> namespace
 }
 
-func touchedBy(v *TopologyView, tr *Trace) touched {
+// touchedBy is what the resources are about; only is the application the read is narrowed to ("" for none), whose events are
+// then the only application events kept (the others' services may be on the resources too).
+func touchedBy(v *TopologyView, resources []*Resource, only string) touched {
 	t := touched{map[string]*Resource{}, map[string]*Resource{}, map[string]*Resource{}, map[string]*Resource{}, map[string]bool{}, map[string]string{}}
-	for _, r := range tr.Resources {
+	for _, r := range resources {
 		if v != nil {
 			if sv, _ := v.matchService(r); sv != nil {
 				t.services[sv.ID], t.ns[sv.ID] = r, sv.Namespace
 				for _, a := range sv.AppIDs {
-					t.apps[a] = r
+					if only == "" || a == only {
+						t.apps[a] = r
+					}
 				}
 			}
 			for _, n := range v.Nodes {
@@ -396,8 +400,8 @@ func (t touched) ids() []string {
 // relevantChanges keeps the events that are about the trace: those of its services (matched through the topology), of the
 // traffic seen to and from them, of the applications they are in, of the nodes its pods ran on, and of its clusters. A Scope
 // limited to namespaces sees only the events of services in them, and of links between what it may see.
-func relevantChanges(evs []ChangeEvent, v *TopologyView, s Scope, tr *Trace) []ChangeEvent {
-	t := touchedBy(v, tr)
+func relevantChanges(evs []ChangeEvent, v *TopologyView, s Scope, resources []*Resource, only string) []ChangeEvent {
+	t := touchedBy(v, resources, only)
 	var byID map[string]*TopoService
 	var link map[string]TopoLink
 	if v != nil {
@@ -498,15 +502,24 @@ func (c *Client) fuseIkhnos(ctx context.Context, s Scope, f *Fused, looked []*Re
 	}
 	setSource(SourceChanges, SourceOK)
 	since, until := f.Start.Add(-opts.ChangesBefore), f.End.Add(opts.Pad)
+	// The events of what the read joins: the trace's resources, or, narrowed to an application, the application's alone (what
+	// the warnings say is not read is not read here either).
+	about, only := f.Resources, ""
+	if opts.Application != nil || opts.Spans.active() {
+		about = looked
+	}
+	if opts.Application != nil {
+		only = opts.Application.ID
+	}
 	var clusters []string
 	seen := map[string]bool{}
-	for _, r := range f.Resources {
+	for _, r := range about {
 		if r.Cluster != "" && !seen[r.Cluster] {
 			seen[r.Cluster] = true
 			clusters = append(clusters, r.Cluster)
 		}
 	}
-	ids := touchedBy(view, f.Trace).ids()
+	ids := touchedBy(view, about, only).ids()
 	if len(ids) == 0 {
 		return // nothing of the trace is known to have events
 	}
@@ -521,7 +534,7 @@ func (c *Client) fuseIkhnos(ctx context.Context, s Scope, f *Fused, looked []*Re
 		evs = evs[:changesRead] // newest first
 		note("changes: the window holds more than %d events; only the newest %d were read", changesRead, changesRead)
 	}
-	kept := relevantChanges(evs, view, s, f.Trace)
+	kept := relevantChanges(evs, view, s, about, only)
 	sort.SliceStable(kept, func(i, j int) bool { return kept[i].Time.Before(kept[j].Time) })
 	if len(kept) > opts.MaxChanges {
 		// keep the newest: what happened last is closest to the trace
