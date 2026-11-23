@@ -647,6 +647,12 @@ func (c *Client) traceServices(ctx context.Context, s Scope, tr TimeRange) (name
 		if truncated {
 			sample = fmt.Sprintf("the newest %d traces", scopedServiceSample)
 		}
+		if tr.To.Sub(tr.From) > MaxSearchWindow { // the search reads its newest part only: say so, not just when the sample was cut
+			if sample == "" {
+				sample = "the traces"
+			}
+			sample += fmt.Sprintf(" of the newest %s of the range", shortDuration(MaxSearchWindow))
+		}
 		seen := map[string]bool{}
 		var out []string
 		for _, h := range hits {
@@ -684,3 +690,14 @@ func (c *Client) traceServices(ctx context.Context, s Scope, tr TimeRange) (name
 
 // scopedServiceSample is how many traces a limited Scope's service listing reads.
 const scopedServiceSample = 200
+
+// shortDuration writes a whole number of days or hours as 7d or 12h, and anything else as Go does.
+func shortDuration(d time.Duration) string {
+	switch {
+	case d%(24*time.Hour) == 0:
+		return fmt.Sprintf("%dd", d/(24*time.Hour))
+	case d%time.Hour == 0:
+		return fmt.Sprintf("%dh", d/time.Hour)
+	}
+	return d.String()
+}

@@ -2,7 +2,9 @@ package fusionhttp
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"time"
 
@@ -52,11 +54,23 @@ func (g *Guard) Applications(w http.ResponseWriter, r *http.Request, c *fusionap
 		g.Err(w, err)
 		return
 	}
+	// Each application's signals are those of its members where they run, read application by application; past
+	// MaxGroupSignals applications, by service name across everything the caller may see, and the answer says so.
+	if len(groups) <= fusionapi.MaxGroupSignals {
+		perGroup, sources, warnings, err := c.GroupSignals(r.Context(), who.Scope, groups, tr)
+		if err != nil {
+			g.Err(w, err)
+			return
+		}
+		httpkit.WriteJSON(w, 200, applicationsDoc{Applications: fusionapi.DescribeGroupsIn(groups, perGroup), Sources: sources, Warnings: orEmpty(warnings), From: tr.From, To: tr.To})
+		return
+	}
 	svcs, sources, warnings, err := c.Applications(r.Context(), who.Scope, tr)
 	if err != nil {
 		g.Err(w, err)
 		return
 	}
+	warnings = append(warnings, fmt.Sprintf("there are more than %d applications, so a member's signals are those of any service of its name, wherever it runs; /applications/{name} reads one application where its members run", fusionapi.MaxGroupSignals))
 	httpkit.WriteJSON(w, 200, applicationsDoc{Applications: fusionapi.DescribeGroups(groups, svcs), Sources: sources, Warnings: orEmpty(warnings), From: tr.From, To: tr.To})
 }
 
@@ -87,6 +101,16 @@ func (g *Guard) Services(w http.ResponseWriter, r *http.Request, c *fusionapi.Cl
 		}
 	}
 	places := g.servicePlaces(r.Context(), who)
+	if q := r.URL.Query(); q.Has("application") {
+		// Narrowed to an application, a service runs where the application's members of that name do, not everywhere it runs.
+		if groups, err := g.Groups(r, who); err == nil {
+			if grp, err := fusionapi.FindGroup(groups, q.Get("application")); err == nil {
+				for name, ps := range places {
+					places[name] = slices.DeleteFunc(ps, func(p servicePlaceDoc) bool { return !memberAt(grp, name, p) })
+				}
+			}
+		}
+	}
 	out := make([]serviceDoc, 0, len(svcs))
 	for _, sv := range svcs {
 		names := in[sv.Name]
@@ -100,6 +124,16 @@ func (g *Guard) Services(w http.ResponseWriter, r *http.Request, c *fusionapi.Cl
 		out = append(out, serviceDoc{sv, names, runs})
 	}
 	httpkit.WriteJSON(w, 200, servicesDoc{Services: out, Sources: sources, Warnings: orEmpty(warnings), From: tr.From, To: tr.To})
+}
+
+// memberAt says whether a member of the application has this name (or alias) at this place.
+func memberAt(g *fusionapi.AppGroup, name string, p servicePlaceDoc) bool {
+	for _, m := range g.Members {
+		if (m.Name == name || slices.Contains(m.Aliases, name)) && (m.Namespace == "" || m.Namespace == p.Namespace) && (m.Cluster == "" || m.Cluster == p.Cluster) {
+			return true
+		}
+	}
+	return false
 }
 
 // servicePlaces is, for each name telemetry may carry as service.name (a service's own, or its app label), where ikhnos'
@@ -193,6 +227,9 @@ func (g *Guard) AppTopology(w http.ResponseWriter, r *http.Request, c *fusionapi
 	var format string
 	if err == nil {
 		format, err = fusionapi.ParseFormat(q.Get("format"))
+	}
+	if err == nil && format == fusionapi.FormatNodeLink && q.Has("window") { // (the graph form carries no changes, which window is the window of)
+		err = &fusionapi.Error{Status: http.StatusBadRequest, Msg: "window is the window of the changes, which format=nodelink does not carry; leave it out"}
 	}
 	var at time.Time
 	if err == nil && q.Has("at") { // in the forms from and to take: RFC 3339, unix seconds, now-<duration>

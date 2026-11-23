@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -90,13 +91,27 @@ func (c *Client) Applications(ctx context.Context, s Scope, tr TimeRange) ([]App
 
 // metricServices lists the service names that have series in the range (inside the Scope).
 func (c *Client) metricServices(ctx context.Context, s Scope, tr TimeRange) ([]string, error) {
-	m, err := MetricFilter{}.matchers(s)
-	if err != nil {
-		return nil, err
+	var sels []string
+	if len(s.Focus) > 0 {
+		// Each member's names where it runs: a member's name in another member's namespace is not the application's.
+		wide := s
+		wide.FocusServices = nil
+		m, err := MetricFilter{}.matchers(wide)
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range placeConds(s.Focus, lblNamespace, lblCluster, lblService, func(k, v string) string { return k + "=" + quote(v) },
+			func(k string, vs []string) string { return k + "=~" + quote(regexAny(vs)) }) {
+			sels = append(sels, "{"+strings.Join(append(slices.Clone(m), c...), ",")+"}")
+		}
+	} else {
+		m, err := MetricFilter{}.matchers(s)
+		if err != nil {
+			return nil, err
+		}
+		sels = []string{"{" + strings.Join(append(m, lblService+`=~".+"`), ",") + "}"}
 	}
-	m = append(m, lblService+`=~".+"`)
-	sel := "{" + strings.Join(m, ",") + "}"
-	data, err := c.prom(ctx, "/api/v1/label/"+lblService+"/values", url.Values{"match[]": {sel}, "start": {unixFloat(tr.From)}, "end": {unixFloat(tr.To)}})
+	data, err := c.prom(ctx, "/api/v1/label/"+lblService+"/values", url.Values{"match[]": sels, "start": {unixFloat(tr.From)}, "end": {unixFloat(tr.To)}})
 	if err != nil {
 		return nil, err
 	}
@@ -111,14 +126,17 @@ func (c *Client) metricServices(ctx context.Context, s Scope, tr TimeRange) ([]s
 // things in each, ready to follow into a fused trace.
 type Overview struct {
 	// ID and Services are set for an ikhnos application: its id and the service names its telemetry may carry.
-	ID          string         `json:"id,omitempty"`
-	Services    []string       `json:"services,omitempty"`
-	Name        string         `json:"name"`
-	Signals     []Signal       `json:"signals"`
-	Traces      []TraceSummary `json:"traces"`      // the most recent
-	ErrorTraces []TraceSummary `json:"errorTraces"` // the most recent with an error span
-	ErrorLogs   []LogEntry     `json:"errorLogs"`   // the most recent error-level lines
-	Metrics     []string       `json:"metrics"`     // metric names it reports
+	ID       string   `json:"id,omitempty"`
+	Services []string `json:"services,omitempty"`
+	// Members are, for an ikhnos application, its services as ikhnos knows them (name, namespace, cluster, aliases), each with the
+	// signals it has where it runs: which of them the overview's traces, lines and metric names can have come from.
+	Members     []AppServiceView `json:"members,omitempty"`
+	Name        string           `json:"name"`
+	Signals     []Signal         `json:"signals"`
+	Traces      []TraceSummary   `json:"traces"`      // the most recent
+	ErrorTraces []TraceSummary   `json:"errorTraces"` // the most recent with an error span
+	ErrorLogs   []LogEntry       `json:"errorLogs"`   // the most recent error-level lines
+	Metrics     []string         `json:"metrics"`     // metric names it reports
 	// MetricsTruncated says it reports more than are listed.
 	MetricsTruncated bool              `json:"metricsTruncated,omitempty"`
 	Sources          map[string]string `json:"sources"`
@@ -163,6 +181,14 @@ func (c *Client) ApplicationOverview(ctx context.Context, s Scope, g *AppGroup, 
 		return nil, err
 	}
 	o.ID, o.Services = g.ID, fs.FocusServices
+	if per, _, warns, err := c.GroupSignals(ctx, s, []AppGroup{*g}, tr); err == nil {
+		if views := DescribeGroupsIn([]AppGroup{*g}, per); len(views) == 1 {
+			o.Members = views[0].Services
+		}
+		o.Warnings = uniqueInOrder(append(o.Warnings, warns...))
+	} else {
+		o.Warnings = append(o.Warnings, fmt.Sprintf("members: which of them have which signals could not be read: %v", err))
+	}
 	return o, nil
 }
 

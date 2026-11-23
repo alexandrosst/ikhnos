@@ -126,6 +126,10 @@ func (x *API) FusionLinks(w http.ResponseWriter, r *http.Request, c *fusionapi.C
 		x.Err(w, &fusionapi.Error{Status: http.StatusBadRequest, Msg: "peer needs cluster: it names the other end of the link"})
 		return
 	}
+	if peer != "" && peer == cluster { // (it would read as every link of the cluster, not the one asked for)
+		x.Err(w, &fusionapi.Error{Status: http.StatusBadRequest, Msg: "peer is the other end of the link: a cluster is not linked to itself"})
+		return
+	}
 	links, err := x.FusionSettings(r.Context())
 	if err != nil {
 		x.Err(w, err)

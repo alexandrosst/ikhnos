@@ -2053,6 +2053,7 @@ export interface Overlay {
 export interface Overview {
   id?: string
   services?: string[]
+  members?: AppServiceView[]
   name: string
   signals: Signal[]
   traces: TraceSummary[]

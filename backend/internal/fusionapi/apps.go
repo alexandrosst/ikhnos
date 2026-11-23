@@ -1,10 +1,13 @@
 package fusionapi
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // maxAppServices bounds how many service names one application may put into a query. Past it the query would be a
@@ -201,17 +204,27 @@ type AppServiceView struct {
 // DescribeGroups joins the applications with the services that have telemetry (from Client.Applications). A service is
 // matched by the names its telemetry may carry (its name and its aliases), not by namespace or cluster, because the
 // service listing is by service.name alone; a service of the same name elsewhere can make a member look like it has
-// telemetry that it does not. The result is sorted by name, then id.
+// telemetry that it does not. The result is sorted by name, then id. DescribeGroupsIn is the exact one.
 func DescribeGroups(groups []AppGroup, withTelemetry []Application) []AppView {
-	have := map[string]map[string]bool{}
-	for _, a := range withTelemetry {
-		have[a.Name] = map[string]bool{}
-		for _, sig := range a.Signals {
-			have[a.Name][string(sig)] = true
-		}
+	perGroup := map[string][]Application{}
+	for _, g := range groups {
+		perGroup[g.ID] = withTelemetry
 	}
+	return DescribeGroupsIn(groups, perGroup)
+}
+
+// DescribeGroupsIn is DescribeGroups with each application's own list of services with telemetry, looked for where its members
+// run (Client.GroupSignals): a member has a signal only if a service of its name has it in the application's own places.
+func DescribeGroupsIn(groups []AppGroup, perGroup map[string][]Application) []AppView {
 	out := make([]AppView, 0, len(groups))
 	for _, g := range groups {
+		have := map[string]map[string]bool{}
+		for _, a := range perGroup[g.ID] {
+			have[a.Name] = map[string]bool{}
+			for _, sig := range a.Signals {
+				have[a.Name][string(sig)] = true
+			}
+		}
 		v := AppView{ID: g.ID, Name: g.Name, Description: g.Description, Services: []AppServiceView{},
 			Namespaces: orNone(g.Namespaces()), Clusters: orNone(g.Clusters()), Unresolved: g.Unresolved}
 		all := map[string]bool{}
@@ -236,6 +249,85 @@ func DescribeGroups(groups []AppGroup, withTelemetry []Application) []AppView {
 		return out[i].ID < out[j].ID
 	})
 	return out
+}
+
+// MaxGroupSignals is how many applications GroupSignals reads one by one; past it a caller matches by name (DescribeGroups).
+const MaxGroupSignals = 25
+
+// GroupSignals is, for each application, its services that have telemetry in the range, each looked for in the application's
+// own places (s focused on it): what DescribeGroupsIn needs. It reads the stores once per application, a few at a time. The
+// sources say, per signal, the worst any application's read went; the warnings are those of all of them, once each.
+func (c *Client) GroupSignals(ctx context.Context, s Scope, groups []AppGroup, tr TimeRange) (map[string][]Application, map[string]string, []string, error) {
+	type result struct {
+		apps     []Application
+		sources  map[string]string
+		warnings []string
+		err      error
+	}
+	results := make([]result, len(groups))
+	sem := make(chan struct{}, 4)
+	var wg sync.WaitGroup
+	for i := range groups {
+		fs, err := s.FocusOn(&groups[i])
+		if err != nil {
+			continue // an application with no services to look for has none with telemetry
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			release, err := acquire(ctx, sem)
+			if err != nil {
+				results[i].err = err
+				return
+			}
+			defer release()
+			r := &results[i]
+			r.apps, r.sources, r.warnings, r.err = c.Applications(ctx, fs, tr)
+		}()
+	}
+	wg.Wait()
+	if err := callerGone(ctx); err != nil {
+		return nil, nil, nil, err
+	}
+	rank := map[string]int{SourceOK: 0, SourceNotAllowed: 1, SourceUnavailable: 2, SourceError: 3}
+	sources := map[string]string{}
+	perGroup := map[string][]Application{}
+	var warnings []string
+	var firstErr error
+	read := false
+	for i, r := range results {
+		if r.err != nil {
+			if firstErr == nil {
+				firstErr = r.err
+			}
+			warnings = append(warnings, fmt.Sprintf("application %s: %v", groups[i].Name, r.err))
+			continue
+		}
+		if r.sources == nil {
+			continue
+		}
+		read = true
+		perGroup[groups[i].ID] = r.apps
+		for sig, st := range r.sources {
+			if cur, ok := sources[sig]; !ok || rank[st] > rank[cur] {
+				sources[sig] = st
+			}
+		}
+		warnings = append(warnings, r.warnings...)
+	}
+	if !read && firstErr != nil {
+		return nil, nil, nil, firstErr
+	}
+	for _, sig := range Signals {
+		if _, ok := sources[sig]; !ok {
+			if s.Allows(sig) {
+				sources[sig] = SourceOK
+			} else {
+				sources[sig] = SourceNotAllowed
+			}
+		}
+	}
+	return perGroup, sources, uniqueInOrder(warnings), nil
 }
 
 func signalList(set map[string]bool) []Signal {

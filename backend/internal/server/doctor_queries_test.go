@@ -123,7 +123,8 @@ func readEverything(t *testing.T, d *dataRig, auth opt, all bool) []string {
 }
 
 // logFields are the log record's own fields (structured metadata), which a pipeline filter may name besides the vocabulary.
-var logFields = []string{"trace_id", "span_id", "severity_text"}
+// detected_level and level are what Loki adds when a line carries no severity of its own (discover_log_levels, a level label).
+var logFields = []string{"trace_id", "span_id", "severity_text", "detected_level", "level"}
 
 // checkAsked holds one request the API sent a store to the vocabulary: PromQL names its labels, a LogQL stream selector names
 // index labels only (and one that an empty value satisfies is refused by Loki), a pipeline filter names any label, and TraceQL

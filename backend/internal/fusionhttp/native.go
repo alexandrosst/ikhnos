@@ -31,6 +31,14 @@ func (g *Guard) nativeOp(store, tag, name string, path, summary string, pathPara
 // native forwards one mirrored route to its store.
 func (g *Guard) native(store, template string, pathParams []string) Handler {
 	return func(w http.ResponseWriter, r *http.Request, c *fusionapi.Client, who Caller) {
+		// The store's own parameters pass as they are, so one of this API's filters would be sent along and ignored, and the
+		// answer would cover everything: it is refused, with where the filter does work.
+		for _, k := range []string{"application", "category", "service", "namespace", "pod", "node", "cluster"} {
+			if r.URL.Query().Has(k) {
+				g.Err(w, &fusionapi.Error{Status: http.StatusBadRequest, Msg: fmt.Sprintf("%s is not a parameter of %s's own API, which this route passes the request to as it is; it is a filter of the structured routes (/metrics/..., /logs, /traces)", k, store)})
+				return
+			}
+		}
 		path := template
 		for _, n := range pathParams {
 			v := r.PathValue(n)

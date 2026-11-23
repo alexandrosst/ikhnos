@@ -176,7 +176,9 @@ func (f LogFilter) pipeline(s Scope, q string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		q += " | " + lokiSeverity + "=~" + quote(re)
+		// The severity a line is shown with: the record's own (severity_text), else what Loki detected from the line or a level
+		// label - a container's stdout has no severity_text, and would otherwise be shown as "error" and never found as one.
+		q += " | (" + lokiSeverity + "=~" + quote(re) + " or (" + lokiSeverity + `="" and (detected_level=~` + quote(re) + " or level=~" + quote(re) + ")))"
 	}
 	if f.Cluster != "" {
 		if err := checkValue("cluster", f.Cluster); err != nil {
@@ -344,9 +346,14 @@ func (c *Client) logServices(ctx context.Context, s Scope, tr TimeRange) (names 
 	if err := s.needSignal(SignalLogs); err != nil {
 		return nil, "", err
 	}
+	if len(s.Focus) > 0 && len(s.Clusters) == 0 {
+		// An application's services, each where it runs: one label-value call per place (the cluster is an index label, so
+		// the stream selector can name it).
+		return c.logServicesIn(ctx, s, tr)
+	}
 	if len(s.clLimit()) > 0 {
-		// A cluster is structured metadata, which label-value calls cannot filter on: read the newest in-scope lines
-		// and take the services they came from.
+		// A cluster the caller's own rights limit it to is matched after the selector (lines stored before the cluster became an
+		// index label carry it as structured metadata only): read the newest in-scope lines and take the services they came from.
 		lines, truncated, err := c.Logs(ctx, s, LogFilter{Backward: true}, tr.newest(MaxLogWindow), scopedLogSample)
 		if err != nil {
 			return nil, "", err
@@ -380,4 +387,38 @@ func (c *Client) logServices(ctx context.Context, s Scope, tr TimeRange) (names 
 		return nil, "", errf(http.StatusBadGateway, "%s answered with something unexpected", storeLoki)
 	}
 	return res.Data, "", nil
+}
+
+// logServicesIn is logServices for an application, place by place: the services of its names with lines in each of its
+// namespaces and clusters.
+func (c *Client) logServicesIn(ctx context.Context, s Scope, tr TimeRange) ([]string, string, error) {
+	seen := map[string]bool{}
+	var out []string
+	for _, p := range s.Focus {
+		sel := []string{lblService + "=~" + quote(regexAny(p.Names))}
+		if p.Namespace != "" {
+			sel = append(sel, lblNamespace+"="+quote(p.Namespace))
+		} else if ns := s.Namespaces; len(ns) > 0 {
+			sel = append(sel, lblNamespace+"=~"+quote(regexAny(ns)))
+		}
+		if p.Cluster != "" {
+			sel = append(sel, lblCluster+"="+quote(p.Cluster))
+		}
+		var res struct {
+			Data []string `json:"data"`
+		}
+		if err := c.get(ctx, storeLoki, c.Loki, "/loki/api/v1/label/"+lblService+"/values", url.Values{
+			"query": {"{" + strings.Join(sel, ",") + "}"}, "start": {unixNano(tr.From)}, "end": {unixNano(tr.To)},
+		}, nil, &res); err != nil {
+			return nil, "", err
+		}
+		for _, n := range res.Data {
+			if !seen[n] {
+				seen[n] = true
+				out = append(out, n)
+			}
+		}
+	}
+	sort.Strings(out)
+	return out, "", nil
 }

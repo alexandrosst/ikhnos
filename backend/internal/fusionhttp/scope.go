@@ -1,6 +1,7 @@
 package fusionhttp
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -22,6 +23,14 @@ func (g *Guard) Scope(r *http.Request, who Caller) (fusionapi.Scope, error) {
 	q := r.URL.Query()
 	if !q.Has("application") {
 		return who.Scope, nil
+	}
+	// System telemetry (the hosts, the collectors, energy, accelerators, the links between clusters) carries no service, so it
+	// is no application's: asked for together, the answer would be empty every time.
+	if cats, _ := fusionapi.ParseCategories(q.Get("category")); len(cats) == 1 && cats[0] == fusionapi.CategorySystem {
+		return fusionapi.Scope{}, &fusionapi.Error{Status: http.StatusBadRequest, Msg: "category=system is the hosts, the collectors and the links between clusters, which are no application's; leave application out to read them"}
+	}
+	if n := q.Get("name"); n != "" && fusionapi.MetricCategory(n) == fusionapi.CategorySystem {
+		return fusionapi.Scope{}, &fusionapi.Error{Status: http.StatusBadRequest, Msg: fmt.Sprintf("%s is a system metric (of a host, a collector, an energy meter or an accelerator), which carries no service and so is no application's; leave application out, or join it with the application's pods in your own PromQL", n)}
 	}
 	groups, err := g.Groups(r, who)
 	if err != nil {

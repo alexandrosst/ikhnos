@@ -353,6 +353,10 @@ func TestAScopedTokenReadsOnlyItsScope(t *testing.T) {
 	if r.Code != 200 || r.json(t)["sources"].(map[string]any)["metrics"] != "not allowed" {
 		t.Fatalf("applications: %d %s", r.Code, r.Body.String())
 	}
+	// (an application list reads the stores per application, and this token sees none; the service list reads them all)
+	if r := d.get("/api/v1/fusion/services", bearer(secret)); r.Code != 200 {
+		t.Fatalf("services: %d %s", r.Code, r.Body.String())
+	}
 	if !d.stores.askedAbout(`resource.k8s.namespace.name+%3D+%22shop%22`) {
 		t.Fatalf("the tag-value listing lacked the namespace limit: %v", d.stores.asked)
 	}
