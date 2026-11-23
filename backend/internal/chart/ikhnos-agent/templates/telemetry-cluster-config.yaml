@@ -156,11 +156,16 @@
 {{- if $amConditions }}{{ $procApp = append $procApp $amProcessor }}{{ end }}
 {{- $procApp = concat $procApp $afterK8s $commonMid $extraNames (list "transform/ikhnos_source_app") $tail }}
 
-{{- /* No k8sattributes here: an Event record carries no pod uid, name or IP for it to look up (its involved object is in the body), so
-       it would add nothing - yet every k8sattributes instance in the config holds its own full pod informer. */ -}}
+{{- /* An Event names what it is about only in its body (involvedObject). transform/k8s_events puts that on the resource - the pod,
+       node or workload, by the attribute the rest of the telemetry uses for it - so an event is found with the pod's own logs and
+       metrics, and with its service. With the pod cache shared (shareWatches), k8sattributes then adds a pod's workload and node
+       from its name and namespace (an instance of its own would hold one more full copy of every pod, so without sharing it is
+       left out, and a pod's events carry the pod alone). */ -}}
 {{- $procLogsInfra := list "memory_limiter" }}
 {{- if $infraEventConditions }}{{ $procLogsInfra = append $procLogsInfra "filter/scope_infra_events" }}{{ end }}
-{{- $procLogsInfra = concat $procLogsInfra $commonMid $extraNames (list "transform/ikhnos_source_logs_infra") $tail }}
+{{- $procLogsInfra = append $procLogsInfra "transform/k8s_events" }}
+{{- if include "agent.telemetryShareWatches" . }}{{ $procLogsInfra = append $procLogsInfra "k8sattributes" }}{{ end }}
+{{- $procLogsInfra = concat $procLogsInfra $afterK8s $commonMid $extraNames (list "transform/ikhnos_source_logs_infra") $tail }}
 
 {{- $procLogsApp := list "memory_limiter" "k8sattributes" }}
 {{- if $alConditions }}{{ $procLogsApp = append $procLogsApp $alProcessor }}{{ end }}
@@ -618,6 +623,24 @@ data:
               {{- if .Values.telemetry.networkLatency.metrics.enabled }}
               - set(resource.attributes["ikhnos.source"], "network-latency") where resource.attributes["service.name"] == "ikhnos-network-latency"
               {{- end }}
+      {{- end }}
+      {{- if has "transform/k8s_events" $usedProcs }}
+      # What an Event is about, from its body, on the resource: its namespace, and the pod, node or workload it names, under the
+      # attribute the rest of the telemetry uses for it (k8sobjects writes one resource per Event, so each keeps its own).
+      transform/k8s_events:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              - set(resource.attributes["k8s.namespace.name"], log.body["object"]["involvedObject"]["namespace"]) where resource.attributes["k8s.namespace.name"] == nil and log.body["object"]["involvedObject"]["namespace"] != nil
+              - set(resource.attributes["k8s.pod.name"], log.body["object"]["involvedObject"]["name"]) where log.body["object"]["involvedObject"]["kind"] == "Pod"
+              - set(resource.attributes["k8s.node.name"], log.body["object"]["involvedObject"]["name"]) where log.body["object"]["involvedObject"]["kind"] == "Node"
+              - set(resource.attributes["k8s.deployment.name"], log.body["object"]["involvedObject"]["name"]) where log.body["object"]["involvedObject"]["kind"] == "Deployment"
+              - set(resource.attributes["k8s.statefulset.name"], log.body["object"]["involvedObject"]["name"]) where log.body["object"]["involvedObject"]["kind"] == "StatefulSet"
+              - set(resource.attributes["k8s.daemonset.name"], log.body["object"]["involvedObject"]["name"]) where log.body["object"]["involvedObject"]["kind"] == "DaemonSet"
+              - set(resource.attributes["k8s.replicaset.name"], log.body["object"]["involvedObject"]["name"]) where log.body["object"]["involvedObject"]["kind"] == "ReplicaSet"
+              - set(resource.attributes["k8s.job.name"], log.body["object"]["involvedObject"]["name"]) where log.body["object"]["involvedObject"]["kind"] == "Job"
+              - set(resource.attributes["k8s.cronjob.name"], log.body["object"]["involvedObject"]["name"]) where log.body["object"]["involvedObject"]["kind"] == "CronJob"
       {{- end }}
       {{- if has "transform/ikhnos_source_logs_infra" $usedProcs }}
       transform/ikhnos_source_logs_infra:

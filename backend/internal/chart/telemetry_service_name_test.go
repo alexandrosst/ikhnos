@@ -107,3 +107,20 @@ func TestKeplersResourceDoesNotKeepTheExportersWorkload(t *testing.T) {
 		}
 	}
 }
+
+// An Event names what it is about only in its body; the resource gets it, under the attribute the rest of the telemetry uses, so
+// a pod's events are found with the pod and a workload's with its service.
+func TestAnEventNamesTheObjectItIsAboutOnItsResource(t *testing.T) {
+	r := render(t, withTel("--set", "telemetry.kubernetesEvents.logs.enabled=true")...)
+	cfg := r.configmaps["ikhnos-telemetry-cluster-config"].Data["otel-collector-config.yaml"]
+	for kind, attr := range map[string]string{"Pod": "k8s.pod.name", "Node": "k8s.node.name", "Deployment": "k8s.deployment.name", "StatefulSet": "k8s.statefulset.name", "DaemonSet": "k8s.daemonset.name"} {
+		want := `set(resource.attributes["` + attr + `"], log.body["object"]["involvedObject"]["name"]) where log.body["object"]["involvedObject"]["kind"] == "` + kind + `"`
+		if !strings.Contains(cfg, want) {
+			t.Errorf("no %s for an event about a %s", attr, kind)
+		}
+	}
+	pl, _ := pipelinesOf(t, r, "ikhnos-telemetry-cluster-config")
+	if !slices.Contains(pl["logs/infra"], "transform/k8s_events") || !slices.Contains(pl["logs/infra"], "transform/service_name") {
+		t.Fatalf("logs/infra = %v", pl["logs/infra"])
+	}
+}

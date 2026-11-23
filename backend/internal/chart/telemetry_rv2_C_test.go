@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -401,15 +402,23 @@ func TestRV2CScrapeTargetsAreValidatedAtRenderTime(t *testing.T) {
 	}
 }
 
-// Event records carry no pod uid, name or IP, so k8sattributes adds nothing to them; it would still hold a full pod cache.
-// The API server also reports every Event's deletion an hour after its last update, which is a second record per Event.
+// Event records carry no pod uid, name or IP of their own: transform/k8s_events puts the pod (or node, or workload) the body
+// names on the resource first, and only then can k8sattributes find the pod - and only with the pod cache shared, since an
+// instance of its own would hold one more full copy of every pod. The API server also reports every Event's deletion an hour
+// after its last update, which is a second record per Event.
 func TestRV2CEventsPipelineIsLeanAndDeliversEachEventOnce(t *testing.T) {
-	_, cfg := clusterCfg(t, "--set", "telemetry.kubernetesEvents.logs.enabled=true")
+	_, cfg := clusterCfg(t, "--set", "telemetry.kubernetesEvents.logs.enabled=true", "--set", "telemetry.clusterCollector.shareWatches=false")
 	procs := rv2CList(rv2CMap(rv2CMap(rv2CMap(cfg["service"])["pipelines"])["logs/infra"])["processors"])
 	for _, p := range procs {
 		if p == "k8sattributes" {
-			t.Errorf("logs/infra processors = %v", procs)
+			t.Errorf("unshared, logs/infra holds a pod cache of its own: %v", procs)
 		}
+	}
+	_, shared := clusterCfg(t, "--set", "telemetry.kubernetesEvents.logs.enabled=true")
+	sp := rv2CList(rv2CMap(rv2CMap(rv2CMap(shared["service"])["pipelines"])["logs/infra"])["processors"])
+	ev, k8s := slices.Index(sp, any("transform/k8s_events")), slices.Index(sp, any("k8sattributes"))
+	if ev < 0 || k8s < ev {
+		t.Errorf("shared, logs/infra must name the event's object before k8sattributes looks it up: %v", sp)
 	}
 	if len(procs) < 2 || procs[0] != "memory_limiter" || procs[len(procs)-1] != "batch" {
 		t.Errorf("logs/infra processors = %v, want memory_limiter first and batch last", procs)
