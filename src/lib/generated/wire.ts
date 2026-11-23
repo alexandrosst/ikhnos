@@ -262,6 +262,11 @@ export interface AppPlacementNode {
   pods?: number
 }
 
+export interface AppRef {
+  id: string
+  name: string
+}
+
 export interface AppServiceView {
   id?: string
   name: string
@@ -1234,6 +1239,7 @@ export interface Fused {
   queries?: QueryResult[]
   changes?: ChangeEvent[]
   spansOmitted?: number
+  application?: AppRef
   sources: Record<string, string>
   joins?: Record<string, string>
   warnings?: string[]
@@ -2345,6 +2351,7 @@ export interface Resource {
   logsTruncated?: boolean
   queries?: QueryResult[]
   topology?: ResourceTopology
+  applications?: AppRef[]
 }
 
 export interface ResourceTopology {

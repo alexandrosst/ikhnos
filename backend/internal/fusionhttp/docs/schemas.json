@@ -171,7 +171,9 @@
     "metrics": {"type": "array", "items": {"$ref": "#/components/schemas/MetricSeries"}, "description": "Fused: the series over the trace's whole time."}, "metricsTruncated": {"type": "boolean"},
     "logs": {"type": "array", "items": {"$ref": "#/components/schemas/LogEntry"}, "description": "Fused with context_logs: lines this resource wrote around the trace that carry no trace id, oldest first."}, "logsTruncated": {"type": "boolean"},
     "queries": {"type": "array", "items": {"$ref": "#/components/schemas/QueryResult"}, "description": "Fused with promql: your queries that name ${service} and the like, evaluated for this resource over the trace's window."},
-    "topology": {"$ref": "#/components/schemas/ResourceTopology"}}},
+    "topology": {"$ref": "#/components/schemas/ResourceTopology"},
+    "applications": {"type": "array", "description": "Fused: the ikhnos applications this resource is part of.", "items": {"$ref": "#/components/schemas/AppRef"}}}},
+  "AppRef": {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}}},
   "Trace": {"type": "object", "properties": {
     "traceId": {"type": "string"}, "start": {"type": "string", "format": "date-time"}, "end": {"type": "string", "format": "date-time"}, "durationMs": {"type": "number"},
     "services": {"type": "array", "items": {"type": "string"}}, "spanCount": {"type": "integer"}, "errorCount": {"type": "integer"},
@@ -190,6 +192,7 @@
     "queries": {"type": "array", "items": {"$ref": "#/components/schemas/QueryResult"}, "description": "Fused with promql: your queries that are not about one resource, over the trace's window."},
     "changes": {"type": "array", "items": {"$ref": "#/components/schemas/ChangeEvent"}, "description": "Fused with include=changes: events about the trace's services, nodes and clusters shortly before and after it, oldest first."},
     "spansOmitted": {"type": "integer", "description": "Spans the span_* filters left out; spanCount is that of the whole trace."},
+    "application": {"$ref": "#/components/schemas/AppRef", "description": "The application the joins were narrowed to (application=); every span of the trace is there regardless."},
     "sources": {"$ref": "#/components/schemas/Sources"},
     "joins": {"type": "object", "additionalProperties": {"type": "string"}, "description": "In words, how each requested signal was tied to the trace: logs by the ids they carry (exact), metrics by service, namespace, pod and time (associated, not proven)."},
     "warnings": {"type": "array", "items": {"type": "string"}, "description": "A part that could not be read is named here and in sources; the trace itself always comes back or the whole read fails."}}}]},
@@ -217,5 +220,6 @@
     "promql": {"description": "Your own queries: an object of name to expression, or a list of `name=expression` strings.", "oneOf": [{"type": "object", "additionalProperties": {"type": "string"}}, {"type": "array", "items": {"type": "string"}}]},
     "promql_spans": {"type": "boolean"}, "promql_step": {"type": "string"}, "promql_pad": {"type": "string"}, "promql_services": {"type": "array", "items": {"type": "string"}},
     "changes_before": {"type": "string"}, "max_changes": {"type": "integer"},
+    "application": {"type": "string", "description": "Narrow what is joined to each trace to this ikhnos application's resources (its id or name), as `application` does on `/traces/{id}`."},
     "stream": {"type": "boolean"}}}
 }

@@ -2,6 +2,12 @@ package fusionhttp
 
 import "ikhnos/internal/fusionapi"
 
+// fusedApplicationNote is what application= does to a fused read.
+const fusedApplicationNote = "Narrow what is joined to the trace to one ikhnos application (its id or name, as `/applications` lists them). The trace stays whole, every span of it; but its log lines, each resource's metrics and context lines, the system lines of its nodes and your per-resource PromQL are read for the application's resources only, and `${application}` and `${application_id}` can be used in PromQL. A resource is part of the application when its `service.name`, or the name of the workload its pod belongs to, is a member's name or alias in the member's namespace and cluster. Every resource of a fused read says which applications it is part of (`applications`), whether or not this is given. Only with `fused=true` or an include list."
+
+// tracesApplicationNote is what application= does to a trace search, fused or not.
+const tracesApplicationNote = "Only traces of this ikhnos application (its id or name, as `/applications` lists them): traces that have a span of one of its services. With `fused=true` it also narrows what is joined to each hit to the application's resources, as on `/traces/{id}`: the traces stay whole, but their logs, metrics and per-resource PromQL are read for the application's resources only, and `${application}` and `${application_id}` can be used in PromQL. Cannot be combined with `q`."
+
 // ReadOps are the routes that read what FUSION saved, signal by signal and joined around a trace: the metrics, the logs and the
 // traces. Each is described here beside the handler that answers it.
 func (g *Guard) ReadOps() []Op {
@@ -42,12 +48,12 @@ func (g *Guard) ReadOps() []Op {
 		{Method: "GET", Path: "/traces", Tag: "Traces", Summary: "Search traces — optionally fused",
 			Description: "Traces matching the filters, newest first. With `fused=true` each hit is also read in full and joined to its logs and metrics (the options below apply to every hit); that returns up to 25 traces, read in parallel, and with `stream=true` they arrive one by one as they are ready.",
 			Params:      join(rng, []string{"service", "namespace", "cluster", "application", "category", "name", "status", "min_duration", "max_duration", "limit", "q"}, fused, []string{"stream"}),
-			Notes:       map[string]string{"limit": "The most traces (default 20, at most 100; a fused search defaults to 10 and takes at most 25)."},
+			Notes:       map[string]string{"limit": "The most traces (default 20, at most 100; a fused search defaults to 10 and takes at most 25).", "application": tracesApplicationNote},
 			Excludes:    map[string][]string{"q": {"service", "namespace", "cluster", "application", "category", "name", "status", "min_duration", "max_duration"}},
 			Response:    "TraceList", Stream: true, Handler: g.Traces},
 		{Method: "GET", Path: "/traces/{id}", Tag: "Traces", Summary: "One trace — optionally fused",
 			Description: "The trace as Tempo has it. With `fused=true` (or an `include` list) it is the fused object: every span carries the log lines written under its id and the metric points of its own time; every resource carries its metric series and optionally the lines it wrote without a trace id; and `system_logs` adds the system namespaces' lines on the trace's nodes. `sources` says what could be read, `joins` how each signal was tied to the trace, `warnings` what went wrong.",
-			PathParams:  []string{"id"}, Params: fused, Response: "FusedTrace", Handler: g.Trace},
+			PathParams:  []string{"id"}, Params: join(fused, []string{"application"}), Notes: map[string]string{"application": fusedApplicationNote}, Response: "FusedTrace", Handler: g.Trace},
 		{Method: "POST", Path: "/traces/batch", Tag: "Traces", Summary: "Read many fused traces at once",
 			Description: "Up to 25 traces in one request, read three at a time and without ever taking more than part of the capacity of the stores, so other reads are not held up. One trace failing does not fail the rest: each result has its own `status`. When the time limit (30 seconds) runs out, the traces not yet started come back with status 504 and one being read comes back with what was read, the rest named in its `warnings`. The body takes the trace `ids` and every fused option (`include`, `pad`, `metric`, `omit`, `span_status` ...); options in the query string are defaults the body overrides. With `stream=true` the answer is NDJSON: one `result` line per trace as it finishes (in finishing order), then a `summary` line.",
 			Params:      []string{"stream"}, Body: "BatchRequest",

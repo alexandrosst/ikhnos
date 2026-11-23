@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -79,6 +80,12 @@ type FuseOptions struct {
 	ChangesBefore time.Duration
 	MaxChanges    int
 	Extras        Extras
+
+	// Applications are the ikhnos applications the caller may know of: each resource is tagged with those it is part of.
+	// Application, when set, narrows what is joined to the trace to that application's resources (see focus.go); it
+	// also gives ${application} and ${application_id} to the caller's PromQL.
+	Applications []AppGroup
+	Application  *AppGroup
 }
 
 // MetricViews picks which metric series a resource carries. None set means the default, App and Pod.
@@ -128,6 +135,13 @@ const (
 )
 
 func (o *FuseOptions) defaults() error {
+	if o.Application == nil {
+		for i := range o.PromQL {
+			if o.PromQL[i].uses(promAppVars...) {
+				return badRequest("promql %s uses ${application} or ${application_id}: name the application with application=", o.PromQL[i].Name)
+			}
+		}
+	}
 	if o.Pad == 0 {
 		o.Pad = defaultPad
 	}
@@ -246,8 +260,10 @@ type Fused struct {
 	// Changes are events ikhnos recorded about the trace's services, nodes and clusters around the trace (include=changes).
 	Changes []ChangeEvent `json:"changes,omitempty"`
 	// SpansOmitted counts spans the span_* filters left out; the trace's spanCount is that of the whole trace.
-	SpansOmitted int               `json:"spansOmitted,omitempty"`
-	Sources      map[string]string `json:"sources"`
+	SpansOmitted int `json:"spansOmitted,omitempty"`
+	// Application is the application the joins were narrowed to (application=); the trace's spans are all there regardless.
+	Application *AppRef           `json:"application,omitempty"`
+	Sources     map[string]string `json:"sources"`
 	// Joins says in words how each requested signal was tied to the trace, because the two are not alike: a log line
 	// carries the trace and span id, a metric sample carries neither.
 	Joins    map[string]string `json:"joins,omitempty"`
@@ -334,17 +350,23 @@ func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOpt
 	}
 	var wg sync.WaitGroup
 
-	// The resources worth a lookup of their own: those with a service or a pod, at most maxFusedResources.
-	var looked []*Resource
-	for _, r := range tr.Resources {
-		if r.Service == "" && r.Pod == "" {
-			continue
-		}
-		if len(looked) == maxFusedResources {
-			note("the trace has more than %d resources; the rest have no metrics or context logs here", maxFusedResources)
-			break
-		}
-		looked = append(looked, r)
+	// The resources worth a lookup of their own: those with a service or a pod, of the application when the read is
+	// narrowed to one, at most maxFusedResources.
+	tagApplications(tr.Resources, opts.Applications)
+	looked := tr.Resources
+	logServices := tr.Services // whose trace-linked lines are read
+	if opts.Application != nil {
+		ref := opts.Application.Ref()
+		f.Application = &ref
+		var warns []string
+		looked, warns = focusResources(opts.Application, tr.Resources)
+		f.Warnings = append(f.Warnings, warns...)
+		logServices = servicesOf(looked)
+	}
+	looked = slices.DeleteFunc(slices.Clone(looked), func(r *Resource) bool { return r.Service == "" && r.Pod == "" })
+	if len(looked) > maxFusedResources {
+		note("the trace has more than %d resources; the rest have no metrics, context logs, queries or topology here", maxFusedResources)
+		looked = looked[:maxFusedResources]
 	}
 	if opts.Metrics || opts.ContextLogs {
 		// A resource that does not say which cluster it is from cannot be pinned to one: the series and lines of the same service or pod
@@ -365,11 +387,13 @@ func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOpt
 	case !opts.Logs:
 	case !s.Allows(SignalLogs):
 		setSource(SignalLogs, SourceNotAllowed)
+	case len(logServices) == 0 && opts.Application != nil: // nothing of the application to read lines of (an empty list would mean every service)
+		setSource(SignalLogs, SourceOK)
 	default:
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			lines, truncated, err := c.Logs(ctx, s, LogFilter{TraceID: tr.TraceID, Services: tr.Services, Severity: opts.LogSeverity, Contains: opts.LogContains}, window, opts.MaxLogs)
+			lines, truncated, err := c.Logs(ctx, s, LogFilter{TraceID: tr.TraceID, Services: logServices, Severity: opts.LogSeverity, Contains: opts.LogContains}, window, opts.MaxLogs)
 			if err != nil {
 				warn(SignalLogs, err)
 				return
@@ -421,7 +445,11 @@ func (c *Client) FuseTrace(ctx context.Context, s Scope, id string, opts FuseOpt
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sl, warns, err := c.systemLogs(ctx, s, tr, opts, window)
+			nodesOf := tr.Resources
+			if opts.Application != nil {
+				nodesOf = looked // the nodes the application's own pods ran on
+			}
+			sl, warns, err := c.systemLogs(ctx, s, nodesOf, opts, window)
 			if err != nil {
 				warn(SourceSystemLogs, err)
 				return
@@ -579,11 +607,11 @@ func reverseLogs(l []LogEntry) {
 
 // systemLogs reads the system namespaces' lines on the nodes the trace ran on (one read per cluster and node, at most
 // maxSystemNodes), newest MaxSystemLogs of them in all, oldest first.
-func (c *Client) systemLogs(ctx context.Context, s Scope, tr *Trace, opts FuseOptions, window TimeRange) (*SystemLogs, []string, error) {
+func (c *Client) systemLogs(ctx context.Context, s Scope, resources []*Resource, opts FuseOptions, window TimeRange) (*SystemLogs, []string, error) {
 	type loc struct{ cluster, node string }
 	var locs []loc
 	seen := map[loc]bool{}
-	for _, r := range tr.Resources {
+	for _, r := range resources {
 		l := loc{r.Cluster, r.Node}
 		if r.Node != "" && !seen[l] {
 			seen[l] = true

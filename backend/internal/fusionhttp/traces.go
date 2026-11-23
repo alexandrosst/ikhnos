@@ -15,8 +15,6 @@ import (
 	"ikhnos/internal/kernel"
 )
 
-import ()
-
 func (g *Guard) Traces(w http.ResponseWriter, r *http.Request, c *fusionapi.Client, who Caller) {
 	q := r.URL.Query()
 	tr, err := Range(r, g.Now())
@@ -84,6 +82,10 @@ func (g *Guard) Traces(w http.ResponseWriter, r *http.Request, c *fusionapi.Clie
 	if len(ids) > 0 && !g.bulkAllowed(w, who, len(ids)) {
 		return
 	}
+	if err := g.fuseFocus(r, who, q.Get("application"), &opts); err != nil {
+		g.Err(w, err)
+		return
+	}
 	if stream {
 		page.Type = "traces"
 		g.streamBulk(w, r, c, who, ids, opts, page)
@@ -106,12 +108,20 @@ func (g *Guard) Trace(w http.ResponseWriter, r *http.Request, c *fusionapi.Clien
 	}
 	opts.Extras = g.Extras()
 	if !fused {
+		if r.URL.Query().Has("application") {
+			g.Err(w, &fusionapi.Error{Status: http.StatusBadRequest, Msg: "application only applies to a fused read; add fused=true or an include list"})
+			return
+		}
 		tr, err := c.Trace(r.Context(), who.Scope, id)
 		if err != nil {
 			g.Err(w, err)
 			return
 		}
 		httpkit.WriteJSON(w, 200, tr)
+		return
+	}
+	if err := g.fuseFocus(r, who, r.URL.Query().Get("application"), &opts); err != nil {
+		g.Err(w, err)
 		return
 	}
 	f, err := c.FuseTrace(r.Context(), who.Scope, id, opts)
@@ -135,7 +145,7 @@ func (g *Guard) TraceBatch(w http.ResponseWriter, r *http.Request, c *fusionapi.
 	}
 	q := r.URL.Query() // options given in the query string are defaults the body overrides
 	for k, v := range body {
-		if k != "ids" && k != "stream" && !slices.Contains(fusionapi.FuseParamNames, k) {
+		if k != "ids" && k != "stream" && k != "application" && !slices.Contains(fusionapi.FuseParamNames, k) {
 			g.Err(w, &fusionapi.Error{Status: http.StatusBadRequest, Msg: fmt.Sprintf("unknown field %q", kernel.Printable(k, 40))})
 			return
 		}
@@ -185,6 +195,10 @@ func (g *Guard) TraceBatch(w http.ResponseWriter, r *http.Request, c *fusionapi.
 		return
 	}
 	if !g.bulkAllowed(w, who, len(ids)) {
+		return
+	}
+	if err := g.fuseFocus(r, who, q.Get("application"), &opts); err != nil {
+		g.Err(w, err)
 		return
 	}
 	if stream {

@@ -72,6 +72,8 @@ type Resource struct {
 	Queries []QueryResult `json:"queries,omitempty"`
 	// Topology is what ikhnos knows about the service: what it calls and what calls it (include=topology).
 	Topology *ResourceTopology `json:"topology,omitempty"`
+	// Applications are the ikhnos applications the resource is part of (fused reads; see focus.go).
+	Applications []AppRef `json:"applications,omitempty"`
 }
 
 // Trace is one trace as Tempo has it: its spans in start order, and the resources behind them.

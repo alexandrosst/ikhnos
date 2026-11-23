@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/url"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,11 +18,16 @@ import (
 // The caller's own PromQL in a fused read.
 //
 // A query is given as promql=<name>=<expression> (repeat the parameter for several). The expression may name the
-// resource it is read for with ${service}, ${namespace}, ${pod}, ${node} and ${cluster}, so one query serves every
-// service of a trace: such a query is evaluated once per resource (and once per distinct expression, so two pods of one
-// service that the query tells apart only by ${service} cost one read) and its series sit on that resource. A query
-// that names none of them is evaluated once for the whole trace and sits on the fused object. ${trace_id} and ${range}
-// (the length of the window, in seconds, as a PromQL duration) are available to both.
+// resource it is read for with ${service}, ${namespace}, ${pod}, ${node}, ${cluster} and ${workload} (the Deployment,
+// StatefulSet, DaemonSet, Job or CronJob its pod belongs to), so one query serves every service of a trace: such a query
+// is evaluated once per resource (and once per distinct expression, so two pods of one service that the query tells apart
+// only by ${service} cost one read) and its series sit on that resource. A query that names none of them is evaluated
+// once for the whole trace and sits on the fused object. ${trace_id} and ${range} (the length of the window, in seconds,
+// as a PromQL duration) are available to both, and so are ${application} and ${application_id} when the read is narrowed
+// to an application (application=): a query about the whole application joins on the info series of the applications,
+// e.g. sum by (service_name) (rate(http_server_request_duration_seconds_count[${range}]) * on(service_name,
+// k8s_namespace_name, ikhnos_cluster_id) group_left ikhnos_application_info{application_id="${application_id}"}).
+// When the read is narrowed, the per-resource queries are evaluated for the application's resources only.
 //
 // Substitution never lets a value change the shape of the query: a value that holds a quote, a backslash, a brace or
 // a control character is not substituted (the resource is skipped and the answer says so), and ${service:re} gives the
@@ -42,8 +48,10 @@ var promNameRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
 
 // The variables an expression may use.
 var (
-	promResourceVars = []string{"service", "namespace", "pod", "node", "cluster"}
-	promOtherVars    = []string{"trace_id", "range"}
+	promResourceVars = []string{"service", "namespace", "pod", "node", "cluster", "workload"}
+	promOtherVars    = []string{"trace_id", "range", "application", "application_id"}
+	// promAppVars are the variables that need the read to be narrowed to an application.
+	promAppVars = []string{"application", "application_id"}
 )
 
 // PromQuery is one query the caller asked to have in the fused object.
@@ -211,7 +219,17 @@ func (q *PromQuery) expand(vars map[string]string) (expr, skip string) {
 }
 
 func resourceVars(r *Resource) map[string]string {
-	return map[string]string{"service": r.Service, "namespace": r.Namespace, "pod": r.Pod, "node": r.Node, "cluster": r.Cluster}
+	return map[string]string{"service": r.Service, "namespace": r.Namespace, "pod": r.Pod, "node": r.Node, "cluster": r.Cluster, "workload": r.Workload()}
+}
+
+// uses says whether the expression names one of the variables.
+func (q *PromQuery) uses(vars ...string) bool {
+	for _, p := range q.tpl {
+		if p.v != "" && slices.Contains(vars, p.v) {
+			return true
+		}
+	}
+	return false
 }
 
 // promRange evaluates one expression as a range query. Only a Scope with no namespace or cluster limit may do this.
@@ -242,6 +260,9 @@ type promRun struct {
 func (c *Client) fusePromQL(ctx context.Context, s Scope, tr *Trace, looked []*Resource, opts FuseOptions, w TimeRange, step time.Duration) (global []QueryResult, warns []string, firstErr error) {
 	rangeVar := strconv.Itoa(int(math.Ceil(w.To.Sub(w.From).Seconds()))) + "s"
 	common := map[string]string{"trace_id": tr.TraceID, "range": rangeVar}
+	if g := opts.Application; g != nil {
+		common["application"], common["application_id"] = g.Name, g.ID
+	}
 
 	type slot struct {
 		q    *PromQuery

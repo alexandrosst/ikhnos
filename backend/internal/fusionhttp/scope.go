@@ -16,7 +16,8 @@ func Range(r *http.Request, now time.Time) (fusionapi.TimeRange, error) {
 // Scope is the Scope a structured list read runs with: the caller's own, narrowed to one ikhnos application when the
 // request names one (application=<id or name>). The application is resolved here, at read time, from what ikhnos knows
 // now, so changing an application changes what it shows without touching any stored telemetry. The caller's own Scope
-// (who.Scope) is what everything not narrowed keeps using: reading one trace, and the fused joins around a search hit.
+// (who.Scope) is what reading a trace keeps using: a fused read is narrowed to an application by what it joins (fuseFocus),
+// never by the spans of the trace, which a search for the application's traces must return whole.
 func (g *Guard) Scope(r *http.Request, who Caller) (fusionapi.Scope, error) {
 	q := r.URL.Query()
 	if !q.Has("application") {
@@ -31,6 +32,31 @@ func (g *Guard) Scope(r *http.Request, who Caller) (fusionapi.Scope, error) {
 		return fusionapi.Scope{}, err
 	}
 	return who.Scope.FocusOn(grp)
+}
+
+// fuseFocus gives a fused read the applications its resources are tagged with and, when ref names one (application=), the
+// application its joins are narrowed to. The tags are a help, not the answer: without them (a server that does not know the
+// applications, or cannot read them now) the read goes on untagged. A named application must be found, or the read fails.
+func (g *Guard) fuseFocus(r *http.Request, who Caller, ref string, opts *fusionapi.FuseOptions) error {
+	if g.Extras() == nil && ref == "" {
+		return nil
+	}
+	groups, err := g.Groups(r, who)
+	if err != nil {
+		if ref == "" {
+			return nil
+		}
+		return err
+	}
+	opts.Applications = groups
+	if ref != "" {
+		grp, err := fusionapi.FindGroup(groups, ref)
+		if err != nil {
+			return err
+		}
+		opts.Application = grp
+	}
+	return nil
 }
 
 // Groups are the ikhnos applications the caller may know of: each with only the services in the caller's namespaces
