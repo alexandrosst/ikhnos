@@ -166,9 +166,12 @@ func TestSameExpressionIsEvaluatedOnce(t *testing.T) {
 func TestPromQLOfALimitedCallerIsRestrictedAndOneBadQueryDoesNotSpoilTheRest(t *testing.T) {
 	f := newFake(t)
 	f.tempo = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, tempoTrace()) }
+	var mu sync.Mutex
 	var sent []string
 	f.prom = func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
 		sent = append(sent, r.URL.Query().Get("query"))
+		mu.Unlock()
 		if strings.Contains(r.URL.Query().Get("query"), "broken") {
 			w.WriteHeader(400)
 			writeJSON(w, map[string]any{"status": "error", "error": "parse error: unexpected end of input"})
