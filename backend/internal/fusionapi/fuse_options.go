@@ -41,7 +41,8 @@ type FuseOptions struct {
 	// Spans keeps only the spans that match (the trace's own totals stay those of the whole trace).
 	Spans SpanFilter
 
-	// PromQL are the caller's own queries (see promql.go). PromQLSpans also cuts the per-resource ones to each span's time.
+	// PromQL are the caller's own queries (see promql_query.go and promql_template.go). PromQLSpans also cuts the
+	// per-resource ones to each span's time.
 	// PromQLStep and PromQLPad override the step and the window (default: those of the metrics); PromQLServices limits
 	// the per-resource queries to resources of these services.
 	PromQL         []PromQuery
