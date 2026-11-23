@@ -664,6 +664,13 @@ telemetry:
       enabled: false
       detectors: [env, system]
       timeout: 5s
+    # On by default: a record from a pod that names no service of its own - a pod's CPU and memory, its container logs,
+    # an SDK left at "unknown_service:java" - is given the name of its Deployment, StatefulSet or DaemonSet as service.name,
+    # right after k8sattributes found the pod. That is the name ikhnos gives the service, so FUSION can tie the record to the
+    # service and to the applications it is in. A service.name the application set itself is never changed. Turning it on
+    # or off changes the identity of the pod series in Prometheus once (they gain or lose service_name and job).
+    serviceNameFromWorkload:
+      enabled: true
     # On by default: the one processor this chart turns on without being asked, because telemetry.receiver
     # below has no auth on by default either - anything that can reach this collector's OTLP receiver can
     # push attributes that end up in your telemetry backend. allow_all_keys: true means this is a

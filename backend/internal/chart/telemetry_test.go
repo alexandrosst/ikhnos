@@ -332,7 +332,8 @@ func TestTelemetryProcessorOrderMatchesSpec(t *testing.T) {
 	got, _ := traces["processors"].([]any)
 	// The scope filter right after k8sattributes: redaction and detection then only ever work on what is kept, and no
 	// redaction pattern can alter the namespace the scope reads.
-	want := []any{"memory_limiter", "k8sattributes", "filter/scope", "resourcedetection", "redaction", "probabilistic_sampler", "transform/ikhnos_source_traces", "resource/ikhnos", "batch"}
+	// transform/service_name after the filter, for the same reason, and before anything a person adds.
+	want := []any{"memory_limiter", "k8sattributes", "filter/scope", "transform/service_name", "resourcedetection", "redaction", "probabilistic_sampler", "transform/ikhnos_source_traces", "resource/ikhnos", "batch"}
 	if len(got) != len(want) {
 		t.Fatalf("traces processors = %v, want %v", got, want)
 	}

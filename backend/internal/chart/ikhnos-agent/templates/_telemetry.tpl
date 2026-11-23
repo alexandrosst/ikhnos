@@ -368,6 +368,35 @@
 {{- toJson $m -}}
 {{- end -}}
 
+{{/* transform/service_name (telemetry.processors.serviceNameFromWorkload): a record from a pod whose service.name is unset, or
+     the SDK's placeholder "unknown_service...", takes the name of the pod's Deployment, StatefulSet or DaemonSet - the name the
+     server gives the service (agent/collect, interpret) - so FUSION can tie a pod's own metrics, its container logs and the
+     spans of an unnamed SDK to the service and its applications. A name the application set is never changed. Runs after
+     k8sattributes, which is what puts the workload names on the record, and after the scope filters, so it only names what is
+     kept; one definition serves the three signal types. */}}
+{{- define "agent.telemetryServiceNameOn" -}}
+{{- if dig "processors" "serviceNameFromWorkload" "enabled" true (.Values.telemetry | default dict) }}true{{ end -}}
+{{- end -}}
+{{- define "agent.telemetryServiceNameYAML" -}}
+{{- if include "agent.telemetryServiceNameOn" . }}
+transform/service_name:
+  error_mode: ignore
+  {{- range $k := list "metric_statements" "log_statements" "trace_statements" }}
+  {{ $k }}:
+    - context: resource
+      statements:
+        {{- range $a := list "k8s.deployment.name" "k8s.statefulset.name" "k8s.daemonset.name" }}
+        - set(resource.attributes["service.name"], resource.attributes["{{ $a }}"]) where resource.attributes["{{ $a }}"] != nil and (resource.attributes["service.name"] == nil or IsMatch(resource.attributes["service.name"], "^unknown_service"))
+        {{- end }}
+  {{- end }}
+{{- end }}
+{{- end -}}
+
+{{/* The processors every pipeline with k8sattributes runs once its scope filters have run: transform/service_name when it is on. */}}
+{{- define "agent.telemetryAfterK8sAttrs" -}}
+{{- if include "agent.telemetryServiceNameOn" . }}["transform/service_name"]{{ else }}[]{{ end -}}
+{{- end -}}
+
 {{/* The scope infrastructure signals follow (telemetry.scope.infra): only what carries a namespace is
      narrowed; nodes and the host's own metrics pass untouched. */}}
 {{- define "agent.telemetryInfraScopeConditions" -}}

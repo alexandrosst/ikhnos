@@ -13,7 +13,7 @@
 {{- if .Values.telemetry.resourceUsage.metrics.enabled }}{{ $metricGroups = append $metricGroups "container" }}{{ end }}
 {{- $metricGroups = concat $metricGroups (list "pod" "node") }}
 {{- if .Values.telemetry.nodeRuntime.metrics.enabled }}{{ $metricGroups = append $metricGroups "volume" }}{{ end }}
-{{- $hProcessors := list "memory_limiter" "k8sattributes" "resource/node" }}
+{{- $hProcessors := concat (list "memory_limiter" "k8sattributes" "resource/node") (include "agent.telemetryAfterK8sAttrs" . | fromJsonArray) }}
 {{- if .Values.telemetry.processors.resourceDetection.enabled }}{{ $hProcessors = append $hProcessors "resourcedetection" }}{{ end }}
 {{- if .Values.telemetry.processors.redaction.enabled }}{{ $hProcessors = append $hProcessors "redaction" }}{{ end }}
 {{- range .Values.telemetry.processors.extraProcessorNames }}{{ $hProcessors = append $hProcessors . }}{{ end }}
@@ -209,6 +209,7 @@ data:
         error_mode: ignore
         log_conditions: {{ $logConditions | toJson }}
       {{- end }}
+      {{- include "agent.telemetryServiceNameYAML" . | nindent 6 }}
       resource/node:
         attributes:
           - {key: k8s.node.name, value: "${env:NODE_NAME}", action: upsert}

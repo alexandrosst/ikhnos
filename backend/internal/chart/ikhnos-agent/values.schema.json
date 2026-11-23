@@ -2039,6 +2039,15 @@
                 }
               }
             },
+            "serviceNameFromWorkload": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
             "resourceDetection": {
               "type": "object",
               "additionalProperties": false,

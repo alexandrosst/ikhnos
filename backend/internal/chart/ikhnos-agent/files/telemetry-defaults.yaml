@@ -366,6 +366,8 @@ telemetry:
       - system
       enabled: false
       timeout: 5s
+    serviceNameFromWorkload:
+      enabled: true
     tracesSampling:
       percentage: 100
   receiver:
