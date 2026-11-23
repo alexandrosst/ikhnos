@@ -126,11 +126,29 @@ type Overview struct {
 }
 
 // ServiceOverview reads the overview of one service.
-func (c *Client) ServiceOverview(ctx context.Context, s Scope, name string, tr TimeRange) (*Overview, error) {
-	if err := checkValue("service", name); err != nil {
+//
+// A service.name is shared by every service of that name, in every namespace and cluster; svc.Namespace and svc.Cluster, when
+// given, keep the one in that namespace or cluster (a service of the same name elsewhere would otherwise be merged into it).
+func (c *Client) ServiceOverview(ctx context.Context, s Scope, svc AppMember, tr TimeRange) (*Overview, error) {
+	if err := checkValue("service", svc.Name); err != nil {
 		return nil, err
 	}
-	return c.overview(ctx, s, name, name, tr)
+	for _, v := range []struct{ what, val string }{{"namespace", svc.Namespace}, {"cluster", svc.Cluster}} {
+		if v.val != "" {
+			if err := checkValue(v.what, v.val); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if svc.Namespace != "" || svc.Cluster != "" {
+		// The same narrowing as an application of this one service, where it was said to run.
+		fs, err := s.FocusOn(&AppGroup{Name: svc.Name, Members: []AppMember{{Name: svc.Name, Namespace: svc.Namespace, Cluster: svc.Cluster}}})
+		if err != nil { // (only a namespace or cluster outside the caller's own can fail here)
+			return nil, errf(http.StatusNotFound, "no service %q there that this credential may see", svc.Name)
+		}
+		s = fs
+	}
+	return c.overview(ctx, s, svc.Name, svc.Name, tr)
 }
 
 // ApplicationOverview reads the overview of one ikhnos application: the same things as for a service, over all of its

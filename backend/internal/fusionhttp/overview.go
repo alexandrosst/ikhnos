@@ -3,6 +3,7 @@ package fusionhttp
 import (
 	"context"
 	"net/http"
+	"sort"
 	"time"
 
 	"ikhnos/internal/fusion"
@@ -85,15 +86,56 @@ func (g *Guard) Services(w http.ResponseWriter, r *http.Request, c *fusionapi.Cl
 			}
 		}
 	}
+	places := g.servicePlaces(r.Context(), who)
 	out := make([]serviceDoc, 0, len(svcs))
 	for _, sv := range svcs {
 		names := in[sv.Name]
 		if names == nil {
 			names = []string{}
 		}
-		out = append(out, serviceDoc{sv, names})
+		runs := places[sv.Name]
+		if runs == nil {
+			runs = []servicePlaceDoc{}
+		}
+		out = append(out, serviceDoc{sv, names, runs})
 	}
 	httpkit.WriteJSON(w, 200, servicesDoc{Services: out, Sources: sources, Warnings: orEmpty(warnings), From: tr.From, To: tr.To})
+}
+
+// servicePlaces is, for each name telemetry may carry as service.name (a service's own, or its app label), where ikhnos'
+// topology has services of that name now, within what the caller may see. Best effort: without the topology it is empty.
+func (g *Guard) servicePlaces(ctx context.Context, who Caller) map[string][]servicePlaceDoc {
+	out := map[string][]servicePlaceDoc{}
+	ex := g.Extras()
+	if ex == nil {
+		return out
+	}
+	view, err := ex.Topology(ctx)
+	if err != nil || view == nil {
+		return out
+	}
+	for _, sv := range view.Services {
+		if !who.Scope.NamespaceVisible(sv.Namespace) || !who.Scope.ClusterVisible(sv.Cluster) {
+			continue
+		}
+		p := servicePlaceDoc{ID: sv.ID, Namespace: sv.Namespace, Cluster: sv.Cluster, Kind: sv.Kind}
+		seen := map[string]bool{}
+		for _, n := range []string{sv.Name, sv.Labels["app"], sv.Labels["app.kubernetes.io/name"]} {
+			if n != "" && !seen[n] {
+				seen[n] = true
+				out[n] = append(out[n], p)
+			}
+		}
+	}
+	for _, ps := range out {
+		sort.Slice(ps, func(i, j int) bool {
+			if ps[i].Cluster != ps[j].Cluster {
+				return ps[i].Cluster < ps[j].Cluster
+			}
+			return ps[i].Namespace < ps[j].Namespace
+		})
+	}
+	return out
 }
 
 // Application is one ikhnos application at a glance, named by its id or its name.
@@ -230,7 +272,8 @@ func (g *Guard) Service(w http.ResponseWriter, r *http.Request, c *fusionapi.Cli
 		g.Err(w, err)
 		return
 	}
-	o, err := c.ServiceOverview(r.Context(), who.Scope, r.PathValue("name"), tr)
+	q := r.URL.Query()
+	o, err := c.ServiceOverview(r.Context(), who.Scope, fusionapi.AppMember{Name: r.PathValue("name"), Namespace: q.Get("namespace"), Cluster: q.Get("cluster")}, tr)
 	if err != nil {
 		g.Err(w, err)
 		return

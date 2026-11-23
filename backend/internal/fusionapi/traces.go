@@ -433,9 +433,12 @@ type TraceSummary struct {
 // TraceFilter picks traces. Every field is optional and combines with AND; the conditions are about spans, so a trace
 // matches when some span of it does.
 type TraceFilter struct {
-	Service    string   `json:"service,omitempty"`
-	Namespace  string   `json:"namespace,omitempty"`
-	Cluster    string   `json:"cluster,omitempty"`
+	Service   string `json:"service,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Cluster   string `json:"cluster,omitempty"`
+	// Pod and Node keep traces with a span of a resource on this pod, or this node.
+	Pod        string   `json:"pod,omitempty"`
+	Node       string   `json:"node,omitempty"`
 	Categories []string `json:"categories,omitempty"` // kubernetes or application, by namespace (see traceCategoryCond)
 	Name       string   `json:"name,omitempty"`       // span name
 	Status     string   `json:"status,omitempty"`     // error | ok | unset
@@ -447,7 +450,8 @@ type TraceFilter struct {
 func (f TraceFilter) traceQL(s Scope) (string, error) {
 	c, err := eqMatchers([]eqFilter{
 		{"service", "resource." + attrService, f.Service}, {"namespace", "resource." + attrNamespace, f.Namespace},
-		{"cluster", "resource." + attrCluster, f.Cluster}, {"name", "name", f.Name},
+		{"cluster", "resource." + attrCluster, f.Cluster}, {"pod", "resource." + attrPod, f.Pod}, {"node", "resource." + attrNode, f.Node},
+		{"name", "name", f.Name},
 	}, func(l, v string) string { return l + " = " + v })
 	if err != nil {
 		return "", err

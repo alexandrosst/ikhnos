@@ -34,7 +34,10 @@ func (g *Guard) Ops() []Op {
 			Params:      join(rng, []string{"application"}), Response: "ServiceList", Handler: g.Services},
 		{Method: "GET", Path: "/services/{name}", Tag: "Services", Summary: "One service at a glance",
 			Description: "The signals the service has, its most recent traces and failing traces, its latest error logs and the metric names it reports.",
-			PathParams:  []string{"name"}, Params: rng, Response: "Overview", Handler: g.Service},
+			PathParams:  []string{"name"}, Params: join(rng, []string{"namespace", "cluster"}),
+			Notes: map[string]string{"namespace": "Only the service of this name in this namespace: a `service.name` is shared by every service called so, wherever it runs.",
+				"cluster": "Only the service of this name in this cluster (its ikhnos cluster id)."},
+			Response: "Overview", Handler: g.Service},
 
 		{Method: "GET", Path: "/links", Tag: "Links", Summary: "The latest figures of the links between clusters",
 			Description: "For each pair of clusters the organisation watches (the `links` of its settings), the latest loss in each direction, round-trip time, delay variation, path MTU and throughput, and when they were measured, read from the `ikhnos_link_*` metrics the clusters send. A figure FUSION does not hold is absent, never zero. Each pair is listed once, with `a` before `b`, `aToB` and `bToA` naming its directions, and `measuredBy` saying whose series the figures are: both clusters measure towards each other, so do not count a pair under each of its clusters. The figures are fixed queries read by the server and shared for 15 seconds, so asking more often only costs your rate limit. Needs the `metrics` signal. A token limited to clusters sees only the pairs whose two clusters it may read; one limited to namespaces is refused, since the figures belong to no namespace. For arbitrary series, use `/metrics/range` with `metric=ikhnos_link_.*` (category `system`).",

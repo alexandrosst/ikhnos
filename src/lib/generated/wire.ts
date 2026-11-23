@@ -2653,6 +2653,7 @@ export interface ServiceDoc {
   name: string
   signals: Signal[]
   applications: string[]
+  runsIn: ServicePlaceDoc[]
 }
 
 export type ServiceExposure = 'internal' | 'node-port' | 'load-balancer' | 'ingress'
@@ -2666,6 +2667,13 @@ export interface ServiceMesh {
   excludedPorts?: string[]
   controlPlane?: boolean
   source?: string
+}
+
+export interface ServicePlaceDoc {
+  cluster?: string
+  id: string
+  kind?: string
+  namespace?: string
 }
 
 export interface ServicesDoc {

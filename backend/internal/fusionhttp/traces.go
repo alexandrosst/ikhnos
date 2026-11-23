@@ -62,7 +62,8 @@ func (g *Guard) Traces(w http.ResponseWriter, r *http.Request, c *fusionapi.Clie
 		if err == nil {
 			cats, _ := fusionapi.ParseCategories(q.Get("category")) // already checked by the route (Op.CheckQuery)
 			traces, truncated, err = c.SearchTraces(r.Context(), scope, fusionapi.TraceFilter{
-				Service: q.Get("service"), Namespace: q.Get("namespace"), Cluster: q.Get("cluster"), Name: q.Get("name"), Status: q.Get("status"), Categories: cats,
+				Service: q.Get("service"), Namespace: q.Get("namespace"), Cluster: q.Get("cluster"), Pod: q.Get("pod"), Node: q.Get("node"),
+				Name: q.Get("name"), Status: q.Get("status"), Categories: cats,
 				MinDuration: minD, MaxDuration: maxD,
 			}, tr, limit)
 		}

@@ -80,6 +80,18 @@ type applicationsDoc struct {
 type serviceDoc struct {
 	fusionapi.Application
 	Applications []string `json:"applications"`
+	// RunsIn is where ikhnos knows services of this name now (by their name, or an app label telemetry uses as service.name):
+	// each namespace and cluster, with the workload's kind. Empty for a name ikhnos knows no service by (an exporter, a service
+	// outside the clusters), or when the topology cannot be read now.
+	RunsIn []servicePlaceDoc `json:"runsIn"`
+}
+
+// servicePlaceDoc is one place a service runs, as ikhnos' topology has it.
+type servicePlaceDoc struct {
+	Cluster   string `json:"cluster,omitempty"`
+	ID        string `json:"id"`
+	Kind      string `json:"kind,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // servicesDoc answers the list of services that have telemetry.

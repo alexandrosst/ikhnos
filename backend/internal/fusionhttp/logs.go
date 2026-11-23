@@ -36,7 +36,7 @@ func (g *Guard) Logs(w http.ResponseWriter, r *http.Request, c *fusionapi.Client
 	} else {
 		cats, _ := fusionapi.ParseCategories(q.Get("category")) // already checked by the route (Op.CheckQuery)
 		entries, truncated, err = c.Logs(r.Context(), scope, fusionapi.LogFilter{
-			Service: q.Get("service"), Namespace: q.Get("namespace"), Pod: q.Get("pod"), Cluster: q.Get("cluster"), Categories: cats,
+			Service: q.Get("service"), Namespace: q.Get("namespace"), Pod: q.Get("pod"), Node: q.Get("node"), Cluster: q.Get("cluster"), Categories: cats,
 			TraceID: q.Get("trace_id"), SpanID: q.Get("span_id"), Severity: q.Get("severity"), Contains: q.Get("contains"), Backward: backward,
 		}, tr, limit)
 	}
