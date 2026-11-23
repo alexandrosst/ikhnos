@@ -123,10 +123,9 @@ func focusResources(g *AppGroup, resources []*Resource) (in []*Resource, warns [
 func servicesOf(resources []*Resource) []string {
 	var out []string
 	for _, r := range resources {
-		if r.Service != "" && !slices.Contains(out, r.Service) {
+		if r.Service != "" {
 			out = append(out, r.Service)
 		}
 	}
-	sort.Strings(out)
-	return out
+	return distinctSorted(out)
 }

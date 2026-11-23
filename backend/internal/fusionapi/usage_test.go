@@ -55,3 +55,19 @@ func TestVolumeUsageReadsTheKubeletsNumbersByClaim(t *testing.T) {
 		t.Fatal("a limited scope must not run a raw query")
 	}
 }
+
+// A volume whose numbers are not known (NaN, an infinity) has no use to report, rather than whatever the platform makes of
+// such a number as bytes.
+func TestVolumeUsageLeavesOutAVolumeWhoseNumbersAreNotKnown(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[
+		 {"metric":{"k8s_persistentvolumeclaim_name":"a","k8s_namespace_name":"obs"},"value":[1,"NaN"]},
+		 {"metric":{"k8s_persistentvolumeclaim_name":"b","k8s_namespace_name":"obs"},"value":[1,"+Inf"]},
+		 {"metric":{"k8s_persistentvolumeclaim_name":"c","k8s_namespace_name":"obs"},"value":[1,"42"]}]}}`))
+	}))
+	defer srv.Close()
+	got, err := (&Client{Prometheus: srv.URL}).VolumeUsage(context.Background(), AllSignals(), []string{"a", "b", "c"})
+	if err != nil || len(got) != 1 || got["c"].Used != 42 {
+		t.Fatalf("%+v %v", got, err)
+	}
+}

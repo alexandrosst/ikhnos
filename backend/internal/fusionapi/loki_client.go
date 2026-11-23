@@ -102,7 +102,7 @@ func (c *Client) lokiRaw(ctx context.Context, s Scope, query string, backward bo
 	for _, st := range res.Data.Result {
 		for _, v := range st.Values {
 			e, mixed, ok := lokiEntry(st.Stream, v)
-			kept := ok && !(mixed && restricted) && s.NamespaceVisible(e.Namespace) && s.ClusterVisible(e.Cluster)
+			kept := ok && !(mixed && restricted) && s.visibleAt(e.Namespace, e.Cluster)
 			out = append(out, lokiLine{e: e, decoded: ok, kept: kept})
 		}
 	}
@@ -124,10 +124,7 @@ func cutLines(lines []lokiLine, backward bool, limit int) ([]LogEntry, bool) {
 		}
 		return out[i].Time.Before(out[j].Time)
 	})
-	if len(out) > limit {
-		return out[:limit], true
-	}
-	return out, false
+	return cutAt(out, limit)
 }
 
 // lokiEntry decodes one line of a stream. mixed says the line's structured metadata names a namespace or a cluster

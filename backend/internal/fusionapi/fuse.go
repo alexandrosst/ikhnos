@@ -408,19 +408,3 @@ func (r *fuseRun) allowed(requested bool, source, signal string) bool {
 	}
 	return true
 }
-
-// uniqueInOrder is the strings with the repeats left out, the first of each where it was.
-func uniqueInOrder(l []string) []string {
-	if len(l) < 2 {
-		return l
-	}
-	seen := make(map[string]bool, len(l))
-	out := l[:0:0]
-	for _, v := range l {
-		if !seen[v] {
-			seen[v] = true
-			out = append(out, v)
-		}
-	}
-	return out
-}

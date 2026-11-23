@@ -30,14 +30,12 @@ type sysLoc struct{ cluster, node string }
 func (c *Client) systemLogs(ctx context.Context, s Scope, resources []*Resource, opts FuseOptions, window TimeRange,
 	sem chan struct{}) (*SystemLogs, []string, error) {
 	var locs []sysLoc
-	seen := map[sysLoc]bool{}
 	for _, r := range resources {
-		l := sysLoc{r.Cluster, r.Node}
-		if r.Node != "" && !seen[l] {
-			seen[l] = true
-			locs = append(locs, l)
+		if r.Node != "" {
+			locs = append(locs, sysLoc{r.Cluster, r.Node})
 		}
 	}
+	locs = uniqueInOrder(locs)
 	sl := &SystemLogs{Namespaces: opts.SystemNamespaces, Nodes: []string{}, Entries: []LogEntry{}}
 	var warns []string
 	visible := false
@@ -143,18 +141,19 @@ func (c *Client) systemLogsAtOnce(ctx context.Context, s Scope, base LogFilter, 
 	sem chan struct{}) (entries []LogEntry, truncated, exact bool, err error) {
 	named := map[string]int{}
 	unclustered := map[string]bool{}
-	var alts []string
+	d := labelSyntax
+	var alts [][]string
 	for _, l := range locs {
 		if checkValue("node", l.node) != nil || (l.cluster != "" && checkValue("cluster", l.cluster) != nil) {
 			return nil, false, false, nil
 		}
 		named[l.node]++
 		unclustered[l.node] = unclustered[l.node] || l.cluster == ""
-		c := lblNode + "=" + quote(l.node)
+		c := []string{d.eq(lblNode, l.node)}
 		if l.cluster != "" {
-			c += " and " + lblCluster + "=" + quote(l.cluster)
+			c = append(c, d.eq(d.cluster, l.cluster))
 		}
-		alts = append(alts, "("+c+")")
+		alts = append(alts, c)
 	}
 	for n, k := range named {
 		if k > 1 && unclustered[n] {
@@ -165,7 +164,7 @@ func (c *Client) systemLogsAtOnce(ctx context.Context, s Scope, base LogFilter, 
 	if err != nil {
 		return nil, false, false, err // (a read per node would build the same query, and fail the same way)
 	}
-	q += " | " + strings.Join(alts, " or ")
+	q += " | " + d.either(alts) // (locs holds each node once, so no alternative is written twice)
 	release, err := acquire(ctx, sem)
 	if err != nil {
 		return nil, false, false, err
@@ -316,22 +315,24 @@ func (r *fuseRun) contextQuery(resources []*Resource) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var alts []string
+	var alts [][]string
 	for _, res := range resources {
 		var c []string
 		for _, kv := range [][2]string{{lblService, res.Service}, {lblNamespace, res.Namespace}, {lblPod, res.Pod},
 			{lblCluster, res.Cluster}} {
 			if kv[1] != "" {
-				c = append(c, kv[0]+"="+quote(kv[1]))
+				c = append(c, labelSyntax.eq(kv[0], kv[1]))
 			}
 		}
 		if len(c) == 0 {
 			// (Not reached: every resource here names its service and namespace. An empty alternative would keep every line.)
 			return "", badRequest("a resource with nothing to select it by cannot be read with others")
 		}
-		alts = append(alts, "("+strings.Join(c, " and ")+")")
+		alts = append(alts, c)
 	}
-	return q + " | " + strings.Join(uniqueInOrder(alts), " or "), nil
+	// (Two resources that differ only in what a line cannot tell, such as their instance, are one alternative, which
+	// either writes once.)
+	return q + " | " + labelSyntax.either(alts), nil
 }
 
 // contextLineOf says whether a line is one a resource's own read of its context lines would have matched: the same

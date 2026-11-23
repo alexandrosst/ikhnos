@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"sort"
 	"time"
 
 	"ikhnos/internal/fusion"
@@ -16,7 +15,7 @@ import (
 
 func (g *Guard) Status(w http.ResponseWriter, r *http.Request, c *fusionapi.Client, who Caller) {
 	access := callerAccessDoc{Kind: who.Kind, Name: who.Name, Signals: fusionapi.SignalsOf(who.Scope.Signals),
-		Namespaces: orEmpty(who.Scope.Namespaces), Clusters: orEmpty(who.Scope.Clusters), RawQueries: who.Scope.Unrestricted(), PromQL: who.Scope.Allows(fusionapi.SignalMetrics)}
+		Namespaces: fusionapi.OrEmpty(who.Scope.Namespaces), Clusters: fusionapi.OrEmpty(who.Scope.Clusters), RawQueries: who.Scope.Unrestricted(), PromQL: who.Scope.Allows(fusionapi.SignalMetrics)}
 	if who.ExpiresAt != nil {
 		access.ExpiresAt = kernel.RFC(*who.ExpiresAt)
 	}
@@ -66,7 +65,7 @@ func (g *Guard) Applications(w http.ResponseWriter, r *http.Request, c *fusionap
 			g.Err(w, err)
 			return
 		}
-		httpkit.WriteJSON(w, 200, applicationsDoc{Applications: fusionapi.DescribeGroupsIn(groups, perGroup), Sources: sources, Warnings: orEmpty(warnings), From: tr.From, To: tr.To})
+		httpkit.WriteJSON(w, 200, applicationsDoc{Applications: fusionapi.DescribeGroupsIn(groups, perGroup), Sources: sources, Warnings: fusionapi.OrEmpty(warnings), From: tr.From, To: tr.To})
 		return
 	}
 	svcs, sources, warnings, err := c.Applications(r.Context(), who.Scope, tr)
@@ -75,7 +74,7 @@ func (g *Guard) Applications(w http.ResponseWriter, r *http.Request, c *fusionap
 		return
 	}
 	warnings = append(warnings, fmt.Sprintf("there are more than %d applications, so a member's signals are those of any service of its name, wherever it runs; /applications/{name} reads one application where its members run", fusionapi.MaxGroupSignals))
-	httpkit.WriteJSON(w, 200, applicationsDoc{Applications: fusionapi.DescribeGroups(groups, svcs), Sources: sources, Warnings: orEmpty(warnings), From: tr.From, To: tr.To})
+	httpkit.WriteJSON(w, 200, applicationsDoc{Applications: fusionapi.DescribeGroups(groups, svcs), Sources: sources, Warnings: fusionapi.OrEmpty(warnings), From: tr.From, To: tr.To})
 }
 
 // Services lists the services that have telemetry (their service.name), each with its signals and the ikhnos
@@ -128,17 +127,13 @@ func (g *Guard) Services(w http.ResponseWriter, r *http.Request, c *fusionapi.Cl
 		}
 		out = append(out, serviceDoc{sv, names, runs})
 	}
-	httpkit.WriteJSON(w, 200, servicesDoc{Services: out, Sources: sources, Warnings: orEmpty(warnings), From: tr.From, To: tr.To})
+	httpkit.WriteJSON(w, 200, servicesDoc{Services: out, Sources: sources, Warnings: fusionapi.OrEmpty(warnings), From: tr.From, To: tr.To})
 }
 
-// memberAt says whether a member of the application has this name (or alias) at this place.
+// memberAt says whether a member of the application has this name (or alias) at this place: the rule the application's
+// exact focus puts on the queries (AppGroup.RunsAt).
 func memberAt(g *fusionapi.AppGroup, name string, p servicePlaceDoc) bool {
-	for _, m := range g.Members {
-		if (m.Name == name || slices.Contains(m.Aliases, name)) && (m.Namespace == "" || m.Namespace == p.Namespace) && (m.Cluster == "" || m.Cluster == p.Cluster) {
-			return true
-		}
-	}
-	return false
+	return g.RunsAt(name, p.Namespace, p.Cluster)
 }
 
 // servicePlaces is, for each name telemetry may carry as service.name (a service's own, or its app label), where ikhnos'
@@ -167,12 +162,7 @@ func (g *Guard) servicePlaces(ctx context.Context, who Caller) map[string][]serv
 		}
 	}
 	for _, ps := range out {
-		sort.Slice(ps, func(i, j int) bool {
-			if ps[i].Cluster != ps[j].Cluster {
-				return ps[i].Cluster < ps[j].Cluster
-			}
-			return ps[i].Namespace < ps[j].Namespace
-		})
+		fusionapi.SortByPlace(ps, func(p servicePlaceDoc) (string, string) { return p.Cluster, p.Namespace })
 	}
 	return out
 }

@@ -346,11 +346,10 @@ func healthOf(c AppHealthCounts, notReady []string) (status, reason string) {
 	return "healthy", ""
 }
 
+// names is a few of the names, sorted, for a message. It sorts l itself, which none of its callers reads again.
 func names(l []string) string {
-	if sort.Strings(l); len(l) > 3 {
-		l = append(l[:3:3], "...")
-	}
-	return strings.Join(l, ", ")
+	sort.Strings(l)
+	return strings.Join(firstOf(l, 3, func(int) string { return "..." }), ", ")
 }
 
 // Targets are the ids that events about the application are about: itself, its services and the links it shows.

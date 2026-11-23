@@ -2,10 +2,6 @@ package fusionapi
 
 import (
 	"context"
-	"encoding/json"
-	"math"
-	"net/url"
-	"strconv"
 	"sync"
 )
 
@@ -142,28 +138,16 @@ func (c *Client) LinkReadings(ctx context.Context, s Scope) (LinkReadings, error
 }
 
 func (c *Client) linkQuery(ctx context.Context, s Scope, q string, into *[]LinkReading) error {
-	data, err := c.RawMetricQuery(ctx, s, "query", url.Values{"query": {q}})
+	// A rate of a series with no new samples is NaN, which promVector leaves out; a series that holds nothing is not a reading.
+	samples, err := c.promVector(ctx, s, q)
 	if err != nil {
 		return err
 	}
-	var d struct {
-		ResultType string `json:"resultType"`
-		Result     []struct {
-			Metric map[string]string `json:"metric"`
-			Value  [2]any            `json:"value"`
-		} `json:"result"`
-	}
-	if err := json.Unmarshal(data, &d); err != nil {
-		return err
-	}
-	for _, r := range d.Result {
-		str, _ := r.Value[1].(string)
-		v, err := strconv.ParseFloat(str, 64)
-		// A rate of a series with no new samples is NaN; a series that holds nothing is not a reading.
-		if err != nil || math.IsNaN(v) || math.IsInf(v, 0) || r.Metric["cluster"] == "" || r.Metric["peer"] == "" {
+	for _, r := range samples {
+		if r.Metric["cluster"] == "" || r.Metric["peer"] == "" {
 			continue
 		}
-		*into = append(*into, LinkReading{Cluster: r.Metric["cluster"], Peer: r.Metric["peer"], Direction: r.Metric["direction"], Reason: r.Metric["reason"], Kind: r.Metric["kind"], Value: v})
+		*into = append(*into, LinkReading{Cluster: r.Metric["cluster"], Peer: r.Metric["peer"], Direction: r.Metric["direction"], Reason: r.Metric["reason"], Kind: r.Metric["kind"], Value: r.Value})
 	}
 	return nil
 }

@@ -2,11 +2,9 @@ package fusionapi
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -21,7 +19,8 @@ func (c *Client) traceServices(ctx context.Context, s Scope, tr TimeRange) (name
 	if err := s.needSignal(SignalTraces); err != nil {
 		return nil, "", err
 	}
-	if !s.Unrestricted() || len(s.FocusServices) > 0 {
+	focus := s.places().names
+	if !s.Unrestricted() || len(focus) > 0 {
 		hits, truncated, err := c.SearchTraces(ctx, s, TraceFilter{}, tr.newest(MaxSearchWindow), scopedServiceSample)
 		if err != nil {
 			return nil, "", err
@@ -35,22 +34,17 @@ func (c *Client) traceServices(ctx context.Context, s Scope, tr TimeRange) (name
 			}
 			sample += fmt.Sprintf(" of the newest %s of the range", shortDuration(MaxSearchWindow))
 		}
-		seen := map[string]bool{}
 		var out []string
 		for _, h := range hits {
 			for _, svc := range h.Services {
 				// A trace that touches the focused services also names the ones it passed through; those are not the focus.
-				if len(s.FocusServices) > 0 && !slices.Contains(s.FocusServices, svc) {
-					continue
-				}
-				if !seen[svc] {
-					seen[svc] = true
+				// (A hit names no service "", so within is the focus's names alone.)
+				if within(focus, svc) {
 					out = append(out, svc)
 				}
 			}
 		}
-		sort.Strings(out)
-		return out, sample, nil
+		return distinctSorted(out), sample, nil
 	}
 	q := url.Values{"start": {unixSec(tr.From)}, "end": {unixSec(tr.To)}}
 	var res struct {
@@ -112,21 +106,20 @@ func (c *Client) logServices(ctx context.Context, s Scope, tr TimeRange) (names 
 		if truncated {
 			sample = fmt.Sprintf("the newest %d log lines", scopedLogSample)
 		}
-		seen := map[string]bool{}
 		var out []string
 		for _, l := range lines {
-			if l.Service != "" && !seen[l.Service] {
-				seen[l.Service] = true
+			if l.Service != "" {
 				out = append(out, l.Service)
 			}
 		}
-		return out, sample, nil
+		return uniqueInOrder(out), sample, nil
 	}
 	sel, err := LogFilter{}.selector(s)
 	if err != nil {
 		return nil, "", err
 	}
-	names, err = c.lokiServiceNames(ctx, sel, s.FocusClusters, tr)
+	// The rights limit no cluster here, so the places' clusters are the focus's alone.
+	names, err = c.lokiServiceNames(ctx, sel, s.places().clusters, tr)
 	return names, "", err
 }
 
@@ -152,13 +145,16 @@ func (c *Client) logServicesIn(ctx context.Context, s Scope, tr TimeRange) ([]st
 			}
 			defer release()
 			// The caller's namespace rights are on every selector with the place's own namespace, as the other renderers put
-			// rights and focus together: a place outside the rights reads nothing.
-			sel := []string{lblService + "=~" + quote(regexAny(p.Names))}
+			// rights and focus together: a place outside the rights reads nothing. Unlike placeSet.placeConds, the names
+			// come first, the rights' namespaces follow (not the focus's union: the place names its own), and the cluster is
+			// left to lokiServiceNames, because Loki's label-values call takes a stream selector alone.
+			d := labelSyntax
+			sel := []string{d.in(d.name, p.Names)}
 			if p.Namespace != "" {
-				sel = append(sel, lblNamespace+"="+quote(p.Namespace))
+				sel = append(sel, d.eq(d.namespace, p.Namespace))
 			}
-			if len(s.Namespaces) > 0 {
-				sel = append(sel, lblNamespace+"=~"+quote(regexAny(s.Namespaces)))
+			if rightsNs, _, _ := s.rights().cutOn(d); rightsNs != "" {
+				sel = append(sel, rightsNs)
 			}
 			var cl []string
 			if p.Cluster != "" {
@@ -168,22 +164,15 @@ func (c *Client) logServicesIn(ctx context.Context, s Scope, tr TimeRange) ([]st
 		}()
 	}
 	wg.Wait()
-	seen := map[string]bool{}
-	var out []string
+	var all []string
 	for _, r := range results {
 		if r.err != nil {
 			// The first place's error in their order, not the first to fail, so the answer is the same each time.
 			return nil, "", r.err
 		}
-		for _, n := range r.names {
-			if !seen[n] {
-				seen[n] = true
-				out = append(out, n)
-			}
-		}
+		all = append(all, r.names...)
 	}
-	sort.Strings(out)
-	return out, "", nil
+	return distinctSorted(all), "", nil
 }
 
 // lokiServiceNames lists the services with lines in the range under a stream selector and, when clusters are given, in
@@ -193,9 +182,10 @@ func (c *Client) logServicesIn(ctx context.Context, s Scope, tr TimeRange) ([]st
 // would make a service list cost as much as reading every log line of the range.
 func (c *Client) lokiServiceNames(ctx context.Context, sel string, clusters []string, tr TimeRange) ([]string, error) {
 	if len(clusters) > 0 {
-		cond := lblCluster + "=" + quote(clusters[0])
+		d := labelSyntax
+		cond := d.eq(d.cluster, clusters[0])
 		if len(clusters) > 1 {
-			cond = lblCluster + "=~" + quote(regexAny(clusters))
+			cond = d.in(d.cluster, clusters)
 		}
 		sel = strings.TrimSuffix(sel, "}") + "," + cond + "}"
 	}
@@ -223,56 +213,35 @@ type Application struct {
 // Scope does not include are not looked at; a store that cannot be reached is reported in the returned sources, and the
 // warnings say why a part failed and which lists were built from a sample (and so may miss services).
 func (c *Client) Applications(ctx context.Context, s Scope, tr TimeRange) ([]Application, map[string]string, []string, error) {
-	sources := map[string]string{SignalMetrics: SourceNotAllowed, SignalLogs: SourceNotAllowed, SignalTraces: SourceNotAllowed}
+	reads := newSignalReads(s)
 	found := map[string]map[string]bool{}
-	var warnings []string
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	var firstErr error
 	run := func(signal string, list func() ([]string, string, error)) {
-		if !s.Allows(signal) {
-			return
-		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		reads.run(signal, func() (func(), error) {
 			names, sample, err := list()
-			mu.Lock()
-			defer mu.Unlock()
 			if err != nil {
-				sources[signal] = sourceState(err)
-				warnings = append(warnings, fmt.Sprintf("%s: %v", signal, err))
-				if firstErr == nil {
-					firstErr = err
+				return nil, err
+			}
+			return func() {
+				if sample != "" {
+					reads.warnings = append(reads.warnings, fmt.Sprintf(
+						"%s: the services are those of %s; one that is not in them may be missing", signal, sample))
 				}
-				return
-			}
-			sources[signal] = SourceOK
-			if sample != "" {
-				warnings = append(warnings, fmt.Sprintf("%s: the services are those of %s; one that is not in them may be missing", signal, sample))
-			}
-			for _, n := range names {
-				if found[n] == nil {
-					found[n] = map[string]bool{}
+				for _, n := range names {
+					if found[n] == nil {
+						found[n] = map[string]bool{}
+					}
+					found[n][signal] = true
 				}
-				found[n][signal] = true
-			}
-		}()
+			}, nil
+		})
 	}
 	run(SignalMetrics, func() ([]string, string, error) { names, err := c.metricServices(ctx, s, tr); return names, "", err })
 	run(SignalLogs, func() ([]string, string, error) { return c.logServices(ctx, s, tr) })
 	run(SignalTraces, func() ([]string, string, error) { return c.traceServices(ctx, s, tr) })
-	wg.Wait()
-	if err := callerGone(ctx); err != nil {
-		return nil, nil, nil, err
+	if err := reads.wait(ctx); err != nil {
+		return nil, nil, nil, err // the caller has gone, or nothing could be read at all
 	}
-	ok := false
-	for _, v := range sources {
-		ok = ok || v == SourceOK
-	}
-	if !ok && firstErr != nil {
-		return nil, nil, nil, firstErr // nothing could be read at all
-	}
+	sources, warnings := reads.sources, reads.warnings
 	var apps []Application
 	for name, sigs := range found {
 		a := Application{Name: name}
@@ -291,32 +260,20 @@ func (c *Client) Applications(ctx context.Context, s Scope, tr TimeRange) ([]App
 // metricServices lists the service names that have series in the range (inside the Scope).
 func (c *Client) metricServices(ctx context.Context, s Scope, tr TimeRange) ([]string, error) {
 	var sels []string
-	if len(s.Focus) > 0 {
+	if p := s.places(); len(p.exact) > 0 {
 		// Each member's names where it runs: a member's name in another member's namespace is not the application's.
-		wide := s
-		wide.FocusServices = nil
-		m, err := MetricFilter{}.matchers(wide)
+		m, err := MetricFilter{}.matchersIn(p.unnamed())
 		if err != nil {
 			return nil, err
 		}
-		for _, c := range placeConds(s.Focus, lblNamespace, lblCluster, lblService, func(k, v string) string { return k + "=" + quote(v) },
-			func(k string, vs []string) string { return k + "=~" + quote(regexAny(vs)) }) {
-			sels = append(sels, "{"+strings.Join(append(slices.Clone(m), c...), ",")+"}")
-		}
+		sels = p.promSelectors(m, []string{lblService})
 	} else {
+		// (With a focus on names alone, the names are in m already; the matcher that cannot be empty is added all the same.)
 		m, err := MetricFilter{}.matchers(s)
 		if err != nil {
 			return nil, err
 		}
 		sels = []string{"{" + strings.Join(append(m, lblService+`=~".+"`), ",") + "}"}
 	}
-	data, err := c.prom(ctx, "/api/v1/label/"+lblService+"/values", url.Values{"match[]": sels, "start": {unixFloat(tr.From)}, "end": {unixFloat(tr.To)}})
-	if err != nil {
-		return nil, err
-	}
-	var names []string
-	if err := json.Unmarshal(data, &names); err != nil {
-		return nil, errf(http.StatusBadGateway, "%s answered with something unexpected", storeProm)
-	}
-	return names, nil
+	return c.promLabelValues(ctx, lblService, url.Values{"match[]": sels, "start": {unixFloat(tr.From)}, "end": {unixFloat(tr.To)}})
 }

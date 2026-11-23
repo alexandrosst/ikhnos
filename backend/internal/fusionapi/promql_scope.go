@@ -22,7 +22,7 @@ func restrictPromQL(expr string, s Scope) (string, error) {
 	if s.Unrestricted() {
 		return expr, nil
 	}
-	return withMatchers(expr, map[string][]string{lblNamespace: s.Namespaces, lblCluster: s.Clusters}, limitedByToken)
+	return withMatchers(expr, s.rights().promLimits(), limitedByToken)
 }
 
 // Why withMatchers was asked, in the words a refusal uses: the caller's own limits, or a narrowing the caller chose.
@@ -33,26 +33,12 @@ const (
 )
 
 // narrowToApplication is expr with the application's own on every selector: its service names (a member's name and aliases,
-// as service_name), and its namespaces and clusters when every member has one. It is the union of the members, so for an
-// application whose members run in several places a name may be matched in another member's namespace; a series with no
-// service_name (a pod's, from an agent that does not name it after its workload) is not matched.
+// as service_name), and its namespaces and clusters when every member has one (AppGroup.cut, the cut FocusOn starts from
+// too). It is the union of the members, so for an application whose members run in several places a name may be matched in
+// another member's namespace; a series with no service_name (a pod's, from an agent that does not name it after its
+// workload) is not matched.
 func narrowToApplication(expr string, g *AppGroup) (string, error) {
-	lim := map[string][]string{lblService: g.ServiceNames()}
-	all := func(of func(AppMember) string) bool {
-		for _, m := range g.Members {
-			if of(m) == "" {
-				return false
-			}
-		}
-		return true
-	}
-	if all(func(m AppMember) string { return m.Namespace }) {
-		lim[lblNamespace] = g.Namespaces()
-	}
-	if all(func(m AppMember) string { return m.Cluster }) {
-		lim[lblCluster] = g.Clusters()
-	}
-	return withMatchers(expr, lim, narrowedByRead)
+	return withMatchers(expr, g.cut().promLimits(), narrowedByRead)
 }
 
 // withMatchers parses expr and adds, to every selector in it, a matcher per label for any of its values (labels with no value

@@ -37,8 +37,10 @@ func (f LogFilter) logQL(s Scope) (string, error) {
 	return f.pipeline(s, sel)
 }
 
-// selector is the stream selector alone: the part Loki's label-value and series calls accept.
+// selector is the stream selector alone: the part Loki's label-value and series calls accept. The places' names and
+// namespaces are in it (placeSet.cutOn), each after the filter's own, so that Loki's index serves them.
 func (f LogFilter) selector(s Scope) (string, error) {
+	nsCut, _, namesCut := s.places().cutOn(labelSyntax)
 	var sel []string
 	switch {
 	case f.Service != "":
@@ -53,11 +55,11 @@ func (f LogFilter) selector(s Scope) (string, error) {
 			}
 		}
 		sel = append(sel, lblService+"=~"+quote(regexAny(f.Services)))
-	case len(s.FocusServices) == 0:
-		sel = append(sel, lblService+`=~".+"`)
+	case namesCut == "":
+		sel = append(sel, lblService+`=~".+"`) // (a selector needs a matcher that cannot be empty)
 	}
-	if len(s.FocusServices) > 0 {
-		sel = append(sel, lblService+"=~"+quote(regexAny(s.FocusServices)))
+	if namesCut != "" {
+		sel = append(sel, namesCut)
 	}
 	eq, err := eqMatchers([]eqFilter{{"namespace", lblNamespace, f.Namespace}, {"pod", lblPod, f.Pod}}, func(l, v string) string { return l + "=" + v })
 	if err != nil {
@@ -80,14 +82,16 @@ func (f LogFilter) selector(s Scope) (string, error) {
 		}
 		sel = append(sel, lblNamespace+"=~"+quote(regexAny(f.Namespaces)))
 	}
-	if ns := s.nsLimit(); len(ns) > 0 {
-		sel = append(sel, lblNamespace+"=~"+quote(regexAny(ns)))
+	if nsCut != "" {
+		sel = append(sel, nsCut)
 	}
 	sel = append(sel, logCategoryMatchers(lblNamespace, f.Categories)...)
 	return "{" + strings.Join(sel, ",") + "}", nil
 }
 
-// pipeline adds the line and label filters to a selector.
+// pipeline adds the line and label filters to a selector. The places' clusters are a label filter here, not a stream
+// matcher: lines stored before the cluster became an index label carry it as structured metadata only. An exact focus is
+// one more, an "or" of the places (a stream selector has no "or").
 func (f LogFilter) pipeline(s Scope, q string) (string, error) {
 	if f.Contains != "" {
 		if err := checkValue("contains", f.Contains); err != nil {
@@ -133,18 +137,14 @@ func (f LogFilter) pipeline(s Scope, q string) (string, error) {
 		}
 		q += " | " + lblCluster + "=" + quote(f.Cluster)
 	}
-	if cl := s.clLimit(); len(cl) > 0 {
-		q += " | " + lblCluster + "=~" + quote(regexAny(cl))
+	p := s.places()
+	if _, clCut, _ := p.cutOn(labelSyntax); clCut != "" {
+		q += " | " + clCut
 	}
-	if len(s.Focus) > 0 {
+	if len(p.exact) > 0 {
 		// The selector takes the union of the application's names, namespaces and clusters (what Loki's index can serve); this
 		// keeps a line only where its service is a member in that member's own namespace and cluster.
-		var alts []string
-		for _, c := range placeConds(s.Focus, lblNamespace, lblCluster, lblService, func(k, v string) string { return k + "=" + quote(v) },
-			func(k string, vs []string) string { return k + "=~" + quote(regexAny(vs)) }) {
-			alts = append(alts, "("+strings.Join(c, " and ")+")")
-		}
-		q += " | " + strings.Join(alts, " or ")
+		q += " | " + labelSyntax.either(p.placeConds(labelSyntax))
 	}
 	return q, nil
 }

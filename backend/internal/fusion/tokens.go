@@ -183,15 +183,8 @@ type TokenDoc struct {
 }
 
 func toTokenDoc(t store.FusionToken) TokenDoc {
-	return TokenDoc{ID: t.ID, Name: t.Name, Signals: fusionapi.SignalsOf(t.Signals), Namespaces: orEmpty(t.Namespaces), Clusters: orEmpty(t.Clusters),
+	return TokenDoc{ID: t.ID, Name: t.Name, Signals: fusionapi.SignalsOf(t.Signals), Namespaces: fusionapi.OrEmpty(t.Namespaces), Clusters: fusionapi.OrEmpty(t.Clusters),
 		CreatedBy: t.CreatedBy, CreatedAt: kernel.RFC(t.CreatedAt), ExpiresAt: kernel.RFC(t.ExpiresAt), LastUsedAt: kernel.RFCP(t.LastUsed)}
-}
-
-func orEmpty(v []string) []string {
-	if v == nil {
-		return []string{}
-	}
-	return v
 }
 
 func signalStrings(v []fusionapi.Signal) []string {

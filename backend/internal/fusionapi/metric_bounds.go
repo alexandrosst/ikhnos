@@ -38,7 +38,7 @@ func ChooseStep(tr TimeRange, requested time.Duration, target int) (time.Duratio
 // any limit, so a range read with only a category or a cluster to go by costs the whole TSDB. A metric name, a name pattern,
 // a service, namespace, pod or node, or an application (the Scope's focus) is enough.
 func (f MetricFilter) NeedSelective(s Scope) error {
-	if f.Name != "" || (f.NameRegex != "" && !matchesAnyName(f.NameRegex)) || f.Service != "" || f.Namespace != "" || f.Pod != "" || f.Node != "" || len(s.FocusServices) > 0 {
+	if f.Name != "" || (f.NameRegex != "" && !matchesAnyName(f.NameRegex)) || f.Service != "" || f.Namespace != "" || f.Pod != "" || f.Node != "" || len(s.places().names) > 0 {
 		return nil
 	}
 	return badRequest("a range read needs a filter: name, metric (a pattern that picks some names, not all), service, namespace, pod, node or application")

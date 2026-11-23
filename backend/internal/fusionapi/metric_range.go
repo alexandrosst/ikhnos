@@ -64,7 +64,7 @@ func parseMatrix(data json.RawMessage) ([]promSeries, error) {
 // cutMatrix is decodeMatrix's work on an answer already read.
 func cutMatrix(rs []promSeries, s Scope, maxSeries int) (series []MetricSeries, truncated bool) {
 	for _, r := range rs {
-		if !s.NamespaceVisible(r.Metric[lblNamespace]) || !s.ClusterVisible(r.Metric[lblCluster]) {
+		if !s.visibleAt(r.Metric[lblNamespace], r.Metric[lblCluster]) {
 			continue
 		}
 		ms := MetricSeries{Name: r.Metric[lblName], Category: MetricCategory(r.Metric[lblName]), Labels: map[string]string{}}

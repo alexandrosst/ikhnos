@@ -80,10 +80,8 @@ func (c *Client) tempoSearch(ctx context.Context, s Scope, q string, tr TimeRang
 	}, nil, &res); err != nil {
 		return nil, false, err
 	}
-	truncated := len(res.Traces) > limit
-	if truncated {
-		res.Traces = res.Traces[:limit]
-	}
+	var truncated bool
+	res.Traces, truncated = cutAt(res.Traces, limit)
 	restricted := !s.Unrestricted()
 	out := make([]TraceSummary, 0, len(res.Traces))
 	for _, t := range res.Traces {
@@ -94,7 +92,6 @@ func (c *Client) tempoSearch(ctx context.Context, s Scope, q string, tr TimeRang
 		if len(sets) == 0 && t.SpanSet != nil {
 			sets = []tempoSpanSet{*t.SpanSet}
 		}
-		seen := map[string]bool{}
 		var first, last time.Time
 		kept := 0
 		for _, ss := range sets {
@@ -121,8 +118,7 @@ func (c *Client) tempoSearch(ctx context.Context, s Scope, q string, tr TimeRang
 						last = en
 					}
 				}
-				if svc := strAttr(attrs, attrService); svc != "" && !seen[svc] {
-					seen[svc] = true
+				if svc := strAttr(attrs, attrService); svc != "" {
 					sum.Services = append(sum.Services, svc)
 				}
 			}
@@ -132,7 +128,7 @@ func (c *Client) tempoSearch(ctx context.Context, s Scope, q string, tr TimeRang
 		if restricted && kept == 0 {
 			continue
 		}
-		sort.Strings(sum.Services)
+		sum.Services = distinctSorted(sum.Services)
 		// The root of a trace may belong to a namespace this Scope cannot see, and Tempo does not say which; only what
 		// matched is its to know, so a limited caller is never told the root's service or name.
 		if !restricted {

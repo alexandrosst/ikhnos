@@ -1,10 +1,6 @@
 package fusionapi
 
-import (
-	"sort"
-
-	"ikhnos/internal/model"
-)
+import "ikhnos/internal/model"
 
 // AppGroup is an ikhnos application: a named group of services. What FUSION calls an "application" elsewhere is a single
 // service.name; this is the grouping a person made in ikhnos, which telemetry itself does not carry.
@@ -39,18 +35,15 @@ func (m AppMember) Key() model.ServiceKey {
 
 // ServiceNames is every service.name telemetry of this application may carry: each member's name and aliases, sorted and without repeats.
 func (g AppGroup) ServiceNames() []string {
-	seen := map[string]bool{}
 	var out []string
 	for _, m := range g.Members {
 		for _, n := range append([]string{m.Name}, m.Aliases...) {
-			if n != "" && !seen[n] {
-				seen[n] = true
+			if n != "" {
 				out = append(out, n)
 			}
 		}
 	}
-	sort.Strings(out)
-	return out
+	return distinctSorted(out)
 }
 
 // Namespaces and Clusters are those the members run in, sorted and without repeats.
@@ -63,14 +56,11 @@ func (g AppGroup) Clusters() []string {
 }
 
 func (g AppGroup) distinct(f func(AppMember) string) []string {
-	seen := map[string]bool{}
 	var out []string
 	for _, m := range g.Members {
-		if v := f(m); v != "" && !seen[v] {
-			seen[v] = true
+		if v := f(m); v != "" {
 			out = append(out, v)
 		}
 	}
-	sort.Strings(out)
-	return out
+	return distinctSorted(out)
 }

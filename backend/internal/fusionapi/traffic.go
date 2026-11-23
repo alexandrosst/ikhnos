@@ -127,6 +127,23 @@ type promSample struct {
 
 // promVector runs an instant query and returns its samples, leaving out any that is not a number (the rate of a series with one sample).
 func (c *Client) promVector(ctx context.Context, s Scope, q string) ([]promSample, error) {
+	all, err := c.promInstant(ctx, s, q)
+	if err != nil {
+		return nil, err
+	}
+	var out []promSample
+	for _, r := range all {
+		if !math.IsNaN(r.Value) && !math.IsInf(r.Value, 0) {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
+// promInstant runs an instant query (as RawMetricQuery does, so within the Scope's limits) and decodes its samples,
+// leaving out those whose value is not a float at all. NaN and the infinities parse as floats and are kept: promVector
+// leaves them out, and a caller that reads them otherwise decides for itself.
+func (c *Client) promInstant(ctx context.Context, s Scope, q string) ([]promSample, error) {
 	data, err := c.RawMetricQuery(ctx, s, "query", url.Values{"query": {q}})
 	if err != nil {
 		return nil, err
@@ -144,7 +161,7 @@ func (c *Client) promVector(ctx context.Context, s Scope, q string) ([]promSampl
 	for _, r := range d.Result {
 		str, _ := r.Value[1].(string)
 		v, err := strconv.ParseFloat(str, 64)
-		if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
+		if err != nil {
 			continue
 		}
 		out = append(out, promSample{Metric: r.Metric, Value: v})

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -85,37 +84,27 @@ var claimNameRe = regexp.MustCompile(`^[a-z0-9.-]+$`)
 // the agent's host collector sends when it runs). The answer is keyed by claim name; a claim with no series is absent.
 // It is only a convenience: the caller treats any error, and any absence, as "not measured".
 func (c *Client) VolumeUsage(ctx context.Context, s Scope, claims []string) (map[string]VolumeUse, error) {
-	var quoted []string
+	var valid []string
 	for _, n := range claims {
-		if !claimNameRe.MatchString(n) {
-			continue
+		if claimNameRe.MatchString(n) {
+			valid = append(valid, n)
 		}
-		quoted = append(quoted, regexp.QuoteMeta(n))
 	}
-	if len(quoted) == 0 {
+	if len(valid) == 0 {
 		return nil, nil
 	}
-	sel := `{k8s_persistentvolumeclaim_name=~` + quote(strings.Join(quoted, "|")) + `}`
+	sel := `{k8s_persistentvolumeclaim_name=~` + quote(regexAny(valid)) + `}`
 	q := `max by (k8s_persistentvolumeclaim_name, k8s_namespace_name) (k8s_volume_capacity_bytes` + sel + ` - k8s_volume_available_bytes` + sel + `)`
-	data, err := c.RawMetricQuery(ctx, s, "query", url.Values{"query": {q}})
+	// promVector leaves out NaN and the infinities (a volume whose capacity or free space is not known), which have no
+	// number of bytes: converted to one they would be whatever the platform makes of them.
+	samples, err := c.promVector(ctx, s, q)
 	if err != nil {
 		return nil, err
 	}
-	var d struct {
-		Result []struct {
-			Metric map[string]string `json:"metric"`
-			Value  [2]any            `json:"value"`
-		} `json:"result"`
-	}
-	if err := json.Unmarshal(data, &d); err != nil {
-		return nil, err
-	}
 	out := map[string]VolumeUse{}
-	for _, r := range d.Result {
-		name := r.Metric[lblVolumeClaim]
-		str, _ := r.Value[1].(string)
-		v, err := strconv.ParseFloat(str, 64)
-		if name == "" || err != nil || v < 0 {
+	for _, r := range samples {
+		name, v := r.Metric[lblVolumeClaim], r.Value
+		if name == "" || v < 0 {
 			continue
 		}
 		if cur, ok := out[name]; !ok || int64(v) > cur.Used {

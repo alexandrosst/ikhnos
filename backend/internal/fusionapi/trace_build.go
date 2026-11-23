@@ -13,7 +13,7 @@ import (
 // attrsVisible is the second check on a span's own attributes: its namespace and cluster are ones the Scope may see. A
 // trace read whole and a trace search both apply it, behind the matchers their queries carry.
 func (s Scope) attrsVisible(attrs map[string]any) bool {
-	return s.NamespaceVisible(strAttr(attrs, attrNamespace)) && s.ClusterVisible(strAttr(attrs, attrCluster))
+	return s.visibleAt(strAttr(attrs, attrNamespace), strAttr(attrs, attrCluster))
 }
 
 // buildTrace turns Tempo's resource spans into a Trace, keeping only what the Scope may see.

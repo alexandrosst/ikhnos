@@ -94,7 +94,7 @@ func endVisible(s Scope, byID map[string]*TopoService, id, kind string) bool {
 		return s.Unrestricted()
 	}
 	o := byID[id]
-	return o != nil && s.NamespaceVisible(o.Namespace) && s.ClusterVisible(o.Cluster)
+	return o != nil && s.visibleAt(o.Namespace, o.Cluster)
 }
 
 // topologyFor builds a resource's neighbours, leaving out what the Scope may not see.

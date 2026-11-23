@@ -57,22 +57,10 @@ func (f TraceFilter) traceQL(s Scope) (string, error) {
 	if cat != "" {
 		c = append(c, cat)
 	}
-	if ns := s.nsLimit(); len(ns) > 0 {
-		c = append(c, anyOf("resource."+attrNamespace, ns))
-	}
-	if cl := s.clLimit(); len(cl) > 0 {
-		c = append(c, anyOf("resource."+attrCluster, cl))
-	}
-	if len(s.FocusServices) > 0 {
-		c = append(c, anyOf("resource."+attrService, s.FocusServices))
-	}
-	if len(s.Focus) > 0 { // exact: a member's name only where that member runs
-		var alts []string
-		for _, pc := range placeConds(s.Focus, "resource."+attrNamespace, "resource."+attrCluster, "resource."+attrService,
-			func(k, v string) string { return k + " = " + quote(v) }, anyOf) {
-			alts = append(alts, "("+strings.Join(pc, " && ")+")")
-		}
-		c = append(c, "("+strings.Join(alts, " || ")+")")
+	p := s.places()
+	c = append(c, p.cutConds(traceSyntax)...)
+	if len(p.exact) > 0 { // exact: a member's name only where that member runs
+		c = append(c, "("+traceSyntax.either(p.placeConds(traceSyntax))+")")
 	}
 	if len(c) == 0 {
 		return "{ true }", nil

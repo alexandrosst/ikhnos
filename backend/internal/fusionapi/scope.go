@@ -3,7 +3,8 @@
 //
 // It knows nothing about tokens, organisations or HTTP routes: the server (internal/fusionhttp) decides who
 // the caller is and hands this package a Scope; everything here is about turning that Scope into restrictions the
-// stores themselves enforce (a matcher added to every query it builds), and then checking the answers once more.
+// stores themselves enforce (a matcher added to every query it builds, written for each store in places.go), and then
+// checking the answers once more.
 //
 // A Scope that limits namespaces or clusters is applied to queries this package builds itself from structured filters, and
 // to PromQL the caller wrote, which is parsed and has the limits added to every selector (promql_scope.go). LogQL and
@@ -82,22 +83,6 @@ type FocusPlace struct {
 	Names     []string
 }
 
-// nsLimit and clLimit are the namespaces and clusters a query this package builds is restricted to: the focus when there is
-// one (it lies inside the rights), else the rights.
-func (s Scope) nsLimit() []string {
-	if len(s.FocusNamespaces) > 0 {
-		return s.FocusNamespaces
-	}
-	return s.Namespaces
-}
-
-func (s Scope) clLimit() []string {
-	if len(s.FocusClusters) > 0 {
-		return s.FocusClusters
-	}
-	return s.Clusters
-}
-
 // AllSignals is the Scope of a caller who may read everything: a person signed in as an administrator.
 func AllSignals() Scope { return Scope{Signals: slices.Clone(Signals)} }
 
@@ -106,16 +91,6 @@ func (s Scope) Allows(signal string) bool { return slices.Contains(s.Signals, si
 
 // Unrestricted is whether the caller has no namespace or cluster limit, which is what lets it send a raw query.
 func (s Scope) Unrestricted() bool { return len(s.Namespaces) == 0 && len(s.Clusters) == 0 }
-
-// NamespaceVisible and ClusterVisible check a result's own attributes against the Scope; they are the second line
-// behind the matchers the queries carry.
-func (s Scope) NamespaceVisible(ns string) bool {
-	return len(s.Namespaces) == 0 || (ns != "" && slices.Contains(s.Namespaces, ns))
-}
-
-func (s Scope) ClusterVisible(cl string) bool {
-	return len(s.Clusters) == 0 || (cl != "" && slices.Contains(s.Clusters, cl))
-}
 
 // NormalizeSignals validates a requested list of signal types and returns it in the canonical order, deduplicated.
 // An empty request means all three.

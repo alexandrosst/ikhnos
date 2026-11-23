@@ -57,13 +57,12 @@ func (c *Client) fuseIkhnos(ctx context.Context, s Scope, f *Fused, looked []*Re
 		only = opts.Application.ID
 	}
 	var clusters []string
-	seen := map[string]bool{}
 	for _, r := range about {
-		if r.Cluster != "" && !seen[r.Cluster] {
-			seen[r.Cluster] = true
+		if r.Cluster != "" {
 			clusters = append(clusters, r.Cluster)
 		}
 	}
+	clusters = uniqueInOrder(clusters)
 	touched := touchedBy(ix, about, only)
 	ids := touched.ids()
 	if len(ids) == 0 {
@@ -76,8 +75,8 @@ func (c *Client) fuseIkhnos(ctx context.Context, s Scope, f *Fused, looked []*Re
 		warn(SourceChanges, err)
 		return
 	}
-	if len(evs) > changesRead {
-		evs = evs[:changesRead] // newest first
+	evs, cut := cutAt(evs, changesRead) // newest first
+	if cut {
 		note("changes: the window holds more than %d events; only the newest %d were read", changesRead, changesRead)
 	}
 	kept := relevantChanges(evs, ix, s, touched)

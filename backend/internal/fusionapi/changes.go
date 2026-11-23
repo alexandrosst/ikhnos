@@ -146,7 +146,7 @@ func changeVisible(s Scope, e ChangeEvent, byID map[string]*TopoService, link ma
 	switch e.TargetKind {
 	case "service":
 		sv := byID[e.TargetID]
-		return sv != nil && s.NamespaceVisible(sv.Namespace) && s.ClusterVisible(sv.Cluster)
+		return sv != nil && s.visibleAt(sv.Namespace, sv.Cluster)
 	case "dependency":
 		l, ok := link[e.TargetID]
 		return ok && endVisible(s, byID, l.From, l.FromKind) && endVisible(s, byID, l.To, l.ToKind)

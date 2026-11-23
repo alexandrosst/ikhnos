@@ -117,10 +117,7 @@ func (c *Client) fusePromQL(ctx context.Context, s Scope, tr *Trace, looked []*R
 	}
 	sort.Strings(names)
 	for _, n := range names {
-		list := skipped[n]
-		if len(list) > 3 {
-			list = append(list[:3:3], fmt.Sprintf("and %d more", len(skipped[n])-3))
-		}
+		list := firstOf(skipped[n], 3, func(rest int) string { return fmt.Sprintf("and %d more", rest) })
 		warns = append(warns, fmt.Sprintf("promql %s: not evaluated for %s", n, strings.Join(list, "; ")))
 	}
 

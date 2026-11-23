@@ -99,94 +99,109 @@ func OverviewReads(s Scope) int {
 // (GroupSignals of the one application).
 func ApplicationOverviewReads(s Scope) int { return OverviewReads(s) + GroupSignalsReads(s, 1) }
 
+// signalReads reads each signal type a Scope allows at once, one goroutine each, and keeps what an answer made of the
+// reads says about them: each signal's source state (SourceNotAllowed until its read is done, then SourceOK or the
+// sourceState of its error), a warning for each read that failed, in the order they failed, and the first error.
+type signalReads struct {
+	s        Scope
+	mu       sync.Mutex
+	wg       sync.WaitGroup
+	sources  map[string]string
+	warnings []string
+	firstErr error
+}
+
+func newSignalReads(s Scope) *signalReads {
+	sources := map[string]string{SignalMetrics: SourceNotAllowed, SignalLogs: SourceNotAllowed, SignalTraces: SourceNotAllowed}
+	return &signalReads{s: s, sources: sources}
+}
+
+// run starts the read of a signal, unless the Scope does not allow it. When the read succeeds, the function it returns is
+// called with the lock held, after the source is marked SourceOK, to put its answer in place; it may add to warnings.
+func (r *signalReads) run(signal string, read func() (keep func(), err error)) {
+	if !r.s.Allows(signal) {
+		return
+	}
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+		keep, err := read()
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if err != nil {
+			r.sources[signal] = sourceState(err)
+			r.warnings = append(r.warnings, fmt.Sprintf("%s: %v", signal, err))
+			if r.firstErr == nil {
+				r.firstErr = err
+			}
+			return
+		}
+		r.sources[signal] = SourceOK
+		keep()
+	}()
+}
+
+// wait waits for the reads, and is the error of the answer as a whole: the caller's (it has gone), or, when no read
+// succeeded, the first that failed. An answer with one store read is answered, and says what the others did.
+func (r *signalReads) wait(ctx context.Context) error {
+	r.wg.Wait()
+	if err := callerGone(ctx); err != nil {
+		return err
+	}
+	for _, v := range r.sources {
+		if v == SourceOK {
+			return nil
+		}
+	}
+	return r.firstErr
+}
+
 // overview reads what a service (or, with no service named, whatever the Scope's focus selects) has. label is what the
 // answer is called.
 func (c *Client) overview(ctx context.Context, s Scope, name, label string, tr TimeRange) (*Overview, error) {
-	o := &Overview{Name: label, Sources: map[string]string{SignalMetrics: SourceNotAllowed, SignalLogs: SourceNotAllowed, SignalTraces: SourceNotAllowed},
+	reads := newSignalReads(s)
+	o := &Overview{Name: label, Sources: reads.sources,
 		Traces: []TraceSummary{}, ErrorTraces: []TraceSummary{}, ErrorLogs: []LogEntry{}, Metrics: []string{}}
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	var firstErr error
 	has := map[string]bool{}
-	run := func(signal string, do func() (bool, error)) {
-		if !s.Allows(signal) {
-			return
-		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			present, err := do()
-			mu.Lock()
-			defer mu.Unlock()
-			if err != nil {
-				o.Sources[signal] = sourceState(err)
-				o.Warnings = append(o.Warnings, fmt.Sprintf("%s: %v", signal, err))
-				if firstErr == nil {
-					firstErr = err
-				}
-				return
-			}
-			o.Sources[signal] = SourceOK
-			has[signal] = present
-		}()
-	}
-	run(SignalTraces, func() (bool, error) {
+	reads.run(SignalTraces, func() (func(), error) {
 		recent, _, err := c.SearchTraces(ctx, s, TraceFilter{Service: name}, tr, 10)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 		failed, _, err := c.SearchTraces(ctx, s, TraceFilter{Service: name, Status: "error"}, tr, 5)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
-		mu.Lock()
-		o.Traces, o.ErrorTraces = recent, failed
-		mu.Unlock()
-		return len(recent) > 0, nil
+		return func() { o.Traces, o.ErrorTraces, has[SignalTraces] = recent, failed, len(recent) > 0 }, nil
 	})
-	run(SignalLogs, func() (bool, error) {
+	reads.run(SignalLogs, func() (func(), error) {
 		lines, _, err := c.Logs(ctx, s, LogFilter{Service: name, Severity: "error", Backward: true}, tr, 10)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 		one, _, err := c.Logs(ctx, s, LogFilter{Service: name, Backward: true}, tr, 1)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
-		mu.Lock()
-		o.ErrorLogs = lines
-		mu.Unlock()
-		return len(one) > 0, nil
+		return func() { o.ErrorLogs, has[SignalLogs] = lines, len(one) > 0 }, nil
 	})
-	run(SignalMetrics, func() (bool, error) {
+	reads.run(SignalMetrics, func() (func(), error) {
 		names, truncated, err := c.MetricNames(ctx, s, MetricFilter{Service: name}, tr, 100)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
-		mu.Lock()
-		o.Metrics, o.MetricsTruncated = names, truncated
-		mu.Unlock()
-		return len(names) > 0, nil
+		return func() { o.Metrics, o.MetricsTruncated, has[SignalMetrics] = names, truncated, len(names) > 0 }, nil
 	})
-	wg.Wait()
-	if err := callerGone(ctx); err != nil {
+	if err := reads.wait(ctx); err != nil {
 		return nil, err
 	}
-	allFailed := firstErr != nil
-	for _, v := range o.Sources {
-		if v == SourceOK {
-			allFailed = false
-		}
-	}
-	if allFailed {
-		return nil, firstErr
-	}
+	o.Warnings = reads.warnings
 	for _, sig := range Signals {
 		if has[sig] {
 			o.Signals = append(o.Signals, Signal(sig))
 		}
 	}
-	if len(o.Signals) == 0 && firstErr == nil {
+	if len(o.Signals) == 0 && reads.firstErr == nil {
 		return nil, errf(http.StatusNotFound, "no telemetry for %q in this range", label)
 	}
 	return o, nil

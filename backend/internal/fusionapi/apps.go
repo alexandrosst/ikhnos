@@ -51,7 +51,8 @@ func FindGroup(groups []AppGroup, ref string) (*AppGroup, error) {
 // member runs (Focus), which the queries add so that a name is not matched in another member's namespace. A member with no
 // namespace or cluster leaves that dimension open for its own names only.
 func (s Scope) FocusOn(g *AppGroup) (Scope, error) {
-	names := g.ServiceNames()
+	app := g.cut()
+	names := app.names
 	if len(names) == 0 {
 		if g.Unresolved > 0 {
 			return Scope{}, errf(http.StatusNotFound, "application %q has no services FUSION can match: %d of its members are not in the live topology (a cluster that is not connected, or a service that has gone)", g.Name, g.Unresolved)
@@ -64,10 +65,10 @@ func (s Scope) FocusOn(g *AppGroup) (Scope, error) {
 	out := s
 	out.FocusServices = names
 	var err error
-	if out.FocusNamespaces, err = narrow(s.Namespaces, g, g.Namespaces(), func(m AppMember) string { return m.Namespace }); err != nil {
+	if out.FocusNamespaces, err = narrow(s.Namespaces, app.namespaces); err != nil {
 		return Scope{}, errf(http.StatusNotFound, "no application %q", g.Name)
 	}
-	if out.FocusClusters, err = narrow(s.Clusters, g, g.Clusters(), func(m AppMember) string { return m.Cluster }); err != nil {
+	if out.FocusClusters, err = narrow(s.Clusters, app.clusters); err != nil {
 		return Scope{}, errf(http.StatusNotFound, "no application %q", g.Name)
 	}
 	if places := g.places(); len(places) <= maxFocusPlaces {
@@ -108,53 +109,28 @@ func (g *AppGroup) places() []FocusPlace {
 			idx[k] = i
 			out = append(out, FocusPlace{Namespace: m.Namespace, Cluster: m.Cluster})
 		}
-		for _, n := range append([]string{m.Name}, m.Aliases...) {
-			if n != "" && !slices.Contains(out[i].Names, n) {
-				out[i].Names = append(out[i].Names, n)
-			}
-		}
+		out[i].Names = append(out[i].Names, m.Name)
+		out[i].Names = append(out[i].Names, m.Aliases...)
+	}
+	for i := range out {
+		out[i].Names = distinctSorted(slices.DeleteFunc(out[i].Names, func(n string) bool { return n == "" }))
 	}
 	// A place none of whose members has a name says nothing to match (and an empty list would match every series there).
 	out = slices.DeleteFunc(out, func(p FocusPlace) bool { return len(p.Names) == 0 })
-	for i := range out {
-		sort.Strings(out[i].Names)
-	}
-	sort.Slice(out, func(a, b int) bool {
-		if out[a].Cluster != out[b].Cluster {
-			return out[a].Cluster < out[b].Cluster
-		}
-		return out[a].Namespace < out[b].Namespace
-	})
+	SortByPlace(out, func(p FocusPlace) (string, string) { return p.Cluster, p.Namespace })
 	return out
 }
 
-// placeConds are the conditions of each place, for a query language to join with its own "or": the place's namespace and
-// cluster (where it has them) and its names, under the keys the language knows them by, written by eq and in.
-func placeConds(places []FocusPlace, nsKey, clKey, nameKey string, eq func(key, value string) string, in func(key string, values []string) string) [][]string {
-	out := make([][]string, 0, len(places))
-	for _, p := range places {
-		var c []string
-		if p.Namespace != "" {
-			c = append(c, eq(nsKey, p.Namespace))
-		}
-		if p.Cluster != "" {
-			c = append(c, eq(clKey, p.Cluster))
-		}
-		out = append(out, append(c, in(nameKey, p.Names)))
-	}
-	return out
-}
-
-// narrow intersects a limit the caller has with the values the application's members have in one dimension. A member
-// without a value there means the application is not confined in that dimension, so the caller's limit stands as it is.
-func narrow(have []string, g *AppGroup, want []string, of func(AppMember) string) ([]string, error) {
-	for _, m := range g.Members {
-		if of(m) == "" {
-			return nil, nil // not confined in this dimension: the caller's own limit stands alone
-		}
+// narrow intersects a limit the caller has with the values an application's members have in one dimension (from
+// AppGroup.cut). An application open in that dimension (want empty: a member without a value there) leaves the caller's
+// limit standing as it is. FocusOn calls it only for an application with a name to look for, and so with a member, which
+// is why an empty want can only mean open.
+func narrow(have, want []string) ([]string, error) {
+	if len(want) == 0 {
+		return nil, nil // not confined in this dimension: the caller's own limit stands alone
 	}
 	if len(have) == 0 {
-		return slices.Clone(want), nil
+		return want, nil
 	}
 	var out []string
 	for _, v := range want {
@@ -183,7 +159,7 @@ func VisibleGroups(groups []AppGroup, s Scope) []AppGroup {
 		kept.Members = nil
 		kept.Unresolved = 0 // members the topology has no place for have no namespace or cluster to be checked against; their number is not the caller's to know
 		for _, m := range g.Members {
-			if s.NamespaceVisible(m.Namespace) && s.ClusterVisible(m.Cluster) {
+			if s.visibleAt(m.Namespace, m.Cluster) {
 				kept.Members = append(kept.Members, m)
 			}
 		}
@@ -240,7 +216,7 @@ func DescribeGroupsIn(groups []AppGroup, perGroup map[string][]Application) []Ap
 			}
 		}
 		v := AppView{ID: g.ID, Name: g.Name, Description: g.Description, Services: []AppServiceView{},
-			Namespaces: orNone(g.Namespaces()), Clusters: orNone(g.Clusters()), Unresolved: g.Unresolved}
+			Namespaces: OrEmpty(g.Namespaces()), Clusters: OrEmpty(g.Clusters()), Unresolved: g.Unresolved}
 		all := map[string]bool{}
 		for _, m := range g.Members {
 			sv := AppServiceView{AppMember: m}
@@ -372,11 +348,4 @@ func signalList(set map[string]bool) []Signal {
 		}
 	}
 	return out
-}
-
-func orNone(s []string) []string {
-	if s == nil {
-		return []string{}
-	}
-	return s
 }

@@ -40,7 +40,7 @@ func (g *Guard) MetricNames(w http.ResponseWriter, r *http.Request, c *fusionapi
 	for _, n := range names {
 		cat[n] = fusionapi.MetricCategory(n)
 	}
-	httpkit.WriteJSON(w, 200, metricNamesDoc{Names: orEmpty(names), Categories: cat, Truncated: truncated, Limit: limit, From: tr.From, To: tr.To,
+	httpkit.WriteJSON(w, 200, metricNamesDoc{Names: fusionapi.OrEmpty(names), Categories: cat, Truncated: truncated, Limit: limit, From: tr.From, To: tr.To,
 		Warnings: notes})
 }
 

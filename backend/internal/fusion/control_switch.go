@@ -57,18 +57,17 @@ func (f *FusionControl) Enable(ctx context.Context, c *Service, actor string) (F
 	if f.Org != "" && c.OrgID != f.Org {
 		return FusionStatus{}, kernel.Errf(kernel.KindForbidden, "FUSION belongs to this server's main organisation, which is the only one that can turn it on")
 	}
-	_, bundle, err := c.EnsureCentralOperator(ctx, actor, f.destination(), f.certHosts())
+	hosts := f.certHosts() // once, so that what is recorded is what the certificate was issued for
+	_, bundle, err := c.EnsureCentralOperator(ctx, actor, f.destination(), hosts)
 	if err != nil {
 		return FusionStatus{}, err
 	}
-	if err := f.Kube.PatchSecret(ctx, f.TLSSecretName(), map[string][]byte{
-		"tls.crt": bundle.ReceiverCertPEM, "tls.key": bundle.ReceiverKeyPEM, "ca.crt": bundle.CACertPEM,
-	}); err != nil {
+	if err := f.installReceiverCert(ctx, bundle); err != nil {
 		return FusionStatus{}, kubeFail("put the gateway's certificate in place", err)
 	}
 	f.mu.Lock()
 	f.since, f.notReady = f.Clock(), f.Clock()
-	f.issuedFor = strings.Join(f.certHosts(), ",")
+	f.issuedFor = strings.Join(hosts, ",")
 	f.mu.Unlock()
 	f.writeOrgSetting(ctx) // before the gateway starts, which is when it reads it
 	st, err := f.scaleAndReport(ctx, prev, 1)
@@ -113,15 +112,22 @@ func (f *FusionControl) Renew(ctx context.Context, c *Service) error {
 	if err != nil {
 		return err
 	}
-	if err := f.Kube.PatchSecret(ctx, f.TLSSecretName(), map[string][]byte{
-		"tls.crt": bundle.ReceiverCertPEM, "tls.key": bundle.ReceiverKeyPEM, "ca.crt": bundle.CACertPEM,
-	}); err != nil {
+	if err := f.installReceiverCert(ctx, bundle); err != nil {
 		return err
 	}
 	f.mu.Lock()
 	f.issuedFor = key
 	f.mu.Unlock()
 	return nil
+}
+
+// installReceiverCert puts the gateway's server certificate, its key and the CA that signed it in the gateway's Secret,
+// under the file names the gateway reads them from. Enable and Renew both issue the certificate and hand it over here, so
+// the two cannot come to write it in different shapes.
+func (f *FusionControl) installReceiverCert(ctx context.Context, bundle operators.OperatorTLSBundle) error {
+	return f.Kube.PatchSecret(ctx, f.TLSSecretName(), map[string][]byte{
+		"tls.crt": bundle.ReceiverCertPEM, "tls.key": bundle.ReceiverKeyPEM, "ca.crt": bundle.CACertPEM,
+	})
 }
 
 // Disable stops the four workloads. Their volumes stay, so turning FUSION on again brings the data back.
