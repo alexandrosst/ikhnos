@@ -147,11 +147,20 @@ func TestAnApplicationsLogServicesStopAtTheFirstPlaceThatFails(t *testing.T) {
 	f := newFake(t)
 	var mu sync.Mutex
 	cancelled := 0
+	arrived := make(chan struct{}, logPlaceReads)
 	f.loki = func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(formOf(r).Get("query"), `k8s_namespace_name="bad"`) {
+			// Fail only once every slow read has reached the store, so that each is one the failure must cancel.
+			for range logPlaceReads - 1 {
+				select {
+				case <-arrived:
+				case <-time.After(5 * time.Second):
+				}
+			}
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+		arrived <- struct{}{}
 		select {
 		case <-r.Context().Done():
 			mu.Lock()
