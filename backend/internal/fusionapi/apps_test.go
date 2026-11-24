@@ -150,7 +150,7 @@ func TestServicesFocusReachesEveryQuery(t *testing.T) {
 func TestServicesFocusAlsoSelectsPodMetricsByWorkload(t *testing.T) {
 	s := Scope{Signals: Signals, FocusServices: []string{"cart", "web"}}
 	sels, err := MetricFilter{}.selectors(s)
-	if err != nil || len(sels) != 4 {
+	if err != nil || len(sels) != 1+len(lblWorkloads) || len(lblWorkloads) != 5 {
 		t.Fatalf("%v %v", sels, err)
 	}
 	if !strings.Contains(sels[0], `service_name=~"cart|web"`) {
@@ -190,13 +190,13 @@ func TestServicesFocusAlsoSelectsPodMetricsByWorkload(t *testing.T) {
 	if _, _, err := c.Series(context.Background(), s, MetricFilter{}, rangeAll, 10); err != nil {
 		t.Fatal(err)
 	}
-	if got := f.last("/api/v1/series")["match[]"]; len(got) != 4 {
+	if got := f.last("/api/v1/series")["match[]"]; len(got) != 1+len(lblWorkloads) {
 		t.Errorf("series sent %d selectors: %v", len(got), got)
 	}
 	if _, _, err := c.MetricRange(context.Background(), s, MetricFilter{}, rangeAll, time.Minute, 10); err != nil {
 		t.Fatal(err)
 	}
-	if q := f.last("/api/v1/query_range").Get("query"); strings.Count(q, " or ") != 3 {
+	if q := f.last("/api/v1/query_range").Get("query"); strings.Count(q, " or ") != len(lblWorkloads) {
 		t.Errorf("range query = %s", q)
 	}
 }

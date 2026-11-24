@@ -562,7 +562,8 @@ func TestTheJoinedTopologyNamesOnlyTheTokensOwnApplications(t *testing.T) {
 		},
 		Links: []TopoLink{{ID: "d1", From: "s-cart", To: "s-web", FromKind: "service", ToKind: "service"}, {ID: "d2", From: "s-cart", To: "s-web2", FromKind: "service", ToKind: "service"}},
 	}
-	rt := newTopoIndex(v).topologyFor(s, &Resource{Service: "cart", Namespace: "shop", Cluster: "cl-1"})
+	rt := newTopoIndex(v).topologyFor(s, &Resource{Service: "cart", Namespace: "shop", Cluster: "cl-1"},
+		VisibleGroups(rightsGroups(), s))
 	if rt == nil || !reflect.DeepEqual(rt.Service.Applications, []string{"Shop"}) || !reflect.DeepEqual(rt.Service.AppIDs, []string{"app-shop"}) {
 		t.Fatalf("topology = %+v", rt)
 	}
@@ -575,7 +576,7 @@ func TestTheJoinedTopologyNamesOnlyTheTokensOwnApplications(t *testing.T) {
 	// The application's own topology: the neighbour names only the token's applications.
 	pay := rightsGroups()[0]
 	pay.Members = pay.Members[:1]
-	at := BuildAppTopology(&pay, v, s, false)
+	at := BuildAppTopology(&pay, v, s, false, VisibleGroups(rightsGroups(), s))
 	if len(at.Neighbours) != 1 || at.Neighbours[0].ID != "s-web" || !reflect.DeepEqual(at.Neighbours[0].Applications, []string{"Shop"}) {
 		t.Fatalf("neighbours = %+v", at.Neighbours)
 	}
@@ -583,9 +584,62 @@ func TestTheJoinedTopologyNamesOnlyTheTokensOwnApplications(t *testing.T) {
 	moved := rightsGroups()[0]
 	moved.Members = []AppMember{{ID: "s-cart-old", Name: "cart", Namespace: "shop", Cluster: "cl-1"}}
 	s2, _ := limit(Scope{Signals: Signals}, []AppGroup{moved}, "app-shop")
-	at = BuildAppTopology(&moved, v, s2, false)
+	at = BuildAppTopology(&moved, v, s2, false, nil)
 	if at.Services[0].ID != "s-cart-old" || len(at.Links) != 0 || slices.Contains(at.ids, "s-cart") {
 		t.Fatalf("topology = %+v", at)
+	}
+}
+
+// A token limited to namespaces or clusters, not to applications, is told of a service's applications only those it may
+// know of (VisibleGroups: one of their members is where it may see), in the topology a fused read joins and in an
+// application's neighbours alike. The annotations come with the cached topology and the applications are read on their
+// own, so the two can disagree for a while: what the caller may know of now decides. A caller with no limit is told all.
+func TestATokenLimitedToNamespacesIsToldOnlyOfTheApplicationsItMaySee(t *testing.T) {
+	groups := []AppGroup{
+		{ID: "app-shop", Name: "Shop", Members: []AppMember{
+			{ID: "s-cart", Name: "cart", Namespace: "shop", Cluster: "cl-1"},
+			{ID: "s-web", Name: "web", Namespace: "shop", Cluster: "cl-1"}}},
+		// cart has left it since the topology was annotated: it now has a member in another namespace only.
+		{ID: "app-secret", Name: "Secret project", Members: []AppMember{
+			{ID: "s-vault", Name: "vault", Namespace: "secret", Cluster: "cl-1"}}},
+	}
+	v := &TopologyView{
+		Services: []TopoService{
+			{ID: "s-cart", Name: "cart", Namespace: "shop", Cluster: "cl-1",
+				Applications: []string{"Shop", "Secret project"}, AppIDs: []string{"app-shop", "app-secret"}},
+			{ID: "s-web", Name: "web", Namespace: "shop", Cluster: "cl-1",
+				Applications: []string{"Secret project", "Shop"}, AppIDs: []string{"app-secret", "app-shop"}},
+		},
+		Links: []TopoLink{{ID: "d1", From: "s-cart", To: "s-web", FromKind: "service", ToKind: "service"}},
+	}
+	cart := &Resource{Service: "cart", Namespace: "shop", Cluster: "cl-1"}
+	shopGroup := groups[0]
+	shopGroup.Members = shopGroup.Members[:1]
+	for name, s := range map[string]Scope{
+		"namespaces": {Signals: Signals, Namespaces: []string{"shop"}},
+		"clusters":   {Signals: Signals, Clusters: []string{"cl-1"}, Namespaces: []string{"shop", "pay"}},
+	} {
+		visible := VisibleGroups(groups, s)
+		rt := newTopoIndex(v).topologyFor(s, cart, visible)
+		if rt == nil || !reflect.DeepEqual(rt.Service.Applications, []string{"Shop"}) ||
+			!reflect.DeepEqual(rt.Service.AppIDs, []string{"app-shop"}) {
+			t.Fatalf("%s: topology = %+v", name, rt)
+		}
+		at := BuildAppTopology(&shopGroup, v, s, false, visible)
+		if len(at.Neighbours) != 1 || !reflect.DeepEqual(at.Neighbours[0].Applications, []string{"Shop"}) {
+			t.Fatalf("%s: neighbours = %+v", name, at.Neighbours)
+		}
+		// With no list of what it may know of (it could not be read), it is told of none.
+		if rt := newTopoIndex(v).topologyFor(s, cart, nil); rt == nil || len(rt.Service.Applications) != 0 {
+			t.Fatalf("%s: with no applications read, topology = %+v", name, rt)
+		}
+	}
+	if v.Services[0].Applications[1] != "Secret project" {
+		t.Fatal("the shared view was changed")
+	}
+	rt := newTopoIndex(v).topologyFor(AllSignals(), cart, nil)
+	if !reflect.DeepEqual(rt.Service.Applications, []string{"Shop", "Secret project"}) {
+		t.Fatalf("no limit: topology = %+v", rt)
 	}
 }
 
@@ -682,5 +736,124 @@ func TestTheBatchesOfALabelValuesCallAreOneAnswer(t *testing.T) {
 	got, truncated := cutAt(got, 5)
 	if !reflect.DeepEqual(got, []string{"v000", "v001", "v002", "v003", "v004"}) || !truncated {
 		t.Fatalf("got %v %v", got, truncated)
+	}
+}
+
+// The list of services is charged the store reads it makes (ServiceListReads), counted here as the stores are asked: one
+// of each store with no limit or a limit of namespaces, and for a token limited to applications one of Loki for each
+// place, and of Prometheus one for each batch its selectors need.
+func TestTheChargeOfTheListOfServicesIsTheReadsItMakes(t *testing.T) {
+	many := func(n int) []AppGroup {
+		var out []AppGroup
+		for i := range n {
+			m := AppMember{ID: fmt.Sprintf("s%d", i), Name: fmt.Sprintf("a-rather-long-service-name-%d", i),
+				Namespace: fmt.Sprintf("a-rather-long-namespace-%d", i), Cluster: "cl-1"}
+			out = append(out, AppGroup{ID: fmt.Sprintf("app-%d", i), Name: fmt.Sprintf("app-%d", i), Members: []AppMember{m}})
+		}
+		return out
+	}
+	limited := func(n int) Scope {
+		groups := many(n)
+		var ids []string
+		for _, g := range groups {
+			ids = append(ids, g.ID)
+		}
+		s, _ := limit(Scope{Signals: Signals}, groups, ids...)
+		return s
+	}
+	for name, s := range map[string]Scope{
+		"no limit":                      AllSignals(),
+		"namespaces":                    {Signals: Signals, Namespaces: []string{"shop"}},
+		"logs only":                     {Signals: []string{SignalLogs}, Clusters: []string{"cl-1"}},
+		"three applications":            limited(3),
+		"more places than a read names": limited(maxFocusPlaces + 1),
+	} {
+		f := newFake(t)
+		f.prom = func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, map[string]any{"status": "success", "data": []string{}})
+		}
+		f.loki = func(w http.ResponseWriter, r *http.Request) {
+			if strings.Contains(r.URL.Path, "/label/") {
+				writeJSON(w, map[string]any{"status": "success", "data": []string{}})
+				return
+			}
+			writeJSON(w, lokiResult())
+		}
+		f.tempo = func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, map[string]any{"traces": []any{}, "tagValues": []any{}})
+		}
+		if _, _, _, err := f.client().Applications(context.Background(), s, rangeAll); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		f.mu.Lock()
+		made := len(f.reqs)
+		f.mu.Unlock()
+		if got := ServiceListReads(s, rangeAll); got != made {
+			t.Errorf("%s: charged %d reads, made %d", name, got, made)
+		}
+	}
+	if n := ServiceListReads(limited(3), rangeAll); n != 5 {
+		t.Errorf("three applications in three places: %d reads, want one of Prometheus, three of Loki and one of Tempo", n)
+	}
+}
+
+// A member that is a Job or a CronJob is matched, as the other kinds are, by its own kind's workload label: a Job's
+// series by k8s_job_name, a CronJob's by k8s_cronjob_name, which every run's pods carry beside the generated name of the
+// run's Job. A CronJob's name under k8s_job_name is another workload's (a Job of that name), and so is not the member's.
+func TestJobAndCronJobMembersAreMatchedByTheirOwnKindsLabel(t *testing.T) {
+	groups := []AppGroup{{ID: "app-batch", Name: "Batch", Members: []AppMember{
+		{ID: "s-backup", Name: "backup", Namespace: "ops", Cluster: "cl-1", Kind: "Job"},
+		{ID: "s-nightly", Name: "nightly", Namespace: "ops", Cluster: "cl-1", Kind: "CronJob"},
+	}}}
+	s, notes := limit(Scope{Signals: Signals}, groups, "app-batch")
+	if len(notes) != 0 {
+		t.Fatalf("notes %v", notes)
+	}
+	at := func(l map[string]string) map[string]string {
+		l["k8s_namespace_name"], l["ikhnos_cluster_id"] = "ops", "cl-1"
+		return l
+	}
+	for _, l := range []map[string]string{
+		at(map[string]string{"k8s_job_name": "backup"}),
+		at(map[string]string{"k8s_cronjob_name": "nightly", "k8s_job_name": "nightly-29012345"}),
+	} {
+		if !s.seriesVisible(l) {
+			t.Errorf("a member's own series is not visible: %v", l)
+		}
+	}
+	for _, l := range []map[string]string{
+		at(map[string]string{"k8s_job_name": "nightly"}),
+		at(map[string]string{"k8s_cronjob_name": "backup"}),
+		at(map[string]string{"k8s_deployment_name": "backup"}),
+		{"k8s_job_name": "backup", "k8s_namespace_name": "other", "ikhnos_cluster_id": "cl-1"},
+	} {
+		if s.seriesVisible(l) {
+			t.Errorf("another workload's series is visible: %v", l)
+		}
+	}
+	if !s.resourceVisible(map[string]any{"k8s.namespace.name": "ops", "ikhnos.cluster.id": "cl-1",
+		"k8s.cronjob.name": "nightly", "k8s.job.name": "nightly-29012345"}) {
+		t.Error("a CronJob run's resource is not visible")
+	}
+	// The run is the application's in a trace as well: tagged with it, and kept by a read narrowed to it.
+	run := &Resource{Key: "r1", Namespace: "ops", Cluster: "cl-1", Attributes: map[string]any{"k8s.cronjob.name": "nightly",
+		"k8s.job.name": "nightly-29012345"}}
+	if tagApplications([]*Resource{run}, groups); len(run.Applications) != 1 || run.Applications[0].ID != "app-batch" {
+		t.Errorf("a CronJob run's resource is tagged with %v", run.Applications)
+	}
+	sels, err := MetricFilter{}.selectors(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	place := `k8s_namespace_name="ops",ikhnos_cluster_id="cl-1",`
+	for _, want := range []string{place + `k8s_job_name=~"backup"}`, place + `k8s_cronjob_name=~"nightly"}`} {
+		if !slices.ContainsFunc(sels, func(sel string) bool { return strings.HasSuffix(sel, want) }) {
+			t.Errorf("no selector ends with %s: %v", want, sels)
+		}
+	}
+	for _, sel := range sels {
+		if strings.Contains(sel, `k8s_job_name=~"nightly"`) || strings.Contains(sel, `k8s_cronjob_name=~"backup"`) {
+			t.Errorf("a member is read under another kind's label: %s", sel)
+		}
 	}
 }

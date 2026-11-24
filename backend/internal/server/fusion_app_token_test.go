@@ -556,7 +556,7 @@ func TestAnEditedApplicationChangesWhatTheTokenSeesAfterTheTTL(t *testing.T) {
 	if !asks(`service_name=~"cart|web")`) {
 		t.Fatal("the edit was seen before the applications were read again")
 	}
-	*d.now = d.now.Add(appGroupTTL + time.Second)
+	d.advance(t, appGroupTTL+time.Second)
 	if !asks(`service_name=~"cart")`) {
 		t.Fatalf("the member removed is still read: %s", st.since(0))
 	}
@@ -566,13 +566,13 @@ func TestAnEditedApplicationChangesWhatTheTokenSeesAfterTheTTL(t *testing.T) {
 	// web comes back: a member the token was made with gives its rights again; a new one (search) never does.
 	search := `{"id":"sv-search","source":"manual","applicationId":"app-shop","name":"search","namespace":"shop","clusterId":"cl-1"}`
 	save(cart+","+web+","+search, shop)
-	*d.now = d.now.Add(appGroupTTL + time.Second)
+	d.advance(t, appGroupTTL+time.Second)
 	if !asks(`service_name=~"cart|web")`) || asks("search") {
 		t.Fatalf("after the edit: %s", st.since(0))
 	}
 	// The application is deleted: nothing is read, every read says why, and the status names what is gone.
 	save("", `{"id":"app-other","name":"Other"}`)
-	*d.now = d.now.Add(appGroupTTL + time.Second)
+	d.advance(t, appGroupTTL+time.Second)
 	n := st.count()
 	for _, path := range []string{"/api/v1/fusion/logs", "/api/v1/fusion/traces", "/api/v1/fusion/metrics/series", "/api/v1/fusion/traces/" + testTraceID} {
 		if r := d.get(path, tok); r.Code != 403 || !strings.Contains(r.Body.String(), "sees nothing") {
@@ -810,7 +810,7 @@ func TestAWorkspaceThatCannotBeReadRefusesAnApplicationToken(t *testing.T) {
 	if _, err := d.st.PutWorkspace(d.ctx, "org-1", 1, []byte("{not json"), "root", *d.now); err != nil {
 		t.Fatal(err)
 	}
-	*d.now = d.now.Add(appGroupTTL + time.Second)
+	d.advance(t, appGroupTTL+time.Second)
 	for _, path := range []string{"/api/v1/fusion/status", "/api/v1/fusion/logs"} {
 		if r := d.get(path, bearer(secret)); r.Code != 503 || strings.Contains(r.Body.String(), "no longer exists") {
 			t.Errorf("%s: %d %s", path, r.Code, r.Body.String())

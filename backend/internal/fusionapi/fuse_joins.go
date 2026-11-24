@@ -4,6 +4,33 @@ import "slices"
 
 // The joins of a fused read, one method of fuseRun each: what it reads, and where in the answer it puts it (see FuseTrace).
 
+// FusedReads is how many store reads one fused read is charged for a caller with Scope s, by what it asks for (opts)
+// and may read, as the joins below make them: the trace (Tempo), then one Loki read for each of logs, context_logs and
+// system_logs, one Prometheus read for metrics and one for each of its own queries (promql). The topology and the
+// changes are ikhnos' own and read no store. It counts what is asked, not what the trace turns out to need (a resource's
+// own reads after the joint one, a query once per resource), so that the charge is known before the trace is read: it is
+// the least the read makes, and the server bounds the charge (chargeReads) all the same. What the caller may not read
+// is not read and not counted: a signal it has not, the system logs and promql of a caller limited to applications.
+func FusedReads(s Scope, opts FuseOptions) int {
+	n := 1
+	if s.Allows(SignalLogs) {
+		for _, asked := range []bool{opts.Logs, opts.ContextLogs, opts.SystemLogs && !s.AppLimited} {
+			if asked {
+				n++
+			}
+		}
+	}
+	if s.Allows(SignalMetrics) {
+		if opts.Metrics {
+			n++
+		}
+		if !s.AppLimited { // (refused before any read, see checkFilters)
+			n += len(opts.PromQL)
+		}
+	}
+	return n
+}
+
 // promQLJoin is how the caller's queries are tied to the trace: those that name a resource variable for each resource, the
 // others once for the whole trace (see FuseOptions.PromQL).
 func promQLJoin(qs []PromQuery) string {

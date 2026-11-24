@@ -1186,7 +1186,9 @@ func TestDependentsBoundsRealFanOut(t *testing.T) {
 	// Where the time went, said when it was too much: this query takes a fifth of a second on a quiet machine, so a slow run is worth knowing
 	// the statement of, not just the total.
 	var spent []string
-	walkTrace = func(what string, took time.Duration) { spent = append(spent, fmt.Sprintf("%s: %v", what, took.Round(time.Millisecond))) }
+	walkTrace = func(what string, took time.Duration) {
+		spent = append(spent, fmt.Sprintf("%s: %v", what, took.Round(time.Millisecond)))
+	}
 	t.Cleanup(func() { walkTrace = nil })
 	start := time.Now()
 	_, reached, err := db.Dependents(ctx, org, t0, "service", "hub", 1)

@@ -134,6 +134,10 @@ func (f LogFilter) pipeline(s Scope, q string) (string, error) {
 		}
 		// The severity a line is shown with: the record's own (severity_text), else what Loki detected from the line or a level
 		// label - a container's stdout has no severity_text, and would otherwise be shown as "error" and never found as one.
+		// (Loki 3.5.0 writes detected_level as structured metadata at ingestion, OTLP pushes included, when
+		// discover_log_levels and allow_structured_metadata are on, as the FUSION chart's loki-config.yaml sets them; see
+		// the comment there for what was checked in its source. severity_text is structured metadata of every OTLP record
+		// that has one, so both are read by a label filter after the pipe, and either is "" where there is none.)
 		q += " | (" + lokiSeverity + "=~" + quote(re) + " or (" + lokiSeverity + `="" and (detected_level=~` + quote(re) + " or level=~" + quote(re) + ")))"
 	}
 	if f.Cluster != "" {

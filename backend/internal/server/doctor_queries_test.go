@@ -17,6 +17,7 @@ import (
 
 	"ikhnos/internal/fusionapi"
 	"ikhnos/internal/fusionhttp"
+	"ikhnos/internal/kernel"
 	"ikhnos/internal/landscape"
 	"ikhnos/internal/model"
 )
@@ -187,6 +188,9 @@ func checkAsked(t *testing.T, info map[string]bool, asked string) {
 func doctorQueries(t *testing.T) {
 	d := newDataRig(t)
 	d.a.extras = appExtras{shopGroups()}
+	// The doctor reads every route several times over, as fast as it can, and each is charged the store reads it makes
+	// (a fused trace its parts, the list of services each store): the rate limit is not what it checks.
+	d.a.fd().Reads = kernel.NewLimiter(fusionhttp.ReadsPerMinute*100, fusionhttp.ReadBurst*100)
 	limited, _ := d.mint(t, map[string]any{"name": "shop", "namespaces": []string{"shop"}, "clusters": []string{"cl-1"}})
 	info := infoLabels(t)
 

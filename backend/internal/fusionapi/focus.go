@@ -49,10 +49,14 @@ const (
 )
 
 // matchResource matches a member with a resource: by its name or one of its aliases against the resource's service.name
-// or its workload's name, and by its namespace and cluster where both say one.
+// or the name of any workload its pod belongs to (a CronJob's run carries the CronJob's name as well as its Job's, which
+// Workload gives first), and by its namespace and cluster where both say one.
 func (m AppMember) matchResource(r *Resource) match {
 	names := append([]string{m.Name}, m.Aliases...)
-	if !slices.Contains(names, r.Service) && !(r.Workload() != "" && slices.Contains(names, r.Workload())) {
+	if !slices.Contains(names, r.Service) && !slices.ContainsFunc(workloadAttrs, func(a string) bool {
+		w := strAttr(r.Attributes, a)
+		return w != "" && slices.Contains(names, w)
+	}) {
 		return noMatch
 	}
 	loose := false

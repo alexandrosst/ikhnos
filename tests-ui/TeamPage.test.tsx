@@ -53,6 +53,7 @@ beforeEach(() => {
   vi.spyOn(api, 'setMemberRole').mockReset().mockResolvedValue(undefined)
   vi.spyOn(api, 'listFusionTokens').mockReset().mockResolvedValue(fusionTokens as never)
   vi.spyOn(api, 'revokeFusionTokensMadeBy').mockReset().mockResolvedValue({ revoked: ['fk-1', 'fk-2'] })
+  vi.spyOn(api, 'leaveOrg').mockReset().mockResolvedValue(undefined)
 })
 
 describe('Members & access', () => {
@@ -209,17 +210,15 @@ describe('an administrator who made FUSION tokens stops being one', () => {
     expect(screen.queryByTestId('leaving-unknown')).toBeNull() // no older tokens in this organisation
   })
 
-  test('when only older tokens of unknown maker exist, it asks with the note and no box', async () => {
+  test('tokens of unknown maker alone are no reason to ask: the change is made at once', async () => {
     seed('owner')
     vi.mocked(api.listFusionTokens).mockResolvedValue([fusionTokens[2], fusionTokens[3], fusionToken('fk-5', 'Older', undefined)] as never)
     const user = userEvent.setup()
     show()
     await user.click(await screen.findByTestId('remove-dora'))
-    const dialog = await screen.findByRole('dialog', { name: 'Remove dora?' })
-    expect(within(dialog).getByTestId('leaving-unknown')).toHaveTextContent('2 older tokens were made before ikhnos recorded who made them; check them in the Access tab.')
-    expect(within(dialog).queryByRole('checkbox')).toBeNull()
-    await user.click(within(dialog).getByTestId('leaving-confirm'))
     await waitFor(() => expect(api.removeMember).toHaveBeenCalledWith(expect.anything(), 'm3'))
+    expect(api.listFusionTokens).toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).toBeNull()
     expect(api.revokeFusionTokensMadeBy).not.toHaveBeenCalled()
   })
 
@@ -287,5 +286,93 @@ describe('an administrator who made FUSION tokens stops being one', () => {
     await waitFor(() => expect(api.removeMember).toHaveBeenCalledWith(expect.anything(), 'm2'))
     expect(api.listFusionTokens).not.toHaveBeenCalled()
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+})
+
+describe('an administrator who made FUSION tokens leaves the organisation', () => {
+  test('is asked first, with their tokens named and the revoke unticked; confirming leaves and revokes nothing', async () => {
+    seed('owner')
+    const user = userEvent.setup()
+    show()
+    await user.click(await screen.findByTestId('leave-org'))
+    const dialog = await screen.findByRole('dialog', { name: 'Leave Netmode lab?' })
+    expect(within(dialog).getByText(/You made a FUSION API token\. It belongs to the organisation and keeps working once you have left/)).toBeInTheDocument()
+    const names = within(within(dialog).getByRole('list', { name: 'Your FUSION tokens' })).getAllByRole('listitem').map((li) => li.textContent)
+    expect(names).toEqual(['Ada script'])
+    expect(within(dialog).getByRole('checkbox', { name: 'Revoke the FUSION token you made first' })).not.toBeChecked()
+    expect(within(dialog).getByTestId('leaving-unknown')).toHaveTextContent('1 older token was made before ikhnos recorded who made them')
+    expect(api.leaveOrg).not.toHaveBeenCalled() // nothing happens until it is confirmed
+    await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
+    await waitFor(() => expect(api.leaveOrg).toHaveBeenCalledTimes(1))
+    expect(api.revokeFusionTokensMadeBy).not.toHaveBeenCalled()
+    expect(useServer.getState().reloadOrgs).toHaveBeenCalled()
+  })
+
+  test('ticking the box revokes their tokens first, while they are still an administrator, then leaves', async () => {
+    seed('owner')
+    const user = userEvent.setup()
+    const order: string[] = []
+    vi.mocked(api.revokeFusionTokensMadeBy).mockImplementation(async () => { order.push('revoke'); return { revoked: ['fk-3'] } })
+    vi.mocked(api.leaveOrg).mockImplementation(async () => { order.push('leave') })
+    show()
+    await user.click(await screen.findByTestId('leave-org'))
+    await user.click(await screen.findByTestId('leaving-revoke-tokens'))
+    await user.click(screen.getByTestId('leaving-confirm'))
+    await waitFor(() => expect(api.leaveOrg).toHaveBeenCalled())
+    expect(api.revokeFusionTokensMadeBy).toHaveBeenCalledWith(expect.anything(), 'm1')
+    expect(order).toEqual(['revoke', 'leave'])
+  })
+
+  test('a revoke that fails keeps them in the organisation and says why', async () => {
+    seed('owner')
+    const user = userEvent.setup()
+    const { ApiError } = await import('@/lib/api')
+    vi.mocked(api.listFusionTokens).mockResolvedValue([fusionTokens[2], fusionToken('fk-6', 'Ada notebook', 'm1')] as never)
+    vi.mocked(api.revokeFusionTokensMadeBy).mockRejectedValueOnce(
+      new ApiError(500, '1 of the tokens were revoked, then revoking the next one failed: internal error', { error: 'x', revoked: ['fk-3'] }))
+    show()
+    await user.click(await screen.findByTestId('leave-org'))
+    await user.click(await screen.findByRole('checkbox', { name: 'Revoke the 2 FUSION tokens you made first' }))
+    await user.click(screen.getByTestId('leaving-confirm'))
+    expect(await screen.findByText(/^You have not left: revoking your FUSION tokens failed after 1 were revoked: 1 of the tokens were revoked.*Try again, or leave without revoking them/)).toBeInTheDocument()
+    expect(api.leaveOrg).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByTestId('leave-org')).toBeEnabled() // free to try again
+  })
+
+  test('a list that cannot be checked still asks, says so, and offers no box', async () => {
+    seed('owner')
+    const { ApiError } = await import('@/lib/api')
+    vi.mocked(api.listFusionTokens).mockRejectedValueOnce(new ApiError(500, 'internal error'))
+    const user = userEvent.setup()
+    show()
+    await user.click(await screen.findByTestId('leave-org'))
+    const dialog = await screen.findByRole('dialog', { name: 'Leave Netmode lab?' })
+    expect(within(dialog).getByTestId('leaving-unchecked')).toHaveTextContent('Your FUSION tokens could not be checked')
+    expect(within(dialog).queryByRole('checkbox')).toBeNull()
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(api.leaveOrg).not.toHaveBeenCalled()
+    expect(screen.getByTestId('leave-org')).toBeEnabled()
+  })
+
+  test('nothing is asked when they made none, nor of someone who is not an administrator', async () => {
+    seed('owner')
+    vi.mocked(api.listFusionTokens).mockResolvedValue([fusionTokens[0], fusionTokens[3]] as never)
+    const user = userEvent.setup()
+    const { unmount } = show()
+    await user.click(await screen.findByTestId('leave-org'))
+    await waitFor(() => expect(api.leaveOrg).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    unmount()
+
+    vi.mocked(api.leaveOrg).mockClear()
+    vi.mocked(api.listFusionTokens).mockClear()
+    vi.mocked(api.members).mockResolvedValue([{ ...members[0], role: 'viewer' }, members[2]] as never)
+    seed('viewer')
+    show()
+    await user.click(await screen.findByTestId('leave-org'))
+    await waitFor(() => expect(api.leaveOrg).toHaveBeenCalledTimes(1))
+    expect(api.listFusionTokens).not.toHaveBeenCalled()
+    expect(api.revokeFusionTokensMadeBy).not.toHaveBeenCalled()
   })
 })

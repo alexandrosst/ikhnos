@@ -38,26 +38,7 @@ func (c *Client) MetricNames(ctx context.Context, s Scope, f MetricFilter, tr Ti
 // values of its own, sorted (Prometheus sorts before it cuts), so the first of the union are among them, and the caller's
 // cut of the sorted union is the cut of the whole answer.
 func (c *Client) promLabelValues(ctx context.Context, label string, q url.Values) ([]string, error) {
-	sels := q["match[]"]
-	rest := url.Values{}
-	for k, v := range q {
-		if k != "match[]" {
-			rest[k] = v
-		}
-	}
-	var batches [][]string
-	var cur []string
-	size := len(rest.Encode())
-	for _, sel := range sels {
-		n := len(url.Values{"match[]": {sel}}.Encode()) + 1
-		if len(cur) > 0 && size+n > maxGetQuery {
-			batches, cur, size = append(batches, cur), nil, len(rest.Encode())
-		}
-		cur, size = append(cur, sel), size+n
-	}
-	if len(cur) > 0 || len(batches) == 0 {
-		batches = append(batches, cur)
-	}
+	rest, batches := labelValueBatches(q)
 	var out []string
 	for _, b := range batches {
 		bq := url.Values{}
@@ -81,6 +62,31 @@ func (c *Client) promLabelValues(ctx context.Context, label string, q url.Values
 		return out, nil // (as the store gave them)
 	}
 	return distinctSorted(out), nil
+}
+
+// labelValueBatches splits the question of a label-values call (q) as promLabelValues asks it: rest is what every call
+// carries (the range), batches the selectors of each call, at least one (with no selectors, one call that names none).
+// The calls a list of services is charged by are counted with it too (ServiceListReads).
+func labelValueBatches(q url.Values) (rest url.Values, batches [][]string) {
+	rest = url.Values{}
+	for k, v := range q {
+		if k != "match[]" {
+			rest[k] = v
+		}
+	}
+	var cur []string
+	size := len(rest.Encode())
+	for _, sel := range q["match[]"] {
+		n := len(url.Values{"match[]": {sel}}.Encode()) + 1
+		if len(cur) > 0 && size+n > maxGetQuery {
+			batches, cur, size = append(batches, cur), nil, len(rest.Encode())
+		}
+		cur, size = append(cur, sel), size+n
+	}
+	if len(cur) > 0 || len(batches) == 0 {
+		batches = append(batches, cur)
+	}
+	return rest, batches
 }
 
 // Series lists the label sets of the series matching the filter in the range, at most limit of them. truncated says there

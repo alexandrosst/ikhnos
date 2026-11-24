@@ -118,6 +118,21 @@ type dataRig struct {
 	adminID string
 }
 
+// advance moves the rig's clock on once no shared value (the applications, the names, the topology) is being read
+// again in the background. Such a read takes the time when it is done, so a clock moved under it would be a data race
+// of the test's, not of the server's, whose clock is not a variable.
+func (d *dataRig) advance(t *testing.T, by time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for !(d.a.appCache.idle() && d.a.nameCache.idle() && d.a.topoCache.idle()) {
+		if time.Now().After(deadline) {
+			t.Fatal("a shared value was still being read after 5s")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	*d.now = d.now.Add(by)
+}
+
 func newDataRig(t *testing.T) *dataRig {
 	t.Helper()
 	a := newAdminRig(t)
@@ -252,7 +267,7 @@ func TestFusionTokenExpires(t *testing.T) {
 	if r := d.get("/api/v1/fusion/status", bearer(secret)); r.Code != 200 {
 		t.Fatalf("fresh: %d", r.Code)
 	}
-	*d.now = d.now.Add(25 * time.Hour)
+	d.advance(t, 25*time.Hour)
 	if r := d.get("/api/v1/fusion/status", bearer(secret)); r.Code != 401 {
 		t.Fatalf("expired: %d", r.Code)
 	}

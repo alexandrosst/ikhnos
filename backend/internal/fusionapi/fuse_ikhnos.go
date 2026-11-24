@@ -34,7 +34,7 @@ func (c *Client) fuseIkhnos(ctx context.Context, s Scope, f *Fused, looked []*Re
 	ix := newTopoIndex(view) // (once for every resource, and for the changes)
 	if opts.Topology {
 		setSource(SourceTopology, SourceOK)
-		n, amb := attachTopology(ix, s, looked)
+		n, amb := attachTopology(ix, s, looked, opts.Applications)
 		if amb > 0 {
 			note("topology: %d resource(s) were left unmatched because several services of ikhnos have their name and they carry no namespace or cluster to tell them apart", amb)
 		}

@@ -1,6 +1,7 @@
 package fusionhttp
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -64,10 +65,10 @@ func TestARefusedBatchLeavesTheRoomItFound(t *testing.T) {
 	g := newGuard(fakeAccounts{}, fakeTokens{})
 	g.Reads = kernel.NewLimiter(1, 10)
 	who := Caller{Kind: "token", ID: "t"}
-	if w := httptest.NewRecorder(); g.bulkAllowed(w, who, 25) || w.Code != http.StatusTooManyRequests {
+	if w := httptest.NewRecorder(); g.bulkAllowed(w, who, 25, 25) || w.Code != http.StatusTooManyRequests {
 		t.Fatalf("25 traces with room for 10: allowed, code %d", w.Code)
 	}
-	if !g.bulkAllowed(httptest.NewRecorder(), who, 10) {
+	if !g.bulkAllowed(httptest.NewRecorder(), who, 10, 10) {
 		t.Fatal("the refused batch used up the room of a smaller one")
 	}
 }
@@ -201,6 +202,120 @@ func TestAnOverviewAndTheApplicationsAreChargedTheReadsTheyMake(t *testing.T) {
 	served(g, who, g.Service, "/services/cart")
 	if g.Reads.AllowN(key, 19) || !g.Reads.AllowN(key, 18) {
 		t.Fatal("a traces-only caller was charged for stores it does not read")
+	}
+}
+
+// The list of services and a fused read are charged the store reads they make, not one each: the list once for each store
+// the caller may read, a fused trace once for the trace and once for each part it asks for and may read (logs, context
+// lines, system lines, metrics, each of its own queries), the topology and the changes not at all, being ikhnos' own. A
+// batch, and a fused search, are charged that for each trace (and the search), never less than one per trace.
+func TestTheServicesAndAFusedReadAreChargedTheReadsTheyMake(t *testing.T) {
+	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	setup := func(signals ...string) (*Guard, Caller, string) {
+		g := newGuard(fakeAccounts{}, fakeTokens{})
+		g.Now = func() time.Time { return now }
+		g.Reads = kernel.NewLimiter(1, 40)
+		who := Caller{Kind: "token", ID: "t", Scope: fusionapi.AllSignals()}
+		if len(signals) > 0 {
+			who.Scope.Signals = signals
+		}
+		return g, who, who.Kind + "|" + who.ID
+	}
+	served := func(g *Guard, who Caller, h Handler, req *http.Request) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		if !g.Allow(who) { // what Serve charges
+			t.Fatalf("%s: the first read was refused", req.URL)
+		}
+		h(w, req, &fusionapi.Client{}, who)
+		if w.Code == http.StatusTooManyRequests {
+			t.Fatalf("%s: %s", req.URL, w.Body.String())
+		}
+		return w
+	}
+	// charged says the request took n reads of the 40: what is left is 40-n.
+	charged := func(g *Guard, key string, n int) bool {
+		return !g.Reads.AllowN(key, 40-n+1) && g.Reads.AllowN(key, 40-n)
+	}
+
+	g, who, key := setup()
+	served(g, who, g.Services, httptest.NewRequest("GET", "/services", nil))
+	if !charged(g, key, 3) {
+		t.Fatal("the list of services was not charged a read of each of the three stores")
+	}
+	g, who, key = setup(fusionapi.SignalLogs)
+	served(g, who, g.Services, httptest.NewRequest("GET", "/services", nil))
+	if !charged(g, key, 1) {
+		t.Fatal("a logs-only caller was charged for stores it does not read")
+	}
+
+	fused := "/traces/0af7651916cd43dd8448eb211c80319c?include=logs,context_logs,system_logs,metrics,topology,changes" +
+		"&promql=" + url.QueryEscape("a=up") + "&promql=" + url.QueryEscape("b=up")
+	trace := func(path string) *http.Request {
+		r := httptest.NewRequest("GET", path, nil)
+		r.SetPathValue("id", "0af7651916cd43dd8448eb211c80319c")
+		return r
+	}
+	g, who, key = setup()
+	served(g, who, g.Trace, trace(fused))
+	if !charged(g, key, 7) { // the trace, three log reads, the metrics and two queries
+		t.Fatal("a fused read was not charged the trace and each part it asks for")
+	}
+	g, who, key = setup(fusionapi.SignalTraces, fusionapi.SignalLogs)
+	served(g, who, g.Trace, trace(fused))
+	if !charged(g, key, 4) {
+		t.Fatal("a caller without metrics was charged for the metrics and the queries")
+	}
+	g, who, key = setup()
+	served(g, who, g.Trace, trace("/traces/0af7651916cd43dd8448eb211c80319c?include=topology,changes"))
+	if !charged(g, key, 1) {
+		t.Fatal("the topology and the changes were charged as store reads")
+	}
+
+	batch := func(body string) *http.Request {
+		return httptest.NewRequest("POST", "/traces/batch", strings.NewReader(body))
+	}
+	two := `"ids": ["0af7651916cd43dd8448eb211c80319c", "0af7651916cd43dd8448eb211c80319d"]`
+	g, who, key = setup()
+	served(g, who, g.TraceBatch, batch(`{`+two+`, "include": ["logs", "metrics"]}`))
+	if !charged(g, key, 6) {
+		t.Fatal("a batch of two traces with logs and metrics was not charged three reads for each")
+	}
+	g, who, key = setup()
+	served(g, who, g.TraceBatch, batch(`{`+two+`, "include": ["none"]}`))
+	if !charged(g, key, 2) {
+		t.Fatal("a batch of the traces alone was not charged one read for each")
+	}
+	// Past half the burst, a batch costs half the burst, and never less than one read per trace.
+	var ids []string
+	for i := range 25 {
+		ids = append(ids, fmt.Sprintf(`"0af7651916cd43dd8448eb211c8031%02d"`, i))
+	}
+	g, who, key = setup()
+	served(g, who, g.TraceBatch, batch(`{"ids": [`+strings.Join(ids, ",")+`], "include": ["logs", "metrics"]}`))
+	if !charged(g, key, 25) {
+		t.Fatal("a batch of 25 was not charged at least one read per trace, and at most half the burst more")
+	}
+
+	// A fused search is charged the search and each trace it then reads.
+	tempo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/search" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"traces": []any{
+			map[string]any{"traceID": "0af7651916cd43dd8448eb211c80319c"},
+			map[string]any{"traceID": "0af7651916cd43dd8448eb211c80319d"}}})
+	}))
+	t.Cleanup(tempo.Close)
+	g, who, key = setup()
+	if !g.Allow(who) {
+		t.Fatal("the first read was refused")
+	}
+	w := httptest.NewRecorder()
+	search := httptest.NewRequest("GET", "/traces?include=logs,metrics&from=now-1h", nil)
+	g.Traces(w, search, &fusionapi.Client{Tempo: tempo.URL}, who)
+	if w.Code != http.StatusOK || !charged(g, key, 7) { // the search, and three reads for each of the two traces
+		t.Fatalf("a fused search of two traces with logs and metrics: %d %s", w.Code, w.Body.String())
 	}
 }
 

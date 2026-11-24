@@ -68,3 +68,10 @@ func TestASharedValueWithNoStaleAllowanceIsNeverGivenOld(t *testing.T) {
 		t.Fatalf("an old value was given: %d", v)
 	}
 }
+
+// idle says no read of the value is in flight.
+func (c *sharedValue[T]) idle() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.loading == nil
+}

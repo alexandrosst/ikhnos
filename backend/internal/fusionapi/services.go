@@ -91,11 +91,11 @@ func (c *Client) logServices(ctx context.Context, s Scope, tr TimeRange) (names 
 	if err := s.needSignal(SignalLogs); err != nil {
 		return nil, "", err
 	}
-	if p := s.places(); len(p.exact) > 0 && (len(s.Clusters) == 0 || s.AppLimited) && !(s.AppLimited && len(p.exact) > maxFocusPlaces) {
+	if places := logServicePlaces(s); len(places) > 0 {
 		// An application's services, each where it runs: one read per place. For a caller limited to applications the places
 		// are its rights' (or its focus's, inside them), and each names its cluster, which goes into the selector itself: a
 		// line that carries its cluster in its structured metadata alone is not counted, which can only leave a name out.
-		return c.logServicesIn(ctx, s, p.exact, tr)
+		return c.logServicesIn(ctx, s, places, tr)
 	}
 	if len(s.Clusters) > 0 || s.AppLimited {
 		// A cluster the caller's own rights limit it to is matched after the selector (lines stored before the cluster became an
@@ -125,6 +125,15 @@ func (c *Client) logServices(ctx context.Context, s Scope, tr TimeRange) (names 
 	// The rights limit no cluster here, so the places' clusters are the focus's alone.
 	names, err = c.lokiServiceNames(ctx, sel, s.places().clusters, tr)
 	return names, "", err
+}
+
+// logServicePlaces are the places logServices reads one by one (logServicesIn), none when it reads the lines another way.
+func logServicePlaces(s Scope) []FocusPlace {
+	p := s.places()
+	if len(p.exact) > 0 && (len(s.Clusters) == 0 || s.AppLimited) && !(s.AppLimited && len(p.exact) > maxFocusPlaces) {
+		return p.exact
+	}
+	return nil
 }
 
 // logServicesIn is logServices for an application, place by place: the services of its names with lines in each of its
@@ -278,6 +287,15 @@ func (c *Client) Applications(ctx context.Context, s Scope, tr TimeRange) ([]App
 
 // metricServices lists the service names that have series in the range (inside the Scope).
 func (c *Client) metricServices(ctx context.Context, s Scope, tr TimeRange) ([]string, error) {
+	q, err := metricServicesQuery(s, tr)
+	if err != nil {
+		return nil, err
+	}
+	return c.promLabelValues(ctx, lblService, q)
+}
+
+// metricServicesQuery is the label-values question metricServices asks: its selectors and range.
+func metricServicesQuery(s Scope, tr TimeRange) (url.Values, error) {
 	var sels []string
 	if p := s.places(); len(p.exact) > 0 {
 		// Each member's names where it runs: a member's name in another member's namespace is not the application's.
@@ -294,5 +312,26 @@ func (c *Client) metricServices(ctx context.Context, s Scope, tr TimeRange) ([]s
 		}
 		sels = []string{"{" + strings.Join(append(m, lblService+`=~".+"`), ",") + "}"}
 	}
-	return c.promLabelValues(ctx, lblService, url.Values{"match[]": sels, "start": {unixFloat(tr.From)}, "end": {unixFloat(tr.To)}})
+	return url.Values{"match[]": sels, "start": {unixFloat(tr.From)}, "end": {unixFloat(tr.To)}}, nil
+}
+
+// ServiceListReads is how many store reads listing the services (Applications) makes for a caller with Scope s over tr,
+// of the signals it may read: Prometheus once per batch of selectors (promLabelValues: one, unless a caller limited to
+// applications has more places than one question holds), Loki once per place when an application's services are read
+// place by place (logServicesIn) and once otherwise, and Tempo once. The server charges a caller's rate limit by it.
+func ServiceListReads(s Scope, tr TimeRange) int {
+	n := 0
+	if s.Allows(SignalMetrics) {
+		if q, err := metricServicesQuery(s, tr); err == nil { // (a query that cannot be built is not asked)
+			_, batches := labelValueBatches(q)
+			n += len(batches)
+		}
+	}
+	if s.Allows(SignalLogs) {
+		n += max(len(logServicePlaces(s)), 1)
+	}
+	if s.Allows(SignalTraces) {
+		n++
+	}
+	return max(n, 1)
 }

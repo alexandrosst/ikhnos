@@ -96,8 +96,9 @@ func endVisible(s Scope, byID map[string]*TopoService, id, kind string) bool {
 	return s.serviceVisible(byID[id])
 }
 
-// topologyFor builds a resource's neighbours, leaving out what the Scope may not see.
-func (ix *topoIndex) topologyFor(s Scope, r *Resource) *ResourceTopology {
+// topologyFor builds a resource's neighbours, leaving out what the Scope may not see. The service names only the
+// applications the caller may know of (visible: VisibleGroups, see Scope.shownService).
+func (ix *topoIndex) topologyFor(s Scope, r *Resource, visible []AppGroup) *ResourceTopology {
 	sv, _ := ix.matchService(r)
 	if sv == nil || (s.AppLimited && !s.serviceVisible(sv)) {
 		// (A resource of the caller's applications by its workload's name may carry a service.name that is another service's
@@ -117,7 +118,7 @@ func (ix *topoIndex) topologyFor(s Scope, r *Resource) *ResourceTopology {
 		}
 		return n, endVisible(s, byID, id, kind)
 	}
-	rt := &ResourceTopology{Service: s.ownedService(sv), Calls: []Neighbour{}, CalledBy: []Neighbour{}}
+	rt := &ResourceTopology{Service: s.shownService(sv, visible), Calls: []Neighbour{}, CalledBy: []Neighbour{}}
 	for _, i := range ix.linksOf[sv.ID] { // (the links of every other service could match neither case below)
 		l := v.Links[i]
 		if l.Noise != "" {
@@ -148,10 +149,10 @@ func (ix *topoIndex) topologyFor(s Scope, r *Resource) *ResourceTopology {
 }
 
 // attachTopology puts each resource's neighbours on it. Returns how many resources the topology knew, and how many it could
-// not tell from several services.
-func attachTopology(ix *topoIndex, s Scope, looked []*Resource) (matched, ambiguous int) {
+// not tell from several services. visible are the applications the caller may know of, the only ones the services name.
+func attachTopology(ix *topoIndex, s Scope, looked []*Resource, visible []AppGroup) (matched, ambiguous int) {
 	for _, r := range looked {
-		if rt := ix.topologyFor(s, r); rt != nil {
+		if rt := ix.topologyFor(s, r, visible); rt != nil {
 			r.Topology = rt
 			matched++
 		} else if _, amb := ix.matchService(r); amb {

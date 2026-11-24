@@ -175,8 +175,9 @@ type AppTruncated struct {
 // BuildAppTopology works out the answer from the application and the topology (as of now or as of a past moment), for a caller
 // with this Scope: a neighbour the Scope may not see is left out, with the link to it, and so are all addresses outside the
 // clusters unless the Scope is unrestricted. Machinery links (dns, system) are left out unless noise is set. It is one pass
-// over the services and one over the links.
-func BuildAppTopology(g *AppGroup, v *TopologyView, s Scope, noise bool) *AppTopology {
+// over the services and one over the links. visible are the applications the caller may know of (VisibleGroups): a
+// neighbour names only those of its applications (Scope.shownService).
+func BuildAppTopology(g *AppGroup, v *TopologyView, s Scope, noise bool, visible []AppGroup) *AppTopology {
 	t := &AppTopology{Application: AppInfo{ID: g.ID, Name: g.Name, Description: g.Description, Origin: g.Origin, Confidence: g.Confidence},
 		AsOf: v.At, Source: "live", Services: []AppTopoSvc{}, Links: []AppTopoLink{}, Neighbours: []AppTopoOther{}, Externals: []AppTopoExt{},
 		Changes: []ChangeEvent{}, Unresolved: g.Unresolved, ids: []string{g.ID}}
@@ -299,7 +300,7 @@ func BuildAppTopology(g *AppGroup, v *TopologyView, s Scope, noise bool) *AppTop
 			if !near[o.ID] {
 				near[o.ID] = true
 				t.Neighbours = append(t.Neighbours, AppTopoOther{Key: o.Key().String(), ID: o.ID, Name: o.Name, Namespace: o.Namespace, Cluster: o.Cluster,
-					Applications: append([]string{}, s.ownedService(o).Applications...)})
+					Applications: append([]string{}, s.shownService(o, visible).Applications...)})
 			}
 			continue
 		}

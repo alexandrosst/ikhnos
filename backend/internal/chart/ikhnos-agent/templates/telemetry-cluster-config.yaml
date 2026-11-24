@@ -150,7 +150,12 @@
 {{- if $accConditions }}{{ $procInfra = append $procInfra "filter/scope_accelerators" }}{{ end }}
 {{- if $enConditions }}{{ $procInfra = append $procInfra "filter/scope_energy" }}{{ end }}
 {{- if and $infraConditions .Values.telemetry.kubernetesState.metrics.enabled }}{{ $procInfra = append $procInfra "filter/scope_infra" }}{{ end }}
-{{- $procInfra = concat $procInfra $afterK8s $commonMid $extraNames (list "transform/ikhnos_source_infra") $tail }}
+{{- /* $nodeJobs: the scrape jobs of the exporters that report on a whole node (energy, accelerators), each of whose records is
+       one resource per node; transform/node_series takes any namespace and pod off them, after every other processor. */ -}}
+{{- $nodeJobs := list }}
+{{- if .Values.telemetry.energy.metrics.enabled }}{{ $nodeJobs = append $nodeJobs (ternary "kepler" "energy-existing" (eq .Values.telemetry.energy.metrics.source "bundle-kepler")) }}{{ end }}
+{{- if $acc.enabled }}{{ $nodeJobs = append $nodeJobs $accJob }}{{ end }}
+{{- $procInfra = concat $procInfra $afterK8s $commonMid $extraNames (ternary (list "transform/node_series") (list) (not (empty $nodeJobs))) (list "transform/ikhnos_source_infra") $tail }}
 
 {{- $procApp := concat (list "memory_limiter") (ternary (list "transform/scrape_k8s") (list) (not (empty $scrapeK8s))) (list "k8sattributes") }}
 {{- if $amConditions }}{{ $procApp = append $procApp $amProcessor }}{{ end }}
@@ -594,6 +599,25 @@ data:
              after the person's own extraProcessors (action: set overwrites), just before resource/ikhnos, so a processor of their own
              cannot make a record claim another source. The vocabulary is documented in telemetry-intent.md; a Prometheus job is told
              apart by its service.name, which is the job_name. */}}
+      {{- if has "transform/node_series" $usedProcs }}
+      # A series of an exporter that reports on a whole node (Kepler's energy, a GPU exporter's) is one resource per node, and
+      # what it is about is the node: the pod a GPU is allocated to, or whose energy a series measures, is a label of the
+      # data point (namespace/pod, container_namespace/pod_name), never the resource's. A namespace or pod on that resource
+      # can only be the scraped exporter pod's own (transform/kepler_node and transform/dcgm_node take it off before the scope
+      # filters), or one copied up from a data point by a processor, which is whichever pod's point came last. Either way it
+      # names a workload the node's series do not belong to, and FUSION would show them to a token limited to that
+      # namespace. So, last, after every other processor (the person's own included) and whichever way the exporter is
+      # reached (pod by pod, or one address), its records carry no namespace, pod, container or workload: they are the
+      # node's series, which a token limited to namespaces does not see (fail closed). k8s.node.name stays.
+      transform/node_series:
+        error_mode: ignore
+        metric_statements:
+          - context: resource
+            statements:
+              {{- range $a := list "k8s.namespace.name" "k8s.pod.name" "k8s.pod.uid" "k8s.container.name" "k8s.daemonset.name" "k8s.deployment.name" "k8s.replicaset.name" "k8s.statefulset.name" "k8s.job.name" "k8s.cronjob.name" }}
+              - delete_key(attributes, {{ $a | quote }}) where {{ range $i, $j := $nodeJobs }}{{ if $i }} or {{ end }}attributes["service.name"] == {{ $j | quote }}{{ end }}
+              {{- end }}
+      {{- end }}
       {{- if has "transform/ikhnos_source_infra" $usedProcs }}
       transform/ikhnos_source_infra:
         error_mode: ignore

@@ -92,7 +92,8 @@ func (g *Guard) Traces(w http.ResponseWriter, r *http.Request, c *fusionapi.Clie
 	for i, t := range traces {
 		ids[i] = t.TraceID
 	}
-	if len(ids) > 0 && !g.bulkAllowed(w, who, len(ids)) {
+	// The search, then each trace and its parts.
+	if len(ids) > 0 && !g.bulkAllowed(w, who, len(ids), 1+len(ids)*fusionapi.FusedReads(who.Scope, opts)) {
 		return
 	}
 	if stream {
@@ -132,6 +133,10 @@ func (g *Guard) Trace(w http.ResponseWriter, r *http.Request, c *fusionapi.Clien
 	}
 	if err := g.fuseFocus(r, who, r.URL.Query().Get("application"), &opts); err != nil {
 		g.Err(w, err)
+		return
+	}
+	// The trace, and one store read for each part asked for that the caller may read (FusedReads).
+	if !g.chargeReads(w, who, fusionapi.FusedReads(who.Scope, opts)) {
 		return
 	}
 	opts.Names = g.names(r)
@@ -209,7 +214,7 @@ func (g *Guard) TraceBatch(w http.ResponseWriter, r *http.Request, c *fusionapi.
 		g.Err(w, err)
 		return
 	}
-	if !g.bulkAllowed(w, who, len(ids)) {
+	if !g.bulkAllowed(w, who, len(ids), len(ids)*fusionapi.FusedReads(who.Scope, opts)) {
 		return
 	}
 	opts.Names = g.names(r) // once for the batch, not once per trace
@@ -290,12 +295,17 @@ func nonNilItems(items []fusionapi.BulkItem) []fusionapi.BulkItem {
 	return items
 }
 
-// bulkAllowed charges the caller's rate limit for the traces beyond the first: reading 25 is 25 reads, whatever
-// the number of requests.
-// The charge is taken whole or not at all: a batch refused for want of room leaves the room it found for a smaller one.
-func (g *Guard) bulkAllowed(w http.ResponseWriter, who Caller, n int) bool {
-	if n > 1 && !g.Reads.AllowN(who.Kind+"|"+who.ID, n-1) {
-		tooMany(w, "too many requests, slow down; read fewer traces at a time")
+// bulkAllowed charges the caller's rate limit for a bulk read of n traces that makes reads store reads (the search, and
+// FusedReads for each trace): what chargeReads would charge for them, bounded as it is at half the burst, and never less
+// than n, so that reading 25 traces is at least 25 reads, whatever the number of requests. The bound keeps a full batch
+// one a caller can make while its other reads go on; what the stores are asked at once is bounded besides by the bulk
+// lane and bulkParallel (fusionapi/bulk.go). The charge is taken whole or not at all: a batch refused for want of room
+// leaves the room it found for a smaller one.
+func (g *Guard) bulkAllowed(w http.ResponseWriter, who Caller, n, reads int) bool {
+	charge := max(n, min(reads, max(g.Reads.Burst()/2, 1)))
+	if charge > 1 && !g.Reads.AllowN(who.Kind+"|"+who.ID, charge-1) {
+		tooMany(w, fmt.Sprintf("too many requests, slow down; this one counts as %d reads, so read fewer traces or parts "+
+			"at a time", charge))
 		return false
 	}
 	return true

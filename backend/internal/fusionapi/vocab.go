@@ -31,6 +31,8 @@ var (
 	vocDeployment  = Label{Attr: "k8s.deployment.name", Promote: true, Index: true}
 	vocStatefulSet = Label{Attr: "k8s.statefulset.name", Promote: true, Index: true}
 	vocDaemonSet   = Label{Attr: "k8s.daemonset.name", Promote: true, Index: true}
+	vocJob         = Label{Attr: "k8s.job.name", Promote: true, Index: true}
+	vocCronJob     = Label{Attr: "k8s.cronjob.name", Promote: true, Index: true}
 	vocVolumeClaim = Label{Attr: "k8s.persistentvolumeclaim.name", Promote: true}
 	vocCluster     = Label{Attr: "ikhnos.cluster.id", Promote: true, Index: true, By: "agent"}
 	vocOrg         = Label{Attr: "ikhnos.org.id", Promote: true, Index: true, By: "agent"}
@@ -38,12 +40,11 @@ var (
 
 // Vocabulary is every attribute the pipeline carries.
 var Vocabulary = []Label{
-	vocService, vocInstance, vocNamespace, vocPod, vocNode, vocDeployment, vocStatefulSet, vocDaemonSet, vocVolumeClaim, vocCluster,
+	vocService, vocInstance, vocNamespace, vocPod, vocNode, vocDeployment, vocStatefulSet, vocDaemonSet, vocJob, vocCronJob,
+	vocVolumeClaim, vocCluster,
 	{Attr: "service.namespace", Promote: true, Index: true},
 	{Attr: "k8s.cluster.name", Promote: true, Index: true},
 	{Attr: "k8s.replicaset.name", Promote: true, Index: true},
-	{Attr: "k8s.job.name", Promote: true, Index: true},
-	{Attr: "k8s.cronjob.name", Promote: true, Index: true},
 	{Attr: "k8s.container.name", Promote: true, Index: true},
 	{Attr: "k8s.hpa.name", Promote: true},
 	{Attr: "k8s.resourcequota.name", Promote: true},
@@ -64,8 +65,13 @@ var (
 
 	lblService, lblNamespace, lblPod, lblNode, lblCluster = vocService.Name(), vocNamespace.Name(), vocPod.Name(), vocNode.Name(), vocCluster.Name()
 	lblVolumeClaim                                        = vocVolumeClaim.Name()
-	// lblWorkloads name the workload a pod belongs to. A pod's metrics carry no service name, only these.
-	lblWorkloads = []string{vocDeployment.Name(), vocStatefulSet.Name(), vocDaemonSet.Name()}
-	// workloadLabel is the label that names a workload of this kind in the metrics the cluster's own objects report.
-	workloadLabel = map[string]string{"Deployment": vocDeployment.Name(), "StatefulSet": vocStatefulSet.Name(), "DaemonSet": vocDaemonSet.Name()}
+	// lblWorkloads name the workload a pod belongs to. A pod's metrics carry no service name, only these (k8sattributes puts
+	// them on every pod's records: agent.telemetryK8sAttrsMetadata in the agent chart). A CronJob's pods carry both its own
+	// name (k8s_cronjob_name) and that of the Job it made for the run (k8s_job_name, a name generated anew each run).
+	lblWorkloads = []string{vocDeployment.Name(), vocStatefulSet.Name(), vocDaemonSet.Name(), vocJob.Name(),
+		vocCronJob.Name()}
+	// workloadLabel is the label that names a workload of this kind in the metrics the cluster's own objects report. A
+	// member is matched under its own kind's label only: a CronJob by its own name, never by its runs' Jobs.
+	workloadLabel = map[string]string{"Deployment": vocDeployment.Name(), "StatefulSet": vocStatefulSet.Name(),
+		"DaemonSet": vocDaemonSet.Name(), "Job": vocJob.Name(), "CronJob": vocCronJob.Name()}
 )

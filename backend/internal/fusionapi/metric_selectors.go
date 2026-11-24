@@ -58,11 +58,11 @@ func (f MetricFilter) matchersIn(p placeSet) ([]string, error) {
 
 // selectors is what a read sends: one selector, or, when the caller chose services (an application) and did not name one
 // itself, one with the services' names as the service name plus one per workload kind. Pod metrics (k8s_pod_cpu_usage,
-// restarts, ...) carry the name of their Deployment, StatefulSet or DaemonSet and no service name, so without the extra
-// selectors choosing an application would leave them out. The selectors are disjoint in what they add, so the results
-// are simply united. An exact focus has those selectors once per place of the application, its names in its own namespace
-// and cluster, so that a series matches one of them only if its service or workload is a member where that member runs
-// (placeSet.promSelectors).
+// restarts, ...) carry the name of their Deployment, StatefulSet, DaemonSet, Job or CronJob and no service name, so
+// without the extra selectors choosing an application would leave them out. The selectors are disjoint in what they add,
+// so the results are simply united. An exact focus has those selectors once per place of the application, its names in
+// its own namespace and cluster, so that a series matches one of them only if its service or workload is a member where
+// that member runs (placeSet.promSelectors).
 func (f MetricFilter) selectors(s Scope) ([]string, error) {
 	p := s.places()
 	m, err := f.matchersIn(p.unnamed()) // the names go in each selector, under the label it reads them by

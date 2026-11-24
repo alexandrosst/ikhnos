@@ -207,7 +207,7 @@ func TestTheApplicationsAreReusedForAShortWhile(t *testing.T) {
 	if !strings.Contains(r.Body.String(), "from-cache") {
 		t.Fatalf("a second read within the TTL did not use the kept answer: %s", r.Body.String())
 	}
-	*d.now = d.now.Add(appGroupTTL + time.Second)
+	d.advance(t, appGroupTTL+time.Second)
 	r = d.get("/api/v1/fusion/applications", withCookie(d.admin))
 	if r.Code != 200 || strings.Contains(r.Body.String(), "from-cache") {
 		t.Fatalf("after the TTL the answer was not worked out again: %d %s", r.Code, r.Body.String())
@@ -233,7 +233,7 @@ func TestTheTopologyUsesTheReusedApplications(t *testing.T) {
 	c.mu.Unlock()
 	// Past the moment the topology itself is reused for, but within the applications' TTL: the topology is built again,
 	// and the applications are not.
-	*d.now = d.now.Add(topologyTTL + time.Second)
+	d.advance(t, topologyTTL+time.Second)
 	if _, err := ex.Topology(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestTheTopologyIsReusedForAMoment(t *testing.T) {
 	if again, err := ex.Topology(context.Background()); err != nil || again != first {
 		t.Fatal("a second read within topologyTTL built the topology again")
 	}
-	*d.now = d.now.Add(topologyTTL + time.Second)
+	d.advance(t, topologyTTL+time.Second)
 	later, err := ex.Topology(context.Background())
 	if err != nil || later == first {
 		t.Fatalf("after topologyTTL the kept topology was given: %v", err)
@@ -317,7 +317,7 @@ func TestTheNamesOfTheOrganisationAndItsClustersAreReusedForAShortWhile(t *testi
 		t.Fatalf("a second read within the TTL did not use the kept answer: %+v", n)
 	}
 	// Past the TTL the kept names are still given, at once, while they are read again for the next caller.
-	*d.now = d.now.Add(appGroupTTL + time.Second)
+	d.advance(t, appGroupTTL+time.Second)
 	if n, _ := ex.Names(context.Background()); n.Clusters["cl-kept"] != "from-cache" {
 		t.Fatalf("a stale answer was not given while the names were read again: %+v", n)
 	}
@@ -336,7 +336,7 @@ func TestTheNamesOfTheOrganisationAndItsClustersAreReusedForAShortWhile(t *testi
 	c.mu.Lock()
 	c.val = fusionapi.Names{Clusters: map[string]string{"cl-kept": "from-cache"}}
 	c.mu.Unlock()
-	*d.now = d.now.Add(appGroupTTL + namesStale + time.Second)
+	d.advance(t, appGroupTTL+namesStale+time.Second)
 	if n, _ := ex.Names(context.Background()); n.Clusters["cl-kept"] != "" || n.Org == nil {
 		t.Fatalf("names too old to give were given: %+v", n)
 	}

@@ -39,7 +39,7 @@ func shopTopology() (*AppGroup, *TopologyView) {
 
 func TestTheTopologyOfAnApplicationIsItsServicesTheirLinksAndNeighbours(t *testing.T) {
 	g, v := shopTopology()
-	got := BuildAppTopology(g, v, AllSignals(), false)
+	got := BuildAppTopology(g, v, AllSignals(), false, nil)
 	if got.Source != "live" || !got.AsOf.Equal(v.At) || got.Application.Origin != "manual" {
 		t.Fatalf("%+v", got)
 	}
@@ -89,14 +89,14 @@ func TestTheTopologyOfAnApplicationIsItsServicesTheirLinksAndNeighbours(t *testi
 		t.Fatalf("targets %v", got.Targets())
 	}
 	// the machinery is there when asked for
-	if n := len(BuildAppTopology(g, v, AllSignals(), true).Links); n != 7 {
+	if n := len(BuildAppTopology(g, v, AllSignals(), true, nil).Links); n != 7 {
 		t.Fatalf("%d links with noise", n)
 	}
 }
 
 func TestTheTopologyOfAnApplicationShowsAScopedCallerOnlyWhatItMaySee(t *testing.T) {
 	g, v := shopTopology()
-	got := BuildAppTopology(g, v, Scope{Signals: Signals, Namespaces: []string{"shop"}}, false)
+	got := BuildAppTopology(g, v, Scope{Signals: Signals, Namespaces: []string{"shop"}}, false, nil)
 	for _, l := range got.Links {
 		if strings.Contains(l.From+l.To, "pay") || strings.Contains(l.From+l.To, "ledger") || l.ToKind == "external" {
 			t.Errorf("a link the caller may not see: %+v", l)
@@ -124,7 +124,7 @@ func TestTheTopologyOfAnApplicationSaysWhatItCutAndWhatItDoesNotKnow(t *testing.
 		v.Services = append(v.Services, TopoService{ID: id, Name: id, Namespace: "x", Cluster: "cl-1"})
 		v.Links = append(v.Links, TopoLink{ID: "l" + id, From: "s-cart", To: id, FromKind: "service", ToKind: "service"})
 	}
-	got := BuildAppTopology(g, v, AllSignals(), false)
+	got := BuildAppTopology(g, v, AllSignals(), false, nil)
 	tr := got.Truncated
 	if !tr.Links || !tr.Neighbours || !tr.Externals || tr.Changes || len(got.Links) != maxAppLinks || len(got.Neighbours) != maxAppNeighbours || len(got.Externals) != maxAppExternals {
 		t.Fatalf("%+v %d %d %d", tr, len(got.Links), len(got.Neighbours), len(got.Externals))
@@ -140,11 +140,11 @@ func TestTheTopologyOfAnApplicationSaysWhatItCutAndWhatItDoesNotKnow(t *testing.
 
 	// Members the topology does not have are listed, and unknown; an application with none of its services there is unknown
 	g.Unresolved = 2
-	got = BuildAppTopology(g, &TopologyView{}, AllSignals(), false)
+	got = BuildAppTopology(g, &TopologyView{}, AllSignals(), false, nil)
 	if got.Health.Status != "unknown" || got.Health.Services.Unknown != 3 || got.Unresolved != 2 || len(got.Services) != 3 || got.Services[0].Status != "" {
 		t.Fatalf("%+v", got)
 	}
-	if got := BuildAppTopology(&AppGroup{ID: "a", Name: "Empty"}, &TopologyView{}, AllSignals(), false); got.Health.Status != "unknown" || got.Services == nil || got.Links == nil || got.Changes == nil {
+	if got := BuildAppTopology(&AppGroup{ID: "a", Name: "Empty"}, &TopologyView{}, AllSignals(), false, nil); got.Health.Status != "unknown" || got.Services == nil || got.Links == nil || got.Changes == nil {
 		t.Fatalf("%+v", got)
 	}
 	// all of them down
@@ -152,7 +152,7 @@ func TestTheTopologyOfAnApplicationSaysWhatItCutAndWhatItDoesNotKnow(t *testing.
 	for i := range v.Services {
 		v.Services[i].Ready = 0
 	}
-	if h := BuildAppTopology(g, v, AllSignals(), false).Health; h.Status != "down" {
+	if h := BuildAppTopology(g, v, AllSignals(), false, nil).Health; h.Status != "down" {
 		t.Fatalf("%+v", h)
 	}
 }
@@ -161,7 +161,7 @@ func TestTheTopologyOfAnApplicationSaysWhatItCutAndWhatItDoesNotKnow(t *testing.
 // is what the changes name, and the order does not depend on the order the links were read in.
 func TestTheLinksOfAnApplicationCarryTheirIdAndComeInTheSameOrder(t *testing.T) {
 	g, v := shopTopology()
-	got := BuildAppTopology(g, v, AllSignals(), false)
+	got := BuildAppTopology(g, v, AllSignals(), false, nil)
 	for _, l := range got.Links {
 		if l.ID == "" {
 			t.Fatalf("a link with no id: %+v", l)
@@ -172,7 +172,7 @@ func TestTheLinksOfAnApplicationCarryTheirIdAndComeInTheSameOrder(t *testing.T) 
 	for i, j := 0, len(rev.Links)-1; i < j; i, j = i+1, j-1 {
 		rev.Links[i], rev.Links[j] = rev.Links[j], rev.Links[i]
 	}
-	again := BuildAppTopology(g, &rev, AllSignals(), false)
+	again := BuildAppTopology(g, &rev, AllSignals(), false, nil)
 	a, _ := json.Marshal(got.Links)
 	b, _ := json.Marshal(again.Links)
 	if string(a) != string(b) {
@@ -186,7 +186,7 @@ func TestTheLinksOfAnApplicationCarryTheirIdAndComeInTheSameOrder(t *testing.T) 
 func TestTheTopologyAsANodeLinkGraphHoldsWhatTheTopologyDoes(t *testing.T) {
 	g, v := shopTopology()
 	for name, scope := range map[string]Scope{"no limit": AllSignals(), "shop only": {Signals: Signals, Namespaces: []string{"shop"}}} {
-		topo := BuildAppTopology(g, v, scope, false)
+		topo := BuildAppTopology(g, v, scope, false, nil)
 		ng := topo.NodeLink()
 		ids := map[string]bool{}
 		for _, n := range ng.Nodes {
@@ -220,7 +220,7 @@ func TestTheTopologyAsANodeLinkGraphHoldsWhatTheTopologyDoes(t *testing.T) {
 	}
 	raw, _ := json.Marshal(func() NodeLinkGraph {
 		a, b := shopTopology()
-		return BuildAppTopology(a, b, AllSignals(), false).NodeLink()
+		return BuildAppTopology(a, b, AllSignals(), false, nil).NodeLink()
 	}())
 	var shape struct {
 		Nodes []map[string]any `json:"nodes"`
@@ -247,13 +247,13 @@ func TestPlacementSaysWhereEachServiceRunsAndOnlyWhenAsked(t *testing.T) {
 			v.Services[i].NodeIDs = []string{"n-a"} // pods are not read: the nodes are known, the counts are not
 		}
 	}
-	plain := BuildAppTopology(g, v, AllSignals(), false)
+	plain := BuildAppTopology(g, v, AllSignals(), false, nil)
 	raw, _ := json.Marshal(plain)
 	if strings.Contains(string(raw), "placement") {
 		t.Fatalf("placement is on without being asked: %s", raw)
 	}
 
-	got := BuildAppTopology(g, v, AllSignals(), false)
+	got := BuildAppTopology(g, v, AllSignals(), false, nil)
 	got.AddPlacement(v)
 	by := map[string]AppTopoSvc{}
 	for _, s := range got.Services {
@@ -292,7 +292,7 @@ func TestPlacementSaysWhereEachServiceRunsAndOnlyWhenAsked(t *testing.T) {
 func TestPlacementLeavesOutAServiceTheTopologyDoesNotKnow(t *testing.T) {
 	g := &AppGroup{ID: "a", Name: "A", Members: []AppMember{{ID: "gone", Name: "ghost", Namespace: "x", Cluster: "cl-9"}}}
 	v := &TopologyView{Clusters: []TopoCluster{{ID: "cl-9", Name: "nine"}}}
-	got := BuildAppTopology(g, v, AllSignals(), false)
+	got := BuildAppTopology(g, v, AllSignals(), false, nil)
 	got.AddPlacement(v)
 	if len(got.Services) != 1 || got.Services[0].Placement != nil {
 		t.Fatalf("%+v", got.Services)

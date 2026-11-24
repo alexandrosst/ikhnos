@@ -695,7 +695,7 @@ func TestTheIndexedTopologyMatchesAsAPassOverItDid(t *testing.T) {
 					if sv != wsv || amb != wamb {
 						t.Fatalf("%+v: matched %v %v, a pass over the services %v %v", r, sv, amb, wsv, wamb)
 					}
-					got, want := ix.topologyFor(s, r), slowNeighbours(v, s, r)
+					got, want := ix.topologyFor(s, r, nil), slowNeighbours(v, s, r)
 					if !reflect.DeepEqual(got, want) {
 						t.Fatalf("%+v: neighbours\n%+v\nwant\n%+v", r, got, want)
 					}

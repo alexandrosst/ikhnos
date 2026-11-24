@@ -159,7 +159,9 @@ func (s Scope) resourceVisible(attrs map[string]any) bool {
 }
 
 // workloadAttrOf is the resource attribute of each workload label.
-var workloadAttrOf = map[string]string{vocDeployment.Name(): vocDeployment.Attr, vocStatefulSet.Name(): vocStatefulSet.Attr, vocDaemonSet.Name(): vocDaemonSet.Attr}
+var workloadAttrOf = map[string]string{vocDeployment.Name(): vocDeployment.Attr,
+	vocStatefulSet.Name(): vocStatefulSet.Attr, vocDaemonSet.Name(): vocDaemonSet.Attr, vocJob.Name(): vocJob.Attr,
+	vocCronJob.Name(): vocCronJob.Attr}
 
 // seriesVisible is the second check on a series by its labels: its namespace and cluster, and for a caller limited to
 // applications its service_name, or one of the workload labels a metrics read matches the names by (MetricFilter.selectors)
@@ -210,25 +212,25 @@ func (s Scope) memberVisible(m AppMember) bool {
 	return m.ID != "" && slices.Contains(s.RightsServiceIDs, m.ID) && s.rights().contains(m.Namespace, m.Cluster, m.Name)
 }
 
-// ownedService is the service as an answer to the caller gives it: for a caller limited to applications, a copy that names
-// only the caller's own applications among those the service is in (the others are not the caller's to know of).
-func (s Scope) ownedService(sv *TopoService) *TopoService {
-	if sv == nil || !s.AppLimited {
+// shownService is the service as an answer to the caller gives it, with the applications it is in (annotated server-side,
+// for every application) narrowed to those the caller may know of: visible is VisibleGroups for the caller's Scope, in
+// which an application is only when the caller may see one of its members (and, for a caller limited to applications,
+// only when it is one of its own). A token limited to a namespace must not learn from a service it may see the name of an
+// application none of whose members it may see. A caller with no limit is given them all; any other gets a copy (the
+// view is shared by every request), and with no list of visible applications (it could not be read) none at all.
+func (s Scope) shownService(sv *TopoService, visible []AppGroup) *TopoService {
+	if sv == nil || s.Unrestricted() {
 		return sv
 	}
 	c := *sv
-	c.Applications, c.AppIDs = s.ownedApps(sv)
-	return &c
-}
-
-// ownedApps are the names and ids of the service's applications that are the caller's own (for a caller limited to them).
-func (s Scope) ownedApps(sv *TopoService) (names, ids []string) {
+	c.Applications, c.AppIDs = nil, nil
 	for i, id := range sv.AppIDs {
-		if s.ownsApp(id) && i < len(sv.Applications) {
-			names, ids = append(names, sv.Applications[i]), append(ids, id)
+		known := slices.ContainsFunc(visible, func(g AppGroup) bool { return g.ID == id })
+		if known && (!s.AppLimited || s.ownsApp(id)) && i < len(sv.Applications) {
+			c.Applications, c.AppIDs = append(c.Applications, sv.Applications[i]), append(c.AppIDs, id)
 		}
 	}
-	return names, ids
+	return &c
 }
 
 // intersectPlaces is the part of the places of an application (focus, from AppGroup.places, where a place with no namespace

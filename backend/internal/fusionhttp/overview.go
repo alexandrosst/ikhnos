@@ -96,6 +96,11 @@ func (g *Guard) Services(w http.ResponseWriter, r *http.Request, c *fusionapi.Cl
 		g.Err(w, err)
 		return
 	}
+	// The list asks each store the caller may read, Loki once per place of an application read place by place: the
+	// request is charged the store reads it makes.
+	if !g.chargeReads(w, who, fusionapi.ServiceListReads(scope, tr)) {
+		return
+	}
 	svcs, sources, warnings, err := c.Applications(r.Context(), scope, tr)
 	if err != nil {
 		g.Err(w, err)
@@ -291,7 +296,7 @@ func (g *Guard) AppTopology(w http.ResponseWriter, r *http.Request, c *fusionapi
 		g.Err(w, err)
 		return
 	}
-	t := fusionapi.BuildAppTopology(app, v, who.Scope, noise)
+	t := fusionapi.BuildAppTopology(app, v, who.Scope, noise, groups)
 	if placement {
 		t.AddPlacement(v)
 	}

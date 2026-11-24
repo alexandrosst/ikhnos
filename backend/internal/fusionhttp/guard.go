@@ -30,8 +30,9 @@ import (
 // stores themselves authenticate nothing and are not exposed outside the cluster: everything goes through the guard.
 
 const (
-	// ReadsPerMinute is how many reads a credential may make a minute (a bulk read of n traces is n, and so is a read that asks
-	// the stores n times: see chargeReads), ReadBurst how many at once.
+	// ReadsPerMinute is how many reads a credential may make a minute (a request that asks the stores n times is n reads,
+	// at most half the burst: see chargeReads; a bulk read of n traces at least n: see bulkAllowed), ReadBurst how many
+	// at once.
 	ReadsPerMinute = 600
 	ReadBurst      = 60
 	// RequestTimeout is how long one request may take, all the reads it makes together.
@@ -137,7 +138,8 @@ func (g *Guard) Serve(h Handler) http.Handler {
 }
 
 // Allow charges one read to the caller's rate limit, reporting whether it may go on. A route that does the work of several reads (a
-// bulk read of n traces, an overview, the list of applications) charges the others itself (bulkAllowed, chargeReads).
+// bulk read of n traces, a fused trace, an overview, the lists of applications and services) charges the others itself
+// (bulkAllowed, chargeReads).
 func (g *Guard) Allow(who Caller) bool { return g.Reads.Allow(who.Kind + "|" + who.ID) }
 
 // chargeReads charges the caller's rate limit for a request that makes n store reads, of which Serve has charged the

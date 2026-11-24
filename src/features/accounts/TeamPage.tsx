@@ -145,9 +145,10 @@ const administers = (r: Role) => r === 'admin' || r === 'owner'
 type TokenCheck = { kind: 'none' } | { kind: 'listed'; mine: FusionAccessToken[]; unknown: number } | { kind: 'unchecked' }
 
 /** A member who stops being an administrator (removed, or given a role below administrator), with what is known of their FUSION
- *  tokens. `role` is the new role; absent, they are being removed. `c` is the connection, and so the organisation, the change
- *  was asked in: the confirmation acts on that one even if another organisation was opened meanwhile. */
-type Leaving = { member: Member; role?: Role; check: Exclude<TokenCheck, { kind: 'none' }>; c: Conn }
+ *  tokens. `role` is the new role; absent, they are being removed. `self` is set when it is you, leaving the organisation (`org`
+ *  is its name). `c` is the connection, and so the organisation, the change was asked in: the confirmation acts on that one even
+ *  if another organisation was opened meanwhile. */
+type Leaving = { member: Member; role?: Role; self?: { org: string }; check: Exclude<TokenCheck, { kind: 'none' }>; c: Conn }
 
 /** Reads the token list for what it says about one person. Only the server's main organisation has FUSION tokens: anywhere else,
  *  and where FUSION is not available, the list is refused (403, 404, or 409 "unavailable"), which is the expected answer and
@@ -162,56 +163,53 @@ async function checkTokens(c: Conn, id: string): Promise<TokenCheck> {
   }
 }
 
-/** Whether the change needs the confirmation: they made tokens, some tokens might be theirs (made before makers were recorded),
- *  or nobody could tell. */
+/** Whether the change needs the confirmation: they made tokens, or nobody could tell. Tokens of unknown maker (made before makers
+ *  were recorded) are no reason on their own: every administrator change would then ask, about tokens that are most likely not
+ *  theirs; when there is a reason, the dialog mentions them in a line. */
 const worthAsking = (check: TokenCheck): check is Leaving['check'] =>
-  check.kind === 'unchecked' || (check.kind === 'listed' && (check.mine.length > 0 || check.unknown > 0))
+  check.kind === 'unchecked' || (check.kind === 'listed' && check.mine.length > 0)
 
 /** The step that takes an administrator's standing away, when FUSION tokens may be left behind: it says how many they made and
  *  names them, and offers to revoke them too. The offer starts unticked, because a token belongs to the organisation and keeps
- *  working without its maker (the FUSION page marks it); revoking is a choice of its own. */
+ *  working without its maker (the FUSION page marks it); revoking is a choice of its own. Leaving the organisation yourself asks
+ *  the same about your own tokens, which are then revoked first: once you have left, you could not. */
 function LeavingAdminDialog({ leaving, onConfirm, onClose }: { leaving: Leaving; onConfirm: (revoke: boolean) => void; onClose: () => void }) {
   const [revoke, setRevoke] = useState(false)
-  const { member, role, check } = leaving
+  const { member, role, self, check } = leaving
   const mine = check.kind === 'listed' ? check.mine : []
   const n = mine.length
   const what = n === 1 ? 'the FUSION token' : `the ${n} FUSION tokens`
+  const who = self ? 'You' : member.username
   return (
     <Modal
       open
       onClose={onClose}
-      title={role ? `Make ${member.username} ${ROLE_LABEL[role].toLowerCase()}?` : `Remove ${member.username}?`}
+      title={self ? `Leave ${self.org}?` : role ? `Make ${member.username} ${ROLE_LABEL[role].toLowerCase()}?` : `Remove ${member.username}?`}
       width="max-w-md"
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
           <Button variant={role ? 'primary' : 'danger'} onClick={() => onConfirm(n > 0 && revoke)} data-testid="leaving-confirm">
-            {role ? 'Change role' : 'Remove'}
+            {self ? 'Leave' : role ? 'Change role' : 'Remove'}
           </Button>
         </>
       }
     >
       <div className="space-y-3 text-sm text-nb-400" data-testid="leaving-admin">
         {check.kind === 'unchecked' ? (
-          <p data-testid="leaving-unchecked">Their FUSION tokens could not be checked; see the Access tab on the FUSION page.</p>
+          <p data-testid="leaving-unchecked">{self ? 'Your' : 'Their'} FUSION tokens could not be checked; see the Access tab on the FUSION page.</p>
         ) : (
           <>
-            {n > 0 ? (
-              <>
-                <p>
-                  {member.username} made {n === 1 ? 'a FUSION API token. It belongs' : `${n} FUSION API tokens. They belong`} to the organisation and keep{n === 1 ? 's' : ''} working once {member.username} is no longer an administrator; the FUSION page marks {n === 1 ? 'it' : 'them'}.
-                </p>
-                <ul className="flex flex-wrap gap-1" aria-label="Their FUSION tokens">
-                  {mine.map((t) => <li key={t.id}><Pill className="text-xs text-nb-300">{t.name}</Pill></li>)}
-                </ul>
-                <label className="flex cursor-pointer items-center gap-2">
-                  <Checkbox checked={revoke} onChange={(e) => setRevoke(e.target.checked)} data-testid="leaving-revoke-tokens" />
-                  <span className="text-nb-300">Also revoke {what} they made</span>
-                </label>
-              </>
-            ) : (
-              <p>{member.username} made none of the FUSION API tokens ikhnos knows the maker of.</p>
-            )}
+            <p>
+              {who} made {n === 1 ? 'a FUSION API token. It belongs' : `${n} FUSION API tokens. They belong`} to the organisation and keep{n === 1 ? 's' : ''} working once {self ? 'you have left' : `${member.username} is no longer an administrator`}; the FUSION page marks {n === 1 ? 'it' : 'them'}.
+            </p>
+            <ul className="flex flex-wrap gap-1" aria-label={self ? 'Your FUSION tokens' : 'Their FUSION tokens'}>
+              {mine.map((t) => <li key={t.id}><Pill className="text-xs text-nb-300">{t.name}</Pill></li>)}
+            </ul>
+            <label className="flex cursor-pointer items-center gap-2">
+              <Checkbox checked={revoke} onChange={(e) => setRevoke(e.target.checked)} data-testid="leaving-revoke-tokens" />
+              <span className="text-nb-300">{self ? `Revoke ${what} you made first` : `Also revoke ${what} they made`}</span>
+            </label>
             {check.unknown > 0 && (
               <p data-testid="leaving-unknown">
                 {check.unknown === 1 ? '1 older token was' : `${check.unknown} older tokens were`} made before ikhnos recorded who made them; check {check.unknown === 1 ? 'it' : 'them'} in the Access tab.
@@ -311,6 +309,26 @@ export default function TeamPage() {
     }
   }
 
+  /** You leave the organisation. An administrator who made FUSION tokens (or whose tokens cannot be checked) is asked first, as
+   *  for a member who is removed; anyone else leaves at once, as before. */
+  const leaveYourself = async (m: Member) => {
+    const c = conn()
+    if (!c || busyNow.current) return
+    setBusy(m.id)
+    let asked = false
+    try {
+      const check: TokenCheck = administers(m.role) ? await checkTokens(c, m.id) : { kind: 'none' }
+      if (worthAsking(check)) {
+        asked = true
+        setLeaving({ member: m, self: { org: info?.orgName ?? 'this organisation' }, check, c })
+        return
+      }
+      await act(async () => { await api.leaveOrg(c); await reloadOrgs() }, 'Could not leave the organisation.')
+    } finally {
+      if (!asked) setBusy(null)
+    }
+  }
+
   const cancelLeaving = () => {
     setLeaving(null)
     setBusy(null)
@@ -322,6 +340,27 @@ export default function TeamPage() {
   const leave = async (l: Leaving, revoke: boolean) => {
     setLeaving(null)
     const { c } = l
+    if (l.self) {
+      // You, leaving: the revoke first, while you are still an administrator and may make it; once you have left you could not.
+      // A revoke that fails keeps you in the organisation: leaving anyway would leave working tokens you chose to end, which
+      // only another administrator could then revoke. Staying, you can try again, or choose to leave without revoking.
+      try {
+        if (revoke) {
+          try {
+            setError('')
+            await api.revokeFusionTokensMadeBy(c, l.member.id)
+          } catch (e) {
+            const done = e instanceof ApiError && Array.isArray(e.body?.revoked) ? e.body.revoked.length : 0
+            setError(`You have not left: revoking your FUSION tokens failed${done > 0 ? ` after ${done} were revoked` : ''}: ${problem(e, 'the server refused.')} Try again, or leave without revoking them; the Access tab on the FUSION page lists them.`)
+            return
+          }
+        }
+        await act(async () => { await api.leaveOrg(c); await reloadOrgs() }, 'Could not leave the organisation.')
+      } finally {
+        setBusy(null)
+      }
+      return
+    }
     try {
       try {
         setError('')
@@ -404,7 +443,7 @@ export default function TeamPage() {
                     <RowAction label={`Remove ${m.username}`} testId={`remove-${m.username}`} onClick={() => void change(m)} disabled={busy === m.id} />
                   )}
                   {m.you && (
-                    <Button size="sm" onClick={() => void act(async () => { const c = conn(); if (!c) return; await api.leaveOrg(c); await reloadOrgs() }, 'Could not leave the organisation.')} data-testid="leave-org"><LogOut size={ICON_SM} /> Leave</Button>
+                    <Button size="sm" onClick={() => void leaveYourself(m)} disabled={busy === m.id} data-testid="leave-org"><LogOut size={ICON_SM} /> Leave</Button>
                   )}
                 </Td>
               </tr>
