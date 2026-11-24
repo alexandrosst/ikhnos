@@ -138,22 +138,22 @@ func relevantChanges(evs []ChangeEvent, ix *topoIndex, s Scope, t touched) []Cha
 // namespace and cluster the Scope may see (whatever cluster the event itself names); a link's event needs
 // both its ends visible. An application's event says which services it gained and lost, some of which a limited caller
 // may not see, so it is for an unrestricted caller only; a node's or a cluster's is about everything running there, so
-// not for one limited to namespaces.
+// not for one limited to namespaces, nor to applications. For a caller limited to applications a service is visible only
+// where a member of its applications of that name runs (serviceVisible), and so is each end of a link.
 func changeVisible(s Scope, e ChangeEvent, byID map[string]*TopoService, link map[string]TopoLink) bool {
 	if e.Cluster != "" && !s.ClusterVisible(e.Cluster) {
 		return false
 	}
 	switch e.TargetKind {
 	case "service":
-		sv := byID[e.TargetID]
-		return sv != nil && s.visibleAt(sv.Namespace, sv.Cluster)
+		return s.serviceVisible(byID[e.TargetID])
 	case "dependency":
 		l, ok := link[e.TargetID]
 		return ok && endVisible(s, byID, l.From, l.FromKind) && endVisible(s, byID, l.To, l.ToKind)
 	case "application":
 		return s.Unrestricted()
 	case "node", "cluster":
-		return len(s.Namespaces) == 0 && s.ClusterVisible(e.Cluster)
+		return len(s.Namespaces) == 0 && !s.AppLimited && s.ClusterVisible(e.Cluster)
 	}
 	return false
 }

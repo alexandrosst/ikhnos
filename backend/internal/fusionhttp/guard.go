@@ -49,6 +49,10 @@ type Caller struct {
 	Name      string
 	Scope     fusionapi.Scope
 	ExpiresAt *time.Time
+	// Applications are the ids of the ikhnos applications a token is limited to, as the token names them (whether or not
+	// they exist now: Scope.RightsApps are those that do); AppNotes say what became of them, for /status.
+	Applications []string
+	AppNotes     []string
 }
 
 // Handler answers one route of the data API, for a caller the guard has authenticated, with a client for the stores.
@@ -175,8 +179,14 @@ func (g *Guard) Caller(r *http.Request) (Caller, error) {
 				return Caller{}, deny
 			}
 			exp := tok.ExpiresAt
-			return Caller{Kind: "token", ID: tok.ID, Name: tok.Name, ExpiresAt: &exp,
-				Scope: fusionapi.Scope{Signals: tok.Signals, Namespaces: tok.Namespaces, Clusters: tok.Clusters}}, nil
+			who := Caller{Kind: "token", ID: tok.ID, Name: tok.Name, ExpiresAt: &exp,
+				Scope: fusionapi.Scope{Signals: tok.Signals, Namespaces: tok.Namespaces, Clusters: tok.Clusters}}
+			if len(tok.Applications) > 0 {
+				if err := g.limitToApplications(ctx, &who, tok.Applications, fusion.PinnedMembers(tok)); err != nil {
+					return Caller{}, err
+				}
+			}
+			return who, nil
 		}
 		p, err = g.Accounts.AuthenticateAPIToken(ctx, secret)
 	} else if secret, ok := g.Session(r); ok {
@@ -202,6 +212,31 @@ func (g *Guard) Caller(r *http.Request) (Caller, error) {
 		return Caller{}, kernel.Errf(kernel.KindForbidden, "reading FUSION's data takes an administrator of the organisation, or a FUSION access token")
 	}
 	return Caller{Kind: "user", ID: p.User.ID, Name: p.User.Username, Scope: fusionapi.AllSignals()}, nil
+}
+
+// limitToApplications gives a token limited to ikhnos applications the rights its pinned members (those it was made with)
+// still have now: each while its application still has it, by id, under the same name and kind, at the same place, within
+// the token's namespaces and clusters (fusionapi.Scope.LimitToApplications). The applications are read at every request,
+// through the same short-lived reuse every other read of them goes through (the server's, appGroupTTL), so a member that
+// leaves an application, or moves, is gone from the token within seconds; nothing that joins later is ever added. Applications
+// that cannot be read now refuse the request as unavailable: the token's namespace and cluster limits alone are wider than
+// its rights, and are never fallen back on.
+func (g *Guard) limitToApplications(ctx context.Context, who *Caller, ids []string, pinned []fusionapi.PinnedMember) error {
+	unavailable := kernel.Errf(kernel.KindUnavailable, "this token is limited to ikhnos applications, which the server cannot read right now; try again")
+	var ex fusionapi.Extras
+	if g.Extras != nil {
+		ex = g.Extras()
+	}
+	if ex == nil {
+		return unavailable
+	}
+	groups, err := ex.Applications(ctx)
+	if err != nil {
+		return unavailable
+	}
+	who.Scope, who.AppNotes = who.Scope.LimitToApplications(groups, ids, pinned)
+	who.Applications = ids
+	return nil
 }
 
 // Err writes a failure from the query package (or the request's own context).

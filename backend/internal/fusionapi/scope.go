@@ -73,6 +73,25 @@ type Scope struct {
 	// api and data one called redis) is not taken for part of the application. Empty when the application runs in more
 	// places than one query can name (maxFocusPlaces); then the union alone applies.
 	Focus []FocusPlace
+
+	// AppLimited says the caller's rights are limited to some ikhnos applications (a token made with a list of them): it
+	// may see only the telemetry of their members, each in the namespace and cluster that member runs in (RightsPlaces),
+	// and within Namespaces and Clusters besides. Unlike the Focus fields this is a right the caller lacks, not a choice:
+	// every query this package builds reads within RightsPlaces, every answer is checked against them once more
+	// (rights, placeSet.contains), Unrestricted is false, and what cannot be held to them is refused: PromQL, LogQL and
+	// TraceQL the caller wrote, the native APIs, and the telemetry that names no service (a node's metrics, the system
+	// namespaces' lines, the links between clusters). The server resolves the applications at every request against the
+	// members the token was made with (LimitToApplications), so an edit in ikhnos can take members away, never add one.
+	AppLimited bool
+	// RightsApps are the caller's applications that exist now, by id and name. An application that is gone is not here and
+	// gives nothing.
+	RightsApps []AppRef
+	// RightsPlaces are the places the caller may read, each with a namespace and a cluster and the names its telemetry may
+	// carry there (its pinned members' names, never their aliases), within Namespaces and Clusters. Empty
+	// with AppLimited, the caller sees nothing at all.
+	RightsPlaces []FocusPlace
+	// RightsServiceIDs are the ids of those members: a service of ikhnos' topology is the caller's by its id, never by its name.
+	RightsServiceIDs []string
 }
 
 // FocusPlace is the part of an application in one namespace of one cluster: the names its telemetry may carry there. An empty
@@ -81,6 +100,10 @@ type FocusPlace struct {
 	Namespace string
 	Cluster   string
 	Names     []string
+	// Workloads, for a place of a caller limited to applications, are the names matched as a workload's name, by the label of
+	// the workload's kind (k8s_deployment_name: the names of the members that are Deployments). Nil for a focus, whose names
+	// are matched under every workload label.
+	Workloads map[string][]string
 }
 
 // AllSignals is the Scope of a caller who may read everything: a person signed in as an administrator.
@@ -89,8 +112,10 @@ func AllSignals() Scope { return Scope{Signals: slices.Clone(Signals)} }
 // Allows reports whether the caller may read a signal type at all.
 func (s Scope) Allows(signal string) bool { return slices.Contains(s.Signals, signal) }
 
-// Unrestricted is whether the caller has no namespace or cluster limit, which is what lets it send a raw query.
-func (s Scope) Unrestricted() bool { return len(s.Namespaces) == 0 && len(s.Clusters) == 0 }
+// Unrestricted is whether the caller has no namespace, cluster or application limit, which is what lets it send a raw query.
+func (s Scope) Unrestricted() bool {
+	return !s.AppLimited && len(s.Namespaces) == 0 && len(s.Clusters) == 0
+}
 
 // NormalizeSignals validates a requested list of signal types and returns it in the canonical order, deduplicated.
 // An empty request means all three.
@@ -131,16 +156,32 @@ func denied(format string, a ...any) *Error { return errf(http.StatusForbidden, 
 
 // needSignal is the error for a signal type the caller's Scope does not include.
 func (s Scope) needSignal(signal string) error {
-	if s.Allows(signal) {
-		return nil
+	if !s.Allows(signal) {
+		return denied("this token cannot read %s", signal)
 	}
-	return denied("this token cannot read %s", signal)
+	if s.AppLimited && s.rights().none {
+		return denied("%s", SeesNothing)
+	}
+	return nil
 }
+
+// SeesNothing is what a caller limited to applications is told when none of them has a service it may see now.
+const SeesNothing = "this token is limited to ikhnos applications, and none of them has a service it may see now " +
+	"(an application was deleted in ikhnos, or none of the services the token was made with is in it any more where it ran then), " +
+	"so it sees nothing; /status says which"
+
+// AppLimitedRefusal says why a caller limited to applications may not send a query of its own.
+const AppLimitedRefusal = "a token limited to ikhnos applications may see each application's services only in the namespace " +
+	"and cluster each runs in, which a query written by hand cannot be held to (a selector cannot say \"this name in this " +
+	"namespace, that one in that\", and an aggregated answer carries no labels to check)"
 
 // needUnrestricted is the error for a raw query sent with a limited Scope.
 func (s Scope) needUnrestricted(what string) error {
 	if s.Unrestricted() {
 		return nil
+	}
+	if s.AppLimited {
+		return denied("%s cannot be used by this token: %s; use the structured filters instead", what, AppLimitedRefusal)
 	}
 	return denied("%s can only be used by a token with no namespace or cluster limit; use the structured filters instead", what)
 }

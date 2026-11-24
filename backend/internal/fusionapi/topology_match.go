@@ -93,14 +93,15 @@ func endVisible(s Scope, byID map[string]*TopoService, id, kind string) bool {
 	if kind == "external" {
 		return s.Unrestricted()
 	}
-	o := byID[id]
-	return o != nil && s.visibleAt(o.Namespace, o.Cluster)
+	return s.serviceVisible(byID[id])
 }
 
 // topologyFor builds a resource's neighbours, leaving out what the Scope may not see.
 func (ix *topoIndex) topologyFor(s Scope, r *Resource) *ResourceTopology {
 	sv, _ := ix.matchService(r)
-	if sv == nil {
+	if sv == nil || (s.AppLimited && !s.serviceVisible(sv)) {
+		// (A resource of the caller's applications by its workload's name may carry a service.name that is another service's
+		// of the topology, one the caller may not see.)
 		return nil
 	}
 	v, byID := ix.v, ix.byID
@@ -116,7 +117,7 @@ func (ix *topoIndex) topologyFor(s Scope, r *Resource) *ResourceTopology {
 		}
 		return n, endVisible(s, byID, id, kind)
 	}
-	rt := &ResourceTopology{Service: sv, Calls: []Neighbour{}, CalledBy: []Neighbour{}}
+	rt := &ResourceTopology{Service: s.ownedService(sv), Calls: []Neighbour{}, CalledBy: []Neighbour{}}
 	for _, i := range ix.linksOf[sv.ID] { // (the links of every other service could match neither case below)
 		l := v.Links[i]
 		if l.Noise != "" {

@@ -232,7 +232,7 @@ func TestApplicationGroupsAreBuiltFromTheWorkspaceAndTheTopology(t *testing.T) {
 	ws := []byte(`{"schemaVersion":4,"applications":[{"id":"app-1","name":"Shop"},{"id":"app-3","name":"Gone"}],
 		"refs":{"sv-gone":{"kind":"service","applicationId":"app-1"}},
 		"services":[{"id":"sv-1","source":"manual","applicationId":"app-1","name":"cart-deploy"},{"id":"sv-hand","source":"manual","applicationId":"app-1","name":"billing","namespace":"pay","clusterId":"cl-9","kind":"Deployment"},{"id":"sv-2","source":"manual","applicationId":"app-3","name":"other"}]}`)
-	gs := appGroups(ws, doc)
+	gs := must(appGroups(ws, doc))
 	if len(gs) != 2 {
 		t.Fatalf("%+v", gs)
 	}
@@ -264,8 +264,11 @@ func TestApplicationGroupsAreBuiltFromTheWorkspaceAndTheTopology(t *testing.T) {
 	if len(v.Services[0].Applications) != 1 || v.Services[0].Applications[0] != "Shop" || len(v.Services[1].Applications) != 1 {
 		t.Fatalf("%+v", v.Services)
 	}
-	if appGroups(nil, doc) != nil || appGroups([]byte("junk"), doc) != nil {
+	if gs, err := appGroups(nil, doc); gs != nil || err != nil {
 		t.Fatal("no workspace, no groups")
+	}
+	if _, err := appGroups([]byte("junk"), doc); err == nil {
+		t.Fatal("a workspace that cannot be read is no applications")
 	}
 }
 
@@ -326,7 +329,7 @@ func TestAServiceBelongsToTheApplicationItsLabelsSuggestOnceThatApplicationExist
 	ws := []byte(`{"schemaVersion":4,"applications":[{"id":"app-core","name":"app-core"},{"id":"app-other","name":"Other"},{"id":"app-old","name":"Old","deletedAt":"2026-10-01T00:00:00Z"}],
 		"refs":{"sv-c":{"kind":"service","applicationId":"app-other"}}}`)
 	got := map[string][]string{}
-	for _, g := range appGroups(ws, doc) {
+	for _, g := range must(appGroups(ws, doc)) {
 		for _, m := range g.Members {
 			got[g.ID] = append(got[g.ID], m.Name)
 		}

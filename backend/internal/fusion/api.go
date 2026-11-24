@@ -24,6 +24,9 @@ type API struct {
 	// CentralWarnings are the doubts about the public address recorded for the central operator: what an address looks like is the
 	// operators' to say, so it is handed in.
 	CentralWarnings func(ctx context.Context, c operators.Central) []string
+	// Applications reads the organisation's ikhnos applications now, as the data API does: a token limited to applications is
+	// checked against them when it is made, and the list names them. nil on a server that knows none.
+	Applications AppSource
 }
 
 // CentralDoc is the central operator as the UI shows it next to the switch.

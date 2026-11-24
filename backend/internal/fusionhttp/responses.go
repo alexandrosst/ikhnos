@@ -58,13 +58,20 @@ type metricRangeDoc struct {
 
 // callerAccessDoc says what the caller is and may read, as the status answer tells it back.
 type callerAccessDoc struct {
-	Clusters   []string `json:"clusters"`
-	ExpiresAt  string   `json:"expiresAt,omitempty"`
-	Kind       string   `json:"kind"`
-	Name       string   `json:"name"`
-	Namespaces []string `json:"namespaces"`
+	// Applications are the ikhnos applications a token is limited to, each by id with its name now, or marked gone when it
+	// no longer exists (it then gives the token nothing). Absent for a caller that is not limited to applications.
+	Applications []fusion.TokenApplication `json:"applications,omitempty"`
+	Clusters     []string                  `json:"clusters"`
+	ExpiresAt    string                    `json:"expiresAt,omitempty"`
+	Kind         string                    `json:"kind"`
+	Name         string                    `json:"name"`
+	Namespaces   []string                  `json:"namespaces"`
+	// Notes say in words what limits the caller beyond its lists: for a token limited to applications, which of them give it
+	// nothing and why, why it sees nothing when none does, and why it may send no query of its own. Absent when there is
+	// nothing to say.
+	Notes []string `json:"notes,omitempty"`
 	// PromQL says the caller may send PromQL of its own (it reads metrics): read as written when it is not limited, with its
-	// limits on every selector when it is.
+	// limits on every selector when it is limited to namespaces or clusters. Never for a token limited to applications.
 	PromQL     bool               `json:"promql"`
 	RawQueries bool               `json:"rawQueries"`
 	Signals    []fusionapi.Signal `json:"signals"`

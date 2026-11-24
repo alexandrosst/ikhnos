@@ -15,9 +15,15 @@ import (
 
 func (g *Guard) Status(w http.ResponseWriter, r *http.Request, c *fusionapi.Client, who Caller) {
 	access := callerAccessDoc{Kind: who.Kind, Name: who.Name, Signals: fusionapi.SignalsOf(who.Scope.Signals),
-		Namespaces: fusionapi.OrEmpty(who.Scope.Namespaces), Clusters: fusionapi.OrEmpty(who.Scope.Clusters), RawQueries: who.Scope.Unrestricted(), PromQL: who.Scope.Allows(fusionapi.SignalMetrics)}
+		Namespaces: fusionapi.OrEmpty(who.Scope.Namespaces), Clusters: fusionapi.OrEmpty(who.Scope.Clusters), RawQueries: who.Scope.Unrestricted(),
+		PromQL: who.Scope.Allows(fusionapi.SignalMetrics) && !who.Scope.AppLimited}
 	if who.ExpiresAt != nil {
 		access.ExpiresAt = kernel.RFC(*who.ExpiresAt)
+	}
+	if who.Scope.AppLimited {
+		access.Applications = fusion.TokenApplicationsOf(who.Applications, append([]fusionapi.AppRef{}, who.Scope.RightsApps...)) // (read now: never nil)
+		access.Notes = append(slices.Clone(who.AppNotes), "PromQL, LogQL and TraceQL of your own and the stores' native APIs are refused: "+fusionapi.AppLimitedRefusal+
+			"; the structured reads (traces, logs, /metrics/series and /metrics/range, the fused reads) are held to each application's services where they run")
 	}
 	// A token holder learns whether the stores are up, not how the cluster is set up: the full status carries workload
 	// names, the namespace and Kubernetes API error text, which are for administrators. Nor does it read the cluster for
@@ -154,7 +160,16 @@ func (g *Guard) servicePlaces(ctx context.Context, who Caller) map[string][]serv
 		}
 		p := servicePlaceDoc{ID: sv.ID, Namespace: sv.Namespace, Cluster: sv.Cluster, Kind: sv.Kind}
 		seen := map[string]bool{}
-		for _, n := range []string{sv.Name, sv.Labels["app"], sv.Labels["app.kubernetes.io/name"]} {
+		names := []string{sv.Name, sv.Labels["app"], sv.Labels["app.kubernetes.io/name"]}
+		if who.Scope.AppLimited {
+			// A caller limited to applications is told where a service runs only for its applications' own members (by id),
+			// under the member's own name: not under the app labels a workload sets for itself.
+			if !who.Scope.ServiceVisible(&sv) {
+				continue
+			}
+			names = names[:1]
+		}
+		for _, n := range names {
 			if n != "" && !seen[n] {
 				seen[n] = true
 				out[n] = append(out[n], p)
@@ -307,14 +322,20 @@ func (g *Guard) Service(w http.ResponseWriter, r *http.Request, c *fusionapi.Cli
 		g.Err(w, err)
 		return
 	}
-	if !g.chargeReads(w, who, fusionapi.OverviewReads(who.Scope)) {
-		return
-	}
-	q := r.URL.Query()
-	o, err := c.ServiceOverview(r.Context(), who.Scope, fusionapi.AppMember{Name: r.PathValue("name"), Namespace: q.Get("namespace"), Cluster: q.Get("cluster")}, tr)
+	scope, notes, err := g.Scope(r, who) // (the notes every structured read carries, as the other routes give them)
 	if err != nil {
 		g.Err(w, err)
 		return
 	}
+	if !g.chargeReads(w, who, fusionapi.OverviewReads(scope)) {
+		return
+	}
+	q := r.URL.Query()
+	o, err := c.ServiceOverview(r.Context(), scope, fusionapi.AppMember{Name: r.PathValue("name"), Namespace: q.Get("namespace"), Cluster: q.Get("cluster")}, tr)
+	if err != nil {
+		g.Err(w, err)
+		return
+	}
+	o.Warnings = append(notes, o.Warnings...)
 	httpkit.WriteJSON(w, 200, o)
 }

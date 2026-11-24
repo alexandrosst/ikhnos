@@ -18,7 +18,14 @@ import (
 
 // restrictPromQL is expr with the Scope's namespace and cluster limits on every selector, as Prometheus would print it. A
 // Scope with no limit gets expr back as written.
+//
+// A Scope limited to applications is refused: its rights are places (this name in this namespace and cluster), and the
+// matchers of a selector all hold at once, so the most they could carry is the union of the places, which would let a
+// member's name be read in another member's namespace; and what such a query computes carries no labels to check again.
 func restrictPromQL(expr string, s Scope) (string, error) {
+	if s.AppLimited {
+		return "", denied("PromQL of your own cannot be sent with this token: %s; use /metrics/range, /metrics/series and the fused reads' metrics instead", AppLimitedRefusal)
+	}
 	if s.Unrestricted() {
 		return expr, nil
 	}

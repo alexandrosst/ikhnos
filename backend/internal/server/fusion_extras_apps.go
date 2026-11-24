@@ -26,6 +26,17 @@ func (e fusionExtras) Applications(ctx context.Context) ([]fusionapi.AppGroup, e
 	return slices.Clone(groups), nil
 }
 
+// fusionApplications are the applications of the organisation FUSION belongs to, read as the data API reads them (through the
+// extras, and so through appCache): what a FUSION token limited to applications is checked against when it is made and
+// resolved by at every request.
+func (a *Admin) fusionApplications(ctx context.Context) ([]fusionapi.AppGroup, error) {
+	ex := a.fusionExtras()
+	if ex == nil {
+		return nil, &fusionapi.Error{Status: 503, Msg: "this server does not know the applications"}
+	}
+	return ex.Applications(ctx)
+}
+
 func (e fusionExtras) applications(ctx context.Context) ([]fusionapi.AppGroup, error) {
 	t, doc, err := e.state(ctx)
 	if err != nil {
@@ -38,20 +49,28 @@ func (e fusionExtras) applications(ctx context.Context) ([]fusionapi.AppGroup, e
 		}
 		return nil, &fusionapi.Error{Status: 503, Msg: "the saved applications are not available"}
 	}
-	return appGroups(ws.Data, doc), nil
+	groups, err := appGroups(ws.Data, doc)
+	if err != nil {
+		// (Not "no applications": a FUSION token limited to applications would read that as its applications being gone.)
+		return nil, &fusionapi.Error{Status: 503, Msg: "the saved applications cannot be read"}
+	}
+	return groups, nil
 }
 
 // appGroups turns the applications of a saved workspace (workspace.Applications, the definition the graph uses too) into
 // groups of services by the identity telemetry carries. A member is a topology service the workspace names by id; one the
 // topology does not (or no longer) have is left out, since there is nothing to match telemetry with. The aliases are the
 // app labels a service's telemetry often takes as its service.name instead of the workload name.
-func appGroups(data []byte, doc landscape.StateDoc) []fusionapi.AppGroup {
+//
+// A workspace that cannot be parsed is an error, not an organisation with no applications: what reads the applications must be
+// able to tell the two apart (a token limited to applications is refused, not told they are gone).
+func appGroups(data []byte, doc landscape.StateDoc) ([]fusionapi.AppGroup, error) {
 	if len(data) == 0 {
-		return nil
+		return nil, nil
 	}
 	d, err := workspace.Parse(data)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	byID := map[string]int{}
 	for i, s := range doc.Topology.Services {
@@ -97,7 +116,7 @@ func appGroups(data []byte, doc landscape.StateDoc) []fusionapi.AppGroup {
 		}
 		out = append(out, g)
 	}
-	return out
+	return out, nil
 }
 
 // annotateApplications names, on each service of the view, the applications it is in: those with a member of the

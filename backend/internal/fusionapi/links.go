@@ -59,6 +59,9 @@ func (s Scope) NeedLinks() error {
 	if err := s.needSignal(SignalMetrics); err != nil {
 		return err
 	}
+	if s.AppLimited {
+		return denied("link figures are measured between clusters and belong to no service, so a token limited to ikhnos applications cannot read them")
+	}
 	if len(s.Namespaces) > 0 {
 		return denied("link figures are measured between clusters and belong to no namespace, so a token limited to namespaces cannot read them; use a token that limits clusters (or nothing) instead")
 	}

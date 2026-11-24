@@ -102,7 +102,7 @@ func (c *Client) lokiRaw(ctx context.Context, s Scope, query string, backward bo
 	for _, st := range res.Data.Result {
 		for _, v := range st.Values {
 			e, mixed, ok := lokiEntry(st.Stream, v)
-			kept := ok && !(mixed && restricted) && s.visibleAt(e.Namespace, e.Cluster)
+			kept := ok && !(mixed && restricted) && s.lineVisible(e)
 			out = append(out, lokiLine{e: e, decoded: ok, kept: kept})
 		}
 	}

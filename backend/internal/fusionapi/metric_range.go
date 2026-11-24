@@ -23,13 +23,14 @@ func (c *Client) MetricRange(ctx context.Context, s Scope, f MetricFilter, tr Ti
 	if err != nil {
 		return nil, false, err
 	}
-	data, err := c.prom(ctx, "/api/v1/query_range", url.Values{
+	// (A form when the selectors are many: those of a caller limited to applications name each of its places.)
+	env, err := c.promForm(ctx, "/api/v1/query_range", url.Values{
 		"query": {strings.Join(sel, " or ")}, "start": {unixFloat(tr.From)}, "end": {unixFloat(tr.To)}, "step": {strconv.FormatFloat(step.Seconds(), 'f', -1, 64)}, "limit": {strconv.Itoa(maxSeries + 1)},
 	})
 	if err != nil {
 		return nil, false, err
 	}
-	return decodeMatrix(data, s, maxSeries)
+	return decodeMatrix(env.Data, s, maxSeries)
 }
 
 // decodeMatrix reads the "data" of a Prometheus range query into series, leaving out those the Scope may not see and
@@ -64,7 +65,7 @@ func parseMatrix(data json.RawMessage) ([]promSeries, error) {
 // cutMatrix is decodeMatrix's work on an answer already read.
 func cutMatrix(rs []promSeries, s Scope, maxSeries int) (series []MetricSeries, truncated bool) {
 	for _, r := range rs {
-		if !s.visibleAt(r.Metric[lblNamespace], r.Metric[lblCluster]) {
+		if !s.seriesVisible(r.Metric) {
 			continue
 		}
 		ms := MetricSeries{Name: r.Metric[lblName], Category: MetricCategory(r.Metric[lblName]), Labels: map[string]string{}}

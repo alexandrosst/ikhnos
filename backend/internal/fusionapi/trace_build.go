@@ -10,11 +10,10 @@ import (
 	"time"
 )
 
-// attrsVisible is the second check on a span's own attributes: its namespace and cluster are ones the Scope may see. A
-// trace read whole and a trace search both apply it, behind the matchers their queries carry.
-func (s Scope) attrsVisible(attrs map[string]any) bool {
-	return s.visibleAt(strAttr(attrs, attrNamespace), strAttr(attrs, attrCluster))
-}
+// attrsVisible is the second check on a span's own attributes: its namespace and cluster are ones the Scope may see, and
+// for a caller limited to applications its service or workload is a member there (resourceVisible). A trace read whole and
+// a trace search both apply it, behind the matchers their queries carry.
+func (s Scope) attrsVisible(attrs map[string]any) bool { return s.resourceVisible(attrs) }
 
 // buildTrace turns Tempo's resource spans into a Trace, keeping only what the Scope may see.
 func buildTrace(id string, rss []otlpResourceSpans, s Scope) *Trace {

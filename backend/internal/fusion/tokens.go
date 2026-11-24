@@ -16,7 +16,8 @@ import (
 )
 
 // FUSION access tokens: read-only credentials for the shared data API, minted by an administrator of the server's main organisation,
-// shown once, limited to the signal types, namespaces and clusters they name, and expiring.
+// shown once, limited to the signal types, namespaces and clusters they name (and, when they name some, to ikhnos
+// applications: see fusionapi.Scope.AppLimited), and expiring.
 
 const (
 	// MaxTokens is how many tokens an organisation may hold at once.
@@ -39,7 +40,124 @@ type TokenSpec struct {
 	Signals    []string // empty = all three
 	Namespaces []string // empty = every namespace
 	Clusters   []string // empty = every cluster
-	TTL        time.Duration
+	// Applications are ids of ikhnos applications of the organisation; empty = not limited to applications. Each must exist
+	// when the token is made, as Groups has them.
+	Applications []string
+	// Members, when given, are the ids of the applications' members the administrator was shown and approved: the token is
+	// pinned to those alone, and refused if one of them is no longer a member (the applications changed since). Nil pins
+	// every member the applications give it now.
+	Members []string
+	TTL     time.Duration
+	// Groups reads the organisation's applications now, from where the data API reads them (fusionapi.Extras.Applications).
+	// It is asked only when Applications names some; nil then refuses them.
+	Groups func(ctx context.Context) ([]fusionapi.AppGroup, error)
+}
+
+// AppSource reads the organisation's applications now (fusionapi.Extras.Applications), for the tokens' answers to name them.
+type AppSource func(ctx context.Context) ([]fusionapi.AppGroup, error)
+
+// cleanApplications checks the applications a new token is to be limited to: ids, each once, each of an application the
+// organisation has now (by id: a name can be shared, and renamed), at most fusionapi.MaxTokenApplications of them, and each
+// giving the token at least one member within its own limits (limits), however the member came to be in it (a person, or its
+// labels). It returns them in the order given, with their names for the audit trail and the members they give the token now
+// (only those of approved, when it is not nil), which it is pinned to: at most fusionapi.MaxTokenMembers members in at most
+// fusionapi.MaxTokenPlaces places. Later edits of the applications can only take members from the token, never add one.
+func cleanApplications(ctx context.Context, in []string, groups AppSource, limits fusionapi.Scope, approved []string) ([]string, []fusionapi.AppRef, []store.FusionTokenMember, error) {
+	var ids []string
+	for _, v := range in {
+		v = strings.TrimSpace(v)
+		if v == "" || slices.Contains(ids, v) {
+			continue
+		}
+		ids = append(ids, v)
+	}
+	if len(in) > 0 && len(ids) == 0 {
+		return nil, nil, nil, kernel.Errf(kernel.KindInvalid, "name at least one application by its id, or leave the list out for a token not limited to applications")
+	}
+	if len(ids) == 0 {
+		return nil, nil, nil, nil
+	}
+	if len(ids) > fusionapi.MaxTokenApplications {
+		return nil, nil, nil, kernel.Errf(kernel.KindInvalid, "a token can be limited to at most %d applications", fusionapi.MaxTokenApplications)
+	}
+	if groups == nil {
+		return nil, nil, nil, kernel.Errf(kernel.KindUnavailable, "this server does not know the applications, so a token cannot be limited to them")
+	}
+	all, err := groups(ctx)
+	if err != nil {
+		return nil, nil, nil, kernel.Errf(kernel.KindUnavailable, "the applications cannot be read right now, so a token limited to them cannot be made; try again")
+	}
+	refs := make([]fusionapi.AppRef, 0, len(ids))
+	for _, id := range ids {
+		i := slices.IndexFunc(all, func(g fusionapi.AppGroup) bool { return g.ID == id })
+		if i < 0 {
+			return nil, nil, nil, kernel.Errf(kernel.KindInvalid, "%q is not the id of an application of this organisation", kernel.Printable(id, 64))
+		}
+		refs = append(refs, all[i].Ref())
+	}
+	now := limits.ApplicationMembers(all, ids)
+	if approved != nil {
+		for _, a := range approved {
+			if !slices.ContainsFunc(now, func(m fusionapi.PinnedMember) bool { return m.ID == a }) {
+				return nil, nil, nil, kernel.Errf(kernel.KindConflict, "the applications changed since they were shown: %q is not one of their services "+
+					"within the token's limits any more; look at them again", kernel.Printable(a, 64))
+			}
+		}
+		now = slices.DeleteFunc(now, func(m fusionapi.PinnedMember) bool { return !slices.Contains(approved, m.ID) })
+	}
+	places := map[[2]string]bool{}
+	for _, m := range now {
+		places[[2]string{m.Namespace, m.Cluster}] = true
+	}
+	for _, r := range refs {
+		if !slices.ContainsFunc(now, func(m fusionapi.PinnedMember) bool { return m.Application == r.ID }) {
+			return nil, nil, nil, kernel.Errf(kernel.KindInvalid, "application %s gives the token no service: none of its services runs in a namespace "+
+				"and cluster ikhnos knows within the token's limits (or none of them was approved), so a token limited to it would see nothing", kernel.Printable(r.Name, 64))
+		}
+	}
+	if len(now) > fusionapi.MaxTokenMembers || len(places) > fusionapi.MaxTokenPlaces {
+		return nil, nil, nil, kernel.Errf(kernel.KindInvalid, "these applications give the token %d services in %d places (a namespace of a cluster), more than "+
+			"the %d services in %d places one token can be read with; limit it to fewer applications, or to some namespaces or clusters",
+			len(now), len(places), fusionapi.MaxTokenMembers, fusionapi.MaxTokenPlaces)
+	}
+	members := make([]store.FusionTokenMember, len(now))
+	for i, m := range now {
+		members[i] = store.FusionTokenMember(m)
+	}
+	return ids, refs, members, nil
+}
+
+// memberWords says for the audit trail how many members a token was pinned to, and where.
+func memberWords(members []store.FusionTokenMember) string {
+	var places []string
+	for _, m := range members {
+		if p := m.Namespace + "/" + m.Cluster; !slices.Contains(places, p) {
+			places = append(places, p)
+		}
+	}
+	what := "services"
+	if len(members) == 1 {
+		what = "service"
+	}
+	return fmt.Sprintf("%d %s in %s", len(members), what, strings.Join(places, ", "))
+}
+
+// PinnedMembers are a token's pinned members as the data API reads them.
+func PinnedMembers(t store.FusionToken) []fusionapi.PinnedMember {
+	out := make([]fusionapi.PinnedMember, len(t.ApplicationMembers))
+	for i, m := range t.ApplicationMembers {
+		out[i] = fusionapi.PinnedMember(m)
+	}
+	return out
+}
+
+// appWords names the applications for the audit trail: each by its name and id.
+func appWords(refs []fusionapi.AppRef) string {
+	out := make([]string, len(refs))
+	for i, a := range refs {
+		out[i] = fmt.Sprintf("%s (%s)", kernel.Printable(a.Name, 64), a.ID)
+	}
+	return strings.Join(out, ", ")
 }
 
 func cleanScopeList(what string, in []string, re *regexp.Regexp) ([]string, error) {
@@ -87,6 +205,10 @@ func (c *Service) CreateFusionToken(ctx context.Context, p accounts.Principal,
 	if err != nil {
 		return "", store.FusionToken{}, err
 	}
+	apps, appRefs, members, err := cleanApplications(ctx, spec.Applications, spec.Groups, fusionapi.Scope{Namespaces: namespaces, Clusters: clusters}, spec.Members)
+	if err != nil {
+		return "", store.FusionToken{}, err
+	}
 	ttl := spec.TTL
 	if ttl == 0 {
 		ttl = defaultFusionTokenTTL
@@ -113,8 +235,12 @@ func (c *Service) CreateFusionToken(ctx context.Context, p accounts.Principal,
 		return "", store.FusionToken{}, kernel.Errf(kernel.KindInternal, "could not generate a token")
 	}
 	tok := store.FusionToken{ID: kernel.NewFusionTokenID(), OrgID: c.OrgID, Name: name, Signals: signals, Namespaces: namespaces, Clusters: clusters,
-		CreatedBy: actor, CreatedByID: p.User.ID, CreatedAt: now, ExpiresAt: now.Add(ttl)}
-	detail := fmt.Sprintf("%s: reads %s; namespaces %s; clusters %s; expires %s", name, strings.Join(signals, ", "), scopeWords(namespaces), scopeWords(clusters), tok.ExpiresAt.Format("2006-01-02"))
+		Applications: apps, ApplicationMembers: members, CreatedBy: actor, CreatedByID: p.User.ID, CreatedAt: now, ExpiresAt: now.Add(ttl)}
+	var appDetail string
+	if len(appRefs) > 0 {
+		appDetail = "; applications " + appWords(appRefs) + " with " + memberWords(members)
+	}
+	detail := fmt.Sprintf("%s: reads %s; namespaces %s; clusters %s%s; expires %s", name, strings.Join(signals, ", "), scopeWords(namespaces), scopeWords(clusters), appDetail, tok.ExpiresAt.Format("2006-01-02"))
 	if err := c.AuditedWrite(c.Store.CreateFusionToken(ctx, tok, kernel.HashSecret(secret),
 		store.WithAudit(c.AuditRow(c.OrgID, actor, "fusion-token-created", "fusion-token", tok.ID, detail))), "fusion-token-created"); err != nil {
 		return "", store.FusionToken{}, err
@@ -150,10 +276,22 @@ func (c *Service) ListFusionTokens(ctx context.Context) ([]store.FusionToken, er
 
 // TokenDocs lists this organisation's tokens as the API gives them, each with what is known of its maker's standing here.
 // The members are read once for the whole list, not once per token, and not at all when no token records its maker.
-func (c *Service) TokenDocs(ctx context.Context) ([]TokenDoc, error) {
+//
+// The applications tokens are limited to are named as ikhnos has them now (apps), read once and only when a token names any;
+// when they cannot be read the list still answers, each application by its id alone.
+func (c *Service) TokenDocs(ctx context.Context, apps AppSource) ([]TokenDoc, error) {
 	toks, err := c.Store.ListFusionTokens(ctx, c.OrgID)
 	if err != nil {
 		return nil, err
+	}
+	var known []fusionapi.AppRef
+	if apps != nil && slices.ContainsFunc(toks, func(t store.FusionToken) bool { return len(t.Applications) > 0 }) {
+		if groups, err := apps(ctx); err == nil {
+			known = make([]fusionapi.AppRef, 0, len(groups))
+			for _, g := range groups {
+				known = append(known, g.Ref())
+			}
+		}
 	}
 	var admins map[string]bool
 	for _, t := range toks {
@@ -166,7 +304,7 @@ func (c *Service) TokenDocs(ctx context.Context) ([]TokenDoc, error) {
 	}
 	out := make([]TokenDoc, len(toks))
 	for i, t := range toks {
-		out[i] = toTokenDoc(t, creatorOf(t, admins))
+		out[i] = toTokenDoc(t, creatorOf(t, admins), known)
 	}
 	return out, nil
 }
@@ -311,12 +449,48 @@ func (FusionTokenCreator) WireWords() []string {
 	return []string{string(CreatorAdmin), string(CreatorGone), string(CreatorUnknown)}
 }
 
+// TokenApplication is one of the ikhnos applications a token is limited to: its id as the token names it, its name in ikhnos
+// now, and Gone when it no longer exists (it then gives the token nothing). Name is absent for a gone one, and when the
+// applications could not be read for the answer.
+type TokenApplication struct {
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
+	Gone bool   `json:"gone,omitempty"`
+}
+
+// TokenApplicationsOf is the token's applications ids as the answers give them, against the applications that exist (known,
+// by id and name). A nil known means they could not be read: each is given by its id alone, neither named nor said gone.
+func TokenApplicationsOf(ids []string, known []fusionapi.AppRef) []TokenApplication {
+	out := make([]TokenApplication, 0, len(ids))
+	for _, id := range ids {
+		a := TokenApplication{ID: id}
+		if known != nil {
+			a.Gone = true
+			for _, k := range known {
+				if k.ID == id {
+					a.Name, a.Gone = k.Name, false
+					break
+				}
+			}
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
 type TokenDoc struct {
 	ID         string             `json:"id"`
 	Name       string             `json:"name"`
 	Signals    []fusionapi.Signal `json:"signals"`
 	Namespaces []string           `json:"namespaces"`
 	Clusters   []string           `json:"clusters"`
+	// Applications are the ikhnos applications the token is limited to (see TokenApplication); empty when it is not limited
+	// to applications.
+	Applications []TokenApplication `json:"applications"`
+	// ApplicationMembers are the members of those applications the token was made with: each service by its id, name and
+	// kind, in the namespace and cluster it ran in then. The token never sees more than these, whatever the applications
+	// become: to widen it, make a new token. Empty when it is not limited to applications.
+	ApplicationMembers []fusionapi.PinnedMember `json:"applicationMembers"`
 	// CreatedBy is the maker's username, as the audit trail shows it. CreatedByID is their account id, absent for a token
 	// made before it was recorded; it is what the members page matches a person's tokens by.
 	CreatedBy   string             `json:"createdBy"`
@@ -327,9 +501,10 @@ type TokenDoc struct {
 	LastUsedAt  string             `json:"lastUsedAt,omitempty"`
 }
 
-func toTokenDoc(t store.FusionToken, creator FusionTokenCreator) TokenDoc {
+// toTokenDoc is a token as the API gives it; known are the applications that exist (nil: they could not be read).
+func toTokenDoc(t store.FusionToken, creator FusionTokenCreator, known []fusionapi.AppRef) TokenDoc {
 	return TokenDoc{ID: t.ID, Name: t.Name, Signals: fusionapi.SignalsOf(t.Signals), Namespaces: fusionapi.OrEmpty(t.Namespaces),
-		Clusters: fusionapi.OrEmpty(t.Clusters), CreatedBy: t.CreatedBy, CreatedByID: t.CreatedByID, Creator: creator,
+		Clusters: fusionapi.OrEmpty(t.Clusters), Applications: TokenApplicationsOf(t.Applications, known), ApplicationMembers: PinnedMembers(t), CreatedBy: t.CreatedBy, CreatedByID: t.CreatedByID, Creator: creator,
 		CreatedAt: kernel.RFC(t.CreatedAt), ExpiresAt: kernel.RFC(t.ExpiresAt), LastUsedAt: kernel.RFCP(t.LastUsed)}
 }
 

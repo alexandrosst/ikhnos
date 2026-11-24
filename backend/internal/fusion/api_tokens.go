@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"ikhnos/internal/fusionapi"
 	"ikhnos/internal/httpkit"
 	"ikhnos/internal/kernel"
 )
@@ -27,7 +28,7 @@ func (h *API) listTokens(w http.ResponseWriter, r *http.Request) {
 	if !h.orgOnly(w, r) {
 		return
 	}
-	out, err := h.For(r).TokenDocs(r.Context())
+	out, err := h.For(r).TokenDocs(r.Context(), h.Applications)
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -52,14 +53,22 @@ func (h *API) createToken(w http.ResponseWriter, r *http.Request) {
 	}
 	secret, tok, err := h.For(r).CreateFusionToken(r.Context(), httpkit.Principal(r), TokenSpec{
 		Name: req.Name, Signals: signalStrings(req.Signals), Namespaces: req.Namespaces, Clusters: req.Clusters,
-		TTL: time.Duration(req.ExpiresInDays) * 24 * time.Hour,
+		Applications: req.Applications, Members: req.Members, Groups: h.Applications, TTL: time.Duration(req.ExpiresInDays) * 24 * time.Hour,
 	})
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
 	// Whoever just made it is an administrator here: the route asks for one.
-	httpkit.WriteJSON(w, 200, CreatedTokenDoc{Token: secret, Details: toTokenDoc(tok, CreatorAdmin)})
+	var known []fusionapi.AppRef
+	if len(tok.Applications) > 0 && h.Applications != nil { // (they were just read to check them: they exist)
+		if groups, err := h.Applications(r.Context()); err == nil {
+			for _, g := range groups {
+				known = append(known, g.Ref())
+			}
+		}
+	}
+	httpkit.WriteJSON(w, 200, CreatedTokenDoc{Token: secret, Details: toTokenDoc(tok, CreatorAdmin, known)})
 }
 
 func (h *API) deleteToken(w http.ResponseWriter, r *http.Request) {

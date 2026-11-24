@@ -91,15 +91,18 @@ func (c *Client) logServices(ctx context.Context, s Scope, tr TimeRange) (names 
 	if err := s.needSignal(SignalLogs); err != nil {
 		return nil, "", err
 	}
-	if len(s.Focus) > 0 && len(s.Clusters) == 0 {
-		// An application's services, each where it runs: one read per place.
-		return c.logServicesIn(ctx, s, tr)
+	if p := s.places(); len(p.exact) > 0 && (len(s.Clusters) == 0 || s.AppLimited) && !(s.AppLimited && len(p.exact) > maxFocusPlaces) {
+		// An application's services, each where it runs: one read per place. For a caller limited to applications the places
+		// are its rights' (or its focus's, inside them), and each names its cluster, which goes into the selector itself: a
+		// line that carries its cluster in its structured metadata alone is not counted, which can only leave a name out.
+		return c.logServicesIn(ctx, s, p.exact, tr)
 	}
-	if len(s.Clusters) > 0 {
+	if len(s.Clusters) > 0 || s.AppLimited {
 		// A cluster the caller's own rights limit it to is matched after the selector (lines stored before the cluster became an
 		// index label carry it as structured metadata only), and every line read is checked once more against the rights:
 		// read the newest in-scope lines and take the services they came from. A focus's clusters are a choice, not a right,
-		// and go the way below.
+		// and go the way below. A caller limited to applications in more places than are worth a read each comes here too:
+		// the lines are read with every place named, and each is checked against the places once more.
 		lines, truncated, err := c.Logs(ctx, s, LogFilter{Backward: true}, tr.newest(MaxLogWindow), scopedLogSample)
 		if err != nil {
 			return nil, "", err
@@ -132,7 +135,7 @@ func (c *Client) logServices(ctx context.Context, s Scope, tr TimeRange) (names 
 // could not be used. The error returned is that first failure, recorded as it happens and before the others are
 // cancelled, so it is never the "context canceled" this cancellation then causes in them (those come later and are
 // dropped). When only one place fails, the answer is that place's error, whatever the timing.
-func (c *Client) logServicesIn(ctx context.Context, s Scope, tr TimeRange) ([]string, string, error) {
+func (c *Client) logServicesIn(ctx context.Context, s Scope, places []FocusPlace, tr TimeRange) ([]string, string, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	var (
@@ -147,10 +150,10 @@ func (c *Client) logServicesIn(ctx context.Context, s Scope, tr TimeRange) ([]st
 			cancel()
 		}
 	}
-	results := make([][]string, len(s.Focus))
+	results := make([][]string, len(places))
 	sem := make(chan struct{}, logPlaceReads)
 	var wg sync.WaitGroup
-	for i, p := range s.Focus {
+	for i, p := range places {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

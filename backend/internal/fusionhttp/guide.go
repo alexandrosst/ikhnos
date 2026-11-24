@@ -25,7 +25,7 @@ func guide() []obj {
 - **A personal access token** of an administrator of the organisation. It reads everything the administrator may.
 - **A signed-in session** of such an administrator (the browser cookie), which is what this page uses while the token field is empty.
 
-A credential sent on purpose beats a cookie the browser sends along: a token typed above reads with the token's rights even when you are signed in as an administrator. Ask [GET /status](#op-getStatus) what yours may read: its `+"`access`"+` says the signals, namespaces and clusters, whether raw queries are allowed, and when the token expires.
+A credential sent on purpose beats a cookie the browser sends along: a token typed above reads with the token's rights even when you are signed in as an administrator. Ask [GET /status](#op-getStatus) what yours may read: its `+"`access`"+` says the signals, namespaces and clusters, the applications it is limited to, whether raw queries are allowed, and when the token expires.
 
 ### What a token's limits do
 
@@ -34,6 +34,7 @@ A credential sent on purpose beats a cookie the browser sends along: a token typ
 | Signals (`+"`metrics`, `logs`, `traces`"+`) | A route that reads a signal the token lacks answers 403 (`+"`this token cannot read logs`"+`). A fused read leaves that part out and says `+"`not allowed`"+` for it in `+"`sources`"+`. |
 | Namespaces | Only telemetry of the namespaces listed can be read. Telemetry that carries no namespace is invisible to a token with a namespace limit. Empty means every namespace. |
 | Clusters | The same, by cluster. Empty means every cluster. |
+| Applications | A token may also be limited to ikhnos applications (by id). It is made with the services those applications have then, as the administrator approved them, and sees only what those send, each in the namespace and cluster it ran in, within the namespaces and clusters above: not a service of the same name in another namespace, not another service of the same namespace, not a service that joins the application later (by a person or by its labels), and nothing that does not say its namespace and cluster (a node's metrics, the system namespaces' lines, the links between clusters). The applications are read at every request, so a service that leaves an application or moves is gone from the token within seconds; nothing is ever added: to widen it, make a new token. A deleted application gives nothing; with none left the token sees nothing, and `+"`/status`"+` says why. If the applications cannot be read the request is refused with 503. `+"`application=`"+` takes only one of its own, and PromQL, LogQL and TraceQL of its own and the backends' APIs are refused. |
 | Raw queries | PromQL, LogQL and TraceQL as written (`+"`query`, `q`, `promql`"+` and the `+"`/prometheus`, `/loki`, `/tempo`"+` routes) cannot be narrowed to a namespace or cluster, so they are for a credential with neither limit. Any other answers 403 and says to use the structured filters. |
 
 A signed-in person who is not an administrator of the organisation, or who has still to choose a new password, answers 403 too. A missing, unknown or expired credential answers 401 `+"`sign in required`"+`; the same text for each, so it does not tell which.`),

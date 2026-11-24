@@ -51,7 +51,7 @@ func TestTheGraphHoldsTheMembersTheAPIShows(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, g := range appGroups(ws.Data, doc) {
+		for _, g := range must(appGroups(ws.Data, doc)) {
 			if g.ID == app {
 				for _, m := range g.Members {
 					out = append(out, m.ID)

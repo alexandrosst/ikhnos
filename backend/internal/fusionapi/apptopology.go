@@ -201,6 +201,11 @@ func BuildAppTopology(g *AppGroup, v *TopologyView, s Scope, noise bool) *AppTop
 		if sv == nil {
 			sv = byKey[key]
 		}
+		if s.AppLimited && !s.serviceVisible(sv) {
+			// (A member is matched with the topology by its id for a caller limited to applications: a service that only has
+			// its key is not taken for it.)
+			sv = nil
+		}
 		h := &t.Health.Services
 		h.Total++
 		switch {
@@ -294,7 +299,7 @@ func BuildAppTopology(g *AppGroup, v *TopologyView, s Scope, noise bool) *AppTop
 			if !near[o.ID] {
 				near[o.ID] = true
 				t.Neighbours = append(t.Neighbours, AppTopoOther{Key: o.Key().String(), ID: o.ID, Name: o.Name, Namespace: o.Namespace, Cluster: o.Cluster,
-					Applications: append([]string{}, o.Applications...)})
+					Applications: append([]string{}, s.ownedService(o).Applications...)})
 			}
 			continue
 		}

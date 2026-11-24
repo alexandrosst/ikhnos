@@ -110,6 +110,13 @@ func (r *fuseRun) systemLogs() {
 	if !r.allowed(r.opts.SystemLogs, SourceSystemLogs, SignalLogs) {
 		return
 	}
+	if r.s.AppLimited {
+		// The lines of the system namespaces are about everything on a node, and carry no service of an application.
+		r.setSource(SourceSystemLogs, SourceNotAllowed)
+		r.note("system_logs: a token limited to ikhnos applications sees only its applications' own telemetry, and the system " +
+			"namespaces' lines on a node belong to no application, so they are not read")
+		return
+	}
 	nodesOf := r.f.Resources
 	if r.opts.Application != nil {
 		nodesOf = r.looked
@@ -135,6 +142,10 @@ func (r *fuseRun) metrics() {
 		return
 	}
 	r.setSource(SignalMetrics, SourceOK)
+	if r.s.AppLimited && r.opts.MetricViews.Node {
+		r.note("metrics: a node's own series name no service, so a token limited to ikhnos applications sees none of them; " +
+			"the node view (metric_scope=node) is empty")
+	}
 	reads := newMetricReads(r.c, r.s, r.window, r.step, r.opts.MaxSeries)
 	r.start(func() {
 		// The views of all the resources are read at once first; what that read cannot answer exactly, each resource's own

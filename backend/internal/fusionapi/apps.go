@@ -59,6 +59,9 @@ func (s Scope) FocusOn(g *AppGroup) (Scope, error) {
 		}
 		return Scope{}, errf(http.StatusNotFound, "application %q has no services: none has been added to it in ikhnos", g.Name)
 	}
+	if s.AppLimited {
+		return s.focusInRights(g, "application")
+	}
 	if len(names) > maxAppServices {
 		return Scope{}, badRequest("application %q has %d service names, more than the %d one filter can carry", g.Name, len(names), maxAppServices)
 	}
@@ -149,17 +152,23 @@ func narrow(have, want []string) ([]string, error) {
 // at all when it has none there: an application it cannot see does not exist for it, and nothing about it (that it exists,
 // how many services it has, that two share a name) can be learned from how a lookup fails. A caller with no limit sees
 // every application, including one with no services yet.
+//
+// A caller limited to applications knows of its own applications only, each with the members it may see: those in a place
+// of its rights (a member that ikhnos knows no namespace or cluster for is not one of them).
 func VisibleGroups(groups []AppGroup, s Scope) []AppGroup {
 	if s.Unrestricted() {
 		return groups
 	}
 	out := make([]AppGroup, 0, len(groups))
 	for _, g := range groups {
+		if s.AppLimited && !s.ownsApp(g.ID) {
+			continue
+		}
 		kept := g
 		kept.Members = nil
 		kept.Unresolved = 0 // members the topology has no place for have no namespace or cluster to be checked against; their number is not the caller's to know
 		for _, m := range g.Members {
-			if s.visibleAt(m.Namespace, m.Cluster) {
+			if s.memberVisible(m) {
 				kept.Members = append(kept.Members, m)
 			}
 		}
@@ -290,7 +299,7 @@ func (c *Client) GroupSignals(ctx context.Context, s Scope, groups []AppGroup, t
 			defer release()
 			r := &results[i]
 			r.apps, r.sources, r.warnings, r.err = c.Applications(ctx, fs, tr)
-			if note := groups[i].UnionFocusNote(); note != "" {
+			if note := groups[i].UnionFocusNote(); note != "" && !s.AppLimited { // (read place by place, however many)
 				r.warnings = append(r.warnings, note)
 			}
 		}()

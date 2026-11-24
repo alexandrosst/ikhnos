@@ -212,6 +212,7 @@ func (a *Admin) Handler() http.Handler {
 		PrometheusPath:  fusionPromPath,
 		GrafanaPath:     fusionGrafanaPath,
 		CentralWarnings: operatorsapi.CentralAddressWarnings,
+		Applications:    a.fusionApplications,
 	}).Mount(routes)
 	// The ticketed path that opens one of FUSION's own pages (Prometheus, Grafana) in a new tab; see fusion_ui_access.go.
 	route("POST "+o+"/fusion/pages", httpkit.AdminRole, a.openFusionPage)

@@ -3,6 +3,7 @@ package fusionhttp
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"ikhnos/internal/fusionapi"
@@ -25,7 +26,12 @@ func Range(r *http.Request, now time.Time) (fusionapi.TimeRange, error) {
 func (g *Guard) Scope(r *http.Request, who Caller) (fusionapi.Scope, []string, error) {
 	q := r.URL.Query()
 	if !q.Has("application") {
-		return who.Scope, nil, nil
+		var notes []string
+		if who.Scope.AppLimited && systemAsked(q) {
+			notes = append(notes, "system telemetry (the hosts, the collectors, energy, accelerators, the links between clusters) "+
+				"carries no service, so a token limited to ikhnos applications sees none of it")
+		}
+		return who.Scope, notes, nil
 	}
 	// System telemetry (the hosts, the collectors, energy, accelerators, the links between clusters) carries no service, so it
 	// is no application's: asked for together, the answer would be empty every time.
@@ -48,10 +54,19 @@ func (g *Guard) Scope(r *http.Request, who Caller) (fusionapi.Scope, []string, e
 		return fusionapi.Scope{}, nil, err
 	}
 	var notes []string
-	if note := grp.UnionFocusNote(); note != "" {
+	if note := grp.UnionFocusNote(); note != "" && !who.Scope.AppLimited { // (read place by place, however many)
 		notes = append(notes, note)
 	}
 	return s, notes, nil
+}
+
+// systemAsked says whether a request asks for system telemetry alone: category=system, or a metric name of that category.
+func systemAsked(q url.Values) bool {
+	if cats, _ := fusionapi.ParseCategories(q.Get("category")); len(cats) == 1 && cats[0] == fusionapi.CategorySystem {
+		return true
+	}
+	n := q.Get("name")
+	return n != "" && fusionapi.MetricCategory(n) == fusionapi.CategorySystem
 }
 
 // names are the names of the organisation and its clusters, read once for the request, for the answers to carry beside the

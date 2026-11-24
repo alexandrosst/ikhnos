@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -26,7 +27,16 @@ type FusionToken struct {
 	// a token that limits it: the limit fails closed.
 	Namespaces []string
 	Clusters   []string
-	CreatedBy  string
+	// Applications limits it further to the ikhnos applications of these ids (schema 21): what it may see is resolved at
+	// every request to the places those applications' members run in now, within Namespaces and Clusters (see
+	// internal/fusionhttp). Empty means no such limit. Like the lists above, a stored null is unreadable and the token is
+	// refused: an empty list would mean "not limited to applications".
+	Applications []string
+	// ApplicationMembers are the members those applications had when the token was made, as an administrator approved them
+	// (schema 21): its rights are never more than these, whatever the applications become later. Empty with Applications: no
+	// member at all.
+	ApplicationMembers []FusionTokenMember
+	CreatedBy          string
 	// CreatedByID is the account id of the person who made the token. CreatedBy is the username the audit trail
 	// shows, which is not enough to tell later whether that person is still an administrator: an account that was
 	// deleted frees its username for someone else. Empty for a token made before the id was recorded (schema 20).
@@ -34,6 +44,16 @@ type FusionToken struct {
 	CreatedAt   time.Time
 	ExpiresAt   time.Time
 	LastUsed    *time.Time
+}
+
+// FusionTokenMember is one member of an application a token limited to it was made with.
+type FusionTokenMember struct {
+	Application string `json:"application"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Kind        string `json:"kind,omitempty"`
+	Namespace   string `json:"namespace"`
+	Cluster     string `json:"cluster"`
 }
 
 // errUnreadableScope marks a stored token whose scope cannot be parsed.
@@ -48,6 +68,8 @@ CREATE TABLE IF NOT EXISTS fusion_tokens (
   signals TEXT NOT NULL DEFAULT '[]',
   namespaces TEXT NOT NULL DEFAULT '[]',
   clusters TEXT NOT NULL DEFAULT '[]',
+  applications TEXT NOT NULL DEFAULT '[]',
+  application_members TEXT NOT NULL DEFAULT '[]',
   created_by TEXT NOT NULL DEFAULT '',
   created_by_id TEXT,
   created_at INTEGER NOT NULL,
@@ -57,7 +79,7 @@ CREATE TABLE IF NOT EXISTS fusion_tokens (
 CREATE INDEX IF NOT EXISTS fusion_tokens_org ON fusion_tokens(org_id);
 `
 
-const fusionTokenCols = `id, org_id, name, signals, namespaces, clusters, created_by, created_by_id, created_at, expires_at, last_used`
+const fusionTokenCols = `id, org_id, name, signals, namespaces, clusters, applications, application_members, created_by, created_by_id, created_at, expires_at, last_used`
 
 // stringsJSON writes a scope list for jsonStrings: "no limit" is [], never null, which jsonStrings refuses.
 func stringsJSON(v []string) string {
@@ -83,13 +105,45 @@ func jsonStrings(s string) ([]string, error) {
 	return v, nil
 }
 
+// membersJSON writes a token's pinned members for jsonMembers: none is [], never null.
+func membersJSON(v []FusionTokenMember) string {
+	if v == nil {
+		v = []FusionTokenMember{}
+	}
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
+// jsonMembers reads a token's pinned members as strictly as jsonStrings reads a list: null is unreadable, and so is a member
+// that does not name its application, id, name, namespace and cluster, or that has anything else in it.
+func jsonMembers(s string) ([]FusionTokenMember, error) {
+	dec := json.NewDecoder(strings.NewReader(s))
+	dec.DisallowUnknownFields()
+	var v []FusionTokenMember
+	if err := dec.Decode(&v); err != nil {
+		return nil, err
+	}
+	if dec.More() {
+		return nil, errors.New("the members are followed by something else")
+	}
+	if v == nil {
+		return nil, errors.New("the members are null, not [] or a list of members")
+	}
+	for _, m := range v {
+		if m.Application == "" || m.ID == "" || m.Name == "" || m.Namespace == "" || m.Cluster == "" {
+			return nil, errors.New("a member does not say its application, id, name, namespace and cluster")
+		}
+	}
+	return v, nil
+}
+
 func scanFusionToken(r scanner) (FusionToken, error) {
 	var t FusionToken
-	var signals, namespaces, clusters string
+	var signals, namespaces, clusters, applications, members string
 	var created, expires int64
 	var used sql.NullInt64
 	var creatorID sql.NullString
-	err := r.Scan(&t.ID, &t.OrgID, &t.Name, &signals, &namespaces, &clusters, &t.CreatedBy, &creatorID, &created, &expires, &used)
+	err := r.Scan(&t.ID, &t.OrgID, &t.Name, &signals, &namespaces, &clusters, &applications, &members, &t.CreatedBy, &creatorID, &created, &expires, &used)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return FusionToken{}, ErrNotFound
@@ -97,14 +151,16 @@ func scanFusionToken(r scanner) (FusionToken, error) {
 		return FusionToken{}, err
 	}
 	t.CreatedByID = creatorID.String
-	var e1, e2, e3 error
+	var e1, e2, e3, e4, e5 error
 	t.Signals, e1 = jsonStrings(signals)
 	t.Namespaces, e2 = jsonStrings(namespaces)
 	t.Clusters, e3 = jsonStrings(clusters)
-	if err := errors.Join(e1, e2, e3); err != nil {
+	t.Applications, e4 = jsonStrings(applications)
+	t.ApplicationMembers, e5 = jsonMembers(members)
+	if err := errors.Join(e1, e2, e3, e4, e5); err != nil {
 		// Identified, but allowed nothing: no signals. The caller decides whether to refuse it (lookup) or list it so it
 		// can be revoked (list).
-		t.Signals, t.Namespaces, t.Clusters = nil, nil, nil
+		t.Signals, t.Namespaces, t.Clusters, t.Applications, t.ApplicationMembers = nil, nil, nil, nil, nil
 		return t, fmt.Errorf("%w: token %s: %v", errUnreadableScope, t.ID, err)
 	}
 	t.CreatedAt, t.ExpiresAt = fromMS(created), fromMS(expires)
@@ -119,9 +175,10 @@ func scanFusionToken(r scanner) (FusionToken, error) {
 func (s *SQLite) CreateFusionToken(ctx context.Context, t FusionToken, hash []byte, opts ...WriteOption) error {
 	return s.write(ctx, opts, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx,
-			`INSERT INTO fusion_tokens(id, org_id, name, hash, signals, namespaces, clusters, created_by, created_by_id, created_at, expires_at)
-			 VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
-			t.ID, t.OrgID, t.Name, hash, stringsJSON(t.Signals), stringsJSON(t.Namespaces), stringsJSON(t.Clusters), t.CreatedBy,
+			`INSERT INTO fusion_tokens(id, org_id, name, hash, signals, namespaces, clusters, applications, application_members, created_by, created_by_id, created_at, expires_at)
+			 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			t.ID, t.OrgID, t.Name, hash, stringsJSON(t.Signals), stringsJSON(t.Namespaces), stringsJSON(t.Clusters), stringsJSON(t.Applications),
+			membersJSON(t.ApplicationMembers), t.CreatedBy,
 			sql.NullString{String: t.CreatedByID, Valid: t.CreatedByID != ""}, ms(t.CreatedAt), ms(t.ExpiresAt))
 		return err
 	})

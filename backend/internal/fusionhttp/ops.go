@@ -18,10 +18,10 @@ func (g *Guard) Ops() []Op {
 	}
 	ops := []Op{
 		{Method: "GET", Path: "/status", Tag: "Service", Summary: "Is FUSION up, and what may I read?",
-			Description: "Whether the stores are running and what the credential you present may read: its signals, namespaces and clusters, and when it expires.",
+			Description: "Whether the stores are running and what the credential you present may read: its signals, namespaces and clusters, the ikhnos applications it is limited to (each named as it is now, or marked gone), and when it expires. `notes` says what limits it beyond that, and for a token limited to applications why it may see nothing.",
 			Response:    "Status", Handler: g.Status},
 		{Method: "GET", Path: "/applications", Tag: "Applications", Summary: "List the ikhnos applications",
-			Description: "The applications ikhnos groups services into (made by a person or found by discovery), each with its services and which signals (metrics, logs, traces) FUSION has for them in the range. Pass an application's `id` or `name` as `application` to the reads below to read only that application. A token limited to certain namespaces or clusters sees only the services of an application in them, and no application with none there. The services as telemetry names them are listed by `/services`.",
+			Description: "The applications ikhnos groups services into (made by a person or found by discovery), each with its services and which signals (metrics, logs, traces) FUSION has for them in the range. Pass an application's `id` or `name` as `application` to the reads below to read only that application. A token limited to certain namespaces or clusters sees only the services of an application in them, and no application with none there; one limited to applications sees those alone. The services as telemetry names them are listed by `/services`.",
 			Params:      rng, Response: "ApplicationList", Handler: g.Applications},
 		{Method: "GET", Path: "/applications/{name}", Tag: "Applications", Summary: "One ikhnos application at a glance",
 			Description: "The signals the application has across all of its services, its most recent traces and failing traces, its latest error logs and the metric names it reports: the places to go on from. `name` is the application's id or name.",

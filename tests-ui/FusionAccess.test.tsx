@@ -2,13 +2,14 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { StrictMode } from 'react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { creatorGoneHint, expiryText, FusionAccess, fusionDocsUrl, fusionStatusCurl, selfSignedLikely } from '@/features/fusion/components/FusionAccess'
+import { APP_GONE_HINT, APPLICATIONS_HINT, creatorGoneHint, expiryText, FusionAccess, fusionDocsUrl, fusionStatusCurl, selfSignedLikely, tokenApplications, previewMembers, membersSummary } from '@/features/fusion/components/FusionAccess'
 import { isReloadHeld } from '@/lib/staleBuild'
-import type { CreatedFusionAccessToken, FusionAccessToken } from '@/lib/api'
+import type { CreatedFusionAccessToken, FusionAccessToken, FusionApplication, FusionApplications } from '@/lib/api'
 
 const listFusionTokens = vi.fn()
 const createFusionToken = vi.fn()
 const revokeFusionToken = vi.fn()
+const getFusionApplications = vi.fn()
 // conn must be the same function on every render, as the real store's is: the list is read again whenever it changes.
 const conn = () => ({ url: 'https://ikhnos.example', org: 'o' })
 vi.mock('@/store/server', () => ({ useServer: (sel: (s: { conn: typeof conn }) => unknown) => sel({ conn }) }))
@@ -21,20 +22,29 @@ vi.mock('@/lib/api', async (importOriginal) => {
       listFusionTokens: (...a: unknown[]) => listFusionTokens(...a),
       createFusionToken: (...a: unknown[]) => createFusionToken(...a),
       revokeFusionToken: (...a: unknown[]) => revokeFusionToken(...a),
+      getFusionApplications: (...a: unknown[]) => getFusionApplications(...a),
     },
   }
 })
 
 const day = 86_400_000
 const token = (over: Partial<FusionAccessToken> = {}): FusionAccessToken => ({
-  id: 'fk-1', name: 'Decision engine', signals: ['metrics', 'logs', 'traces'], namespaces: [], clusters: [], createdBy: 'alex', createdById: 'u-alex', creator: 'admin',
+  id: 'fk-1', name: 'Decision engine', signals: ['metrics', 'logs', 'traces'], namespaces: [], clusters: [], applications: [], applicationMembers: [], createdBy: 'alex', createdById: 'u-alex', creator: 'admin',
   createdAt: new Date(Date.now() - 2 * day).toISOString(), expiresAt: new Date(Date.now() + 29.5 * day).toISOString(), ...over,
 })
+
+const app = (id: string, name: string, namespaces: string[], services: number): FusionApplication => ({
+  id, name, namespaces, clusters: ['cl-1'], signals: [],
+  services: Array.from({ length: services }, (_, i) => ({ id: `${id}-s${i}`, name: `${name.toLowerCase()}-${i}`, kind: 'Deployment', namespace: namespaces[i % namespaces.length], cluster: 'cl-1', signals: [] })),
+})
+const applicationsDoc = (applications: FusionApplication[]): FusionApplications => ({ applications, sources: {}, warnings: [], from: '', to: '' })
 
 beforeEach(() => {
   listFusionTokens.mockReset()
   createFusionToken.mockReset()
   revokeFusionToken.mockReset()
+  getFusionApplications.mockReset()
+  getFusionApplications.mockResolvedValue(applicationsDoc([]))
 })
 
 describe('expiryText', () => {
@@ -253,5 +263,121 @@ describe('fusionStatusCurl', () => {
     expect(fusionStatusCurl('cnf_abc', 'https://ikhnos.example')).toBe('curl -H "Authorization: Bearer cnf_abc" https://ikhnos.example/api/v1/fusion/status')
     expect(fusionStatusCurl('a"; rm -rf ~ #', 'https://x')).toBe(`curl -H 'Authorization: Bearer a"; rm -rf ~ #' https://x/api/v1/fusion/status`)
     expect(fusionStatusCurl('t', 'https://x/a b')).toBe(`curl -H "Authorization: Bearer t" 'https://x/a b/api/v1/fusion/status'`)
+  })
+})
+
+describe('tokens limited to ikhnos applications', () => {
+  test('the list names each application by its name now, and marks one that is gone', async () => {
+    listFusionTokens.mockResolvedValue([
+      token({ id: 'fk-2', name: 'Shop only', applications: [{ id: 'app-shop', name: 'Shop' }, { id: 'app-old', gone: true }, { id: 'app-unread' }],
+        applicationMembers: [{ application: 'app-shop', id: 's-cart', name: 'cart', kind: 'Deployment', namespace: 'shop', cluster: 'cl-1' },
+          { application: 'app-shop', id: 's-db', name: 'db', namespace: 'data', cluster: 'cl-2' }] }),
+      token(),
+    ])
+    render(<FusionAccess />)
+    const row = await screen.findByTestId('fusion-token-fk-2')
+    expect(within(row).getByTestId('fusion-token-app-app-shop')).toHaveTextContent('application: Shop')
+    // The services it was made with, collapsed under a summary.
+    const members = within(row).getByTestId('fusion-token-members-fk-2')
+    expect(members.tagName).toBe('DETAILS')
+    expect(members).not.toHaveAttribute('open')
+    expect(within(members).getByText('made with 2 services in 2 places')).toHaveAttribute('title', expect.stringMatching(/make a new token/))
+    expect(within(members).getByText('cart (Deployment) in shop / cl-1')).toBeInTheDocument()
+    expect(within(members).getByText('db in data / cl-2')).toBeInTheDocument()
+    expect(screen.queryByTestId('fusion-token-members-fk-1')).toBeNull()
+    const gone = within(row).getByText('application: app-old (gone)')
+    expect(gone).toHaveAttribute('title', APP_GONE_HINT)
+    expect(gone.className).toContain('text-warn')
+    // Names that could not be read: the id alone, not said to be gone.
+    expect(within(row).getByTestId('fusion-token-app-app-unread')).toHaveTextContent('application: app-unread')
+    expect(within(row).getByTestId('fusion-token-app-app-unread').querySelector('[title]')).toBeNull()
+    // A token not limited to applications shows none.
+    expect(within(screen.getByTestId('fusion-token-fk-1')).queryByText(/application:/)).toBeNull()
+    expect(tokenApplications(token({ applications: undefined as unknown as [] }))).toEqual([])
+  })
+
+  test('the form offers the organisation\'s applications, explains what they do, and sends the ids picked', async () => {
+    const user = userEvent.setup()
+    listFusionTokens.mockResolvedValue([])
+    getFusionApplications.mockResolvedValue(applicationsDoc([app('app-shop', 'Shop', ['shop'], 2), app('app-pay', 'Pay', ['pay'], 1)]))
+    createFusionToken.mockResolvedValue({ token: 'cnf_SECRET', details: token({ id: 'fk-9', applications: [{ id: 'app-pay', name: 'Pay' }] }) } satisfies CreatedFusionAccessToken)
+    render(<FusionAccess />)
+    await user.click(await screen.findByTestId('fusion-token-new'))
+    const list = await screen.findByTestId('fusion-token-apps')
+    expect(within(list).getByText('Shop')).toBeInTheDocument()
+    expect(within(list).getByText('shop · 2 services')).toBeInTheDocument()
+    expect(within(list).getByText('pay · 1 service')).toBeInTheDocument()
+    expect(screen.getByText(APPLICATIONS_HINT)).toBeInTheDocument()
+    expect(screen.queryByTestId('fusion-token-preview')).toBeNull()
+    await user.type(screen.getByTestId('fusion-token-name'), 'Pay dashboard')
+    // Picked in any order, sent in the list's order.
+    await user.click(screen.getByTestId('checkbox-app-pay'))
+    await user.click(screen.getByTestId('checkbox-app-shop'))
+    await user.click(screen.getByTestId('checkbox-app-shop'))
+    // Before it is made, the form says exactly which services, where, the token will be made with.
+    const preview = screen.getByTestId('fusion-token-preview')
+    expect(preview).toHaveTextContent('It will be made with these 1 service in 1 place, and never see more')
+    expect(within(screen.getByTestId('fusion-token-preview-app-pay')).getByText('pay-0 (Deployment) in pay / cl-1')).toBeInTheDocument()
+    expect(screen.queryByTestId('fusion-token-preview-app-shop')).toBeNull()
+    expect(screen.getByTestId('fusion-token-apps-note')).toHaveTextContent(/joins these applications later/)
+    await user.click(screen.getByTestId('fusion-token-create'))
+    // What was shown is what is approved.
+    expect(createFusionToken).toHaveBeenCalledWith(expect.anything(), {
+      name: 'Pay dashboard', signals: ['metrics', 'logs', 'traces'], namespaces: [], clusters: [], applications: ['app-pay'], members: ['app-pay-s0'], expiresInDays: 90,
+    })
+    expect(await screen.findByTestId('fusion-token-secret')).toBeInTheDocument()
+  })
+
+  test('with none picked the token is not limited to applications, and none in ikhnos says so', async () => {
+    const user = userEvent.setup()
+    listFusionTokens.mockResolvedValue([])
+    createFusionToken.mockResolvedValue({ token: 'cnf_SECRET', details: token() } satisfies CreatedFusionAccessToken)
+    render(<FusionAccess />)
+    await user.click(await screen.findByTestId('fusion-token-new'))
+    expect(await screen.findByText('There are no applications in ikhnos yet.')).toBeInTheDocument()
+    await user.type(screen.getByTestId('fusion-token-name'), 'x')
+    await user.click(screen.getByTestId('fusion-token-create'))
+    expect(createFusionToken.mock.calls[0][1]).not.toHaveProperty('applications')
+  })
+
+  test('applications that cannot be loaded are said, and the token can still be made without them', async () => {
+    const user = userEvent.setup()
+    listFusionTokens.mockResolvedValue([])
+    const { ApiError } = await import('@/lib/api')
+    getFusionApplications.mockRejectedValue(new ApiError(503, 'FUSION is off.'))
+    createFusionToken.mockResolvedValue({ token: 'cnf_SECRET', details: token() } satisfies CreatedFusionAccessToken)
+    render(<FusionAccess />)
+    await user.click(await screen.findByTestId('fusion-token-new'))
+    expect(await screen.findByTestId('fusion-token-apps-error')).toHaveTextContent('FUSION is off.')
+    await user.type(screen.getByTestId('fusion-token-name'), 'x')
+    await user.click(screen.getByTestId('fusion-token-create'))
+    await waitFor(() => expect(createFusionToken).toHaveBeenCalledTimes(1))
+  })
+})
+
+describe('the services a new token is made with', () => {
+  test('are each picked application\'s services with an id and a place, within the namespaces and clusters asked for', () => {
+    const shop: FusionApplication = { ...app('app-shop', 'Shop', ['shop', 'data'], 3) }
+    shop.services.push({ name: 'nowhere', signals: [] }, { id: 's-x', name: 'x', namespace: 'shop', signals: [] })
+    expect(previewMembers([shop], ['app-shop'], [], []).map((m) => m.id)).toEqual(['app-shop-s0', 'app-shop-s1', 'app-shop-s2'])
+    expect(previewMembers([shop], ['app-shop'], ['data'], []).map((m) => m.id)).toEqual(['app-shop-s1'])
+    expect(previewMembers([shop], ['app-shop'], [], ['cl-9'])).toEqual([])
+    expect(previewMembers([shop], [], [], [])).toEqual([])
+    expect(membersSummary(previewMembers([shop], ['app-shop'], [], []))).toBe('3 services in 2 places')
+  })
+
+  test('an application that would give nothing within the limits is said so, and the token is not offered', async () => {
+    const user = userEvent.setup()
+    listFusionTokens.mockResolvedValue([])
+    getFusionApplications.mockResolvedValue(applicationsDoc([app('app-shop', 'Shop', ['shop', 'data'], 2)]))
+    render(<FusionAccess />)
+    await user.click(await screen.findByTestId('fusion-token-new'))
+    await user.type(screen.getByTestId('fusion-token-name'), 'x')
+    await user.click(await screen.findByTestId('checkbox-app-shop'))
+    expect(within(screen.getByTestId('fusion-token-preview-app-shop')).getByText('shop-0 (Deployment) in shop / cl-1')).toBeInTheDocument()
+    expect(within(screen.getByTestId('fusion-token-preview-app-shop')).getByText('shop-1 (Deployment) in data / cl-1')).toBeInTheDocument()
+    await user.type(screen.getByTestId('fusion-token-namespaces'), 'pay ')
+    expect(screen.getByTestId('fusion-token-preview-app-shop')).toHaveTextContent(/would give the token nothing/)
+    expect(screen.getByTestId('fusion-token-create')).toBeDisabled()
   })
 })

@@ -212,6 +212,9 @@ func (o *FuseOptions) defaults() error {
 
 // checkFilters refuses the options that are the caller's mistake whatever the stores are doing, before anything is read.
 func (o *FuseOptions) checkFilters(s Scope) error {
+	if s.AppLimited && len(o.PromQL) > 0 {
+		return denied("promql cannot be used with this token: %s; the resources' own series come with include=metrics", AppLimitedRefusal)
+	}
 	if o.MetricRegex != "" {
 		if _, err := (MetricFilter{NameRegex: o.MetricRegex}).matchers(s); err != nil {
 			return err

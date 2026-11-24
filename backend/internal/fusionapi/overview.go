@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"sync"
 )
 
@@ -45,6 +46,10 @@ func (c *Client) ServiceOverview(ctx context.Context, s Scope, svc AppMember, tr
 			}
 		}
 	}
+	if s.AppLimited && !slices.Contains(s.rights().names, svc.Name) {
+		// (Its reads would find nothing: they are held to the names of the caller's applications. Nothing is asked.)
+		return nil, errf(http.StatusNotFound, "no service %q that this credential may see", svc.Name)
+	}
 	if svc.Namespace != "" || svc.Cluster != "" {
 		// The same narrowing as an application of this one service, where it was said to run.
 		fs, err := s.FocusOn(&AppGroup{Name: svc.Name, Members: []AppMember{{Name: svc.Name, Namespace: svc.Namespace, Cluster: svc.Cluster}}})
@@ -68,7 +73,7 @@ func (c *Client) ApplicationOverview(ctx context.Context, s Scope, g *AppGroup, 
 		return nil, err
 	}
 	o.ID, o.Services = g.ID, fs.FocusServices
-	if note := g.UnionFocusNote(); note != "" {
+	if note := g.UnionFocusNote(); note != "" && !s.AppLimited { // (read place by place, however many)
 		o.Warnings = append(o.Warnings, note)
 	}
 	if per, _, warns, err := c.GroupSignals(ctx, s, []AppGroup{*g}, tr); err == nil {

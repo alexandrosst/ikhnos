@@ -483,11 +483,13 @@ export interface BulkSummary {
 export type CAScope = 'operator' | 'org' | ''
 
 export interface CallerAccessDoc {
+  applications?: TokenApplication[]
   clusters: string[]
   expiresAt?: string
   kind: string
   name: string
   namespaces: string[]
+  notes?: string[]
   promql: boolean
   rawQueries: boolean
   signals: Signal[]
@@ -1280,6 +1282,8 @@ export interface FusionCreateTokenRequest {
   signals: Signal[]
   namespaces: string[]
   clusters: string[]
+  applications?: string[]
+  members?: string[]
   expiresInDays: number
 }
 
@@ -1362,6 +1366,8 @@ export interface FusionTokenDoc {
   signals: Signal[]
   namespaces: string[]
   clusters: string[]
+  applications: TokenApplication[]
+  applicationMembers: PinnedMember[]
   createdBy: string
   createdById?: string
   creator: FusionTokenCreator
@@ -2133,6 +2139,15 @@ export interface Peer {
 }
 
 export type PeerKind = 'service' | 'external'
+
+export interface PinnedMember {
+  application: string
+  id: string
+  name: string
+  kind?: string
+  namespace: string
+  cluster: string
+}
 
 export interface Pod {
   name: string
@@ -3105,6 +3120,12 @@ export interface TimelineVersion {
   changes: Change[]
   explains?: ExplainingEvent[]
   doc: unknown
+}
+
+export interface TokenApplication {
+  id: string
+  name?: string
+  gone?: boolean
 }
 
 export interface TombstoneDoc {

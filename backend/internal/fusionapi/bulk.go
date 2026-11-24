@@ -71,7 +71,11 @@ func NormalizeIDs(in []string) ([]string, error) {
 func (c *Client) FuseMany(ctx context.Context, s Scope, ids []string, opts FuseOptions, done func(BulkItem)) []BulkItem {
 	ctx = WithBulk(ctx)
 	out := make([]BulkItem, len(ids))
-	if err := opts.defaults(); err != nil { // one answer for all, not one per trace
+	err := opts.defaults()
+	if err == nil && s.AppLimited && len(opts.PromQL) > 0 {
+		err = opts.checkFilters(s) // (what FuseTrace refuses for every trace, said once, before any trace is read)
+	}
+	if err != nil { // one answer for all, not one per trace
 		st, msg := bulkFailure(err)
 		for i, id := range ids {
 			out[i] = BulkItem{ID: id, Status: st, Error: msg}

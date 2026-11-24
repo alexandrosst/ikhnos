@@ -252,3 +252,159 @@ func TestAScopeStoredAsNullFailsClosed(t *testing.T) {
 		}
 	}
 }
+
+// A token limited to applications keeps their ids; one that is not keeps [] (no such limit), never null.
+func TestATokenKeepsTheApplicationsItIsLimitedTo(t *testing.T) {
+	st := openFusionTokenStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	if err := st.CreateFusionToken(ctx, FusionToken{ID: "fk-1", OrgID: "o", Name: "shop", Applications: []string{"app-1", "app-2"},
+		CreatedAt: now, ExpiresAt: now.Add(time.Hour)}, []byte("h1")); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.CreateFusionToken(ctx, FusionToken{ID: "fk-2", OrgID: "o", Name: "open", CreatedAt: now, ExpiresAt: now.Add(time.Hour)}, []byte("h2")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.LookupFusionToken(ctx, []byte("h1"))
+	if err != nil || !reflect.DeepEqual(got.Applications, []string{"app-1", "app-2"}) {
+		t.Fatalf("lookup = %+v (%v)", got, err)
+	}
+	var stored string
+	if err := st.db.QueryRow(`SELECT applications FROM fusion_tokens WHERE id='fk-2'`).Scan(&stored); err != nil || stored != "[]" {
+		t.Fatalf("no application limit is written as %q (%v), want []", stored, err)
+	}
+	if got, err := st.LookupFusionToken(ctx, []byte("h2")); err != nil || len(got.Applications) != 0 || got.ApplicationMembers == nil || len(got.ApplicationMembers) != 0 {
+		t.Fatalf("an unlimited token reads back as %+v (%v)", got, err)
+	}
+	if err := st.db.QueryRow(`SELECT application_members FROM fusion_tokens WHERE id='fk-2'`).Scan(&stored); err != nil || stored != "[]" {
+		t.Fatalf("no pinned members are written as %q (%v), want []", stored, err)
+	}
+}
+
+// The members a token limited to applications was made with come back as they were written.
+func TestATokenKeepsTheMembersItWasMadeWith(t *testing.T) {
+	st := openFusionTokenStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	members := []FusionTokenMember{{Application: "app-1", ID: "s-cart", Name: "cart", Kind: "Deployment", Namespace: "shop", Cluster: "cl-1"},
+		{Application: "app-1", ID: "s-db", Name: "db", Namespace: "data", Cluster: "cl-2"}}
+	if err := st.CreateFusionToken(ctx, FusionToken{ID: "fk-1", OrgID: "o", Name: "shop", Applications: []string{"app-1"}, ApplicationMembers: members,
+		CreatedAt: now, ExpiresAt: now.Add(time.Hour)}, []byte("h1")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.LookupFusionToken(ctx, []byte("h1"))
+	if err != nil || !reflect.DeepEqual(got.ApplicationMembers, members) {
+		t.Fatalf("lookup = %+v (%v)", got, err)
+	}
+}
+
+// Pinned members stored as null, as something that is not a list of members, or with a member that leaves out what it is,
+// are unreadable: the token is refused, and listed with no rights.
+func TestPinnedMembersThatCannotBeReadFailClosed(t *testing.T) {
+	for _, bad := range []string{"null", "junk", `[{"application":"a","id":"s","name":"n","namespace":"shop"}]`,
+		`[{"application":"a","id":"s","name":"n","namespace":"shop","cluster":"cl-1","aliases":["x"]}]`,
+		`[{"application":"a","id":"","name":"n","namespace":"shop","cluster":"cl-1"}]`, `[] []`} {
+		st := openFusionTokenStore(t)
+		ctx := context.Background()
+		now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+		if err := st.CreateFusionToken(ctx, FusionToken{ID: "fk-1", OrgID: "o", Name: "shop", Signals: []string{"logs"}, Applications: []string{"app-1"},
+			ApplicationMembers: []FusionTokenMember{{Application: "app-1", ID: "s", Name: "n", Namespace: "shop", Cluster: "cl-1"}}, CreatedAt: now, ExpiresAt: now.Add(time.Hour)}, []byte("h")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := st.db.Exec(`UPDATE fusion_tokens SET application_members=? WHERE id='fk-1'`, bad); err != nil {
+			t.Fatal(err)
+		}
+		if tok, err := st.LookupFusionToken(ctx, []byte("h")); !errors.Is(err, errUnreadableScope) {
+			t.Fatalf("%s: read as %+v (%v), not refused", bad, tok, err)
+		}
+		if list, err := st.ListFusionTokens(ctx, "o"); err != nil || len(list) != 1 || len(list[0].Signals) != 0 || list[0].ApplicationMembers != nil {
+			t.Fatalf("%s: list = %+v %v", bad, list, err)
+		}
+	}
+}
+
+// A database a draft of version 21 wrote (with the applications but not the members, and a column of places since dropped)
+// still gets every column of 21 when it is opened, and its tokens keep working.
+func TestADraftVersion21DatabaseGetsEveryColumn(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "s.db")
+	ctx := context.Background()
+	st, err := OpenSQLite(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`ALTER TABLE fusion_tokens DROP COLUMN application_members`,
+		`ALTER TABLE fusion_tokens ADD COLUMN application_places TEXT NOT NULL DEFAULT '[]'`,
+		`INSERT INTO fusion_tokens(id, org_id, name, hash, applications, created_by, created_at, expires_at)
+		 VALUES('fk-draft','o','draft',x'01','["app-1"]','alex',1,9999999999999)`,
+		`PRAGMA user_version = 21`,
+	} {
+		if _, err := st.db.Exec(q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	st.Close()
+	up, err := OpenSQLite(dbPath)
+	if err != nil {
+		t.Fatalf("opening a draft version 21 database: %v", err)
+	}
+	defer up.Close()
+	var v int
+	if err := up.db.QueryRow(`PRAGMA user_version`).Scan(&v); err != nil || v != 21 {
+		t.Fatalf("user_version = %d (%v)", v, err)
+	}
+	got, err := up.LookupFusionToken(ctx, []byte{1})
+	// (Limited to an application with no member pinned: it reads back, and sees nothing.)
+	if err != nil || got.ID != "fk-draft" || !reflect.DeepEqual(got.Applications, []string{"app-1"}) || got.ApplicationMembers == nil || len(got.ApplicationMembers) != 0 {
+		t.Fatalf("the draft token reads back as %+v (%v)", got, err)
+	}
+	if err := up.CreateFusionToken(ctx, FusionToken{ID: "fk-new", OrgID: "o", Name: "new", ApplicationMembers: []FusionTokenMember{{Application: "a", ID: "s", Name: "n", Namespace: "x", Cluster: "c"}},
+		CreatedAt: time.Now(), ExpiresAt: time.Now().Add(time.Hour)}, []byte{2}); err != nil {
+		t.Fatalf("a new token on the upgraded draft: %v", err)
+	}
+}
+
+// A schema-20 database has no applications column. Opening it adds one, gives every existing token [] (no application
+// limit, which is what they had) and keeps them working.
+func TestTokensFromSchemaTwentyAreLimitedToNoApplicationAndKeepWorking(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "s.db")
+	ctx := context.Background()
+	st, err := OpenSQLite(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`ALTER TABLE fusion_tokens DROP COLUMN applications`,
+		`ALTER TABLE fusion_tokens DROP COLUMN application_members`,
+		`INSERT INTO fusion_tokens(id, org_id, name, hash, namespaces, created_by, created_by_id, created_at, expires_at)
+		 VALUES('fk-old','o','legacy',x'01','["shop"]','alex','u-alex',1,9999999999999)`,
+		`PRAGMA user_version = 20`,
+	} {
+		if _, err := st.db.Exec(q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	st.Close()
+
+	up, err := OpenSQLite(dbPath)
+	if err != nil {
+		t.Fatalf("opening a version 20 database: %v", err)
+	}
+	defer up.Close()
+	var v int
+	if err := up.db.QueryRow(`PRAGMA user_version`).Scan(&v); err != nil || v != SchemaVersion || SchemaVersion != 21 {
+		t.Fatalf("user_version = %d (%v), want SchemaVersion 21", v, err)
+	}
+	got, err := up.LookupFusionToken(ctx, []byte{1})
+	if err != nil || got.ID != "fk-old" || len(got.Applications) != 0 || got.Applications == nil || !reflect.DeepEqual(got.Namespaces, []string{"shop"}) {
+		t.Fatalf("the old token reads back as %+v (%v)", got, err)
+	}
+	var stored, members string
+	if err := up.db.QueryRow(`SELECT applications, application_members FROM fusion_tokens WHERE id='fk-old'`).Scan(&stored, &members); err != nil || stored != "[]" || members != "[]" {
+		t.Fatalf("the migrated token's applications are %q and members %q (%v), want []", stored, members, err)
+	}
+	// The column cannot hold SQL NULL either: what it holds is a list, or the token is unreadable.
+	if _, err := up.db.Exec(`UPDATE fusion_tokens SET applications=NULL WHERE id='fk-old'`); err == nil {
+		t.Fatal("the applications column took a NULL")
+	}
+}

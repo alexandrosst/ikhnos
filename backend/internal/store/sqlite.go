@@ -393,6 +393,10 @@ func OpenSQLite(path string) (*SQLite, error) {
 		db.Close()
 		return nil, fmt.Errorf("upgrading to FUSION tokens that record who made them: %w", err)
 	}
+	if err := migrateFusionTokenApplications(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("upgrading to FUSION tokens limited to applications: %w", err)
+	}
 	return &SQLite{db: db}, nil
 }
 

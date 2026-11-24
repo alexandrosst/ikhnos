@@ -17,27 +17,75 @@ import (
 // cluster and name are each one of these (an empty list leaves that dimension open). exact, when there is any, narrows
 // that cut to the places themselves: telemetry must also be from one of them, so that a name is read only where a member
 // of that name runs.
+//
+// none marks the set of a caller limited to applications none of which has a place it may read: it contains nothing, and
+// what it renders for a store matches nothing either (nowhere), so that no query built from it is ever an open one.
 type placeSet struct {
 	namespaces, clusters, names []string
 	exact                       []FocusPlace
+	none                        bool
 }
 
 // places is where a query built from structured filters reads: the focus where there is one (FocusOn keeps it inside
-// the rights), else the rights. A focus on names alone keeps the rights' namespaces and clusters.
+// the rights), else the rights. A focus on names alone keeps the rights' namespaces and clusters. Exact places past
+// maxFocusPlaces are left to the union cut, which the stores can serve; what they answer is checked against the rights'
+// exact places all the same (rights keeps them all).
 func (s Scope) places() placeSet {
-	p := placeSet{namespaces: s.Namespaces, clusters: s.Clusters, names: s.FocusServices, exact: s.Focus}
-	if len(s.FocusNamespaces) > 0 {
-		p.namespaces = s.FocusNamespaces
+	p := s.rights()
+	if p.none {
+		return p
 	}
-	if len(s.FocusClusters) > 0 {
-		p.clusters = s.FocusClusters
+	if len(s.FocusServices) > 0 || len(s.Focus) > 0 {
+		p.names, p.exact = s.FocusServices, s.Focus
+		if len(s.FocusNamespaces) > 0 {
+			p.namespaces = s.FocusNamespaces
+		}
+		if len(s.FocusClusters) > 0 {
+			p.clusters = s.FocusClusters
+		}
+	}
+	if len(p.exact) > maxFocusPlaces && !s.AppLimited {
+		// (A caller limited to applications is always read place by place, however many: its rights are those places, and a
+		// list of names, which cannot be checked afterwards, must not be read by their union. MaxTokenPlaces bounds them.)
+		p.exact = nil
 	}
 	return p
 }
 
 // rights is where the caller may read at all, whatever it chose to look at: what a raw PromQL query is held to, and what
-// every answer is checked against once more.
-func (s Scope) rights() placeSet { return placeSet{namespaces: s.Namespaces, clusters: s.Clusters} }
+// every answer is checked against once more. For a caller limited to applications it is their places, every one of them
+// (however many), each inside the namespace and cluster limits, and the union of those as the cut; with none, nowhere.
+func (s Scope) rights() placeSet {
+	if !s.AppLimited {
+		return placeSet{namespaces: s.Namespaces, clusters: s.Clusters}
+	}
+	var p placeSet
+	for _, f := range s.RightsPlaces {
+		// (LimitToApplications made them so; a Scope put together otherwise is held to the same rule here.)
+		if f.Namespace == "" || f.Cluster == "" || len(f.Names) == 0 || !within(s.Namespaces, f.Namespace) || !within(s.Clusters, f.Cluster) {
+			continue
+		}
+		p.exact = append(p.exact, f)
+		p.namespaces = append(p.namespaces, f.Namespace)
+		p.clusters = append(p.clusters, f.Cluster)
+		p.names = append(p.names, f.Names...)
+	}
+	if len(p.exact) == 0 {
+		return nowhere()
+	}
+	p.namespaces, p.clusters, p.names = distinctSorted(p.namespaces), distinctSorted(p.clusters), distinctSorted(p.names)
+	return p
+}
+
+// noPlace is a value no namespace, cluster or service is called (it is not a Kubernetes name, nor an ikhnos cluster id):
+// what nowhere renders, so that a query built for a caller who may read nothing matches nothing.
+const noPlace = "(nowhere: this token may read no place)"
+
+// nowhere is the set of a caller who may read nothing (placeSet.none).
+func nowhere() placeSet {
+	no := []string{noPlace}
+	return placeSet{namespaces: no, clusters: no, names: no, exact: []FocusPlace{{Namespace: noPlace, Cluster: noPlace, Names: no}}, none: true}
+}
 
 // cut is the union cut of an application on its own, before any caller's rights: its names, and the namespaces and
 // clusters its members run in. A member that names no namespace (or cluster) leaves the application open in that
@@ -78,21 +126,71 @@ func (p FocusPlace) holds(ns, cl, name string) bool {
 // contains is the rule the queries below carry, for checking what came back: in the cut, and in one of the exact places
 // when there are any.
 func (p placeSet) contains(ns, cl, name string) bool {
+	if p.none {
+		return false
+	}
 	if !within(p.namespaces, ns) || !within(p.clusters, cl) || !within(p.names, name) {
 		return false
 	}
 	return len(p.exact) == 0 || slices.ContainsFunc(p.exact, func(f FocusPlace) bool { return f.holds(ns, cl, name) })
 }
 
-// NamespaceVisible and ClusterVisible check a result's own attributes against the Scope's rights, one dimension each; they
-// are the second line behind the matchers the queries carry.
-func (s Scope) NamespaceVisible(ns string) bool { return within(s.Namespaces, ns) }
+// named says whether the set has names to match (the rights of a caller limited to applications, or a focus).
+func (p placeSet) named() bool { return len(p.names) > 0 || len(p.exact) > 0 }
 
-func (s Scope) ClusterVisible(cl string) bool { return within(s.Clusters, cl) }
+// containsWorkload says whether a workload of this name, under the workload label label, is from one of the exact places:
+// in a place of a caller limited to applications only a member of that kind (FocusPlace.Workloads), in a focus's any name.
+func (p placeSet) containsWorkload(ns, cl, label, name string) bool {
+	if p.none || !within(p.namespaces, ns) || !within(p.clusters, cl) || !within(p.names, name) {
+		return false
+	}
+	return len(p.exact) == 0 || slices.ContainsFunc(p.exact, func(f FocusPlace) bool {
+		if f.Workloads == nil {
+			return f.holds(ns, cl, name)
+		}
+		return (f.Namespace == "" || f.Namespace == ns) && (f.Cluster == "" || f.Cluster == cl) && slices.Contains(f.Workloads[label], name)
+	})
+}
+
+// containsNamed is contains for telemetry that carries several names it may be known by (a resource's service.name and its
+// workload's name, a series' service_name and workload labels): it is from one of the places under any of them. A set with
+// no names to match (rights limited by namespace and cluster alone) asks the place only, as contains with no name does.
+func (p placeSet) containsNamed(ns, cl string, names ...string) bool {
+	if !p.named() {
+		return p.contains(ns, cl, "")
+	}
+	for _, n := range names {
+		if n != "" && p.contains(ns, cl, n) {
+			return true
+		}
+	}
+	return false
+}
+
+// NamespaceVisible and ClusterVisible check a result's own attributes against the Scope's rights, one dimension each; they
+// are the second line behind the matchers the queries carry. For a caller limited to applications they are the namespaces and
+// clusters its applications' places are in, which is all a check of one dimension can say: a result that carries a name is
+// checked by its place as well (visibleNamed).
+func (s Scope) NamespaceVisible(ns string) bool {
+	p := s.rights()
+	return !p.none && within(p.namespaces, ns)
+}
+
+func (s Scope) ClusterVisible(cl string) bool {
+	p := s.rights()
+	return !p.none && within(p.clusters, cl)
+}
 
 // visibleAt is the second check on a result's own namespace and cluster: they are ones the caller's rights may see. It is
-// the line behind the matchers every query carries.
+// the line behind the matchers every query carries. It knows no name, so a caller limited to applications sees nothing by
+// it: telemetry of no service is no application's.
 func (s Scope) visibleAt(ns, cl string) bool { return s.rights().contains(ns, cl, "") }
+
+// visibleNamed is visibleAt for telemetry that names what it is from: in a place of the rights under one of its names.
+// For a caller not limited to applications the names change nothing.
+func (s Scope) visibleNamed(ns, cl string, names ...string) bool {
+	return s.rights().containsNamed(ns, cl, names...)
+}
 
 // RunsAt says whether a member of the application has this name (or alias) in this namespace and cluster: the rule an
 // exact focus puts on every query (see FocusOn), for an answer built from something else, such as the topology. The empty
@@ -201,8 +299,22 @@ func (p placeSet) promSelectors(base, nameLabels []string) []string {
 			out = append(out, sel([]string{d.in(l, p.names)}))
 			continue
 		}
-		for _, c := range p.placeConds(d) {
-			out = append(out, sel(c))
+		for _, f := range p.exact {
+			names := f.Names
+			if f.Workloads != nil && l != lblService {
+				// A member's name as a workload's only under its own kind's label (a place of a caller limited to applications).
+				if names = f.Workloads[l]; len(names) == 0 {
+					continue
+				}
+			}
+			var c []string
+			if f.Namespace != "" {
+				c = append(c, d.eq(d.namespace, f.Namespace))
+			}
+			if f.Cluster != "" {
+				c = append(c, d.eq(d.cluster, f.Cluster))
+			}
+			out = append(out, sel(append(c, d.in(l, names))))
 		}
 	}
 	return out
@@ -213,5 +325,11 @@ func (p placeSet) promSelectors(base, nameLabels []string) []string {
 // printed by Prometheus' parser rather than written here. An exact focus is not part of it: a query that is not built
 // here has nowhere to put an "or" of places (see narrowToApplication).
 func (p placeSet) promLimits() map[string][]string {
+	if p.none || len(p.exact) > 0 {
+		// (Not reached: a caller limited to applications sends no PromQL of its own, see restrictPromQL. Should it be, the
+		// limits are nowhere, never the union of places, which would let a name be read in another member's namespace.)
+		no := []string{noPlace}
+		return map[string][]string{lblService: no, lblNamespace: no, lblCluster: no}
+	}
 	return map[string][]string{lblService: p.names, lblNamespace: p.namespaces, lblCluster: p.clusters}
 }
