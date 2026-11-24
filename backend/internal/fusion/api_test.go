@@ -30,6 +30,7 @@ func TestTheSwitchMountsWithTheRolesItAsks(t *testing.T) {
 		"GET " + o + "/fusion/tokens":         httpkit.AdminRole,
 		"POST " + o + "/fusion/tokens":        httpkit.AdminRole, // the one response that carries a raw secret
 		"DELETE " + o + "/fusion/tokens/{id}": httpkit.AdminRole,
+		"POST " + o + "/fusion/tokens/revoke": httpkit.AdminRole, // the same as revoking one, repeated
 		"GET " + o + "/fusion/retention":      httpkit.AdminRole,
 		"PUT " + o + "/fusion/retention":      httpkit.AdminRole,
 	}

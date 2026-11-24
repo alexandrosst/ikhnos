@@ -16,3 +16,14 @@ type CreatedTokenDoc struct {
 	Details TokenDoc `json:"details"`
 	Token   string   `json:"token"`
 }
+
+// RevokeTokensRequest is the body of POST .../fusion/tokens/revoke: revoke every token of the organisation that the account
+// CreatedByID made (a member's id, as the members list gives it).
+type RevokeTokensRequest struct {
+	CreatedByID string `json:"createdById"`
+}
+
+// RevokedTokensDoc is the answer: the ids of the tokens that were revoked, an empty list when that person had made none.
+type RevokedTokensDoc struct {
+	Revoked []string `json:"revoked"`
+}

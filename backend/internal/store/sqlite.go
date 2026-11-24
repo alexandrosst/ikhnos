@@ -389,6 +389,10 @@ func OpenSQLite(path string) (*SQLite, error) {
 		db.Close()
 		return nil, fmt.Errorf("upgrading to the removal of the gateway tokens: %w", err)
 	}
+	if err := migrateFusionTokenCreator(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("upgrading to FUSION tokens that record who made them: %w", err)
+	}
 	return &SQLite{db: db}, nil
 }
 

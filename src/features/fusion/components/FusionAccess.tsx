@@ -51,6 +51,12 @@ export function expiryText(iso: string, now = Date.now()): string {
   return days <= 1 ? 'expires today' : `expires in ${days} days`
 }
 
+/** The tooltip of the mark on a token whose maker is no longer an administrator here (`creator` is "gone"). The token itself is
+ *  unchanged: it belongs to the organisation, so the mark only says that nobody who looks after it any more made it. */
+export function creatorGoneHint(t: FusionAccessToken): string {
+  return `Made by ${t.createdBy || 'someone'}, who is no longer an administrator of this organisation (removed, given a lower role, or their account disabled or deleted). It keeps working: a token belongs to the organisation. Revoke it if nothing needs it any more.`
+}
+
 function scopeChips(t: FusionAccessToken) {
   const signals = t.signals.length === SIGNALS.length ? 'all signals' : t.signals.join(' + ')
   return [signals, t.namespaces.length ? `namespaces: ${t.namespaces.join(', ')}` : 'all namespaces', ...(t.clusters.length ? [`clusters: ${t.clusters.join(', ')}`] : [])]
@@ -130,6 +136,7 @@ export function FusionAccess() {
                 <div className="truncate text-nb-300">{t.name}</div>
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {scopeChips(t).map((c) => <Pill key={c} className="text-xs text-nb-400">{c}</Pill>)}
+                  {t.creator === 'gone' && <Pill title={creatorGoneHint(t)} className="text-xs text-warn">creator no longer an admin</Pill>}
                 </div>
                 <div className="mt-1.5 text-xs text-nb-500">
                   {expiryText(t.expiresAt)}, {t.lastUsedAt ? `last used ${ago(t.lastUsedAt)}` : 'never used'}

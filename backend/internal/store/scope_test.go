@@ -35,7 +35,7 @@ var withoutAnOrganisation = map[string]string{
 	"ListMyOrgs": "an account's organisations",
 
 	// The server's own.
-	"PurgeFusionTokens": "housekeeping across the server", "PurgeSessions": "housekeeping across the server", "AuditSince": "the audit chain is one for the server",
+	"PurgeSessions": "housekeeping across the server", "AuditSince": "the audit chain is one for the server",
 	"GetMailConfig": "the server's mail settings", "PutMailConfig": "the server's mail settings", "Close": "the store",
 
 	// Named for what it is.

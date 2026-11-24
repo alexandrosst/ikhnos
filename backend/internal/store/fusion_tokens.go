@@ -27,9 +27,13 @@ type FusionToken struct {
 	Namespaces []string
 	Clusters   []string
 	CreatedBy  string
-	CreatedAt  time.Time
-	ExpiresAt  time.Time
-	LastUsed   *time.Time
+	// CreatedByID is the account id of the person who made the token. CreatedBy is the username the audit trail
+	// shows, which is not enough to tell later whether that person is still an administrator: an account that was
+	// deleted frees its username for someone else. Empty for a token made before the id was recorded (schema 20).
+	CreatedByID string
+	CreatedAt   time.Time
+	ExpiresAt   time.Time
+	LastUsed    *time.Time
 }
 
 // errUnreadableScope marks a stored token whose scope cannot be parsed.
@@ -45,6 +49,7 @@ CREATE TABLE IF NOT EXISTS fusion_tokens (
   namespaces TEXT NOT NULL DEFAULT '[]',
   clusters TEXT NOT NULL DEFAULT '[]',
   created_by TEXT NOT NULL DEFAULT '',
+  created_by_id TEXT,
   created_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL,
   last_used INTEGER
@@ -52,7 +57,7 @@ CREATE TABLE IF NOT EXISTS fusion_tokens (
 CREATE INDEX IF NOT EXISTS fusion_tokens_org ON fusion_tokens(org_id);
 `
 
-const fusionTokenCols = `id, org_id, name, signals, namespaces, clusters, created_by, created_at, expires_at, last_used`
+const fusionTokenCols = `id, org_id, name, signals, namespaces, clusters, created_by, created_by_id, created_at, expires_at, last_used`
 
 // stringsJSON writes a scope list for jsonStrings: "no limit" is [], never null, which jsonStrings refuses.
 func stringsJSON(v []string) string {
@@ -83,13 +88,15 @@ func scanFusionToken(r scanner) (FusionToken, error) {
 	var signals, namespaces, clusters string
 	var created, expires int64
 	var used sql.NullInt64
-	err := r.Scan(&t.ID, &t.OrgID, &t.Name, &signals, &namespaces, &clusters, &t.CreatedBy, &created, &expires, &used)
+	var creatorID sql.NullString
+	err := r.Scan(&t.ID, &t.OrgID, &t.Name, &signals, &namespaces, &clusters, &t.CreatedBy, &creatorID, &created, &expires, &used)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return FusionToken{}, ErrNotFound
 		}
 		return FusionToken{}, err
 	}
+	t.CreatedByID = creatorID.String
 	var e1, e2, e3 error
 	t.Signals, e1 = jsonStrings(signals)
 	t.Namespaces, e2 = jsonStrings(namespaces)
@@ -112,8 +119,10 @@ func scanFusionToken(r scanner) (FusionToken, error) {
 func (s *SQLite) CreateFusionToken(ctx context.Context, t FusionToken, hash []byte, opts ...WriteOption) error {
 	return s.write(ctx, opts, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx,
-			`INSERT INTO fusion_tokens(id, org_id, name, hash, signals, namespaces, clusters, created_by, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)`,
-			t.ID, t.OrgID, t.Name, hash, stringsJSON(t.Signals), stringsJSON(t.Namespaces), stringsJSON(t.Clusters), t.CreatedBy, ms(t.CreatedAt), ms(t.ExpiresAt))
+			`INSERT INTO fusion_tokens(id, org_id, name, hash, signals, namespaces, clusters, created_by, created_by_id, created_at, expires_at)
+			 VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+			t.ID, t.OrgID, t.Name, hash, stringsJSON(t.Signals), stringsJSON(t.Namespaces), stringsJSON(t.Clusters), t.CreatedBy,
+			sql.NullString{String: t.CreatedByID, Valid: t.CreatedByID != ""}, ms(t.CreatedAt), ms(t.ExpiresAt))
 		return err
 	})
 }
@@ -159,8 +168,32 @@ func (s *SQLite) DeleteFusionToken(ctx context.Context, org, id string, opts ...
 	})
 }
 
-// PurgeFusionTokens deletes tokens that expired before olderThan, so a lapsed token does not sit in the list for ever.
-func (s *SQLite) PurgeFusionTokens(ctx context.Context, olderThan time.Time) error {
-	_, err := s.db.ExecContext(ctx, `DELETE FROM fusion_tokens WHERE expires_at<?`, ms(olderThan))
-	return err
+// PurgeFusionTokens deletes the tokens of org that expired before olderThan, so a lapsed token does not sit in the list for
+// ever, and returns how many it deleted. It used to purge every organisation's tokens with no record of it: an
+// administrator minting a token in one organisation then silently removed another's. When it deletes any, the audit row
+// record makes of the count is written in the same transaction (both or neither, as WithAudit does); when there is nothing
+// to delete, nothing is written, so a purge that changed nothing leaves no row in the trail.
+func (s *SQLite) PurgeFusionTokens(ctx context.Context, org string, olderThan time.Time,
+	record func(n int) AuditEvent) (int, error) {
+	var n int64
+	err := s.write(ctx, nil, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, `DELETE FROM fusion_tokens WHERE org_id=? AND expires_at<?`, org, ms(olderThan))
+		if err != nil {
+			return err
+		}
+		if n, err = res.RowsAffected(); err != nil {
+			return err
+		}
+		if n == 0 {
+			return errNoChange
+		}
+		if err := appendAudit(ctx, tx, record(int(n))); err != nil {
+			return fmt.Errorf("%w: %v", ErrAuditWrite, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
 }

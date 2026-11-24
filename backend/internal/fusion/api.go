@@ -104,6 +104,7 @@ func (h *API) Mount(r httpkit.Router) {
 	r.Handle("GET "+o+"/fusion/tokens", httpkit.AdminRole, h.listTokens)
 	r.Handle("POST "+o+"/fusion/tokens", httpkit.AdminRole, h.createToken)
 	r.Handle("DELETE "+o+"/fusion/tokens/{id}", httpkit.AdminRole, h.deleteToken)
+	r.Handle("POST "+o+"/fusion/tokens/revoke", httpkit.AdminRole, h.revokeTokensMadeBy) // every token one person made
 	r.Handle("GET "+o+"/fusion/retention", httpkit.AdminRole, h.getRetention)
 	r.Handle("PUT "+o+"/fusion/retention", httpkit.AdminRole, h.setRetention)
 }

@@ -62,7 +62,7 @@ Every topology belongs to one organisation, and nothing crosses between them. Th
 | **editor** | Change the topology, and narrow what an agent shares |
 | **viewer** | Read |
 
-Invite colleagues from **Members & access**; invitations are one-time links that expire after 7 days. Two-factor sign-in (an authenticator app, an email code or a passkey) is turned on per person in **Settings → Account**.
+Invite colleagues from **Members & access**; invitations are one-time links that expire after 7 days. FUSION API tokens belong to the organisation and keep working when the administrator who made them leaves. Removing an administrator, or giving them a lower role, therefore asks first when they made any: it names the tokens and offers to revoke them in the same step (**Also revoke the N FUSION tokens they made**, unticked by default). The **FUSION** page, **Access** tab, marks a token whose maker is no longer an administrator ([more](../architecture/fusion-api.md#who-can-read)). Two-factor sign-in (an authenticator app, an email code or a passkey) is turned on per person in **Settings → Account**.
 
 ## History
 

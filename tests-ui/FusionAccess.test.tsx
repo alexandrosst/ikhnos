@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { StrictMode } from 'react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { expiryText, FusionAccess, fusionDocsUrl, fusionStatusCurl, selfSignedLikely } from '@/features/fusion/components/FusionAccess'
+import { creatorGoneHint, expiryText, FusionAccess, fusionDocsUrl, fusionStatusCurl, selfSignedLikely } from '@/features/fusion/components/FusionAccess'
 import { isReloadHeld } from '@/lib/staleBuild'
 import type { CreatedFusionAccessToken, FusionAccessToken } from '@/lib/api'
 
@@ -27,7 +27,7 @@ vi.mock('@/lib/api', async (importOriginal) => {
 
 const day = 86_400_000
 const token = (over: Partial<FusionAccessToken> = {}): FusionAccessToken => ({
-  id: 'fk-1', name: 'Decision engine', signals: ['metrics', 'logs', 'traces'], namespaces: [], clusters: [], createdBy: 'alex',
+  id: 'fk-1', name: 'Decision engine', signals: ['metrics', 'logs', 'traces'], namespaces: [], clusters: [], createdBy: 'alex', createdById: 'u-alex', creator: 'admin',
   createdAt: new Date(Date.now() - 2 * day).toISOString(), expiresAt: new Date(Date.now() + 29.5 * day).toISOString(), ...over,
 })
 
@@ -79,6 +79,25 @@ describe('FusionAccess', () => {
     expect(within(second).getByText('namespaces: shop, pay')).toBeInTheDocument()
     expect(within(second).getByText('clusters: cl-1')).toBeInTheDocument()
     expect(within(second).getByText(/last used 3 h ago/)).toBeInTheDocument()
+  })
+
+  test('marks a token whose maker is no longer an administrator, and only that one, with a tooltip that says it still works', async () => {
+    listFusionTokens.mockResolvedValue([
+      token(),
+      token({ id: 'fk-2', name: 'Old script', createdBy: 'dora', createdById: 'u-dora', creator: 'gone' }),
+      token({ id: 'fk-3', name: 'Legacy', createdBy: 'root', createdById: undefined, creator: 'unknown' }),
+    ])
+    render(<FusionAccess />)
+    const gone = await screen.findByTestId('fusion-token-fk-2')
+    const mark = within(gone).getByText('creator no longer an admin')
+    expect(mark).toHaveAttribute('title', creatorGoneHint(token({ createdBy: 'dora' })))
+    expect(mark.getAttribute('title')).toMatch(/^Made by dora, who is no longer an administrator/)
+    expect(mark.getAttribute('title')).toMatch(/It keeps working/)
+    // Still an administrator, or not known either way: no mark.
+    expect(within(screen.getByTestId('fusion-token-fk-1')).queryByText('creator no longer an admin')).toBeNull()
+    expect(within(screen.getByTestId('fusion-token-fk-3')).queryByText('creator no longer an admin')).toBeNull()
+    // The mark changes nothing: the token can be revoked as any other.
+    expect(within(gone).getByRole('button', { name: 'Revoke Old script' })).toBeInTheDocument()
   })
 
   test('an empty list says so, and a failed one says why', async () => {

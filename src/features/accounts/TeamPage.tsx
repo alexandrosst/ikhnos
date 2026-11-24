@@ -1,9 +1,9 @@
 import { Copy, Link2, LogOut, Pencil, Trash2, UserPlus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useHoldReload } from '@/lib/useHoldReload'
-import { Button, Callout, CopyValue, Disclosure, ErrorBanner, Field, ICON_SM, Input, Modal, PageHeader, Pill, SectionHeading, Select, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
+import { Button, Callout, Checkbox, CopyValue, Disclosure, ErrorBanner, Field, ICON_SM, Input, Modal, PageHeader, Pill, SectionHeading, Select, Table, TableSkeleton, Td, Th } from '@/components/ui/primitives'
 import { Group, RowMore, SettingRow } from '@/components/ui/SettingsParts'
-import { api, ApiError, grantable, ROLE_HELP, ROLE_LABEL, type Invite, type Member, type Role } from '@/lib/api'
+import { api, ApiError, grantable, ROLE_HELP, ROLE_LABEL, type Conn, type FusionAccessToken, type Invite, type Member, type Role } from '@/lib/api'
 import { useServer } from '@/store/server'
 
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'never')
@@ -128,11 +128,99 @@ function Danger() {
 }
 
 /** A row's one action, quiet until the row is hovered or focused: the same as the other lists'. */
-function RowAction({ label, onClick, testId }: { label: string; onClick: () => void; testId?: string }) {
+function RowAction({ label, onClick, testId, disabled }: { label: string; onClick: () => void; testId?: string; disabled?: boolean }) {
   return (
     <div className="flex justify-end opacity-60 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-      <Button variant="ghost" size="sm" aria-label={label} title={label} onClick={onClick} data-testid={testId}><Trash2 size={ICON_SM} /></Button>
+      <Button variant="ghost" size="sm" aria-label={label} title={label} onClick={onClick} disabled={disabled} data-testid={testId}><Trash2 size={ICON_SM} /></Button>
     </div>
+  )
+}
+
+const administers = (r: Role) => r === 'admin' || r === 'owner'
+
+/** What the token list says about one person's FUSION tokens. `none`: there is nothing to say (this organisation has no FUSION,
+ *  or FUSION cannot be reached from here). `listed`: the tokens they made, and how many of the organisation's tokens are from
+ *  before makers were recorded, so might be theirs. `unchecked`: the list could not be read for another reason, so nobody can
+ *  say, and the change is not made without saying so. */
+type TokenCheck = { kind: 'none' } | { kind: 'listed'; mine: FusionAccessToken[]; unknown: number } | { kind: 'unchecked' }
+
+/** A member who stops being an administrator (removed, or given a role below administrator), with what is known of their FUSION
+ *  tokens. `role` is the new role; absent, they are being removed. `c` is the connection, and so the organisation, the change
+ *  was asked in: the confirmation acts on that one even if another organisation was opened meanwhile. */
+type Leaving = { member: Member; role?: Role; check: Exclude<TokenCheck, { kind: 'none' }>; c: Conn }
+
+/** Reads the token list for what it says about one person. Only the server's main organisation has FUSION tokens: anywhere else,
+ *  and where FUSION is not available, the list is refused (403, 404, or 409 "unavailable"), which is the expected answer and
+ *  means there is nothing to offer. Any other failure is reported as unchecked, never as "none". */
+async function checkTokens(c: Conn, id: string): Promise<TokenCheck> {
+  try {
+    const all = await api.listFusionTokens(c)
+    return { kind: 'listed', mine: all.filter((t) => t.createdById === id), unknown: all.filter((t) => t.creator === 'unknown').length }
+  } catch (e) {
+    if (e instanceof ApiError && [403, 404, 409].includes(e.status)) return { kind: 'none' }
+    return { kind: 'unchecked' }
+  }
+}
+
+/** Whether the change needs the confirmation: they made tokens, some tokens might be theirs (made before makers were recorded),
+ *  or nobody could tell. */
+const worthAsking = (check: TokenCheck): check is Leaving['check'] =>
+  check.kind === 'unchecked' || (check.kind === 'listed' && (check.mine.length > 0 || check.unknown > 0))
+
+/** The step that takes an administrator's standing away, when FUSION tokens may be left behind: it says how many they made and
+ *  names them, and offers to revoke them too. The offer starts unticked, because a token belongs to the organisation and keeps
+ *  working without its maker (the FUSION page marks it); revoking is a choice of its own. */
+function LeavingAdminDialog({ leaving, onConfirm, onClose }: { leaving: Leaving; onConfirm: (revoke: boolean) => void; onClose: () => void }) {
+  const [revoke, setRevoke] = useState(false)
+  const { member, role, check } = leaving
+  const mine = check.kind === 'listed' ? check.mine : []
+  const n = mine.length
+  const what = n === 1 ? 'the FUSION token' : `the ${n} FUSION tokens`
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={role ? `Make ${member.username} ${ROLE_LABEL[role].toLowerCase()}?` : `Remove ${member.username}?`}
+      width="max-w-md"
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant={role ? 'primary' : 'danger'} onClick={() => onConfirm(n > 0 && revoke)} data-testid="leaving-confirm">
+            {role ? 'Change role' : 'Remove'}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3 text-sm text-nb-400" data-testid="leaving-admin">
+        {check.kind === 'unchecked' ? (
+          <p data-testid="leaving-unchecked">Their FUSION tokens could not be checked; see the Access tab on the FUSION page.</p>
+        ) : (
+          <>
+            {n > 0 ? (
+              <>
+                <p>
+                  {member.username} made {n === 1 ? 'a FUSION API token. It belongs' : `${n} FUSION API tokens. They belong`} to the organisation and keep{n === 1 ? 's' : ''} working once {member.username} is no longer an administrator; the FUSION page marks {n === 1 ? 'it' : 'them'}.
+                </p>
+                <ul className="flex flex-wrap gap-1" aria-label="Their FUSION tokens">
+                  {mine.map((t) => <li key={t.id}><Pill className="text-xs text-nb-300">{t.name}</Pill></li>)}
+                </ul>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <Checkbox checked={revoke} onChange={(e) => setRevoke(e.target.checked)} data-testid="leaving-revoke-tokens" />
+                  <span className="text-nb-300">Also revoke {what} they made</span>
+                </label>
+              </>
+            ) : (
+              <p>{member.username} made none of the FUSION API tokens ikhnos knows the maker of.</p>
+            )}
+            {check.unknown > 0 && (
+              <p data-testid="leaving-unknown">
+                {check.unknown === 1 ? '1 older token was' : `${check.unknown} older tokens were`} made before ikhnos recorded who made them; check {check.unknown === 1 ? 'it' : 'them'} in the Access tab.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </Modal>
   )
 }
 
@@ -155,6 +243,16 @@ export default function TeamPage() {
   const [invRole, setInvRole] = useState<Role>('viewer')
   const [label, setLabel] = useState('')
   const [created, setCreated] = useState<{ token: string; invite: Invite } | null>(null)
+  const [leaving, setLeaving] = useState<Leaving | null>(null)
+  // The member whose change is under way (the token lookup, the confirmation, the change itself): their row's controls are off
+  // meanwhile, so a second click cannot start a second change.
+  const [busy, setBusyState] = useState<string | null>(null)
+  // The same, read synchronously: two clicks in one tick both see the state from before either of them.
+  const busyNow = useRef<string | null>(null)
+  const setBusy = (id: string | null) => {
+    busyNow.current = id
+    setBusyState(id)
+  }
   const mine = grantable(role)
   const canInvite = mine.length > 0
 
@@ -190,6 +288,61 @@ export default function TeamPage() {
       await load()
     } catch (e) {
       setError(problem(e, fallback))
+    }
+  }
+
+  /** Removes m (role absent) or gives them role. An administrator who stops being one is asked first when FUSION tokens may be
+   *  left behind (LeavingAdminDialog); anyone else changes at once, as before. */
+  const change = async (m: Member, to?: Role) => {
+    const c = conn()
+    if (!c || busyNow.current) return
+    setBusy(m.id)
+    let asked = false
+    try {
+      const check: TokenCheck = administers(m.role) && !(to && administers(to)) ? await checkTokens(c, m.id) : { kind: 'none' }
+      if (worthAsking(check)) {
+        asked = true // the row stays busy until the confirmation is answered
+        setLeaving({ member: m, role: to, check, c })
+        return
+      }
+      await act(async () => { await (to ? api.setMemberRole(c, m.id, to) : api.removeMember(c, m.id)) }, to ? 'Could not change the role.' : 'Could not remove the member.')
+    } finally {
+      if (!asked) setBusy(null)
+    }
+  }
+
+  const cancelLeaving = () => {
+    setLeaving(null)
+    setBusy(null)
+  }
+
+  /** The member's change comes first and the revoke only once it has been made: a change the server refuses (the last owner,
+   *  say) then revokes nothing. A revoke that fails part of the way leaves some tokens working, as they would be without the
+   *  offer, which is safe, and the page says so. Both act on the connection the change was asked in. */
+  const leave = async (l: Leaving, revoke: boolean) => {
+    setLeaving(null)
+    const { c } = l
+    try {
+      try {
+        setError('')
+        await (l.role ? api.setMemberRole(c, l.member.id, l.role) : api.removeMember(c, l.member.id))
+      } catch (e) {
+        setError(problem(e, l.role ? 'Could not change the role.' : 'Could not remove the member.'))
+        return
+      }
+      let failed = ''
+      if (revoke) {
+        try {
+          await api.revokeFusionTokensMadeBy(c, l.member.id)
+        } catch (e) {
+          const done = e instanceof ApiError && Array.isArray(e.body?.revoked) ? e.body.revoked.length : 0
+          failed = `${l.role ? 'The role was changed' : `${l.member.username} was removed`}, but some of their FUSION tokens may not have been revoked${done > 0 ? ` (${done} were)` : ''}: ${problem(e, 'the server refused.')} See the Access tab on the FUSION page.`
+        }
+      }
+      await load()
+      if (failed) setError(failed) // after the reload, which clears the line when it succeeds
+    } finally {
+      setBusy(null)
     }
   }
 
@@ -235,7 +388,7 @@ export default function TeamPage() {
                 <Td><span className="text-nb-300">{m.username}</span>{m.you && <span className="ml-2 text-xs text-nb-500">(you)</span>}</Td>
                 <Td>
                   {manageable ? (
-                    <Select value={m.role} aria-label={`Role of ${m.username}`} onChange={(e) => void act(async () => { const c = conn(); if (c) await api.setMemberRole(c, m.id, e.target.value as Role) }, 'Could not change the role.')} className="h-8 w-36">
+                    <Select value={m.role} aria-label={`Role of ${m.username}`} onChange={(e) => void change(m, e.target.value as Role)} disabled={busy === m.id} className="h-8 w-36">
                       {mine.map((r) => (
                         <option key={r} value={r}>{ROLE_LABEL[r]}</option>
                       ))}
@@ -248,7 +401,7 @@ export default function TeamPage() {
                 <Td className="text-nb-500">{when(m.lastLogin)}</Td>
                 <Td className="text-right">
                   {manageable && (
-                    <RowAction label={`Remove ${m.username}`} testId={`remove-${m.username}`} onClick={() => void act(async () => { const c = conn(); if (c) await api.removeMember(c, m.id) }, 'Could not remove the member.')} />
+                    <RowAction label={`Remove ${m.username}`} testId={`remove-${m.username}`} onClick={() => void change(m)} disabled={busy === m.id} />
                   )}
                   {m.you && (
                     <Button size="sm" onClick={() => void act(async () => { const c = conn(); if (!c) return; await api.leaveOrg(c); await reloadOrgs() }, 'Could not leave the organisation.')} data-testid="leave-org"><LogOut size={ICON_SM} /> Leave</Button>
@@ -326,6 +479,7 @@ export default function TeamPage() {
           <Field label="Who is it for?" hint="Optional. Only a note for you, so you can tell invitations apart."><Input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={80} data-testid="invite-label" /></Field>
         </form>
       </Modal>
+      {leaving && <LeavingAdminDialog leaving={leaving} onConfirm={(revoke) => void leave(leaving, revoke)} onClose={cancelLeaving} />}
       {created && <InviteCreated token={created.token} invite={created.invite} url={url} org={info?.orgName ?? 'this organisation'} onClose={() => setCreated(null)} />}
     </>
   )

@@ -453,6 +453,9 @@ export const api = {
   listFusionTokens: (c: Conn) => call<FusionAccessToken[]>(c, 'GET', '/api/v1/fusion/tokens'),
   createFusionToken: (c: Conn, req: NewFusionAccessToken) => call<CreatedFusionAccessToken>(c, 'POST', '/api/v1/fusion/tokens', req),
   revokeFusionToken: (c: Conn, id: string) => call<void>(c, 'DELETE', `/api/v1/fusion/tokens/${encodeURIComponent(id)}`),
+  /** Revokes every token of the organisation that one person (a member's id) made, each recorded as a revoke of its own. Guarded as revoking one is. */
+  revokeFusionTokensMadeBy: (c: Conn, createdById: string) =>
+    call<W.RevokedFusionTokensDoc>(c, 'POST', '/api/v1/fusion/tokens/revoke', { createdById } satisfies Body<W.RevokeFusionTokensRequest>),
   /** What FUSION holds, by ikhnos application and by service, over the last day. */
   getFusionApplications: (c: Conn) => call<FusionApplications>(c, 'GET', '/api/v1/fusion/applications?from=now-24h'),
   getFusionServices: (c: Conn) => call<FusionServices>(c, 'GET', '/api/v1/fusion/services?from=now-24h'),

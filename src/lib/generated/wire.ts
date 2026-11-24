@@ -1354,6 +1354,8 @@ export interface FusionStatus {
   links?: PageLinks
 }
 
+export type FusionTokenCreator = 'admin' | 'gone' | 'unknown'
+
 export interface FusionTokenDoc {
   id: string
   name: string
@@ -1361,6 +1363,8 @@ export interface FusionTokenDoc {
   namespaces: string[]
   clusters: string[]
   createdBy: string
+  createdById?: string
+  creator: FusionTokenCreator
   createdAt: string
   expiresAt: string
   lastUsedAt?: string
@@ -2455,9 +2459,17 @@ export interface RetentionStore {
   sizeLimitDays?: number
 }
 
+export interface RevokeFusionTokensRequest {
+  createdById: string
+}
+
 export interface RevokeOperatorRequest {
   reason: string
   force?: boolean
+}
+
+export interface RevokedFusionTokensDoc {
+  revoked: string[]
 }
 
 export type Role = 'viewer' | 'editor' | 'admin' | 'owner'

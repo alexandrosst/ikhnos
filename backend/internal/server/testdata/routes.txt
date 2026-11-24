@@ -22,6 +22,7 @@ admin	POST /api/v1/orgs/{org}/fusion/disable
 admin	POST /api/v1/orgs/{org}/fusion/enable
 admin	POST /api/v1/orgs/{org}/fusion/pages
 admin	POST /api/v1/orgs/{org}/fusion/tokens
+admin	POST /api/v1/orgs/{org}/fusion/tokens/revoke
 admin	POST /api/v1/orgs/{org}/history/record
 admin	POST /api/v1/orgs/{org}/invites
 admin	POST /api/v1/orgs/{org}/links/rotate-credentials

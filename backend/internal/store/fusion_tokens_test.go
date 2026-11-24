@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -54,18 +55,129 @@ func TestFusionTokenRoundTripLookupTouchAndDelete(t *testing.T) {
 	}
 }
 
-func TestPurgeFusionTokensOnlyDropsLapsedOnes(t *testing.T) {
+func purgeRow(n int) AuditEvent {
+	return AuditEvent{OrgID: "o", Actor: "system", Action: "fusion-tokens-purged", TargetKind: "fusion-token", Detail: fmt.Sprint(n)}
+}
+
+func TestAPurgeDropsOnlyTheLapsedTokensOfItsOwnOrganisationAndRecordsHowMany(t *testing.T) {
 	st := openFusionTokenStore(t)
 	ctx := context.Background()
 	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
-	st.CreateFusionToken(ctx, FusionToken{ID: "old", OrgID: "o", Name: "old", CreatedAt: now.Add(-48 * time.Hour), ExpiresAt: now.Add(-24 * time.Hour)}, []byte("a"))
-	st.CreateFusionToken(ctx, FusionToken{ID: "new", OrgID: "o", Name: "new", CreatedAt: now, ExpiresAt: now.Add(time.Hour)}, []byte("b"))
-	if err := st.PurgeFusionTokens(ctx, now); err != nil {
+	for i, tok := range []FusionToken{
+		{ID: "old", OrgID: "o", Name: "old", CreatedAt: now.Add(-48 * time.Hour), ExpiresAt: now.Add(-24 * time.Hour)},
+		{ID: "older", OrgID: "o", Name: "older", CreatedAt: now.Add(-72 * time.Hour), ExpiresAt: now.Add(-48 * time.Hour)},
+		{ID: "new", OrgID: "o", Name: "new", CreatedAt: now, ExpiresAt: now.Add(time.Hour)},
+		{ID: "theirs", OrgID: "other", Name: "theirs", CreatedAt: now.Add(-48 * time.Hour), ExpiresAt: now.Add(-24 * time.Hour)},
+	} {
+		if err := st.CreateFusionToken(ctx, tok, []byte{byte(i)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	n, err := st.PurgeFusionTokens(ctx, "o", now, purgeRow)
+	if err != nil || n != 2 {
+		t.Fatalf("purged %d (%v), want 2", n, err)
+	}
+	if list, _ := st.ListFusionTokens(ctx, "o"); len(list) != 1 || list[0].ID != "new" {
+		t.Fatalf("after the purge = %+v", list)
+	}
+	// Another organisation's lapsed token is its own to purge, when someone there mints one.
+	if list, _ := st.ListFusionTokens(ctx, "other"); len(list) != 1 || list[0].ID != "theirs" {
+		t.Fatalf("another organisation's tokens after the purge = %+v", list)
+	}
+	rows, err := st.ListAudit(ctx, "o", 10)
+	if err != nil || len(rows) != 1 || rows[0].Action != "fusion-tokens-purged" || rows[0].Detail != "2" {
+		t.Fatalf("audit = %+v (%v), want one purge row with the count", rows, err)
+	}
+	// Nothing left to purge: no row.
+	if n, err := st.PurgeFusionTokens(ctx, "o", now, purgeRow); err != nil || n != 0 {
+		t.Fatalf("a second purge removed %d (%v)", n, err)
+	}
+	if rows, _ := st.ListAudit(ctx, "o", 10); len(rows) != 1 {
+		t.Fatalf("a purge that removed nothing was recorded: %+v", rows)
+	}
+}
+
+func TestAPurgeWhoseAuditRowCannotBeWrittenRemovesNothing(t *testing.T) {
+	st := openFusionTokenStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	if err := st.CreateFusionToken(ctx, FusionToken{ID: "old", OrgID: "o", Name: "old", CreatedAt: now.Add(-48 * time.Hour),
+		ExpiresAt: now.Add(-24 * time.Hour)}, []byte("a")); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := st.db.Exec(`CREATE TRIGGER no_audit BEFORE INSERT ON audit BEGIN SELECT RAISE(ABORT, 'disk full'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := st.PurgeFusionTokens(ctx, "o", now, purgeRow); !errors.Is(err, ErrAuditWrite) || n != 0 {
+		t.Fatalf("purge with a broken trail = %d, %v", n, err)
+	}
+	if list, _ := st.ListFusionTokens(ctx, "o"); len(list) != 1 {
+		t.Fatalf("the tokens were purged although the audit row could not be written: %+v", list)
+	}
+}
+
+func TestATokenKeepsTheAccountIdOfWhoeverMadeIt(t *testing.T) {
+	st := openFusionTokenStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	if err := st.CreateFusionToken(ctx, FusionToken{ID: "fk-1", OrgID: "o", Name: "n", CreatedBy: "alex", CreatedByID: "u-alex",
+		CreatedAt: now, ExpiresAt: now.Add(time.Hour)}, []byte("h1")); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.CreateFusionToken(ctx, FusionToken{ID: "fk-2", OrgID: "o", Name: "m", CreatedBy: "system",
+		CreatedAt: now, ExpiresAt: now.Add(time.Hour)}, []byte("h2")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.LookupFusionToken(ctx, []byte("h1"))
+	if err != nil || got.CreatedBy != "alex" || got.CreatedByID != "u-alex" {
+		t.Fatalf("lookup = %+v (%v)", got, err)
+	}
+	// No id is stored as NULL, not as an empty string that could ever match an account.
+	var null bool
+	if err := st.db.QueryRow(`SELECT created_by_id IS NULL FROM fusion_tokens WHERE id='fk-2'`).Scan(&null); err != nil || !null {
+		t.Fatalf("a token with no maker id stored %v (%v), want NULL", null, err)
+	}
 	list, _ := st.ListFusionTokens(ctx, "o")
-	if len(list) != 1 || list[0].ID != "new" {
-		t.Fatalf("after purge = %+v", list)
+	for _, tok := range list {
+		if tok.ID == "fk-2" && tok.CreatedByID != "" {
+			t.Fatalf("listed with maker id %q", tok.CreatedByID)
+		}
+	}
+}
+
+// A schema-19 database has tokens with no maker id. Opening it adds the column, leaves those tokens without one (a username
+// is not matched up to an account, since a deleted account frees its name) and keeps them working.
+func TestTokensFromSchemaNineteenGetNoMakerIdAndKeepWorking(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "s.db")
+	ctx := context.Background()
+	st, err := OpenSQLite(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`ALTER TABLE fusion_tokens DROP COLUMN created_by_id`,
+		`INSERT INTO fusion_tokens(id, org_id, name, hash, created_by, created_at, expires_at)
+		 VALUES('fk-old','o','legacy',x'01','alex',1,9999999999999)`,
+		`PRAGMA user_version = 19`,
+	} {
+		if _, err := st.db.Exec(q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	st.Close()
+
+	up, err := OpenSQLite(dbPath)
+	if err != nil {
+		t.Fatalf("opening a version 19 database: %v", err)
+	}
+	defer up.Close()
+	var v int
+	if err := up.db.QueryRow(`PRAGMA user_version`).Scan(&v); err != nil || v != SchemaVersion {
+		t.Fatalf("user_version = %d (%v), want SchemaVersion %d", v, err, SchemaVersion)
+	}
+	got, err := up.LookupFusionToken(ctx, []byte{1})
+	if err != nil || got.ID != "fk-old" || got.CreatedBy != "alex" || got.CreatedByID != "" {
+		t.Fatalf("the old token reads back as %+v (%v)", got, err)
 	}
 }
 

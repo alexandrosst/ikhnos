@@ -20,7 +20,7 @@ There are two kinds of caller, and nothing else is accepted.
 
 **A signed-in administrator** of that organisation (a browser session or a personal access token) can read everything, which is what lets the UI explore the data without minting a token for itself. A viewer or an editor cannot: the stored telemetry is more than the topology they can already see.
 
-Making and revoking a token are audited, with the name and the scope and never the secret. Reads are not audited one by one (a dashboard would write thousands of rows); each token records when it was last used, and each caller is rate limited (600 reads a minute, bursts of 60; a request that asks the stores several times, such as a batch of traces, an overview or the list of applications, counts at least once for each store it asks, and never more than half the burst). A token belongs to the organisation, not to the administrator who made it: it keeps working if that person leaves, and any administrator of the organisation can list and revoke it. A token whose stored scope cannot be read back is refused rather than treated as unlimited.
+Making and revoking a token are audited, with the name and the scope and never the secret. Reads are not audited one by one (a dashboard would write thousands of rows); each token records when it was last used, and each caller is rate limited (600 reads a minute, bursts of 60; a request that asks the stores several times, such as a batch of traces, an overview or the list of applications, counts at least once for each store it asks, and never more than half the burst). A token belongs to the organisation, not to the administrator who made it: it keeps working if that person leaves, and any administrator of the organisation can list and revoke it. A token whose stored scope cannot be read back is refused rather than treated as unlimited. Expired tokens are removed from the list when the next token is made in the same organisation (and only in it), with one audit row for the removal, `fusion-tokens-purged`, under the server's own name (`system`), with the count and the person whose new token set it off (`2 expired tokens removed while alice made a token`); a removal that finds nothing writes no row.
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" https://ikhnos.example/api/v1/fusion/status
@@ -29,6 +29,25 @@ curl -H "Authorization: Bearer $TOKEN" https://ikhnos.example/api/v1/fusion/stat
 A server that kept the chart's default certificate is self-signed, and curl refuses it (`SSL certificate problem: self-signed certificate`). To try the token, add `-k`, which skips the check (the dialog that shows a new token puts it in the command when the address is an IP or `localhost`, where a certificate from a public authority is not issued). To keep the check, save the server's certificate once (`openssl s_client -connect ikhnos.example:8080 </dev/null | openssl x509 > ikhnos.crt`) and add `--cacert ikhnos.crt`. The default certificate names the address in `agent.publicAddress` and in `admin.publicURL` as well as `localhost`, and any other address you reach the server by goes in `admin.tls.selfSignedHosts`; if the check fails with a name mismatch, see [the certificate does not name the address](../troubleshooting/common-errors.md#a-tool-says-certificate-verify-failed-or-a-name-mismatch-against-the-servers-own-certificate). A certificate from your own CA, or one a load balancer serves, needs neither.
 
 A browser on another origin cannot call it: the `Authorization` header is not among the headers the server's CORS policy allows, the same as for personal access tokens. It is a server-to-server API.
+
+**When the person who made a token is no longer an administrator.** Nothing is revoked on its own, since a token belongs to the organisation, but nobody is left to wonder about a token whose maker has gone. In the list (`GET .../fusion/tokens`) each token carries `creator`, worked out when the list is read:
+
+| `creator` | Means |
+|---|---|
+| `admin` | Its maker is an administrator or an owner of the organisation now, with an account that is not disabled. |
+| `gone` | Its maker is no longer one: they left or were removed, were given a role below administrator, or their account was disabled or deleted. The **Access** tab shows it with a **creator no longer an admin** mark (its tooltip names the maker). Made an administrator again, the mark goes. |
+| `unknown` | The token was made before the server recorded its maker's account id (before schema 20). Its `createdBy` username is not taken as proof of who it was, because a deleted account frees its name for someone else, so nothing is claimed either way. |
+
+A token also carries `createdById`, its maker's account id (absent on an `unknown` one). When an owner removes an administrator from **Members & access**, or gives them a role below administrator, and that person made tokens, the confirmation says how many and names them, with a box **Also revoke the N FUSION tokens they made**. It also says how many of the organisation's tokens are from before makers were recorded (they might be that person's; check them on the **Access** tab), and asks for that reason alone when there are such tokens. If the token list cannot be read for a reason other than the expected ones (another organisation, or FUSION not available), it still asks, says the tokens could not be checked, and offers no box: the change is never made without saying so. It starts unticked, since the tokens belong to the organisation. Ticked, the tokens are revoked once the member's change has been made, so a change the server refuses revokes nothing. The revoke is its own call, guarded exactly as revoking one token is (an administrator of the main organisation), and each token it ends gets the same `fusion-token-revoked` audit row as a manual revoke:
+
+```bash
+# $PAT is an owner's or an administrator's personal access token; the id is the member's, as GET .../members gives it.
+curl -X POST -H "Authorization: Bearer $PAT" -H "Content-Type: application/json" \
+  -d '{"createdById": "u-3f9a1c2b7e"}' https://ikhnos.example/api/v1/orgs/default/fusion/tokens/revoke
+# {"revoked":["fk-…","fk-…"]}
+```
+
+It ends only that organisation's tokens made by that account, and a person who made none gets `{"revoked": []}`. Each token is revoked on its own, so a failure part of the way leaves the earlier ones revoked: the error answer then carries them too (`{"error": "1 of the tokens were revoked, then revoking the next one failed: …", "revoked": ["fk-…"]}`, an empty list if the first one failed), and the members page says some tokens may not have been revoked. A token marked `unknown` names no one and is never matched: revoke it on its own.
 
 ## What a token can see
 

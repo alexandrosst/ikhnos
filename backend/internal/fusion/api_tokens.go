@@ -27,14 +27,10 @@ func (h *API) listTokens(w http.ResponseWriter, r *http.Request) {
 	if !h.orgOnly(w, r) {
 		return
 	}
-	toks, err := h.For(r).ListFusionTokens(r.Context())
+	out, err := h.For(r).TokenDocs(r.Context())
 	if err != nil {
 		h.fail(w, r, err)
 		return
-	}
-	out := make([]TokenDoc, len(toks))
-	for i, t := range toks {
-		out[i] = toTokenDoc(t)
 	}
 	httpkit.WriteJSON(w, 200, out)
 }
@@ -54,7 +50,7 @@ func (h *API) createToken(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, kernel.Errf(kernel.KindInvalid, "expiresInDays must be between 1 and %d (0 for the default, %d)", maxDays, int(defaultFusionTokenTTL.Hours()/24)))
 		return
 	}
-	secret, tok, err := h.For(r).CreateFusionToken(r.Context(), httpkit.Actor(r), TokenSpec{
+	secret, tok, err := h.For(r).CreateFusionToken(r.Context(), httpkit.Principal(r), TokenSpec{
 		Name: req.Name, Signals: signalStrings(req.Signals), Namespaces: req.Namespaces, Clusters: req.Clusters,
 		TTL: time.Duration(req.ExpiresInDays) * 24 * time.Hour,
 	})
@@ -62,7 +58,8 @@ func (h *API) createToken(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	httpkit.WriteJSON(w, 200, CreatedTokenDoc{Token: secret, Details: toTokenDoc(tok)})
+	// Whoever just made it is an administrator here: the route asks for one.
+	httpkit.WriteJSON(w, 200, CreatedTokenDoc{Token: secret, Details: toTokenDoc(tok, CreatorAdmin)})
 }
 
 func (h *API) deleteToken(w http.ResponseWriter, r *http.Request) {
@@ -74,4 +71,24 @@ func (h *API) deleteToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpkit.WriteJSON(w, 200, httpkit.OKDoc{OK: true})
+}
+
+// revokeTokensMadeBy revokes every token one person made. It is guarded exactly as revoking one token is (an administrator of
+// the organisation FUSION belongs to), since it is that, repeated; it is a call of its own, not part of removing or demoting
+// a member, because the accounts' routes know nothing of FUSION and a token belongs to the organisation, not its maker.
+func (h *API) revokeTokensMadeBy(w http.ResponseWriter, r *http.Request) {
+	if !h.orgOnly(w, r) {
+		return
+	}
+	var req RevokeTokensRequest
+	if err := httpkit.Decode(r, &req); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	ids, err := h.For(r).RevokeFusionTokensMadeBy(r.Context(), httpkit.Actor(r), req.CreatedByID)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	httpkit.WriteJSON(w, 200, RevokedTokensDoc{Revoked: ids})
 }

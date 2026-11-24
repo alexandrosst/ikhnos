@@ -16,5 +16,7 @@ func WireTypes() []wire.Root {
 		{Value: TokenDoc{}},
 		{Value: CreateTokenRequest{}},
 		{Value: CreatedTokenDoc{}},
+		{Name: "RevokeFusionTokensRequest", Value: RevokeTokensRequest{}},
+		{Name: "RevokedFusionTokensDoc", Value: RevokedTokensDoc{}},
 	}
 }

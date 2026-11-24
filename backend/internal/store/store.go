@@ -707,7 +707,9 @@ type Store interface {
 	ListFusionTokens(ctx context.Context, org string) ([]FusionToken, error)
 	TouchFusionToken(ctx context.Context, hash []byte, now time.Time) error
 	DeleteFusionToken(ctx context.Context, org, id string, opts ...WriteOption) error
-	PurgeFusionTokens(ctx context.Context, olderThan time.Time) error
+	// PurgeFusionTokens deletes org's tokens that expired before olderThan and returns how many. When it deletes any, the audit
+	// row record makes of that count is written with the deletion, in one transaction; when it deletes none, nothing is written.
+	PurgeFusionTokens(ctx context.Context, org string, olderThan time.Time, record func(n int) AuditEvent) (int, error)
 	// The sealed iperf3 credentials of cluster pairs (see LinkCredential). The store never sees what is inside.
 	GetLinkCredential(ctx context.Context, org, kind, id string) (LinkCredential, error)
 	ListLinkCredentials(ctx context.Context, org string) ([]LinkCredential, error)
